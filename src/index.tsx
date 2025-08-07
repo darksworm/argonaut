@@ -442,21 +442,25 @@ const App: React.FC = () => {
     if (is('cluster','clusters','cls')) {
       setView('clusters'); setSelectedIdx(0); setMode('normal');
       if (arg) setScopeClusters(new Set([arg]));
+      else setScopeClusters(new Set()); // Clear selection when returning to view
       return;
     }
     if (is('namespace','namespaces','ns')) {
       setView('namespaces'); setSelectedIdx(0); setMode('normal');
       if (arg) setScopeNamespaces(new Set([arg]));
+      else setScopeNamespaces(new Set()); // Clear selection when returning to view
       return;
     }
     if (is('project','projects','proj')) {
       setView('projects'); setSelectedIdx(0); setMode('normal');
       if (arg) setScopeProjects(new Set([arg]));
+      else setScopeProjects(new Set()); // Clear selection when returning to view
       return;
     }
     if (is('app','apps')) {
       setView('apps'); setSelectedIdx(0); setMode('normal');
       if (arg) setSelectedApps(new Set([arg]));
+      else setSelectedApps(new Set()); // Clear selection when returning to view
       return;
     }
 
