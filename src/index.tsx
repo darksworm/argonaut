@@ -688,7 +688,13 @@ const App: React.FC = () => {
   return (
     <Box flexDirection="column" paddingX={1} height={termRows-1}>
 
-      <ArgoNautBanner server={server} scopeLine={scopeLine} termCols={termCols} />
+      <ArgoNautBanner
+        server={server}
+        clusterScope={fmtScope(scopeClusters)}
+        namespaceScope={fmtScope(scopeNamespaces)}
+        projectScope={fmtScope(scopeProjects)}
+        termCols={termCols}
+      />
 
       {/* Search bar */}
       {mode === 'search' && (
