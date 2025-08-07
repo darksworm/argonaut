@@ -23,7 +23,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
     // Text-only for tiny terminals
     if (isNarrow) {
         return (
-            <Box flexDirection="column" paddingY={1}>
+            <Box flexDirection="column" paddingTop={1}>
                 <Box>
                     <Text backgroundColor="cyan" color="white" bold>{' '}Argonaut{' '}</Text>
                 </Box>
@@ -85,7 +85,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
 
     // Wide: side-by-side, bottom-aligned
     return (
-        <Box justifyContent="space-between" alignItems="flex-end" paddingTop={1}>
+        <Box justifyContent="space-between" alignItems="flex-end">
             <Context />
             <Logo paddingBottom={0} align="flex-end" />
         </Box>
