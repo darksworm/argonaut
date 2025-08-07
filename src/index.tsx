@@ -372,18 +372,18 @@ const App: React.FC = () => {
     if (item == null) return;
     if (view === 'clusters') {
       const val = String(item);
-      const next = new Set(scopeClusters);
-      next.has(val) ? next.delete(val) : next.add(val);
+      // Only allow single selection - create a new Set with just this item or empty if already selected
+      const next = scopeClusters.has(val) ? new Set() : new Set([val]);
       setScopeClusters(next);
     } else if (view === 'namespaces') {
       const ns = String(item);
-      const next = new Set(scopeNamespaces);
-      next.has(ns) ? next.delete(ns) : next.add(ns);
+      // Only allow single selection - create a new Set with just this item or empty if already selected
+      const next = scopeNamespaces.has(ns) ? new Set() : new Set([ns]);
       setScopeNamespaces(next);
     } else if (view === 'projects') {
       const proj = String(item);
-      const next = new Set(scopeProjects);
-      next.has(proj) ? next.delete(proj) : next.add(proj);
+      // Only allow single selection - create a new Set with just this item or empty if already selected
+      const next = scopeProjects.has(proj) ? new Set() : new Set([proj]);
       setScopeProjects(next);
     } else if (view === 'apps') {
       const app = (item as AppItem).name;
@@ -398,8 +398,8 @@ const App: React.FC = () => {
     if (item == null) return;
     if (view === 'clusters') {
       const val = String(item);
-      const next = new Set(scopeClusters);
-      next.add(val);
+      // Only allow single selection - create a new Set with just this item
+      const next = new Set([val]);
       setScopeClusters(next);
       setView('namespaces');
       setSelectedIdx(0);
@@ -407,8 +407,8 @@ const App: React.FC = () => {
     }
     if (view === 'namespaces') {
       const ns = String(item);
-      const next = new Set(scopeNamespaces);
-      next.add(ns);
+      // Only allow single selection - create a new Set with just this item
+      const next = new Set([ns]);
       setScopeNamespaces(next);
       setView('projects');
       setSelectedIdx(0);
@@ -416,8 +416,8 @@ const App: React.FC = () => {
     }
     if (view === 'projects') {
       const proj = String(item);
-      const next = new Set(scopeProjects);
-      next.add(proj);
+      // Only allow single selection - create a new Set with just this item
+      const next = new Set([proj]);
       setScopeProjects(next);
       setView('apps');
       setSelectedIdx(0);
@@ -647,7 +647,7 @@ const App: React.FC = () => {
   if (mode === 'loading') {
     const spinChar = '⠋';
     return (
-      <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows}>
+      <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows-1}>
         <Box><Text>{chalk.bold(`View:`)} {chalk.yellow('LOADING')}  •  {chalk.bold(`Context:`)} {chalk.cyan(server || '—')}</Text></Box>
         <Box flexGrow={1} alignItems="center" justifyContent="center">
           <Text color="yellow">{spinChar} Connecting & fetching applications…</Text>
@@ -660,7 +660,7 @@ const App: React.FC = () => {
   const spinChar = '⠋';
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows}>
+    <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows-1}>
       {/* Context */}
       <Box>
         <Text>
