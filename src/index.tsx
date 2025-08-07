@@ -562,28 +562,27 @@ const App: React.FC = () => {
     return uniqueSorted(projs);
   }, [filteredByNs]);
 
-  const filteredApps = useMemo(() => {
+  const visibleItems = useMemo(() => {
     const f = searchQuery.toLowerCase();
-    const base = filteredByNs.filter(a => !scopeProjects.size || scopeProjects.has(a.project || ''));
+    let base: any[];
+
+    if (view === 'clusters')   base = allClusters;
+    else if (view === 'namespaces') base = allNamespaces;
+    else if (view === 'projects')   base = allProjects;
+    else base = filteredByNs.filter(a => !scopeProjects.size || scopeProjects.has(a.project || ''));
+
     if (!f) return base;
-    return base.filter(a =>
-      a.name.toLowerCase().includes(f) ||
-      (a.sync||'').toLowerCase().includes(f) ||
-      (a.health||'').toLowerCase().includes(f) ||
-      (a.namespace||'').toLowerCase().includes(f) ||
-      (a.project||'').toLowerCase().includes(f)
-    );
-  }, [filteredByNs, scopeProjects, searchQuery]);
 
-  // Which list to show for the current view
-  const listForView: Array<any> = useMemo(() => {
-    if (view === 'clusters')   return allClusters;
-    if (view === 'namespaces') return allNamespaces;
-    if (view === 'projects')   return allProjects;
-    return filteredApps;
-  }, [view, allClusters, allNamespaces, allProjects, filteredApps]);
-
-  const visibleItems = listForView;
+    return view === 'apps'
+        ? base.filter(a =>
+            a.name.toLowerCase().includes(f) ||
+            (a.sync||'').toLowerCase().includes(f) ||
+            (a.health||'').toLowerCase().includes(f) ||
+            (a.namespace||'').toLowerCase().includes(f) ||
+            (a.project||'').toLowerCase().includes(f)
+        )
+        : base.filter(s => String(s).toLowerCase().includes(f));
+  }, [view, allClusters, allNamespaces, allProjects, filteredByNs, scopeProjects, searchQuery]);
 
   useEffect(() => {
     setSelectedIdx(s => Math.min(s, Math.max(0, visibleItems.length - 1)));
@@ -681,9 +680,13 @@ const App: React.FC = () => {
             value={searchQuery}
             onChange={setSearchQuery}
             onSubmit={() => {
-              // Move cursor to the first visible match then close and clear input
+              // Move cursor to the first visible match, drill down, then close and clear input
               setSelectedIdx(0);
               setMode('normal');
+              // Only call drillDown if there are visible items
+              if (visibleItems.length > 0) {
+                drillDown();
+              }
               setSearchQuery('');
             }}
           />
