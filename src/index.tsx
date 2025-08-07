@@ -666,15 +666,15 @@ const App: React.FC = () => {
   return (
     <Box flexDirection="column" paddingX={1} height={termRows-1}>
       {/* Context */}
-      <Box>
+      <Box paddingLeft={1} paddingY={1}>
         <Text>
-          {chalk.bold(`View:`)} {chalk.yellow(titleForView)}  •  {chalk.bold(`Context:`)} {chalk.cyan(server || '—')}  •  {scopeLine}
+          {chalk.bold(`Context:`)} {chalk.cyan(server || '—')}  •  {scopeLine}
         </Text>
       </Box>
 
       {/* Search bar */}
       {mode === 'search' && (
-        <Box borderStyle="classic" borderColor="yellow" paddingX={1}>
+        <Box borderStyle="round" borderColor="yellow" paddingX={1}>
           <Text bold color="cyan">Search</Text>
           <Box width={1}/>
           <TextInput
@@ -738,7 +738,7 @@ const App: React.FC = () => {
               const active = isCursor || isChecked;
               return (
                 <Box key={label}>
-                  <Box width={COL.mark}><RowBG active={active}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
+                  <Box width={COL.mark}><RowBG active={isChecked}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
                   <Box width={COL.name}><RowBG active={active}><Text>{label.padEnd(COL.name)}</Text></RowBG></Box>
                 </Box>
               );
