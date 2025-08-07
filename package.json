@@ -1,0 +1,25 @@
+{
+  "name": "argotui-ink",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "chalk": "^5.5.0",
+    "execa": "^9.6.0",
+    "ink": "^6.1.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^19.1.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.0",
+    "@types/react": "^19.1.9",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
