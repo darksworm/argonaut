@@ -751,16 +751,19 @@ const App: React.FC = () => {
         <Box flexGrow={1}/>
       </Box>
 
-      {/* Bottom tag like k9s */}
-      <Box>
-        <Text dimColor>{tag}</Text>
-      </Box>
+      {/* Bottom tag and status on opposite sides */}
+      <Box justifyContent="space-between">
+        {/* Bottom tag like k9s (left aligned) */}
+        <Box>
+          <Text dimColor>{tag}</Text>
+        </Box>
 
-      {/* Status at bottom */}
-      <Box>
-        <Text dimColor>
-          {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
-        </Text>
+        {/* Status at bottom (right aligned) */}
+        <Box>
+          <Text dimColor>
+            {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
+          </Text>
+        </Box>
       </Box>
 
       {/* Command line at very bottom when active */}
