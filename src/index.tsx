@@ -692,6 +692,20 @@ const App: React.FC = () => {
         </Box>
       )}
 
+      {mode === 'command' && (
+          <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+            <Text bold color="cyan">CMD</Text>
+            <Box width={1}/>
+            <TextInput
+                value={command}
+                onChange={setCommand}
+                onSubmit={(val) => { setMode('normal'); runCommand(val); setCommand(':'); }}
+            />
+            <Box width={2}/>
+            <Text dimColor>(Enter to run, Esc to cancel)</Text>
+          </Box>
+      )}
+
       {/* Content area (fills space) */}
       <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" >
         {mode === 'help' ? (
@@ -765,21 +779,6 @@ const App: React.FC = () => {
           </Text>
         </Box>
       </Box>
-
-      {/* Command line at very bottom when active */}
-      {mode === 'command' && (
-        <Box>
-          <Text bold color="cyan">CMD</Text>
-          <Box width={1}/>
-          <TextInput
-            value={command}
-            onChange={setCommand}
-            onSubmit={(val) => { setMode('normal'); runCommand(val); setCommand(':'); }}
-          />
-          <Box width={2}/>
-          <Text dimColor>(Enter to run, Esc to cancel)</Text>
-        </Box>
-      )}
 
       {/* Confirm sync popup */}
       {mode === 'confirm-sync' && (
