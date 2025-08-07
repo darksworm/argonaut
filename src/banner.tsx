@@ -78,7 +78,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
                 {chalk.cyan('\\____|__  /__|  \\___  / \\____/')+chalk.whiteBright('|___|  (____  /____/ |__|  ')}
             </Text>
             <Text>
-                {chalk.cyan('        \\/     /_____/             ')+chalk.whiteBright('\\/     \\/              ')}
+                {chalk.cyan('        \\/     /_____/             ')+chalk.whiteBright(`\\/     \\/     ${chalk.dim(argonautVersion)}  `)}
             </Text>
         </Box>
     );

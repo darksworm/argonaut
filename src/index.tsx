@@ -278,6 +278,7 @@ const App: React.FC = () => {
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('');
   const [command, setCommand] = useState(':');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [status, setStatus] = useState<string>('Starting…');
@@ -371,6 +372,12 @@ const App: React.FC = () => {
       // Enter handled by TextInput onSubmit
       return;
     }
+
+    // In normal mode, Escape clears the active filter
+    if (mode === 'normal' && key.escape && activeFilter) {
+      setActiveFilter('');
+      return;
+    }
     if (mode === 'command') {
       if (key.escape) { setMode('normal'); setCommand(':'); }
       return; // TextInput handles typing/enter
@@ -449,6 +456,9 @@ const App: React.FC = () => {
       setScopeNamespaces(new Set());
       setScopeProjects(new Set());
       setSelectedApps(new Set());
+      // Clear search query and active filter when changing views
+      setActiveFilter('');
+      setSearchQuery('');
       setView('namespaces');
       setSelectedIdx(0);
       return;
@@ -461,6 +471,9 @@ const App: React.FC = () => {
       // Clear lower-level selections when navigating from namespaces
       setScopeProjects(new Set());
       setSelectedApps(new Set());
+      // Clear search query and active filter when changing views
+      setActiveFilter('');
+      setSearchQuery('');
       setView('projects');
       setSelectedIdx(0);
       return;
@@ -472,6 +485,9 @@ const App: React.FC = () => {
       setScopeProjects(next);
       // Clear lower-level selections when navigating from projects
       setSelectedApps(new Set());
+      // Clear search query and active filter when changing views
+      setActiveFilter('');
+      setSearchQuery('');
       setView('apps');
       setSelectedIdx(0);
       return;
@@ -496,24 +512,31 @@ const App: React.FC = () => {
       setView('clusters'); setSelectedIdx(0); setMode('normal');
       if (arg) setScopeClusters(new Set([arg]));
       else setScopeClusters(new Set()); // Clear selection when returning to view
+      setActiveFilter(''); // Clear active filter when changing views
+      setSearchQuery(''); // Clear search query when changing views
       return;
     }
     if (is('namespace','namespaces','ns')) {
       setView('namespaces'); setSelectedIdx(0); setMode('normal');
       if (arg) setScopeNamespaces(new Set([arg]));
       else setScopeNamespaces(new Set()); // Clear selection when returning to view
+      setActiveFilter(''); // Clear active filter when changing views
+      setSearchQuery(''); // Clear search query when changing views
       return;
     }
     if (is('project','projects','proj')) {
       setView('projects'); setSelectedIdx(0); setMode('normal');
       if (arg) setScopeProjects(new Set([arg]));
       else setScopeProjects(new Set()); // Clear selection when returning to view
+      setActiveFilter(''); // Clear active filter when changing views
+      setSearchQuery(''); // Clear search query when changing views
       return;
     }
     if (is('app','apps')) {
       setView('apps'); setSelectedIdx(0); setMode('normal');
       if (arg) setSelectedApps(new Set([arg]));
       else setSelectedApps(new Set()); // Clear selection when returning to view
+      setActiveFilter(''); // Clear active filter when changing views
       return;
     }
 
@@ -625,7 +648,8 @@ const App: React.FC = () => {
   }, [filteredByNs]);
 
   const visibleItems = useMemo(() => {
-    const f = searchQuery.toLowerCase();
+    // Use activeFilter when in normal mode, otherwise use searchQuery
+    const f = (mode === 'search' ? searchQuery : activeFilter).toLowerCase();
     let base: any[];
 
     if (view === 'clusters')   base = allClusters;
@@ -644,7 +668,7 @@ const App: React.FC = () => {
             (a.project||'').toLowerCase().includes(f)
         )
         : base.filter(s => String(s).toLowerCase().includes(f));
-  }, [view, allClusters, allNamespaces, allProjects, filteredByNs, scopeProjects, searchQuery]);
+  }, [view, allClusters, allNamespaces, allProjects, filteredByNs, scopeProjects, searchQuery, activeFilter, mode]);
 
   useEffect(() => {
     setSelectedIdx(s => Math.min(s, Math.max(0, visibleItems.length - 1)));
@@ -666,7 +690,7 @@ const App: React.FC = () => {
   const end = Math.min(visibleItems.length, start + availableRows);
   const rowsSlice = visibleItems.slice(start, end);
 
-  const tag = `<${view}>`;
+  const tag = activeFilter && view === 'apps' ? `<${view}:${activeFilter}>` : `<${view}>`;
 
   const helpOverlay = (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
@@ -736,12 +760,19 @@ const App: React.FC = () => {
                   onSubmit={() => {
                     setSelectedIdx(0);
                     setMode('normal');
-                    if (visibleItems.length > 0) drillDown();
-                    setSearchQuery('');
+                    if (visibleItems.length > 0) {
+                      if (view === 'apps') {
+                        // Keep the search query active if there are results in apps view
+                        setActiveFilter(searchQuery);
+                      } else {
+                        // For other views, open the first result instead of keeping filter
+                        drillDown();
+                      }
+                    }
                   }}
               />
               <Box width={2}/>
-              <Text dimColor>(Enter selects first match, Esc cancels)</Text>
+              <Text dimColor>(Enter {view === 'apps' ? 'keeps filter' : 'opens first result'}, Esc cancels)</Text>
             </Box>
         )}
 
