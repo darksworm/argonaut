@@ -664,7 +664,7 @@ const App: React.FC = () => {
   const spinChar = '⠋';
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows-1}>
+    <Box flexDirection="column" paddingX={1} height={termRows-1}>
       {/* Context */}
       <Box>
         <Text>
@@ -693,7 +693,7 @@ const App: React.FC = () => {
       )}
 
       {/* Content area (fills space) */}
-      <Box flexDirection="column" flexGrow={1}>
+      <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" >
         {mode === 'help' ? (
           <Box flexDirection="column" marginTop={1} flexGrow={1}>{helpOverlay}</Box>
         ) : (
@@ -722,7 +722,7 @@ const App: React.FC = () => {
                 const spin = a.health.toLowerCase() === 'progressing' || a.sync.toLowerCase() === 'outofsync';
                 return (
                   <Box key={a.name}>
-                    <Box width={COL.mark}><RowBG active={active}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
+                    <Box width={COL.mark}><RowBG active={isChecked}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
                     <Box width={COL.name}><RowBG active={active}><Text>{a.name.padEnd(COL.name)}</Text></RowBG></Box>
                     <Box width={COL.sync}><RowBG active={active}><Text {...colorFor(a.sync)}>{(spin ? `${spinChar} ` : '') + a.sync.padEnd(COL.sync - (spin?2:0))}</Text></RowBG></Box>
                     <Box width={COL.health}><RowBG active={active}><Text {...colorFor(a.health)}>{a.health.padEnd(COL.health)}</Text></RowBG></Box>
