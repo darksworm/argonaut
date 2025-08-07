@@ -600,6 +600,19 @@ const App: React.FC = () => {
       setConfirmTarget(`__MULTI__`); setMode('confirm-sync'); return;
     }
 
+    if (is('all')) {
+      // Clear all selections
+      setScopeClusters(new Set());
+      setScopeNamespaces(new Set());
+      setScopeProjects(new Set());
+      setSelectedApps(new Set());
+      // Clear filters
+      setActiveFilter('');
+      setSearchQuery('');
+      setStatus('All filtering cleared.');
+      return;
+    }
+
     setStatus(`Unknown command: ${cmd}`);
   }
 
@@ -713,7 +726,7 @@ const App: React.FC = () => {
       </Box>
       <Box marginTop={1}>
         <Box width={24}><Text color="green" bold>MISC</Text></Box>
-        <Box><Text>:server HOST[:PORT] • :login • :clear • :q</Text></Box>
+        <Box><Text>:server HOST[:PORT] • :login • :clear • :all • :q</Text></Box>
       </Box>
       <Box marginTop={1}><Text dimColor>Press ? or Esc to close</Text></Box>
     </Box>
