@@ -241,8 +241,8 @@ const COL = {
 } as const;
 
 function RowBG({active, children}:{active:boolean; children:React.ReactNode}) {
-  // full-row background when active/checked
-  return <Text backgroundColor={active ? 'magentaBright' : undefined} color={active ? 'black' : undefined}>{children}</Text>;
+  // Only handle text color when active/checked, background is handled at the row level
+  return <Text color={active ? 'black' : undefined}>{children}</Text>;
 }
 
 // ------------------------------
@@ -823,7 +823,7 @@ const App: React.FC = () => {
                     const active = isCursor || isChecked;
 
                     return (
-                        <Box key={a.name} width="100%">
+                        <Box key={a.name} width="100%" backgroundColor={active ? 'magentaBright' : undefined}>
                           {/* NAME (flex) */}
                           <Box flexGrow={1} flexShrink={1} minWidth={10}>
                             <RowBG active={active}>
@@ -863,7 +863,7 @@ const App: React.FC = () => {
                   const active = isCursor || isChecked;
 
                   return (
-                      <Box key={label} width="100%">
+                      <Box key={label} width="100%" backgroundColor={active ? 'magentaBright' : undefined}>
                         <Box flexGrow={1} flexShrink={1} minWidth={10}>
                           <RowBG active={active}>
                             <Text wrap="truncate-end">{label}</Text>
