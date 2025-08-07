@@ -9,6 +9,8 @@ interface ArgoNautBannerProps {
     projectScope?: string;
     termCols?: number;
     termRows?: number;
+    apiVersion?: string;
+    argonautVersion?: string;
 }
 
 const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
@@ -17,24 +19,40 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
                                                            namespaceScope,
                                                            projectScope,
                                                            termCols = 80,
+                                                           termRows = 24,
+                                                           apiVersion,
+                                                           argonautVersion,
                                                        }) => {
     const isNarrow = termCols <= 100;   // stack vertically
+
+    const Context = ({paddingBottom, paddingTop}) => (
+        <Box
+            flexDirection="column"
+            paddingRight={2}
+            paddingBottom={paddingBottom || 0}
+            paddingTop={paddingTop || 0}
+            alignSelf={isNarrow ? undefined : 'flex-end'}
+        >
+            {server && (
+                <>
+                    <Text><Text bold>Context:</Text> <Text color="cyan">{server || '—'}</Text></Text>
+                    {clusterScope && <Text><Text bold>Cluster:</Text> {clusterScope}</Text>}
+                    {namespaceScope && <Text><Text bold>Namespace:</Text> {namespaceScope}</Text>}
+                    {projectScope && <Text><Text bold>Project:</Text> {projectScope}</Text>}
+                    {!isNarrow && apiVersion && <Text><Text bold>ArgoCD:</Text> <Text color="green">{apiVersion}</Text></Text>}
+                </>
+            )}
+        </Box>
+    );
 
     // Text-only for tiny terminals
     if (isNarrow) {
         return (
             <Box flexDirection="column" paddingTop={1}>
                 <Box>
-                    <Text backgroundColor="cyan" color="white" bold>{' '}Argonaut{' '}</Text>
+                    <Text backgroundColor="cyan" color="white" bold>{' '}Argonaut{' '} {argonautVersion && `${argonautVersion}`}</Text>
                 </Box>
-                {server && (
-                    <Box flexDirection="column" paddingY={1}>
-                        <Text><Text bold>Context:</Text> <Text color="cyan">{server || '—'}</Text></Text>
-                        {clusterScope && <Text><Text bold>Cluster:</Text> {clusterScope}</Text>}
-                        {namespaceScope && <Text><Text bold>Namespace:</Text> {namespaceScope}</Text>}
-                        {projectScope && <Text><Text bold>Project:</Text> {projectScope}</Text>}
-                    </Box>
-                )}
+                <Context paddingBottom={1} paddingTop={1}></Context>
             </Box>
         );
     }
@@ -62,24 +80,6 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
             <Text>
                 {chalk.cyan('        \\/     /_____/             ')+chalk.whiteBright('\\/     \\/              ')}
             </Text>
-        </Box>
-    );
-
-    const Context = ({paddingBottom}) => (
-        <Box
-            flexDirection="column"
-            paddingRight={2}
-            paddingBottom={paddingBottom || 0}
-            alignSelf={isNarrow ? undefined : 'flex-end'}
-        >
-            {server && (
-                <>
-                    <Text><Text bold>Context:</Text> <Text color="cyan">{server || '—'}</Text></Text>
-                    {clusterScope && <Text><Text bold>Cluster:</Text> {clusterScope}</Text>}
-                    {namespaceScope && <Text><Text bold>Namespace:</Text> {namespaceScope}</Text>}
-                    {projectScope && <Text><Text bold>Project:</Text> {projectScope}</Text>}
-                </>
-            )}
         </Box>
     );
 

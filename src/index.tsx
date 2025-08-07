@@ -8,6 +8,7 @@ import YAML from 'yaml';
 import chalk from 'chalk';
 import {execa} from 'execa';
 import ArgoNautBanner from "./banner";
+import packageJson from '../package.json';
 
 // ------------------------------
 // Types
@@ -142,6 +143,16 @@ function hostFromServer(server?: string): string {
   }
 }
 
+async function getApiVersion(server: string, token: string): Promise<string> {
+  try {
+    const data = await api(server, token, '/api/version');
+    return data?.Version || 'Unknown';
+  } catch (e) {
+    console.error('Error fetching API version:', e);
+    return 'Unknown';
+  }
+}
+
 async function listAppsREST(server: string, token: string): Promise<AppItem[]> {
   const data = await api(server, token, '/api/v1/applications').catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
@@ -263,6 +274,7 @@ const App: React.FC = () => {
 
   // Data
   const [apps, setApps] = useState<AppItem[]>([]);
+  const [apiVersion, setApiVersion] = useState<string>('');
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
@@ -298,13 +310,23 @@ const App: React.FC = () => {
       try {
         const tokMaybe = await tokenFromConfig();
         if (!tokMaybe) throw new Error('No token in config');
-        await listAppsREST(srv, tokMaybe); // sanity request
+        // Replace sanity request with API version check
+        const version = await getApiVersion(srv, tokMaybe);
+        setApiVersion(version);
         setToken(tokMaybe);
       } catch {
         setStatus(`Logging into ${srv} via SSO (grpc-web)…`);
         await ensureSSOLogin(srv);
         const tok = await ensureToken(srv);
         setToken(tok);
+
+        // Fetch API version after login
+        try {
+          const version = await getApiVersion(srv, tok);
+          setApiVersion(version);
+        } catch (e) {
+          console.error('Error fetching API version after login:', e);
+        }
       }
 
       setStatus('Fetching applications…');
@@ -316,13 +338,21 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-refresh (apps only) — avoid status churn
+  // Auto-refresh (apps and API version) — avoid status churn
   useEffect(() => {
     const id = setInterval(async () => {
       try {
         if (!server || !token) return;
         const data = await listAppsREST(server, token);
         setApps(data);
+
+        // Also refresh API version
+        try {
+          const version = await getApiVersion(server, token);
+          setApiVersion(version);
+        } catch (e) {
+          console.error('Error refreshing API version:', e);
+        }
       } catch (e: any) {
         setStatus(`Refresh error: ${e.message}`);
       }
@@ -522,6 +552,15 @@ const App: React.FC = () => {
         setToken(tok);
         const data = await listAppsREST(server, tok);
         setApps(data);
+
+        // Fetch API version after login
+        try {
+          const version = await getApiVersion(server, tok);
+          setApiVersion(version);
+        } catch (e) {
+          console.error('Error fetching API version after login command:', e);
+        }
+
         setStatus('Login OK.');
       } catch (e:any) {
         setStatus(`Login failed: ${e.message}`);
@@ -643,8 +682,8 @@ const App: React.FC = () => {
   const tag = `<${view}>`;
 
   const helpOverlay = (
-    <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={2} paddingY={1}>
-      <Box justifyContent="center"><Text color="magentaBright" bold>Help</Text></Box>
+    <Box flexDirection="column" paddingX={2} paddingY={1}>
+      <Box justifyContent="center"><Text color="magentaBright" bold>Argonaut {packageJson.version}</Text></Box>
       <Box marginTop={1}>
         <Box width={24}><Text color="green" bold>GENERAL</Text></Box>
         <Box><Text><Text color="cyan">:</Text> command • <Text color="cyan">/</Text> search • <Text color="cyan">?</Text> help</Text></Box>
@@ -694,6 +733,9 @@ const App: React.FC = () => {
         namespaceScope={fmtScope(scopeNamespaces)}
         projectScope={fmtScope(scopeProjects)}
         termCols={termCols}
+        termRows={availableRows}
+        apiVersion={apiVersion}
+        argonautVersion={packageJson.version}
       />
 
       {/* Search bar */}
