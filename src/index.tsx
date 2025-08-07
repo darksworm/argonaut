@@ -7,6 +7,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import chalk from 'chalk';
 import {execa} from 'execa';
+import ArgoNautBanner from "./banner";
 
 // ------------------------------
 // Types
@@ -242,8 +243,12 @@ const App: React.FC = () => {
 
   // Layout
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
+  const [termCols, setTermCols] = useState(process.stdout.columns || 80);
   useEffect(() => {
-    const onResize = () => setTermRows(process.stdout.rows || 24);
+    const onResize = () => {
+      setTermRows(process.stdout.rows || 24);
+      setTermCols(process.stdout.columns || 80);
+    };
     process.stdout.on('resize', onResize);
     return () => { process.stdout.off('resize', onResize); };
   }, []);
@@ -682,12 +687,8 @@ const App: React.FC = () => {
 
   return (
     <Box flexDirection="column" paddingX={1} height={termRows-1}>
-      {/* Context */}
-      <Box paddingLeft={1} paddingY={1}>
-        <Text>
-          {chalk.bold(`Context:`)} {chalk.cyan(server || '—')}  •  {scopeLine}
-        </Text>
-      </Box>
+
+      <ArgoNautBanner server={server} scopeLine={scopeLine} termCols={termCols} />
 
       {/* Search bar */}
       {mode === 'search' && (
