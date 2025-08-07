@@ -375,16 +375,25 @@ const App: React.FC = () => {
       // Only allow single selection - create a new Set with just this item or empty if already selected
       const next = scopeClusters.has(val) ? new Set() : new Set([val]);
       setScopeClusters(next);
+      // Clear lower-level selections when cluster selection changes
+      setScopeNamespaces(new Set());
+      setScopeProjects(new Set());
+      setSelectedApps(new Set());
     } else if (view === 'namespaces') {
       const ns = String(item);
       // Only allow single selection - create a new Set with just this item or empty if already selected
       const next = scopeNamespaces.has(ns) ? new Set() : new Set([ns]);
       setScopeNamespaces(next);
+      // Clear lower-level selections when namespace selection changes
+      setScopeProjects(new Set());
+      setSelectedApps(new Set());
     } else if (view === 'projects') {
       const proj = String(item);
       // Only allow single selection - create a new Set with just this item or empty if already selected
       const next = scopeProjects.has(proj) ? new Set() : new Set([proj]);
       setScopeProjects(next);
+      // Clear lower-level selections when project selection changes
+      setSelectedApps(new Set());
     } else if (view === 'apps') {
       const app = (item as AppItem).name;
       const next = new Set(selectedApps);
@@ -401,6 +410,10 @@ const App: React.FC = () => {
       // Only allow single selection - create a new Set with just this item
       const next = new Set([val]);
       setScopeClusters(next);
+      // Clear lower-level selections when navigating from clusters
+      setScopeNamespaces(new Set());
+      setScopeProjects(new Set());
+      setSelectedApps(new Set());
       setView('namespaces');
       setSelectedIdx(0);
       return;
@@ -410,6 +423,9 @@ const App: React.FC = () => {
       // Only allow single selection - create a new Set with just this item
       const next = new Set([ns]);
       setScopeNamespaces(next);
+      // Clear lower-level selections when navigating from namespaces
+      setScopeProjects(new Set());
+      setSelectedApps(new Set());
       setView('projects');
       setSelectedIdx(0);
       return;
@@ -419,6 +435,8 @@ const App: React.FC = () => {
       // Only allow single selection - create a new Set with just this item
       const next = new Set([proj]);
       setScopeProjects(next);
+      // Clear lower-level selections when navigating from projects
+      setSelectedApps(new Set());
       setView('apps');
       setSelectedIdx(0);
       return;
@@ -761,7 +779,7 @@ const App: React.FC = () => {
               );
             })}
 
-            {visibleItems.length === 0 && <Box><Text dimColor>No items.</Text></Box>}
+            {visibleItems.length === 0 && <Box paddingY={1} paddingX={2}><Text dimColor>No items.</Text></Box>}
           </Box>
         )}
         {/* Spacer to push bottom lines */}
