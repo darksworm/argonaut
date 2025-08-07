@@ -181,11 +181,6 @@ async function syncAppREST(server: string, token: string, name: string): Promise
 // UI helpers
 // ------------------------------
 
-const Spinner: React.FC<{frame: number}> = ({frame}) => {
-  const chars = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
-  return <Text>{chars[frame % chars.length]}</Text>;
-};
-
 function colorFor(value: string): {color?: any; dimColor?: boolean} {
   const v = (value || '').toLowerCase();
   if (v === 'synced' || v === 'healthy') return {color: 'green'};
@@ -224,6 +219,20 @@ function fmtScope(set: Set<string>, max = 2): string {
   return `${arr.slice(0, max).join(',')} (+${arr.length - max})`;
 }
 
+// Column widths — header and rows use the same numbers
+const COL = {
+  mark: 2,
+  name: 36,
+  sync: 12,
+  health: 12,
+  last: 10
+} as const;
+
+function RowBG({active, children}:{active:boolean; children:React.ReactNode}) {
+  // full-row background when active/checked
+  return <Text backgroundColor={active ? 'magentaBright' : undefined} color={active ? 'black' : undefined}>{children}</Text>;
+}
+
 // ------------------------------
 // Main Ink component
 // ------------------------------
@@ -251,11 +260,14 @@ const App: React.FC = () => {
   const [apps, setApps] = useState<AppItem[]>([]);
 
   // UI state
-  const [filter, setFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [command, setCommand] = useState(':');
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [tick, setTick] = useState(0);
   const [status, setStatus] = useState<string>('Starting…');
+
+  // :login modal
+  const [loginLog, setLoginLog] = useState<string>('');
+  const [showLogin, setShowLogin] = useState(false);
 
   // Scopes / selections
   const [scopeClusters, setScopeClusters] = useState<Set<string>>(new Set());
@@ -291,7 +303,7 @@ const App: React.FC = () => {
       }
 
       setStatus('Fetching applications…');
-      const data = await listAppsREST(srv, token ?? (await tokenFromConfig() || ''));
+      const data = await listAppsREST(srv, (token ?? (await tokenFromConfig() || '')));
       setApps(data);
       setStatus('Ready');
       setMode('normal');
@@ -299,14 +311,13 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-refresh (apps only)
+  // Auto-refresh (apps only) — avoid status churn
   useEffect(() => {
     const id = setInterval(async () => {
       try {
         if (!server || !token) return;
         const data = await listAppsREST(server, token);
         setApps(data);
-        setTick(t => t + 1);
       } catch (e: any) {
         setStatus(`Refresh error: ${e.message}`);
       }
@@ -321,7 +332,8 @@ const App: React.FC = () => {
       return;
     }
     if (mode === 'search') {
-      if (key.escape || key.return) setMode('normal');
+      if (key.escape) { setMode('normal'); setSearchQuery(''); }
+      // Enter handled by TextInput onSubmit
       return;
     }
     if (mode === 'command') {
@@ -341,6 +353,15 @@ const App: React.FC = () => {
 
     if (input === 'j' || key.downArrow) setSelectedIdx(s => Math.min(s + 1, Math.max(0, visibleItems.length - 1)));
     if (input === 'k' || key.upArrow)   setSelectedIdx(s => Math.max(s - 1, 0));
+
+    // Esc clears current view selection
+    if (key.escape) {
+      if (view === 'clusters') setScopeClusters(new Set());
+      else if (view === 'namespaces') setScopeNamespaces(new Set());
+      else if (view === 'projects') setScopeProjects(new Set());
+      else setSelectedApps(new Set());
+      return;
+    }
 
     if (key.return) drillDown();
     if (input === ' ') toggleSelection();
@@ -373,9 +394,35 @@ const App: React.FC = () => {
   }
 
   function drillDown() {
-    if (view === 'clusters') setView('namespaces');
-    else if (view === 'namespaces') setView('projects');
-    else if (view === 'projects') setView('apps');
+    const item = visibleItems[selectedIdx];
+    if (item == null) return;
+    if (view === 'clusters') {
+      const val = String(item);
+      const next = new Set(scopeClusters);
+      next.add(val);
+      setScopeClusters(next);
+      setView('namespaces');
+      setSelectedIdx(0);
+      return;
+    }
+    if (view === 'namespaces') {
+      const ns = String(item);
+      const next = new Set(scopeNamespaces);
+      next.add(ns);
+      setScopeNamespaces(next);
+      setView('projects');
+      setSelectedIdx(0);
+      return;
+    }
+    if (view === 'projects') {
+      const proj = String(item);
+      const next = new Set(scopeProjects);
+      next.add(proj);
+      setScopeProjects(next);
+      setView('apps');
+      setSelectedIdx(0);
+      return;
+    }
   }
 
   // Commands
@@ -386,15 +433,32 @@ const App: React.FC = () => {
     const cmd = (parts[0] || '').toLowerCase();
     const arg = parts.slice(1).join(' ');
 
-    const is = (...aliases: string[]) => aliases.includes(cmd);
+    const alias = (s:string) => s.toLowerCase();
+    const is = (c:string, ...as:string[]) => [c, ...as].map(alias).includes(cmd);
 
     if (is('q','quit','exit')) { exit(); return; }
     if (is('help','?')) { setMode('help'); return; }
 
-    if (is('cluster','clusters','cls')) { setView('clusters'); setSelectedIdx(0); setMode('normal'); return; }
-    if (is('namespace','namespaces','ns')) { setView('namespaces'); setSelectedIdx(0); setMode('normal'); return; }
-    if (is('project','projects','proj')) { setView('projects'); setSelectedIdx(0); setMode('normal'); return; }
-    if (is('app','apps')) { setView('apps'); setSelectedIdx(0); setMode('normal'); return; }
+    if (is('cluster','clusters','cls')) {
+      setView('clusters'); setSelectedIdx(0); setMode('normal');
+      if (arg) setScopeClusters(new Set([arg]));
+      return;
+    }
+    if (is('namespace','namespaces','ns')) {
+      setView('namespaces'); setSelectedIdx(0); setMode('normal');
+      if (arg) setScopeNamespaces(new Set([arg]));
+      return;
+    }
+    if (is('project','projects','proj')) {
+      setView('projects'); setSelectedIdx(0); setMode('normal');
+      if (arg) setScopeProjects(new Set([arg]));
+      return;
+    }
+    if (is('app','apps')) {
+      setView('apps'); setSelectedIdx(0); setMode('normal');
+      if (arg) setSelectedApps(new Set([arg]));
+      return;
+    }
 
     if (is('clear')) {
       if (view === 'clusters') setScopeClusters(new Set());
@@ -421,15 +485,22 @@ const App: React.FC = () => {
 
     if (is('login')) {
       if (!server) { setStatus('Set a server first: :server <host[:port]>.'); return; }
-      setMode('loading');
-      setStatus(`Logging into ${server} via SSO…`);
-      await ensureSSOLogin(server);
-      const tok = await ensureToken(server);
-      setToken(tok);
-      const data = await listAppsREST(server, tok);
-      setApps(data);
-      setMode('normal');
-      setStatus('Login OK.');
+      setShowLogin(true); setLoginLog('Opening browser for SSO…\n');
+      try {
+        const p = execa('argocd', ['login', server, '--sso', '--grpc-web']);
+        p.stdout?.on('data', (b:Buffer) => setLoginLog(v => v + b.toString()));
+        p.stderr?.on('data', (b:Buffer) => setLoginLog(v => v + b.toString()));
+        await p;
+        const tok = await ensureToken(server);
+        setToken(tok);
+        const data = await listAppsREST(server, tok);
+        setApps(data);
+        setStatus('Login OK.');
+      } catch (e:any) {
+        setStatus(`Login failed: ${e.message}`);
+      } finally {
+        setShowLogin(false);
+      }
       return;
     }
 
@@ -488,7 +559,7 @@ const App: React.FC = () => {
   }, [filteredByNs]);
 
   const filteredApps = useMemo(() => {
-    const f = filter.toLowerCase();
+    const f = searchQuery.toLowerCase();
     const base = filteredByNs.filter(a => !scopeProjects.size || scopeProjects.has(a.project || ''));
     if (!f) return base;
     return base.filter(a =>
@@ -498,7 +569,7 @@ const App: React.FC = () => {
       (a.namespace||'').toLowerCase().includes(f) ||
       (a.project||'').toLowerCase().includes(f)
     );
-  }, [filteredByNs, scopeProjects, filter]);
+  }, [filteredByNs, scopeProjects, searchQuery]);
 
   // Which list to show for the current view
   const listForView: Array<any> = useMemo(() => {
@@ -514,22 +585,16 @@ const App: React.FC = () => {
     setSelectedIdx(s => Math.min(s, Math.max(0, visibleItems.length - 1)));
   }, [visibleItems.length]);
 
-  // ---------- Height calc (full-screen, status at bottom) ----------
-  const BORDER_LINES        = 2;
-  const HEADER_CONTEXT      = 1;
-  const SEARCH_LINES        = (mode === 'search') ? 1 : 0;
-  const SEARCH_MB           = (mode === 'search') ? 1 : 0;
-  const TABLE_HEADER_LINES  = 1;
-  const STATUS_LINES        = 1;
-  const COMMAND_LINES       = (mode === 'command') ? 1 : 0;
-  const STATUS_MT           = 1;
+  // ---------- Height calc (full-screen, exact) ----------
+  const BORDER_LINES = 2;
+  const HEADER_CONTEXT = 1;
+  const SEARCH_LINES = (mode === 'search') ? 1 : 0;
+  const TABLE_HEADER_LINES = 1;
+  const TAG_LINE = 1;      // <clusters>
+  const STATUS_LINES = 1;
+  const COMMAND_LINES = (mode === 'command') ? 1 : 0;
 
-  const OVERHEAD =
-    BORDER_LINES + HEADER_CONTEXT +
-    SEARCH_LINES + SEARCH_MB +
-    TABLE_HEADER_LINES +
-    STATUS_MT + STATUS_LINES +
-    COMMAND_LINES;
+  const OVERHEAD = BORDER_LINES + HEADER_CONTEXT + SEARCH_LINES + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES + COMMAND_LINES;
 
   const availableRows = Math.max(0, termRows - OVERHEAD);
   const start = Math.max(0, Math.min(Math.max(0, selectedIdx - Math.floor(availableRows / 2)), Math.max(0, visibleItems.length - availableRows)));
@@ -549,9 +614,7 @@ const App: React.FC = () => {
     `Project: ${fmtScope(scopeProjects)}`
   ].join('  •  ');
 
-  const headerCells =
-    view === 'apps'       ? ['NAME', 'SYNC', 'HEALTH', 'LAST SYNC'] :
-    /* clusters/ns/projects */ ['NAME'];
+  const tag = `<${view}>`;
 
   const helpOverlay = (
     <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={2} paddingY={1}>
@@ -582,16 +645,19 @@ const App: React.FC = () => {
 
   // Loading screen fills the viewport
   if (mode === 'loading') {
+    const spinChar = '⠋';
     return (
       <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows}>
         <Box><Text>{chalk.bold(`View:`)} {chalk.yellow('LOADING')}  •  {chalk.bold(`Context:`)} {chalk.cyan(server || '—')}</Text></Box>
         <Box flexGrow={1} alignItems="center" justifyContent="center">
-          <Text color="yellow"><Spinner frame={tick}/> Connecting & fetching applications…</Text>
+          <Text color="yellow">{spinChar} Connecting & fetching applications…</Text>
         </Box>
-        <Box marginTop={1}><Text dimColor>{status}</Text></Box>
+        <Box><Text dimColor>{status}</Text></Box>
       </Box>
     );
   }
+
+  const spinChar = '⠋';
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows}>
@@ -604,12 +670,21 @@ const App: React.FC = () => {
 
       {/* Search bar */}
       {mode === 'search' && (
-        <Box marginBottom={1} borderStyle="classic" borderColor="yellow" paddingX={1}>
+        <Box borderStyle="classic" borderColor="yellow" paddingX={1}>
           <Text bold color="cyan">Search</Text>
           <Box width={1}/>
-          <TextInput value={filter} onChange={setFilter} onSubmit={() => setMode('normal')} />
+          <TextInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={() => {
+              // Move cursor to the first visible match then close and clear input
+              setSelectedIdx(0);
+              setMode('normal');
+              setSearchQuery('');
+            }}
+          />
           <Box width={2}/>
-          <Text dimColor>(Enter to apply, Esc to cancel)</Text>
+          <Text dimColor>(Enter selects first match, Esc cancels)</Text>
         </Box>
       )}
 
@@ -621,43 +696,46 @@ const App: React.FC = () => {
           <Box flexDirection="column">
             {/* Header row */}
             <Box>
-              {headerCells.map((h, i) => (
-                <Box key={i} width={i===0 ? 36 : 16}>
-                  <Text bold color="yellowBright">{h}</Text>
-                </Box>
-              ))}
+              <Box width={COL.mark}><Text>{' '.repeat(COL.mark)}</Text></Box>
+              <Box width={COL.name}><Text bold color="yellowBright">{'NAME'.padEnd(COL.name)}</Text></Box>
+              {view === 'apps' && (
+                <>
+                  <Box width={COL.sync}><Text bold color="yellowBright">{'SYNC'.padEnd(COL.sync)}</Text></Box>
+                  <Box width={COL.health}><Text bold color="yellowBright">{'HEALTH'.padEnd(COL.health)}</Text></Box>
+                  <Box width={COL.last}><Text bold color="yellowBright">{'LAST SYNC'.padEnd(COL.last)}</Text></Box>
+                </>
+              )}
             </Box>
 
             {/* Rows */}
             {rowsSlice.map((it:any, i:number) => {
               const actualIndex = start + i;
-              const isSel = actualIndex === selectedIdx;
-              const checked =
-                (view === 'clusters'   && scopeClusters.has(String(it))) ||
-                (view === 'namespaces' && scopeNamespaces.has(String(it))) ||
-                (view === 'projects'   && scopeProjects.has(String(it))) ||
-                (view === 'apps'       && selectedApps.has((it as AppItem).name));
-              const mark = checked ? chalk.bgMagentaBright.black('✓') : (isSel ? chalk.bgMagentaBright.black('›') : ' ');
-
+              const isCursor = actualIndex === selectedIdx;
               if (view === 'apps') {
                 const a = it as AppItem;
+                const isChecked = selectedApps.has(a.name);
+                const active = isCursor || isChecked; // highlight if either
                 const spin = a.health.toLowerCase() === 'progressing' || a.sync.toLowerCase() === 'outofsync';
                 return (
                   <Box key={a.name}>
-                    <Box width={2}><Text>{mark}</Text></Box>
-                    <Box width={34}><Text color={isSel ? 'magentaBright' : 'white'}>{a.name}</Text></Box>
-                    <Box width={14}><Text {...colorFor(a.sync)}>{spin ? <Spinner frame={tick}/> : null} {a.sync}</Text></Box>
-                    <Box width={14}><Text {...colorFor(a.health)}>{a.health}</Text></Box>
-                    <Box width={16}><Text color="gray">{humanizeSince(a.lastSyncAt)}</Text></Box>
+                    <Box width={COL.mark}><RowBG active={active}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
+                    <Box width={COL.name}><RowBG active={active}><Text>{a.name.padEnd(COL.name)}</Text></RowBG></Box>
+                    <Box width={COL.sync}><RowBG active={active}><Text {...colorFor(a.sync)}>{(spin ? `${spinChar} ` : '') + a.sync.padEnd(COL.sync - (spin?2:0))}</Text></RowBG></Box>
+                    <Box width={COL.health}><RowBG active={active}><Text {...colorFor(a.health)}>{a.health.padEnd(COL.health)}</Text></RowBG></Box>
+                    <Box width={COL.last}><RowBG active={active}><Text color="gray">{humanizeSince(a.lastSyncAt).padEnd(COL.last)}</Text></RowBG></Box>
                   </Box>
                 );
               }
-
               const label = String(it);
+              const isChecked =
+                (view === 'clusters'   && scopeClusters.has(label)) ||
+                (view === 'namespaces' && scopeNamespaces.has(label)) ||
+                (view === 'projects'   && scopeProjects.has(label));
+              const active = isCursor || isChecked;
               return (
                 <Box key={label}>
-                  <Box width={2}><Text>{mark}</Text></Box>
-                  <Box width={34}><Text color={isSel ? 'magentaBright' : 'white'}>{label}</Text></Box>
+                  <Box width={COL.mark}><RowBG active={active}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
+                  <Box width={COL.name}><RowBG active={active}><Text>{label.padEnd(COL.name)}</Text></RowBG></Box>
                 </Box>
               );
             })}
@@ -665,12 +743,17 @@ const App: React.FC = () => {
             {visibleItems.length === 0 && <Box><Text dimColor>No items.</Text></Box>}
           </Box>
         )}
-        {/* Spacer to push status/CMD to bottom */}
+        {/* Spacer to push bottom lines */}
         <Box flexGrow={1}/>
       </Box>
 
+      {/* Bottom tag like k9s */}
+      <Box>
+        <Text dimColor>{tag}</Text>
+      </Box>
+
       {/* Status at bottom */}
-      <Box marginTop={1}>
+      <Box>
         <Text dimColor>
           {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
         </Text>
@@ -693,7 +776,7 @@ const App: React.FC = () => {
 
       {/* Confirm sync popup */}
       {mode === 'confirm-sync' && (
-        <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} marginTop={1} flexDirection="column">
+        <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
           {confirmTarget === '__MULTI__' ? (
             <>
               <Text bold>Sync applications?</Text>
@@ -705,6 +788,15 @@ const App: React.FC = () => {
               <Box marginTop={1}><Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? [y/N]</Text></Box>
             </>
           )}
+        </Box>
+      )}
+
+      {/* :login popup */}
+      {showLogin && (
+        <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
+          <Text bold>Logging in…</Text>
+          <Box marginTop={1}><Text dimColor>{loginLog || 'Waiting…'}</Text></Box>
+          <Box marginTop={1}><Text dimColor>Close when complete.</Text></Box>
         </Box>
       )}
     </Box>
