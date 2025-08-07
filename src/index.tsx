@@ -666,24 +666,11 @@ const App: React.FC = () => {
   const end = Math.min(visibleItems.length, start + availableRows);
   const rowsSlice = visibleItems.slice(start, end);
 
-  // ---------- Rendering ----------
-  const titleForView =
-    view === 'clusters'   ? 'CLUSTERS' :
-    view === 'namespaces' ? 'NAMESPACES' :
-    view === 'projects'   ? 'PROJECTS' :
-    'APPLICATIONS';
-
-  const scopeLine = [
-    `Cluster: ${fmtScope(scopeClusters)}`,
-    `Namespace: ${fmtScope(scopeNamespaces)}`,
-    `Project: ${fmtScope(scopeProjects)}`
-  ].join('  •  ');
-
   const tag = `<${view}>`;
 
   const helpOverlay = (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Box justifyContent="center"><Text color="magentaBright" bold>Argonaut {packageJson.version}</Text></Box>
+      <Box justifyContent="center"><Text color="magentaBright" paddingRight={1} bold>Argonaut {packageJson.version}</Text></Box>
       <Box marginTop={1}>
         <Box width={24}><Text color="green" bold>GENERAL</Text></Box>
         <Box><Text><Text color="cyan">:</Text> command • <Text color="cyan">/</Text> search • <Text color="cyan">?</Text> help</Text></Box>
@@ -725,157 +712,182 @@ const App: React.FC = () => {
   const spinChar = '⠋';
 
   return (
-    <Box flexDirection="column" paddingX={1} height={termRows-1}>
+      <Box flexDirection="column" paddingX={1} height={termRows - 1}>
 
-      <ArgoNautBanner
-        server={server}
-        clusterScope={fmtScope(scopeClusters)}
-        namespaceScope={fmtScope(scopeNamespaces)}
-        projectScope={fmtScope(scopeProjects)}
-        termCols={termCols}
-        termRows={availableRows}
-        apiVersion={apiVersion}
-        argonautVersion={packageJson.version}
-      />
+        <ArgoNautBanner
+            server={server}
+            clusterScope={fmtScope(scopeClusters)}
+            namespaceScope={fmtScope(scopeNamespaces)}
+            projectScope={fmtScope(scopeProjects)}
+            termCols={termCols}
+            termRows={availableRows}
+            apiVersion={apiVersion}
+            argonautVersion={packageJson.version}
+        />
 
-      {/* Search bar */}
-      {mode === 'search' && (
-        <Box borderStyle="round" borderColor="yellow" paddingX={1}>
-          <Text bold color="cyan">Search</Text>
-          <Box width={1}/>
-          <TextInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSubmit={() => {
-              // Move cursor to the first visible match, drill down, then close and clear input
-              setSelectedIdx(0);
-              setMode('normal');
-              // Only call drillDown if there are visible items
-              if (visibleItems.length > 0) {
-                drillDown();
-              }
-              setSearchQuery('');
-            }}
-          />
-          <Box width={2}/>
-          <Text dimColor>(Enter selects first match, Esc cancels)</Text>
+        {/* Search bar */}
+        {mode === 'search' && (
+            <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+              <Text bold color="cyan">Search</Text>
+              <Box width={1}/>
+              <TextInput
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  onSubmit={() => {
+                    setSelectedIdx(0);
+                    setMode('normal');
+                    if (visibleItems.length > 0) drillDown();
+                    setSearchQuery('');
+                  }}
+              />
+              <Box width={2}/>
+              <Text dimColor>(Enter selects first match, Esc cancels)</Text>
+            </Box>
+        )}
+
+        {mode === 'command' && (
+            <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+              <Text bold color="cyan">CMD</Text>
+              <Box width={1}/>
+              <TextInput
+                  value={command}
+                  onChange={setCommand}
+                  onSubmit={(val) => { setMode('normal'); runCommand(val); setCommand(':'); }}
+              />
+              <Box width={2}/>
+              <Text dimColor>(Enter to run, Esc to cancel)</Text>
+            </Box>
+        )}
+
+        {/* Content area (fills space) */}
+        <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1}>
+          {mode === 'help' ? (
+              <Box flexDirection="column" marginTop={1} flexGrow={1}>{helpOverlay}</Box>
+          ) : (
+              <Box flexDirection="column">
+                {/* Header row */}
+                <Box width="100%">
+                  {/* NAME → flexible */}
+                  <Box flexGrow={1} flexShrink={1} minWidth={10}>
+                    <Text bold color="yellowBright" wrap="truncate">NAME</Text>
+                  </Box>
+                  {/* Fixed columns only in apps view */}
+                  {view === 'apps' && (
+                      <>
+                        <Box width={COL.sync}><Text bold color="yellowBright" wrap="truncate">SYNC</Text></Box>
+                        <Box width={COL.health}><Text bold color="yellowBright" wrap="truncate">HEALTH</Text></Box>
+                        <Box width={COL.last}><Text bold color="yellowBright" wrap="truncate">LAST SYNC</Text></Box>
+                      </>
+                  )}
+                </Box>
+
+                {/* Rows */}
+                {rowsSlice.map((it:any, i:number) => {
+                  const actualIndex = start + i;
+                  const isCursor = actualIndex === selectedIdx;
+
+                  if (view === 'apps') {
+                    const a = it as AppItem;
+                    const isChecked = selectedApps.has(a.name);
+                    const active = isCursor || isChecked;
+
+                    return (
+                        <Box key={a.name} width="100%">
+                          {/* NAME (flex) */}
+                          <Box flexGrow={1} flexShrink={1} minWidth={10}>
+                            <RowBG active={active}>
+                              <Text wrap="truncate-end">{a.name}</Text>
+                            </RowBG>
+                          </Box>
+                          {/* SYNC (fixed) */}
+                          <Box width={COL.sync}>
+                            <RowBG active={active}>
+                              <Text wrap="truncate" {...colorFor(a.sync)}>
+                                {a.sync}
+                              </Text>
+                            </RowBG>
+                          </Box>
+                          {/* HEALTH (fixed) */}
+                          <Box width={COL.health}>
+                            <RowBG active={active}>
+                              <Text wrap="truncate" {...colorFor(a.health)}>{a.health}</Text>
+                            </RowBG>
+                          </Box>
+                          {/* LAST (fixed) */}
+                          <Box width={COL.last}>
+                            <RowBG active={active}>
+                              <Text wrap="truncate" color="gray">{humanizeSince(a.lastSyncAt)}</Text>
+                            </RowBG>
+                          </Box>
+                        </Box>
+                    );
+                  }
+
+                  // clusters / namespaces / projects → single flex column
+                  const label = String(it);
+                  const isChecked =
+                      (view === 'clusters'   && scopeClusters.has(label)) ||
+                      (view === 'namespaces' && scopeNamespaces.has(label)) ||
+                      (view === 'projects'   && scopeProjects.has(label));
+                  const active = isCursor || isChecked;
+
+                  return (
+                      <Box key={label} width="100%">
+                        <Box flexGrow={1} flexShrink={1} minWidth={10}>
+                          <RowBG active={active}>
+                            <Text wrap="truncate-end">{label}</Text>
+                          </RowBG>
+                        </Box>
+                      </Box>
+                  );
+                })}
+
+                {visibleItems.length === 0 && (
+                    <Box paddingY={1} paddingX={2}>
+                      <Text dimColor>No items.</Text>
+                    </Box>
+                )}
+              </Box>
+          )}
+          <Box flexGrow={1}/>
         </Box>
-      )}
 
-      {mode === 'command' && (
-          <Box borderStyle="round" borderColor="yellow" paddingX={1}>
-            <Text bold color="cyan">CMD</Text>
-            <Box width={1}/>
-            <TextInput
-                value={command}
-                onChange={setCommand}
-                onSubmit={(val) => { setMode('normal'); runCommand(val); setCommand(':'); }}
-            />
-            <Box width={2}/>
-            <Text dimColor>(Enter to run, Esc to cancel)</Text>
+        {/* Bottom tag and status on opposite sides */}
+        <Box justifyContent="space-between">
+          <Box><Text dimColor>{tag}</Text></Box>
+          <Box>
+            <Text dimColor>
+              {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
+            </Text>
           </Box>
-      )}
+        </Box>
 
-      {/* Content area (fills space) */}
-      <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" >
-        {mode === 'help' ? (
-          <Box flexDirection="column" marginTop={1} flexGrow={1}>{helpOverlay}</Box>
-        ) : (
-          <Box flexDirection="column">
-            {/* Header row */}
-            <Box>
-              <Box width={COL.mark}><Text>{' '.repeat(COL.mark)}</Text></Box>
-              <Box width={COL.name}><Text bold color="yellowBright">{'NAME'.padEnd(COL.name)}</Text></Box>
-              {view === 'apps' && (
-                <>
-                  <Box width={COL.sync}><Text bold color="yellowBright">{'SYNC'.padEnd(COL.sync)}</Text></Box>
-                  <Box width={COL.health}><Text bold color="yellowBright">{'HEALTH'.padEnd(COL.health)}</Text></Box>
-                  <Box width={COL.last}><Text bold color="yellowBright">{'LAST SYNC'.padEnd(COL.last)}</Text></Box>
-                </>
+        {/* Confirm sync popup */}
+        {mode === 'confirm-sync' && (
+            <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
+              {confirmTarget === '__MULTI__' ? (
+                  <>
+                    <Text bold>Sync applications?</Text>
+                    <Box marginTop={1}><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
+                  </>
+              ) : (
+                  <>
+                    <Text bold>Sync application?</Text>
+                    <Box marginTop={1}><Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? [y/N]</Text></Box>
+                  </>
               )}
             </Box>
-
-            {/* Rows */}
-            {rowsSlice.map((it:any, i:number) => {
-              const actualIndex = start + i;
-              const isCursor = actualIndex === selectedIdx;
-              if (view === 'apps') {
-                const a = it as AppItem;
-                const isChecked = selectedApps.has(a.name);
-                const active = isCursor || isChecked; // highlight if either
-                const spin = a.health.toLowerCase() === 'progressing' || a.sync.toLowerCase() === 'outofsync';
-                return (
-                  <Box key={a.name}>
-                    <Box width={COL.mark}><RowBG active={isChecked}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
-                    <Box width={COL.name}><RowBG active={active}><Text>{a.name.padEnd(COL.name)}</Text></RowBG></Box>
-                    <Box width={COL.sync}><RowBG active={active}><Text {...colorFor(a.sync)}>{(spin ? `${spinChar} ` : '') + a.sync.padEnd(COL.sync - (spin?2:0))}</Text></RowBG></Box>
-                    <Box width={COL.health}><RowBG active={active}><Text {...colorFor(a.health)}>{a.health.padEnd(COL.health)}</Text></RowBG></Box>
-                    <Box width={COL.last}><RowBG active={active}><Text color="gray">{humanizeSince(a.lastSyncAt).padEnd(COL.last)}</Text></RowBG></Box>
-                  </Box>
-                );
-              }
-              const label = String(it);
-              const isChecked =
-                (view === 'clusters'   && scopeClusters.has(label)) ||
-                (view === 'namespaces' && scopeNamespaces.has(label)) ||
-                (view === 'projects'   && scopeProjects.has(label));
-              const active = isCursor || isChecked;
-              return (
-                <Box key={label}>
-                  <Box width={COL.mark}><RowBG active={isChecked}><Text>{isChecked ? '✓' : ' '}</Text></RowBG></Box>
-                  <Box width={COL.name}><RowBG active={active}><Text>{label.padEnd(COL.name)}</Text></RowBG></Box>
-                </Box>
-              );
-            })}
-
-            {visibleItems.length === 0 && <Box paddingY={1} paddingX={2}><Text dimColor>No items.</Text></Box>}
-          </Box>
         )}
-        {/* Spacer to push bottom lines */}
-        <Box flexGrow={1}/>
+
+        {/* :login popup */}
+        {showLogin && (
+            <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
+              <Text bold>Logging in…</Text>
+              <Box marginTop={1}><Text dimColor>{loginLog || 'Waiting…'}</Text></Box>
+              <Box marginTop={1}><Text dimColor>Close when complete.</Text></Box>
+            </Box>
+        )}
       </Box>
-
-      {/* Bottom tag and status on opposite sides */}
-      <Box justifyContent="space-between">
-        {/* Bottom tag like k9s (left aligned) */}
-        <Box>
-          <Text dimColor>{tag}</Text>
-        </Box>
-
-        {/* Status at bottom (right aligned) */}
-        <Box>
-          <Text dimColor>
-            {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
-          </Text>
-        </Box>
-      </Box>
-
-      {/* Confirm sync popup */}
-      {mode === 'confirm-sync' && (
-        <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
-          {confirmTarget === '__MULTI__' ? (
-            <>
-              <Text bold>Sync applications?</Text>
-              <Box marginTop={1}><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
-            </>
-          ) : (
-            <>
-              <Text bold>Sync application?</Text>
-              <Box marginTop={1}><Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? [y/N]</Text></Box>
-            </>
-          )}
-        </Box>
-      )}
-
-      {/* :login popup */}
-      {showLogin && (
-        <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
-          <Text bold>Logging in…</Text>
-          <Box marginTop={1}><Text dimColor>{loginLog || 'Waiting…'}</Text></Box>
-          <Box marginTop={1}><Text dimColor>Close when complete.</Text></Box>
-        </Box>
-      )}
-    </Box>
   );
 };
 
