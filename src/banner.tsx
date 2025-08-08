@@ -63,7 +63,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
              paddingBottom={paddingBottom || 0}
              alignItems={align}>
             <Text>
-                {chalk.cyan('    _____')}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{chalk.whiteBright(' __   ')}
+                {chalk.cyan('     _____')}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{chalk.whiteBright(' __   ')}
             </Text>
             <Text>
                 {chalk.cyan('  /  _  \\_______  ____   ____') + chalk.whiteBright('   ____ _____   __ ___/  |_ ')}
@@ -78,7 +78,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
                 {chalk.cyan('\\____|__  /__|  \\___  / \\____/')+chalk.whiteBright('|___|  (____  /____/ |__|  ')}
             </Text>
             <Text>
-                {chalk.cyan('        \\/     /_____/             ')+chalk.whiteBright(`\\/     \\/     ${chalk.dim(argonautVersion)}  `)}
+                {chalk.cyan('        \\/     /_____/             ')+chalk.whiteBright(`\\/     \\/      ${chalk.dim(argonautVersion)}  `)}
             </Text>
         </Box>
     );

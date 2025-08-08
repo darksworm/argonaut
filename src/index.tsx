@@ -153,33 +153,88 @@ async function getApiVersion(server: string, token: string): Promise<string> {
   }
 }
 
+// [ADD] Helper: normalize Argo "Application" into AppItem (reuse mapping from listAppsREST)
+function appToItem(a: any): AppItem {
+  const last =
+    a?.status?.history?.[0]?.deployedAt ??
+    a?.status?.operationState?.finishedAt ??
+    a?.status?.reconciledAt ??
+    undefined;
+
+  const dest = a?.spec?.destination ?? {};
+  const name: string | undefined = dest.name; // prefer cluster name if present
+  const serverUrl: string | undefined = dest.server;
+  const id = name || hostFromServer(serverUrl) || undefined;
+  const label = name || hostFromServer(serverUrl) || 'unknown';
+
+  return {
+    name: a?.metadata?.name ?? a?.name ?? '',
+    sync: a?.status?.sync?.status ?? 'Unknown',
+    health: a?.status?.health?.status ?? 'Unknown',
+    lastSyncAt: last,
+    project: a?.spec?.project,
+    clusterId: id,
+    clusterLabel: label,
+    namespace: dest.namespace
+  };
+}
+
 async function listAppsREST(server: string, token: string): Promise<AppItem[]> {
   const data = await api(server, token, '/api/v1/applications').catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-  return items.map((a: any): AppItem => {
-    const last =
-      a?.status?.history?.[0]?.deployedAt ??
-      a?.status?.operationState?.finishedAt ??
-      a?.status?.reconciledAt ??
-      undefined;
+  return items.map((a: any): AppItem => appToItem(a));
+}
 
-    const dest = a?.spec?.destination ?? {};
-    const name: string | undefined = dest.name; // prefer cluster name if present
-    const serverUrl: string | undefined = dest.server;
-    const id = name || hostFromServer(serverUrl) || undefined;
-    const label = name || hostFromServer(serverUrl) || 'unknown';
-
-    return {
-      name: a?.metadata?.name ?? a?.name ?? '',
-      sync: a?.status?.sync?.status ?? 'Unknown',
-      health: a?.status?.health?.status ?? 'Unknown',
-      lastSyncAt: last,
-      project: a?.spec?.project,
-      clusterId: id,
-      clusterLabel: label,
-      namespace: dest.namespace
-    };
-  });
+// [ADD] Streaming client for /api/v1/stream/applications (NDJSON)
+async function watchApps(
+  server: string,
+  token: string,
+  onEvent: (ev: { type?: string; application?: any }) => void,
+  signal?: AbortSignal,
+  params?: Record<string, string | string[]>
+): Promise<void> {
+  const qs = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) v.forEach(x => qs.append(k, x));
+      else qs.set(k, v);
+    }
+  }
+  const url = `${ensureHttps(server)}/api/v1/stream/applications${qs.size ? `?${qs.toString()}` : ''}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal
+  } as RequestInit);
+  if (!res.ok || !res.body) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`watch ${url} → ${res.status} ${res.statusText}${txt ? `: ${txt}` : ''}`);
+  }
+  const reader = (res.body as any).getReader ? (res.body as any).getReader() : (res.body as ReadableStream).getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, idx).trim();
+      buf = buf.slice(idx + 1);
+      if (!line) continue;
+      try {
+        const msg = JSON.parse(line);
+        // schema: { error?: {..}, result?: { type, application } }
+        if (msg?.error) {
+          // pass through as a special event
+          onEvent({ type: 'ERROR', application: { error: msg.error } });
+        } else if (msg?.result) {
+          onEvent(msg.result);
+        }
+      } catch (e) {
+        // ignore malformed lines
+      }
+    }
+  }
 }
 
 async function syncAppREST(server: string, token: string, name: string): Promise<void> {
@@ -339,26 +394,77 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-refresh (apps and API version) — avoid status churn
+  // [NEW EFFECT] Live app updates via streaming + periodic /api/version refresh
   useEffect(() => {
-    const id = setInterval(async () => {
-      try {
-        if (!server || !token) return;
-        const data = await listAppsREST(server, token);
-        setApps(data);
+    if (!server || !token) return;
+    let cancelled = false;
+    let aborter: AbortController | null = null;
+    let reconnectDelay = 1000; // ms (exponential backoff up to 30s)
 
-        // Also refresh API version
-        try {
-          const version = await getApiVersion(server, token);
-          setApiVersion(version);
-        } catch (e) {
-          console.error('Error refreshing API version:', e);
-        }
+    // Seed UI with a one-off list so we have a snapshot immediately
+    (async () => {
+      try {
+        const data = await listAppsREST(server, token);
+        if (!cancelled) setApps(data);
       } catch (e: any) {
-        setStatus(`Refresh error: ${e.message}`);
+        if (!cancelled) setStatus(`Initial load error: ${e.message}`);
       }
-    }, 7000);
-    return () => clearInterval(id);
+    })();
+
+    async function loop() {
+      for (;;) {
+        if (cancelled) return;
+        aborter = new AbortController();
+        setStatus('Live: watching applications…');
+        try {
+          await watchApps(
+            server!,
+            token!,
+            (ev) => {
+              // v1alpha1ApplicationWatchEvent: { type, application }
+              const { type, application } = ev || {};
+              if (!application?.metadata?.name) return;
+              setApps(curr => {
+                const map = new Map(curr.map(a => [a.name, a] as const));
+                if (type === 'DELETED') {
+                  map.delete(application.metadata.name);
+                } else {
+                  map.set(application.metadata.name, appToItem(application));
+                }
+                return Array.from(map.values());
+              });
+            },
+            aborter.signal,
+            // Optional: scope by current UI filters from state if desired
+            undefined
+          );
+          // normal end (unlikely) → reset backoff
+          reconnectDelay = 1000;
+        } catch (e: any) {
+          if (cancelled) return;
+          setStatus(`Watch error: ${e.message}. Reconnecting in ${Math.round(reconnectDelay/1000)}s…`);
+          await new Promise(r => setTimeout(r, reconnectDelay));
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+          continue;
+        }
+      }
+    }
+
+    loop();
+
+    // Periodic API version refresh (1 min)
+    const versionTimer = setInterval(async () => {
+      try {
+        const v = await getApiVersion(server, token);
+        setApiVersion(v);
+      } catch {/* noop */}
+    }, 60000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(versionTimer);
+      aborter?.abort();
+    };
   }, [server, token]);
 
   // Input
