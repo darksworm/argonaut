@@ -9,240 +9,14 @@ import chalk from 'chalk';
 import {execa} from 'execa';
 import ArgoNautBanner from "./banner";
 import packageJson from '../package.json';
-
-// ------------------------------
-// Types
-// ------------------------------
-
-type ArgoContext = {name: string; server: string; user: string};
-type ArgoServer  = {server: string; ['grpc-web']?: boolean; ['grpc-web-root-path']?: string; insecure?: boolean};
-type ArgoUser    = {name: string; ['auth-token']?: string};
-type ArgoCLIConfig = {
-  contexts?: ArgoContext[];
-  servers?: ArgoServer[];
-  users?: ArgoUser[];
-  ['current-context']?: string;
-  ['prompts-enabled']?: boolean;
-};
-
-type AppItem = {
-  name: string;
-  sync: string;
-  health: string;
-  lastSyncAt?: string;   // ISO
-  project?: string;
-  clusterId?: string;    // destination.name OR server host
-  clusterLabel?: string; // pretty label to show (name if present, else host)
-  namespace?: string;
-};
-
-type View = 'clusters' | 'namespaces' | 'projects' | 'apps';
-type Mode = 'normal' | 'loading' | 'search' | 'command' | 'help' | 'confirm-sync';
-
-// ------------------------------
-// Config helpers
-// ------------------------------
-
-const CONFIG_PATH =
-  process.env.ARGOCD_CONFIG ??
-  path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'argocd', 'config');
-
-async function readCLIConfig(): Promise<ArgoCLIConfig | null> {
-  try {
-    const txt = await fs.readFile(CONFIG_PATH, 'utf8');
-    return YAML.parse(txt) as ArgoCLIConfig;
-  } catch {
-    return null;
-  }
-}
-
-async function writeCLIConfig(cfg: ArgoCLIConfig): Promise<void> {
-  await fs.mkdir(path.dirname(CONFIG_PATH), {recursive: true});
-  await fs.writeFile(CONFIG_PATH, YAML.stringify(cfg), {mode: 0o600});
-}
-
-function getCurrentServer(cfg: ArgoCLIConfig | null): string | null {
-  if (!cfg) return null;
-  const name = cfg['current-context'];
-  const ctx = cfg.contexts?.find(c => c.name === name);
-  return ctx?.server ?? null;
-}
-
-function ensureHttps(base: string): string {
-  if (base.startsWith('http://') || base.startsWith('https://')) return base;
-  return `https://${base}`;
-}
-
-// ------------------------------
-// Auth (CLI SSO -> REST token)
-// ------------------------------
-
-async function ensureSSOLogin(server: string): Promise<void> {
-  await execa('argocd', ['login', server, '--sso', '--grpc-web'], {stdio: 'inherit'});
-}
-async function generateTokenViaCLI(): Promise<string> {
-  const {stdout} = await execa('argocd', ['account', 'generate-token', '--duration', '24h']);
-  const tok = stdout.trim();
-  if (!tok) throw new Error('empty token from argocd account generate-token');
-  return tok;
-}
-async function tokenFromConfig(): Promise<string | null> {
-  const cfg = await readCLIConfig();
-  if (!cfg) return null;
-  const current = cfg['current-context'];
-  const ctx = cfg.contexts?.find(c => c.name === current);
-  const userName = ctx?.user;
-  const user = cfg.users?.find(u => u.name === userName);
-  return user?.['auth-token'] ?? null;
-}
-async function ensureToken(server: string): Promise<string> {
-  try {
-    return await generateTokenViaCLI();
-  } catch {
-    const tok = await tokenFromConfig();
-    if (tok) return tok;
-    await ensureSSOLogin(server);
-    const tok2 = await tokenFromConfig();
-    if (tok2) return tok2;
-    throw new Error('No token available after SSO.');
-  }
-}
-
-// ------------------------------
-// REST calls (global fetch)
-// ------------------------------
-
-async function api(server: string, token: string, p: string, init?: RequestInit): Promise<any> {
-  const url = ensureHttps(server) + p;
-  const res = await fetch(url, {
-    method: init?.method ?? 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers || {})
-    },
-    body: init?.body
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`${init?.method ?? 'GET'} ${p} → ${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
-  }
-  if (res.status === 204) return null;
-  const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) return res.json();
-  return res.text();
-}
-
-function hostFromServer(server?: string): string {
-  if (!server) return '';
-  try {
-    const u = new URL(server.startsWith('http') ? server : `https://${server}`);
-    return u.host;
-  } catch {
-    return server;
-  }
-}
-
-async function getApiVersion(server: string, token: string): Promise<string> {
-  try {
-    const data = await api(server, token, '/api/version');
-    return data?.Version || 'Unknown';
-  } catch (e) {
-    console.error('Error fetching API version:', e);
-    return 'Unknown';
-  }
-}
-
-// [ADD] Helper: normalize Argo "Application" into AppItem (reuse mapping from listAppsREST)
-function appToItem(a: any): AppItem {
-  const last =
-    a?.status?.history?.[0]?.deployedAt ??
-    a?.status?.operationState?.finishedAt ??
-    a?.status?.reconciledAt ??
-    undefined;
-
-  const dest = a?.spec?.destination ?? {};
-  const name: string | undefined = dest.name; // prefer cluster name if present
-  const serverUrl: string | undefined = dest.server;
-  const id = name || hostFromServer(serverUrl) || undefined;
-  const label = name || hostFromServer(serverUrl) || 'unknown';
-
-  return {
-    name: a?.metadata?.name ?? a?.name ?? '',
-    sync: a?.status?.sync?.status ?? 'Unknown',
-    health: a?.status?.health?.status ?? 'Unknown',
-    lastSyncAt: last,
-    project: a?.spec?.project,
-    clusterId: id,
-    clusterLabel: label,
-    namespace: dest.namespace
-  };
-}
-
-async function listAppsREST(server: string, token: string): Promise<AppItem[]> {
-  const data = await api(server, token, '/api/v1/applications').catch(() => null as any);
-  const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-  return items.map((a: any): AppItem => appToItem(a));
-}
-
-// [ADD] Streaming client for /api/v1/stream/applications (NDJSON)
-async function watchApps(
-  server: string,
-  token: string,
-  onEvent: (ev: { type?: string; application?: any }) => void,
-  signal?: AbortSignal,
-  params?: Record<string, string | string[]>
-): Promise<void> {
-  const qs = new URLSearchParams();
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      if (Array.isArray(v)) v.forEach(x => qs.append(k, x));
-      else qs.set(k, v);
-    }
-  }
-  const url = `${ensureHttps(server)}/api/v1/stream/applications${qs.size ? `?${qs.toString()}` : ''}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal
-  } as RequestInit);
-  if (!res.ok || !res.body) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`watch ${url} → ${res.status} ${res.statusText}${txt ? `: ${txt}` : ''}`);
-  }
-  const reader = (res.body as any).getReader ? (res.body as any).getReader() : (res.body as ReadableStream).getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, idx).trim();
-      buf = buf.slice(idx + 1);
-      if (!line) continue;
-      try {
-        const msg = JSON.parse(line);
-        // schema: { error?: {..}, result?: { type, application } }
-        if (msg?.error) {
-          // pass through as a special event
-          onEvent({ type: 'ERROR', application: { error: msg.error } });
-        } else if (msg?.result) {
-          onEvent(msg.result);
-        }
-      } catch (e) {
-        // ignore malformed lines
-      }
-    }
-  }
-}
-
-async function syncAppREST(server: string, token: string, name: string): Promise<void> {
-  await api(server, token, `/api/v1/applications/${encodeURIComponent(name)}/sync`, {
-    method: 'POST',
-    body: JSON.stringify({})
-  });
-}
+import type {AppItem, View, Mode} from './types/domain';
+import type {ArgoCLIConfig} from './config/cli-config';
+import {readCLIConfig as readCLIConfigExt, writeCLIConfig as writeCLIConfigExt, getCurrentServer as getCurrentServerExt} from './config/cli-config';
+import {ensureSSOLogin as ensureSSOLoginExt, tokenFromConfig as tokenFromConfigExt, ensureToken as ensureTokenExt} from './auth/token';
+import {getApiVersion as getApiVersionApi} from './api/version';
+import {syncApp, syncApp as syncAppApi} from './api/applications.command';
+import {useApps} from './hooks/useApps';
+import {ensureHttps, hostFromServer} from './config/paths';
 
 // ------------------------------
 // UI helpers
@@ -354,8 +128,8 @@ const App: React.FC = () => {
     (async () => {
       setMode('loading');
       setStatus('Loading ArgoCD config…');
-      const cfg = await readCLIConfig();
-      const srv = getCurrentServer(cfg);
+      const cfg = await readCLIConfigExt();
+      const srv = getCurrentServerExt(cfg);
       if (!srv) {
         setStatus('No server in config. Use :server <host[:port]> then :login');
         setMode('normal'); // show UI to allow entering commands
@@ -364,107 +138,53 @@ const App: React.FC = () => {
       setServer(srv);
 
       try {
-        const tokMaybe = await tokenFromConfig();
+        const tokMaybe = await tokenFromConfigExt();
         if (!tokMaybe) throw new Error('No token in config');
         // Replace sanity request with API version check
-        const version = await getApiVersion(srv, tokMaybe);
+        const version = await getApiVersionApi(srv, tokMaybe);
         setApiVersion(version);
         setToken(tokMaybe);
       } catch {
         setStatus(`Logging into ${srv} via SSO (grpc-web)…`);
-        await ensureSSOLogin(srv);
-        const tok = await ensureToken(srv);
+        await ensureSSOLoginExt(srv);
+        const tok = await ensureTokenExt(srv);
         setToken(tok);
 
         // Fetch API version after login
         try {
-          const version = await getApiVersion(srv, tok);
+          const version = await getApiVersionApi(srv, tok);
           setApiVersion(version);
         } catch (e) {
           console.error('Error fetching API version after login:', e);
         }
       }
 
-      setStatus('Fetching applications…');
-      const data = await listAppsREST(srv, (token ?? (await tokenFromConfig() || '')));
-      setApps(data);
+      // Apps are handled by useApps hook
       setStatus('Ready');
       setMode('normal');
     })().catch(e => { setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`); setMode('normal'); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // [NEW EFFECT] Live app updates via streaming + periodic /api/version refresh
+  // Live data via useApps hook
+  const {apps: liveApps, status: appsStatus} = useApps(server, token);
+
   useEffect(() => {
     if (!server || !token) return;
-    let cancelled = false;
-    let aborter: AbortController | null = null;
-    let reconnectDelay = 1000; // ms (exponential backoff up to 30s)
+    setApps(liveApps);
+    setStatus(appsStatus);
+  }, [server, token, liveApps, appsStatus]);
 
-    // Seed UI with a one-off list so we have a snapshot immediately
-    (async () => {
+  // Periodic API version refresh (1 min)
+  useEffect(() => {
+    if (!server || !token) return;
+    const id = setInterval(async () => {
       try {
-        const data = await listAppsREST(server, token);
-        if (!cancelled) setApps(data);
-      } catch (e: any) {
-        if (!cancelled) setStatus(`Initial load error: ${e.message}`);
-      }
-    })();
-
-    async function loop() {
-      for (;;) {
-        if (cancelled) return;
-        aborter = new AbortController();
-        setStatus('Live: watching applications…');
-        try {
-          await watchApps(
-            server!,
-            token!,
-            (ev) => {
-              // v1alpha1ApplicationWatchEvent: { type, application }
-              const { type, application } = ev || {};
-              if (!application?.metadata?.name) return;
-              setApps(curr => {
-                const map = new Map(curr.map(a => [a.name, a] as const));
-                if (type === 'DELETED') {
-                  map.delete(application.metadata.name);
-                } else {
-                  map.set(application.metadata.name, appToItem(application));
-                }
-                return Array.from(map.values());
-              });
-            },
-            aborter.signal,
-            // Optional: scope by current UI filters from state if desired
-            undefined
-          );
-          // normal end (unlikely) → reset backoff
-          reconnectDelay = 1000;
-        } catch (e: any) {
-          if (cancelled) return;
-          setStatus(`Watch error: ${e.message}. Reconnecting in ${Math.round(reconnectDelay/1000)}s…`);
-          await new Promise(r => setTimeout(r, reconnectDelay));
-          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-          continue;
-        }
-      }
-    }
-
-    loop();
-
-    // Periodic API version refresh (1 min)
-    const versionTimer = setInterval(async () => {
-      try {
-        const v = await getApiVersion(server, token);
+        const v = await getApiVersionApi(server, token);
         setApiVersion(v);
       } catch {/* noop */}
     }, 60000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(versionTimer);
-      aborter?.abort();
-    };
+    return () => clearInterval(id);
   }, [server, token]);
 
   // Input
@@ -658,13 +378,13 @@ const App: React.FC = () => {
     if (is('server')) {
       const host = arg;
       if (!host) { setStatus('Usage: :server <host[:port]>'); return; }
-      const cfg = (await readCLIConfig()) ?? {};
-      const newCfg: ArgoCLIConfig = typeof cfg === 'object' && cfg ? cfg as ArgoCLIConfig : {};
+      const cfg = (await readCLIConfigExt()) ?? {} as any;
+      const newCfg: ArgoCLIConfig = typeof cfg === 'object' && cfg ? cfg as ArgoCLIConfig : {} as ArgoCLIConfig;
       newCfg.contexts = [{name: host, server: host, user: host}];
-      newCfg.servers = [{server: host, ['grpc-web']: true}];
+      newCfg.servers = [{server: host, ['grpc-web']: true} as any];
       newCfg.users = [];
       newCfg['current-context'] = host;
-      await writeCLIConfig(newCfg);
+      await writeCLIConfigExt(newCfg);
       setServer(host); setStatus(`Server set to ${host}. Run :login`);
       return;
     }
@@ -677,14 +397,12 @@ const App: React.FC = () => {
         p.stdout?.on('data', (b:Buffer) => setLoginLog(v => v + b.toString()));
         p.stderr?.on('data', (b:Buffer) => setLoginLog(v => v + b.toString()));
         await p;
-        const tok = await ensureToken(server);
+        const tok = await ensureTokenExt(server);
         setToken(tok);
-        const data = await listAppsREST(server, tok);
-        setApps(data);
 
         // Fetch API version after login
         try {
-          const version = await getApiVersion(server, tok);
+          const version = await getApiVersionApi(server, tok);
           setApiVersion(version);
         } catch (e) {
           console.error('Error fetching API version after login command:', e);
@@ -730,7 +448,7 @@ const App: React.FC = () => {
     if (!server || !token) { setStatus('Not authenticated.'); setMode('normal'); return; }
     try {
       setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
-      for (const n of names) await syncAppREST(server, token, n);
+      for (const n of names) await syncApp(server, token, n);
       setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
     } catch (e:any) {
       setStatus(`Sync failed: ${e.message}`);
