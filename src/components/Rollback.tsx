@@ -119,7 +119,7 @@ export default function Rollback(props: RollbackProps) {
       if (input === 'j' || key.downArrow) { setIdx(i => Math.min(i + 1, Math.max(0, rows.filter(r => filterRollbackRow(r, filter)).length - 1))); return; }
       if (input === 'k' || key.upArrow) { setIdx(i => Math.max(i - 1, 0)); return; }
       if (input.toLowerCase() === 'd') { runRollbackDiff(); return; }
-      if (input.toLowerCase() === 'c' || key.return) { setSubMode('confirm'); return; }
+      if (input.toLowerCase() === 'c' || key.return) { if (idx !== 0) setSubMode('confirm'); return; }
       return;
     }
     if (subMode === 'confirm') {
