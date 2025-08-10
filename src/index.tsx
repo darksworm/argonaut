@@ -18,12 +18,36 @@ import {syncApp, syncApp as syncAppApi} from './api/applications.command';
 import {useApps} from './hooks/useApps';
 import {ensureHttps, hostFromServer} from './config/paths';
 
+// Switch to terminal alternate screen on start, and restore on exit
+(function setupAlternateScreen() {
+  if (typeof process === 'undefined') return;
+  const out = process.stdout as any;
+  const isTTY = !!out && typeof out.isTTY === 'boolean' ? out.isTTY : false;
+  if (!isTTY) return;
+
+  let cleaned = false;
+  const enable = () => { try { out.write("\u001B[?1049h"); } catch {} };
+  const disable = () => {
+    if (cleaned) return; cleaned = true;
+    try { out.write("\u001B[?1049l"); } catch {}
+  };
+
+  enable();
+
+  process.on('exit', disable);
+  process.on('SIGINT', () => { disable(); process.exit(130); });
+  process.on('SIGTERM', () => { disable(); process.exit(143); });
+  process.on('SIGHUP', () => { disable(); process.exit(129); });
+  process.on('uncaughtException', (err) => { disable(); console.error(err); process.exit(1); });
+  process.on('unhandledRejection', (reason) => { disable(); console.error(reason); process.exit(1); });
+})();
+
 // ------------------------------
 // UI helpers
 // ------------------------------
 
-function colorFor(value: string): {color?: any; dimColor?: boolean} {
-  const v = (value || '').toLowerCase();
+function colorFor(appState: string): {color?: any; dimColor?: boolean} {
+  const v = (appState || '').toLowerCase();
   if (v === 'synced' || v === 'healthy') return {color: 'green'};
   if (v === 'outofsync' || v === 'degraded') return {color: 'red'};
   if (v === 'progressing' || v === 'warning' || v === 'suspicious') return {color: 'yellow'};
@@ -84,6 +108,7 @@ const App: React.FC = () => {
   // Layout
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
   const [termCols, setTermCols] = useState(process.stdout.columns || 80);
+
   useEffect(() => {
     const onResize = () => {
       setTermRows(process.stdout.rows || 24);
@@ -569,8 +594,6 @@ const App: React.FC = () => {
       </Box>
     );
   }
-
-  const spinChar = '⠋';
 
   return (
       <Box flexDirection="column" paddingX={1} height={termRows - 1}>
