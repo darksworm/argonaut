@@ -44,7 +44,7 @@ const Help: React.FC<HelpProps> = ({version}) => (
       </Box>
       <Box>
         <Text>
-          :ctx|:contexts|:context • :cls|:clusters|:cluster • :ns|:namespaces|:namespace • :proj|:projects|:project • :apps
+          :cls|:clusters|:cluster • :ns|:namespaces|:namespace • :proj|:projects|:project • :apps
         </Text>
       </Box>
     </Box>

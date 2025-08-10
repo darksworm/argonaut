@@ -11,5 +11,5 @@ export type AppItem = {
   namespace?: string;
 };
 
-export type View = 'contexts' | 'clusters' | 'namespaces' | 'projects' | 'apps';
+export type View = 'clusters' | 'namespaces' | 'projects' | 'apps';
 export type Mode = 'normal' | 'loading' | 'search' | 'command' | 'help' | 'confirm-sync' | 'rollback' | 'rollback-confirm' | 'rollback-progress' | 'external';

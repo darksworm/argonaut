@@ -74,48 +74,16 @@ export const App: React.FC = () => {
     // Rollback overlay controller (app name to open)
     const [rollbackAppName, setRollbackAppName] = useState<string | null>(null);
 
-    // Contexts from ArgoCD config
-    const [contexts, setContexts] = useState<{name: string; server: string; token?: string|null}[]>([]);
-
-
     // Boot & auth
     useEffect(() => {
         (async () => {
             setMode('loading');
             setStatus('Loading ArgoCD config…');
             const cfg = await readCLIConfig();
-            const ctxs = (cfg?.contexts ?? []).map(c => ({ name: c.name, server: c.server }));
-            // Attach tokens to contexts if available
-            const users = cfg?.users ?? [];
-            const withTokens = ctxs.map(c => {
-                const userName = (cfg?.contexts ?? []).find(x => x.name === c.name)?.user;
-                const tok = users.find(u => u.name === userName)?.['auth-token'] ?? null;
-                return {...c, token: tok};
-            });
-            setContexts(withTokens);
 
             const currentSrv = getCurrentServer(cfg);
             if (!currentSrv) {
-                if (withTokens.length === 1) {
-                    const only = withTokens[0];
-                    setServer(only.server);
-                    try {
-                        if (!only.token) throw new Error('No token');
-                        await getUserInfo(only.server, only.token);
-                        const version = await getApiVersionApi(only.server, only.token);
-                        setApiVersion(version);
-                        setToken(only.token);
-                        setStatus('Ready');
-                    } catch {
-                        setToken(null);
-                        setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
-                    }
-                    setView('clusters');
-                    setMode('normal');
-                    return;
-                }
-                setStatus('Select a context to continue (press Space or Enter).');
-                setView('contexts');
+                setStatus('No current context configured in ArgoCD config. Please set `current-context` and login using argocd.');
                 setMode('normal');
                 return;
             }
@@ -263,29 +231,7 @@ export const App: React.FC = () => {
         const val = String(item);
         clearLowerLevelSelections(view);
         
-        if (view === 'contexts') {
-            const ctx = contexts.find(c => c.name === val);
-            if (ctx) {
-                setServer(ctx.server);
-                const t = ctx.token ?? null;
-                // Try validating token; if invalid, show message (don't set token until validated)
-                if (ctx.server) {
-                    (async () => {
-                        try {
-                            if (t) await getUserInfo(ctx.server, t);
-                            else throw new Error('No token');
-                            const v = await getApiVersionApi(ctx.server, t!);
-                            setApiVersion(v);
-                            setToken(t!);
-                            setStatus('Ready');
-                        } catch {
-                            setToken(null);
-                            setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
-                        }
-                    })();
-                }
-            }
-        } else if (view === 'clusters') {
+        if (view === 'clusters') {
             const next = scopeClusters.has(val) ? new Set() : new Set([val]);
             setScopeClusters(next);
             // When a cluster is selected, verify token via userinfo
@@ -327,27 +273,6 @@ export const App: React.FC = () => {
         const next = new Set([val]);
 
         switch (view) {
-            case 'contexts': {
-                const ctx = contexts.find(c => c.name === val);
-                if (ctx) {
-                    setServer(ctx.server);
-                    // Try validation; don't set token until validated
-                    (async () => {
-                        try {
-                            if (!ctx.token) throw new Error('No token');
-                            await getUserInfo(ctx.server, ctx.token);
-                            const v = await getApiVersionApi(ctx.server, ctx.token);
-                            setApiVersion(v);
-                            setStatus('Ready');
-                        } catch {
-                            setToken(null);
-                            setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
-                        }
-                    })();
-                }
-                setView('clusters');
-                return;
-            }
             case 'clusters':
                 setScopeClusters(next);
                 setView('namespaces');
@@ -383,14 +308,6 @@ export const App: React.FC = () => {
             return;
         }
 
-        if (is('context', 'contexts', 'ctx')) {
-            setView('contexts');
-            setSelectedIdx(0);
-            setMode('normal');
-            setActiveFilter('');
-            setSearchQuery('');
-            return;
-        }
         if (is('cluster', 'clusters', 'cls')) {
             setView('clusters');
             setSelectedIdx(0);
@@ -605,8 +522,7 @@ export const App: React.FC = () => {
         const f = (mode === 'search' ? searchQuery : activeFilter).toLowerCase();
         let base: any[];
 
-        if (view === 'contexts') base = contexts.map(c => c.name);
-        else if (view === 'clusters') base = allClusters;
+        if (view === 'clusters') base = allClusters;
         else if (view === 'namespaces') base = allNamespaces;
         else if (view === 'projects') base = allProjects;
         else base = filteredByNs.filter(a => !scopeProjects.size || scopeProjects.has(a.project || ''));
