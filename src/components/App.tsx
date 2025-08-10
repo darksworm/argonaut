@@ -9,16 +9,8 @@ import ArgoNautBanner from "./banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
 import type {ArgoCLIConfig} from '../config/cli-config';
-import {
-    getCurrentServer as getCurrentServerExt,
-    readCLIConfig as readCLIConfigExt,
-    writeCLIConfig as writeCLIConfigExt
-} from '../config/cli-config';
-import {
-    ensureSSOLogin as ensureSSOLoginExt,
-    ensureToken as ensureTokenExt,
-    tokenFromConfig as tokenFromConfigExt
-} from '../auth/token';
+import {getCurrentServer, readCLIConfig, writeCLIConfig} from '../config/cli-config';
+import {ensureSSOLogin, ensureToken, tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
 import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
@@ -90,8 +82,8 @@ export const App: React.FC = () => {
         (async () => {
             setMode('loading');
             setStatus('Loading ArgoCD config…');
-            const cfg = await readCLIConfigExt();
-            const srv = getCurrentServerExt(cfg);
+            const cfg = await readCLIConfig();
+            const srv = getCurrentServer(cfg);
             if (!srv) {
                 setStatus('No server in config. Use :server <host[:port]> then :login');
                 setMode('normal'); // show UI to allow entering commands
@@ -100,7 +92,7 @@ export const App: React.FC = () => {
             setServer(srv);
 
             try {
-                const tokMaybe = await tokenFromConfigExt();
+                const tokMaybe = await tokenFromConfig();
                 if (!tokMaybe) throw new Error('No token in config');
                 // Replace sanity request with API version check
                 const version = await getApiVersionApi(srv, tokMaybe);
@@ -108,8 +100,8 @@ export const App: React.FC = () => {
                 setToken(tokMaybe);
             } catch {
                 setStatus(`Logging into ${srv} via SSO (grpc-web)…`);
-                await ensureSSOLoginExt(srv);
-                const tok = await ensureTokenExt(srv);
+                await ensureSSOLogin(srv);
+                const tok = await ensureToken(srv);
                 setToken(tok);
 
                 // Fetch API version after login
@@ -389,13 +381,13 @@ export const App: React.FC = () => {
                 setStatus('Usage: :server <host[:port]>');
                 return;
             }
-            const cfg = (await readCLIConfigExt()) ?? {} as any;
+            const cfg = (await readCLIConfig()) ?? {} as any;
             const newCfg: ArgoCLIConfig = typeof cfg === 'object' && cfg ? cfg as ArgoCLIConfig : {} as ArgoCLIConfig;
             newCfg.contexts = [{name: host, server: host, user: host}];
             newCfg.servers = [{server: host, ['grpc-web']: true} as any];
             newCfg.users = [];
             newCfg['current-context'] = host;
-            await writeCLIConfigExt(newCfg);
+            await writeCLIConfig(newCfg);
             setServer(host);
             setStatus(`Server set to ${host}. Run :login`);
             return;
@@ -413,7 +405,7 @@ export const App: React.FC = () => {
                 p.stdout?.on('data', (b: Buffer) => setLoginLog(v => v + b.toString()));
                 p.stderr?.on('data', (b: Buffer) => setLoginLog(v => v + b.toString()));
                 await p;
-                const tok = await ensureTokenExt(server);
+                const tok = await ensureToken(server);
                 setToken(tok);
 
                 // Fetch API version after login
@@ -451,7 +443,8 @@ export const App: React.FC = () => {
                 const opened = await runAppDiffSession(server, token, target, {
                     forwardInput: true,
                     onEnterExternal: () => setMode('external'),
-                    onExitExternal: () => {},
+                    onExitExternal: () => {
+                    },
                 });
                 setMode('normal');
                 setStatus(opened ? `Diff closed for ${target}.` : 'No differences.');
@@ -470,8 +463,14 @@ export const App: React.FC = () => {
 
         if (is('rollback')) {
             const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
-            if (!target) { setStatus('No app selected to rollback.'); return; }
-            if (!server || !token) { setStatus('Not authenticated.'); return; }
+            if (!target) {
+                setStatus('No app selected to rollback.');
+                return;
+            }
+            if (!server || !token) {
+                setStatus('Not authenticated.');
+                return;
+            }
             await openRollbackFlow(target);
             return;
         }
@@ -552,29 +551,15 @@ export const App: React.FC = () => {
         setMode('rollback');
     }
 
-    function shortSha(s?: string) { return (s || '').slice(0,7); }
+    function shortSha(s?: string) {
+        return (s || '').slice(0, 7);
+    }
+
     function singleLine(input?: string): string {
         const s = String(input || '');
         // Replace newlines/tabs with spaces and collapse multiple spaces
         return s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
     }
-    function filterRollbackRow(row: any, f: string): boolean {
-        const q = (f || '').toLowerCase();
-        if (!q) return true;
-        const fields = [String(row.id||''), String(row.revision||''), String(row.author||''), String(row.date||''), String(row.message||'')];
-        return fields.some(s => s.toLowerCase().includes(q));
-    }
-
-    async function runRollbackDiff() {
-        // handled inside Rollback component
-        return;
-    }
-
-    async function executeRollback(confirm: boolean) {
-        // handled inside Rollback component
-        return;
-    }
-
 
     // ---------- Derive scopes from apps ----------
     const allClusters = useMemo(() => {
@@ -688,13 +673,17 @@ export const App: React.FC = () => {
                     apiVersion={apiVersion}
                     argonautVersion={packageJson.version}
                 />
-                <Box flexDirection="column" marginTop={1} flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1} flexWrap="nowrap">
+                <Box flexDirection="column" marginTop={1} flexGrow={1} borderStyle="round" borderColor="magenta"
+                     paddingX={1} flexWrap="nowrap">
                     <Box flexDirection="column" marginTop={1} flexGrow={1}>
                         <Rollback
                             app={rollbackAppName}
                             server={server}
                             token={token}
-                            onClose={() => { setMode('normal'); setRollbackAppName(null); }}
+                            onClose={() => {
+                                setMode('normal');
+                                setRollbackAppName(null);
+                            }}
                             humanizeSince={humanizeSince}
                             singleLine={singleLine}
                             shortSha={shortSha}
@@ -708,7 +697,7 @@ export const App: React.FC = () => {
 
     const GUTTER = 1;
     const MIN_NAME = 12;
-    const Sep = () => <Box width={GUTTER} />;
+    const Sep = () => <Box width={GUTTER}/>;
 
     // Single-cell icons (text variant) and ASCII fallback
     const ASCII_ICONS = {
@@ -718,8 +707,19 @@ export const App: React.FC = () => {
         delta: '^',
     } as const;
 
-    const SYNC_LABEL: Record<string,string> = { Synced:'Synced', OutOfSync:'OutOfSync', Unknown:'Unknown', Degraded:'Degraded' };
-    const HEALTH_LABEL: Record<string,string> = { Healthy:'Healthy', Missing:'Missing', Degraded:'Degraded', Progressing:'Progressing', Unknown:'Unknown' };
+    const SYNC_LABEL: Record<string, string> = {
+        Synced: 'Synced',
+        OutOfSync: 'OutOfSync',
+        Unknown: 'Unknown',
+        Degraded: 'Degraded'
+    };
+    const HEALTH_LABEL: Record<string, string> = {
+        Healthy: 'Healthy',
+        Missing: 'Missing',
+        Degraded: 'Degraded',
+        Progressing: 'Progressing',
+        Unknown: 'Unknown'
+    };
 
     // width-aware right pad (right align inside fixed cells)
     const rightPadTo = (s: string, width: number) => {
@@ -734,21 +734,21 @@ export const App: React.FC = () => {
     // Compute if we can show labels based on wide widths
     const fixedNoLastWide = SYNC_WIDE + GUTTER + HEALTH_WIDE;
 
-    const canShowLabels = (cols:number) =>
-        cols >= MIN_NAME + fixedNoLastWide + (2*GUTTER) + overhead + 15;
+    const canShowLabels = (cols: number) =>
+        cols >= MIN_NAME + fixedNoLastWide + (2 * GUTTER) + overhead + 15;
 
     // Effective column widths depending on whether labels are shown
     const SYNC_COL = canShowLabels(termCols) ? SYNC_WIDE : COL.sync;
     const HEALTH_COL = canShowLabels(termCols) ? HEALTH_WIDE : COL.health;
 
-    const SYNC_ICON_ASCII: Record<string,string> = {
+    const SYNC_ICON_ASCII: Record<string, string> = {
         Synced: ASCII_ICONS.check,
         OutOfSync: ASCII_ICONS.delta,
         Unknown: ASCII_ICONS.quest,
         Degraded: ASCII_ICONS.warn,
     };
 
-    const HEALTH_ICON_ASCII: Record<string,string> = {
+    const HEALTH_ICON_ASCII: Record<string, string> = {
         Healthy: ASCII_ICONS.check,
         Missing: ASCII_ICONS.quest,
         Degraded: ASCII_ICONS.warn,
@@ -801,7 +801,11 @@ export const App: React.FC = () => {
                     <TextInput
                         value={command}
                         onChange={setCommand}
-                        onSubmit={(val) => { setMode('normal'); runCommand(val); setCommand(':'); }}
+                        onSubmit={(val) => {
+                            setMode('normal');
+                            runCommand(val);
+                            setCommand(':');
+                        }}
                     />
                     <Box width={2}/>
                     <Text dimColor>(Enter to run, Esc to cancel)</Text>
@@ -816,7 +820,9 @@ export const App: React.FC = () => {
                         <>
                             <Text bold>Sync applications?</Text>
                             <Box>
-                                <Text>Do you want to sync <Text color="magentaBright" bold>({selectedApps.size})</Text> applications? (y/n): </Text>
+                                <Text>Do you want to sync <Text color="magentaBright"
+                                                                bold>({selectedApps.size})</Text> applications? (y/n):
+                                </Text>
                                 <TextInput
                                     value={confirmInput}
                                     onChange={(val) => {
@@ -853,7 +859,8 @@ export const App: React.FC = () => {
                         <>
                             <Text bold>Sync application?</Text>
                             <Box marginTop={1}>
-                                <Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? (y/n): </Text>
+                                <Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>?
+                                    (y/n): </Text>
                                 <TextInput
                                     value={confirmInput}
                                     onChange={(val) => {
@@ -891,9 +898,10 @@ export const App: React.FC = () => {
             )}
 
             {/* Content area (fills space) */}
-            <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1} flexWrap="nowrap">
+            <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1}
+                 flexWrap="nowrap">
                 {mode === 'help' ? (
-                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} /></Box>
+                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version}/></Box>
                 ) : (
                     <Box flexDirection="column">
                         {/* Header row */}
@@ -922,7 +930,7 @@ export const App: React.FC = () => {
                         })()}
 
                         {/* Rows */}
-                        {rowsSlice.map((it:any, i:number) => {
+                        {rowsSlice.map((it: any, i: number) => {
                             const actualIndex = start + i;
                             const isCursor = actualIndex === selectedIdx;
 
@@ -932,7 +940,9 @@ export const App: React.FC = () => {
                                 const active = isCursor || isChecked;
 
                                 return (
-                                    <Box key={a.name} width="100%" backgroundColor={active ? 'magentaBright' : undefined} flexWrap="nowrap" justifyContent={"flex-start"}>
+                                    <Box key={a.name} width="100%"
+                                         backgroundColor={active ? 'magentaBright' : undefined} flexWrap="nowrap"
+                                         justifyContent={"flex-start"}>
                                         {/* NAME (flex) */}
                                         <Box flexGrow={1} flexShrink={1} minWidth={0}>
                                             <Text wrap="truncate-end">{a.name}</Text>
@@ -970,9 +980,9 @@ export const App: React.FC = () => {
                             // clusters / namespaces / projects → single flex column
                             const label = String(it);
                             const isChecked =
-                                (view === 'clusters'   && scopeClusters.has(label)) ||
+                                (view === 'clusters' && scopeClusters.has(label)) ||
                                 (view === 'namespaces' && scopeNamespaces.has(label)) ||
-                                (view === 'projects'   && scopeProjects.has(label));
+                                (view === 'projects' && scopeProjects.has(label));
                             const active = isCursor || isChecked;
 
                             return (
