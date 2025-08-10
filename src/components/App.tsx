@@ -16,7 +16,7 @@ import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
 import Help from './Help';
-import {colorFor, fmtScope, humanizeSince, uniqueSorted} from "../utils";
+import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 
 // Column widths — header and rows use the same numbers
 const COL = {
@@ -120,7 +120,6 @@ export const App: React.FC = () => {
             setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
             setMode('normal');
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Live data via useApps hook
@@ -133,17 +132,9 @@ export const App: React.FC = () => {
         setStatus(appsStatus);
     }, [server, token, liveApps, appsStatus, mode]);
 
-    // Periodic API version refresh (1 min)
     useEffect(() => {
-        if (!server || !token) return;
-        const id = setInterval(async () => {
-            try {
-                const v = await getApiVersionApi(server, token);
-                setApiVersion(v);
-            } catch {/* noop */
-            }
-        }, 60000);
-        return () => clearInterval(id);
+        if(!server || !token) return;
+        getApiVersionApi(server, token).then(setApiVersion)
     }, [server, token]);
 
     const [confirmInput, setConfirmInput] = useState('');
@@ -551,16 +542,6 @@ export const App: React.FC = () => {
         setMode('rollback');
     }
 
-    function shortSha(s?: string) {
-        return (s || '').slice(0, 7);
-    }
-
-    function singleLine(input?: string): string {
-        const s = String(input || '');
-        // Replace newlines/tabs with spaces and collapse multiple spaces
-        return s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-    }
-
     // ---------- Derive scopes from apps ----------
     const allClusters = useMemo(() => {
         const vals = apps.map(a => a.clusterLabel || '').filter(Boolean);
@@ -684,9 +665,6 @@ export const App: React.FC = () => {
                                 setMode('normal');
                                 setRollbackAppName(null);
                             }}
-                            humanizeSince={humanizeSince}
-                            singleLine={singleLine}
-                            shortSha={shortSha}
                         />
                     </Box>
                     <Box flexGrow={1}/>

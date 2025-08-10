@@ -3,6 +3,7 @@ import {Box, Text, useInput} from 'ink';
 import {getApplication as getAppApi, postRollback as postRollbackApi, getRevisionMetadata as getRevisionMetadataApi} from '../api/rollback';
 import {watchApps} from '../api/applications.query';
 import {runRollbackDiffSession} from './DiffView';
+import {humanizeSince, shortSha, singleLine} from "../utils";
 
 export type RollbackRow = {
   id: number;
@@ -19,14 +20,10 @@ interface RollbackProps {
   server: string | null;
   token: string | null;
   onClose: () => void;
-  // helper fns from parent to avoid duplicating logic
-  humanizeSince: (iso?: string) => string;
-  singleLine: (s?: string) => string;
-  shortSha: (s?: string) => string;
 }
 
 export default function Rollback(props: RollbackProps) {
-  const {app, server, token, onClose, humanizeSince, singleLine, shortSha} = props;
+  const {app, server, token, onClose} = props;
 
   type SubMode = 'list' | 'confirm' | 'progress';
   const [subMode, setSubMode] = useState<SubMode>('list');

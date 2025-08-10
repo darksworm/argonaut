@@ -35,3 +35,13 @@ export function fmtScope(set: Set<string>, max = 2): string {
     if (arr.length <= max) return arr.join(',');
     return `${arr.slice(0, max).join(',')} (+${arr.length - max})`;
 }
+
+export function shortSha(s?: string) {
+    return (s || '').slice(0, 7);
+}
+
+export function singleLine(input?: string): string {
+    const s = String(input || '');
+    // Replace newlines/tabs with spaces and collapse multiple spaces
+    return s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
