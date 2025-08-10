@@ -482,41 +482,18 @@ const App: React.FC = () => {
         const desiredFile = await writeTmp(desiredDocs, `${target}-desired`);
         const liveFile = await writeTmp(liveDocs, `${target}-live`);
 
-        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
-        const cmd = process.platform === 'win32'
-          ? `$ErrorActionPreference = 'SilentlyContinue';
-$hasDyff = Get-Command dyff -ErrorAction SilentlyContinue;
-$hasLess = Get-Command less -ErrorAction SilentlyContinue;
-if ($hasDyff) {
-  if ($hasLess) { $env:LESS='-R'; dyff between "${desiredFile}" "${liveFile}" | & less -R }
-  else {
-    if (Get-Command more -ErrorAction SilentlyContinue) { dyff between "${desiredFile}" "${liveFile}" | more }
-    else { dyff between "${desiredFile}" "${liveFile}" }
-    Write-Host ''; Write-Host '[Press q or ESC to close]';
-    while ($true) { $k = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown'); if ($k.Character -eq 'q' -or $k.Character -eq 'Q' -or $k.VirtualKeyCode -eq 27) { break } }
-  }
-} else {
-  if ($hasLess) { $env:LESS='-R'; git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | & less -R }
-  else {
-    if (Get-Command more -ErrorAction SilentlyContinue) { git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | more }
-    else { git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" }
-    Write-Host ''; Write-Host '[Press q or ESC to close]';
-    while ($true) { $k = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown'); if ($k.Character -eq 'q' -or $k.Character -eq 'Q' -or $k.VirtualKeyCode -eq 27) { break } }
-  }
-}`
-          : `if command -v dyff >/dev/null 2>&1; then
-  CMD='dyff between "${desiredFile}" "${liveFile}"'
+        const shell = 'bash';
+        const cmd = `if command -v dyff >/dev/null 2>&1; then
+  CMD='dyff between --omit-header "${desiredFile}" "${liveFile}"'
 else
   CMD='git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}"'
 fi
-if command -v less >/dev/null 2>&1; then
-  eval "$CMD" | LESS='-R' less -R
-else
-  eval "$CMD"
-  echo
-  echo "[Press q or ESC to close]"
-  while true; do IFS= read -rsn1 key; if [ "$key" = $'\e' ] || [ "$key" = 'q' ] || [ "$key" = 'Q' ]; then break; fi; done
-fi`;
+# Print directly to the terminal to preserve colors and use terminal scrollback instead of less
+# macOS ships an old less which often drops colors; avoiding it here improves UX
+eval "$CMD"
+echo
+echo "[Press q or ESC to close] (Tip: use your terminal scrollback to browse the diff)"
+while true; do IFS= read -rsn1 key; if [ "$key" = $'\e' ] || [ "$key" = 'q' ] || [ "$key" = 'Q' ]; then break; fi; done`;
         const args = process.platform === 'win32' ? ['-Command', cmd] : ['-lc', cmd];
 
         // Run the diff inside a proper PTY so interactive input works reliably
