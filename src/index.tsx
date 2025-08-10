@@ -723,8 +723,12 @@ fi
         }
         try {
             setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
-            for (const n of names) await syncApp(server, token, n);
+            for (const n of names) syncApp(server, token, n);
             setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
+            // After syncing multiple apps, clear the selection
+            if (isMulti) {
+                setSelectedApps(new Set());
+            }
         } catch (e: any) {
             setStatus(`Sync failed: ${e.message}`);
         }
