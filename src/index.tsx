@@ -8,7 +8,7 @@ import YAML from 'yaml';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import {execa} from 'execa';
-import {spawn as ptySpawn, IPty} from 'node-pty';
+import {spawn as ptySpawn} from 'node-pty';
 import ArgoNautBanner from "./banner";
 import packageJson from '../package.json';
 import type {AppItem, View, Mode} from './types/domain';
