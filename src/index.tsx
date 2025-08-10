@@ -485,29 +485,24 @@ const App: React.FC = () => {
         const desiredFile = await writeTmp(desiredDocs, `${target}-desired`);
         const liveFile = await writeTmp(liveDocs, `${target}-live`);
 
-        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
-        const cols = (process.stdout as any)?.columns || 80; // keep this near your PTY spawn
+        const shell = 'bash';
+        const cols = (process.stdout as any)?.columns || 80;
+        const pager = process.platform === 'darwin' ? "less -r -+X -K" : "less -R -+X -K";
+
         const cmd = `
 set -e
 if command -v delta >/dev/null 2>&1; then
-  # delta can diff files directly; set a pager that preserves color
-  if [[ "$OSTYPE" == darwin* ]]; then
-    delta --paging=always --pager='less -r -+X -K' --line-numbers --width=${cols} "${desiredFile}" "${liveFile}"
-  else
-    delta --paging=always --pager='less -R -+X -K' --line-numbers --width=${cols} "${desiredFile}" "${liveFile}"
-  fi
-elif command -v dyff >/dev/null 2>&1; then
-  dyff between --omit-header "${desiredFile}" "${liveFile}" | \
-    ( [[ "$OSTYPE" == darwin* ]] && less -r -+X -K || less -R -+X -K )
+  # Use delta directly; force paging, keep colors; ignore nonzero exit meaning "has diffs"
+  DELTA_PAGER='${pager}' delta --paging=always --line-numbers --side-by-side --width=${cols} "${desiredFile}" "${liveFile}" || true
 else
-  # fallback: git diff -> delta (if present) or less
-  git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | \
-    ( command -v delta >/dev/null 2>&1 && \
-      delta --paging=always --pager="$( [[ "$OSTYPE" == darwin* ]] && echo 'less -r -+X -K' || echo 'less -R -+X -K' )" --width=${cols} \
-      || ( [[ "$OSTYPE" == darwin* ]] && less -r -+X -K || less -R -+X -K ) )
+  # Fallback: git diff with colors piped to less (mac uses -r, linux uses -R)
+  PAGER='${pager}'
+  if ! command -v less >/dev/null 2>&1; then
+    PAGER='sh -c "cat; printf \\"\\n[Press Enter to close] \\"; read -r _"'
+  fi
+  git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | eval "$PAGER" || true
 fi
-`;
-        // --- PTY session (no alt-screen toggling here) ---
+`;      // --- PTY session (no alt-screen toggling here) ---
         setMode('external');
 
         const args = process.platform === 'win32'
