@@ -17,7 +17,6 @@ import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
 import Help from './Help';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
-import {set} from "yaml/dist/schema/yaml-1.1/set";
 
 // Column widths — header and rows use the same numbers
 const COL = {
