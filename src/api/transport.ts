@@ -24,7 +24,8 @@ export async function api(base: string, token: string, path: string, init?: Requ
   const res = await fetch(url, {
     method: init?.method ?? 'GET',
     headers: baseHeaders,
-    body: init?.body
+    body: init?.body,
+    signal: init?.signal
   });
   if (!res.ok) throw new Error(`${init?.method ?? 'GET'} ${path} → ${res.status} ${res.statusText}`);
   return res.headers.get('content-type')?.includes('json') ? res.json() : res.text();

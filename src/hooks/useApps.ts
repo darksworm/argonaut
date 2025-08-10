@@ -9,15 +9,15 @@ export function useApps(server: string|null, token: string|null) {
 
   useEffect(() => {
     if (!server || !token) return;
-    let cancelled = false, abort = false;
+    const controller = new AbortController();
+    let cancelled = false;
     (async () => {
       setStatus('Loading…');
       try {
-        const items = (await listApps(server, token)).map(appToItem);
+        const items = (await listApps(server, token, controller.signal)).map(appToItem);
         if (!cancelled) setApps(items);
         setStatus('Live');
-        for await (const ev of watchApps(server, token)) {
-          if (abort) break;
+        for await (const ev of watchApps(server, token, undefined, controller.signal)) {
           const {type, application} = ev || {} as any;
           // @ts-expect-error minimal runtime guard
           if (!application?.metadata?.name) continue;
@@ -29,10 +29,14 @@ export function useApps(server: string|null, token: string|null) {
           });
         }
       } catch (e: any) {
+        if (controller.signal.aborted) {
+          // Silent on abort
+          return;
+        }
         setStatus(`Error: ${e?.message || String(e)}`);
       }
     })();
-    return () => { cancelled = true; abort = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [server, token]);
 
   return {apps, status};
