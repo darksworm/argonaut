@@ -652,7 +652,8 @@ fi
 
   // ---------- Height calc (full-screen, exact) ----------
   const BORDER_LINES = 2;
-  const HEADER_CONTEXT = 1;
+  // Reserve enough lines for the top banner/logo (ASCII logo is 6 lines in wide mode)
+  const HEADER_CONTEXT = 6;
   const SEARCH_LINES = (mode === 'search') ? 1 : 0;
   const TABLE_HEADER_LINES = 1;
   const TAG_LINE = 1;      // <clusters>
