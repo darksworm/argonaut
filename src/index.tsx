@@ -701,17 +701,16 @@ fi
     }
 
     async function confirmSync(yes: boolean) {
+        setMode('normal');
         const isMulti = confirmTarget === '__MULTI__';
         const names = isMulti ? Array.from(selectedApps) : [confirmTarget!];
         setConfirmTarget(null);
         if (!yes) {
-            setMode('normal');
             setStatus('Sync cancelled.');
             return;
         }
         if (!server || !token) {
             setStatus('Not authenticated.');
-            setMode('normal');
             return;
         }
         try {
@@ -721,7 +720,6 @@ fi
         } catch (e: any) {
             setStatus(`Sync failed: ${e.message}`);
         }
-        setMode('normal');
     }
 
     // ---------- Derive scopes from apps ----------
@@ -864,7 +862,7 @@ fi
     } as const;
 
     const SYNC_LABEL: Record<string,string> = { Synced:'Synced', OutOfSync:'OutOfSync', Unknown:'Unknown', Degraded:'Degraded' };
-    const HEALTH_LABEL: Record<string,string> = { Healthy:'Healthy', Missing:'Missing', Degraded:'Degraded', Progressing:'Prog', Unknown:'Unknown' };
+    const HEALTH_LABEL: Record<string,string> = { Healthy:'Healthy', Missing:'Missing', Degraded:'Degraded', Progressing:'Progressing', Unknown:'Unknown' };
 
     // width-aware right pad (right align inside fixed cells)
     const rightPadTo = (s: string, width: number) => {
@@ -873,7 +871,7 @@ fi
     };
 
     const SYNC_WIDE = 11; // width when showing icon + label
-    const HEALTH_WIDE = 10; // width when showing icon + label
+    const HEALTH_WIDE = 14; // width when showing icon + label
     const overhead = 6; // borders/padding fudge
 
     // Compute if we can show labels based on wide widths
@@ -950,6 +948,23 @@ fi
                     />
                     <Box width={2}/>
                     <Text dimColor>(Enter to run, Esc to cancel)</Text>
+                </Box>
+            )}
+
+            {/* Confirm sync popup */}
+            {mode === 'confirm-sync' && (
+                <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
+                    {confirmTarget === '__MULTI__' ? (
+                        <>
+                            <Text bold>Sync applications?</Text>
+                            <Box><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
+                        </>
+                    ) : (
+                        <>
+                            <Text bold>Sync application?</Text>
+                            <Box marginTop={1}><Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? [y/N]</Text></Box>
+                        </>
+                    )}
                 </Box>
             )}
 
@@ -1066,23 +1081,6 @@ fi
                     </Text>
                 </Box>
             </Box>
-
-            {/* Confirm sync popup */}
-            {mode === 'confirm-sync' && (
-                <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
-                    {confirmTarget === '__MULTI__' ? (
-                        <>
-                            <Text bold>Sync applications?</Text>
-                            <Box><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
-                        </>
-                    ) : (
-                        <>
-                            <Text bold>Sync application?</Text>
-                            <Box marginTop={1}><Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? [y/N]</Text></Box>
-                        </>
-                    )}
-                </Box>
-            )}
 
             {/* :login popup */}
             {showLogin && (
