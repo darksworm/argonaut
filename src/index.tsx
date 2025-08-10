@@ -268,6 +268,8 @@ const App: React.FC = () => {
         return () => clearInterval(id);
     }, [server, token]);
 
+    const [confirmInput, setConfirmInput] = useState('');
+
     // Input
     useInput((input, key) => {
         if (mode === 'external') return;
@@ -297,12 +299,12 @@ const App: React.FC = () => {
             return; // TextInput handles typing/enter
         }
         if (mode === 'confirm-sync') {
-            if (input.toLowerCase() === 'y' || key.return) {
-                confirmSync(true);
-            }
-            if (input.toLowerCase() === 'n' || key.escape) {
+            // Esc or 'q' aborts immediately
+            if (key.escape || input.toLowerCase() === 'q') {
                 confirmSync(false);
+                return;
             }
+            // All other handling is done via TextInput onSubmit in the confirm dialog
             return;
         }
 
@@ -672,11 +674,13 @@ fi
             // Prefer explicit arg; otherwise if multiple apps are selected, confirm multi-sync.
             if (arg) {
                 setConfirmTarget(arg);
+                setConfirmInput('');
                 setMode('confirm-sync');
                 return;
             }
             if (selectedApps.size > 1) {
                 setConfirmTarget(`__MULTI__`);
+                setConfirmInput('');
                 setMode('confirm-sync');
                 return;
             }
@@ -688,6 +692,7 @@ fi
                 return;
             }
             setConfirmTarget(target);
+            setConfirmInput('');
             setMode('confirm-sync');
             return;
         }
@@ -969,12 +974,76 @@ fi
                     {confirmTarget === '__MULTI__' ? (
                         <>
                             <Text bold>Sync applications?</Text>
-                            <Box><Text>Do you want to sync <Text color="magentaBright" bold>({selectedApps.size})</Text> applications? [y/N]</Text></Box>
+                            <Box>
+                                <Text>Do you want to sync <Text color="magentaBright" bold>({selectedApps.size})</Text> applications? (y/n): </Text>
+                                <TextInput
+                                    value={confirmInput}
+                                    onChange={(val) => {
+                                        const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+                                        // Allow only prefixes of y/yes or n/no
+                                        if (/^(y(es?)?|n(o?)?)?$/.test(filtered)) {
+                                            // Limit to max length of the longest allowed word
+                                            setConfirmInput(filtered.slice(0, 3));
+                                        }
+                                        // else ignore invalid characters (do not update state)
+                                    }}
+                                    onSubmit={(val) => {
+                                        const t = (val || '').trim().toLowerCase();
+                                        // reset input each submit
+                                        setConfirmInput('');
+                                        if (t === 'y' || t === 'yes') {
+                                            confirmSync(true);
+                                            return;
+                                        }
+                                        if (t === 'n' || t === 'no') {
+                                            confirmSync(false);
+                                            return;
+                                        }
+                                        if (t === '') {
+                                            // Do nothing on empty submit
+                                            return;
+                                        }
+                                        // Ignore any other input, stay in confirm mode
+                                    }}
+                                />
+                            </Box>
                         </>
                     ) : (
                         <>
                             <Text bold>Sync application?</Text>
-                            <Box marginTop={1}><Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? [y/N]</Text></Box>
+                            <Box marginTop={1}>
+                                <Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? (y/n): </Text>
+                                <TextInput
+                                    value={confirmInput}
+                                    onChange={(val) => {
+                                        const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+                                        // Allow only prefixes of y/yes or n/no
+                                        if (/^(y(es?)?|n(o?)?)?$/.test(filtered)) {
+                                            // Limit to max length of the longest allowed word
+                                            setConfirmInput(filtered.slice(0, 3));
+                                        }
+                                        // else ignore invalid characters (do not update state)
+                                    }}
+                                    onSubmit={(val) => {
+                                        const t = (val || '').trim().toLowerCase();
+                                        // reset input each submit
+                                        setConfirmInput('');
+                                        if (t === 'y' || t === 'yes') {
+                                            confirmSync(true);
+                                            return;
+                                        }
+                                        if (t === 'n' || t === 'no') {
+                                            confirmSync(false);
+                                            return;
+                                        }
+                                        if (t === '') {
+                                            // Do nothing on empty submit
+                                            return;
+                                        }
+                                        // Ignore any other input, stay in confirm mode
+                                    }}
+                                />
+                            </Box>
                         </>
                     )}
                 </Box>
