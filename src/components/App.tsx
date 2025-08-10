@@ -18,7 +18,6 @@ import Rollback from './Rollback';
 import Help from './Help';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 
-// Column widths — header and rows use the same numbers
 const COL = {
     mark: 2,
     name: 36,
