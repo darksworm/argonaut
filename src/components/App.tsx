@@ -1,5 +1,5 @@
-import React, {useEffect, useMemo, useState, useRef} from 'react';
-import {render, Box, Text, useApp, useInput} from 'ink';
+import React, {useEffect, useMemo, useState} from 'react';
+import {Box, Text, useApp, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
@@ -7,64 +7,24 @@ import {execa} from 'execa';
 import {runAppDiffSession} from './DiffView';
 import ArgoNautBanner from "./banner";
 import packageJson from '../../package.json';
-import type {AppItem, View, Mode} from '../types/domain';
+import type {AppItem, Mode, View} from '../types/domain';
 import type {ArgoCLIConfig} from '../config/cli-config';
 import {
+    getCurrentServer as getCurrentServerExt,
     readCLIConfig as readCLIConfigExt,
-    writeCLIConfig as writeCLIConfigExt,
-    getCurrentServer as getCurrentServerExt
+    writeCLIConfig as writeCLIConfigExt
 } from '../config/cli-config';
 import {
     ensureSSOLogin as ensureSSOLoginExt,
-    tokenFromConfig as tokenFromConfigExt,
-    ensureToken as ensureTokenExt
+    ensureToken as ensureTokenExt,
+    tokenFromConfig as tokenFromConfigExt
 } from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
 import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
-
-// ------------------------------
-// UI helpers
-// ------------------------------
-
-function colorFor(appState: string): { color?: any; dimColor?: boolean } {
-    const v = (appState || '').toLowerCase();
-    if (v === 'synced' || v === 'healthy') return {color: 'green'};
-    if (v === 'outofsync' || v === 'degraded') return {color: 'red'};
-    if (v === 'progressing' || v === 'warning' || v === 'suspicious') return {color: 'yellow'};
-    if (v === 'unknown') return {dimColor: true};
-    return {};
-}
-
-function humanizeSince(iso?: string): string {
-    if (!iso) return '—';
-    const t = new Date(iso).getTime();
-    if (!Number.isFinite(t)) return '—';
-    const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
-    if (s < 60) return `${s}s`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h`;
-    const d = Math.floor(h / 24);
-    if (d < 30) return `${d}d`;
-    const mo = Math.floor(d / 30);
-    if (mo < 12) return `${mo}mo`;
-    const y = Math.floor(mo / 12);
-    return `${y}y`;
-}
-
-function uniqueSorted<T>(arr: T[]): T[] {
-    return Array.from(new Set(arr)).sort((a: any, b: any) => `${a}`.localeCompare(`${b}`));
-}
-
-function fmtScope(set: Set<string>, max = 2): string {
-    if (!set.size) return '—';
-    const arr = Array.from(set);
-    if (arr.length <= max) return arr.join(',');
-    return `${arr.slice(0, max).join(',')} (+${arr.length - max})`;
-}
+import Help from './Help';
+import {colorFor, fmtScope, humanizeSince, uniqueSorted} from "../utils";
 
 // Column widths — header and rows use the same numbers
 const COL = {
@@ -694,36 +654,6 @@ export const App: React.FC = () => {
 
     const tag = activeFilter && view === 'apps' ? `<${view}:${activeFilter}>` : `<${view}>`;
 
-    const helpOverlay = (
-        <Box flexDirection="column" paddingX={2} paddingY={1}>
-            <Box justifyContent="center"><Text color="magentaBright" paddingRight={1}
-                                               bold>Argonaut {packageJson.version}</Text></Box>
-            <Box marginTop={1}>
-                <Box width={24}><Text color="green" bold>GENERAL</Text></Box>
-                <Box><Text><Text color="cyan">:</Text> command • <Text color="cyan">/</Text> search • <Text
-                    color="cyan">?</Text> help</Text></Box>
-            </Box>
-            <Box marginTop={1}>
-                <Box width={24}><Text color="green" bold>NAV</Text></Box>
-                <Box><Text><Text color="cyan">j/k</Text> up/down • <Text color="cyan">Space</Text> select • <Text
-                    color="cyan">Enter</Text> drill down</Text></Box>
-            </Box>
-            <Box marginTop={1}>
-                <Box width={24}><Text color="green" bold>VIEWS</Text></Box>
-                <Box><Text>:cls|:clusters|:cluster • :ns|:namespaces|:namespace • :proj|:projects|:project •
-                    :apps</Text></Box>
-            </Box>
-            <Box marginTop={1}>
-                <Box width={24}><Text color="green" bold>ACTIONS</Text></Box>
-                <Box><Text>:sync [app] • :rollback [app]</Text></Box>
-            </Box>
-            <Box marginTop={1}>
-                <Box width={24}><Text color="green" bold>MISC</Text></Box>
-                <Box><Text>:server HOST[:PORT] • :login • :clear • :all • :q</Text></Box>
-            </Box>
-            <Box marginTop={1}><Text dimColor>Press ? or Esc to close</Text></Box>
-        </Box>
-    );
 
     // Loading screen fills the viewport
     if (mode === 'loading') {
@@ -963,7 +893,7 @@ export const App: React.FC = () => {
             {/* Content area (fills space) */}
             <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1} flexWrap="nowrap">
                 {mode === 'help' ? (
-                    <Box flexDirection="column" marginTop={1} flexGrow={1}>{helpOverlay}</Box>
+                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} /></Box>
                 ) : (
                     <Box flexDirection="column">
                         {/* Header row */}
