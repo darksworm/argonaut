@@ -17,6 +17,7 @@ import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
 import Help from './Help';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
+import {set} from "yaml/dist/schema/yaml-1.1/set";
 
 // Column widths — header and rows use the same numbers
 const COL = {
@@ -250,50 +251,38 @@ export const App: React.FC = () => {
     function drillDown() {
         const item = visibleItems[selectedIdx];
         if (item == null) return;
-        if (view === 'clusters') {
-            const val = String(item);
-            // Only allow single selection - create a new Set with just this item
-            const next = new Set([val]);
-            setScopeClusters(next);
-            // Clear lower-level selections when navigating from clusters
-            setScopeNamespaces(new Set());
-            setScopeProjects(new Set());
-            setSelectedApps(new Set());
-            // Clear search query and active filter when changing views
-            setActiveFilter('');
-            setSearchQuery('');
-            setView('namespaces');
-            setSelectedIdx(0);
-            return;
+
+        setSelectedIdx(0);
+        setActiveFilter('');
+        setSearchQuery('');
+
+        const val = String(item);
+        const next = new Set([val]);
+
+        const emptySet = new Set<string>();
+
+        switch (view) {
+            case 'clusters':
+                setScopeNamespaces(emptySet);
+            case 'namespaces':
+                setScopeProjects(emptySet);
+            case 'projects':
+                setSelectedApps(emptySet);
         }
-        if (view === 'namespaces') {
-            const ns = String(item);
-            // Only allow single selection - create a new Set with just this item
-            const next = new Set([ns]);
-            setScopeNamespaces(next);
-            // Clear lower-level selections when navigating from namespaces
-            setScopeProjects(new Set());
-            setSelectedApps(new Set());
-            // Clear search query and active filter when changing views
-            setActiveFilter('');
-            setSearchQuery('');
-            setView('projects');
-            setSelectedIdx(0);
-            return;
-        }
-        if (view === 'projects') {
-            const proj = String(item);
-            // Only allow single selection - create a new Set with just this item
-            const next = new Set([proj]);
-            setScopeProjects(next);
-            // Clear lower-level selections when navigating from projects
-            setSelectedApps(new Set());
-            // Clear search query and active filter when changing views
-            setActiveFilter('');
-            setSearchQuery('');
-            setView('apps');
-            setSelectedIdx(0);
-            return;
+
+        switch (view) {
+            case 'clusters':
+                setScopeClusters(next);
+                setView('namespaces');
+                return;
+            case 'namespaces':
+                setScopeNamespaces(next);
+                setView('projects');
+                return;
+            case 'projects':
+                setScopeProjects(next);
+                setView('apps');
+                return;
         }
     }
 
