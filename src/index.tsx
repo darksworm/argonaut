@@ -662,8 +662,11 @@ fi
   const OVERHEAD = BORDER_LINES + HEADER_CONTEXT + SEARCH_LINES + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES + COMMAND_LINES;
 
   const availableRows = Math.max(0, termRows - OVERHEAD);
-  const start = Math.max(0, Math.min(Math.max(0, selectedIdx - Math.floor(availableRows / 2)), Math.max(0, visibleItems.length - availableRows)));
-  const end = Math.min(visibleItems.length, start + availableRows);
+  // When the command or search bar is open, show one less app row to avoid pushing the last row into the border area
+  const barOpenExtra = (mode === 'search' || mode === 'command') ? 1 : 0;
+  const listRows = Math.max(0, availableRows - barOpenExtra);
+  const start = Math.max(0, Math.min(Math.max(0, selectedIdx - Math.floor(listRows / 2)), Math.max(0, visibleItems.length - listRows)));
+  const end = Math.min(visibleItems.length, start + listRows);
   const rowsSlice = visibleItems.slice(start, end);
 
   const tag = activeFilter && view === 'apps' ? `<${view}:${activeFilter}>` : `<${view}>`;
