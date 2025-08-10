@@ -218,33 +218,34 @@ export const App: React.FC = () => {
         if (input === ' ') toggleSelection();
     });
 
+    function clearLowerLevelSelections(view: View) {
+        const emptySet = new Set();
+        switch (view) {
+            case 'clusters':
+                setScopeNamespaces(emptySet);
+            case 'namespaces':
+                setScopeProjects(emptySet);
+            case 'projects':
+                setSelectedApps(emptySet);
+        }
+    }
+
     function toggleSelection() {
         const item = visibleItems[selectedIdx];
         if (item == null) return;
+        
+        const val = String(item);
+        clearLowerLevelSelections(view);
+        
         if (view === 'clusters') {
-            const val = String(item);
-            // Only allow single selection - create a new Set with just this item or empty if already selected
             const next = scopeClusters.has(val) ? new Set() : new Set([val]);
             setScopeClusters(next);
-            // Clear lower-level selections when cluster selection changes
-            setScopeNamespaces(new Set());
-            setScopeProjects(new Set());
-            setSelectedApps(new Set());
         } else if (view === 'namespaces') {
-            const ns = String(item);
-            // Only allow single selection - create a new Set with just this item or empty if already selected
-            const next = scopeNamespaces.has(ns) ? new Set() : new Set([ns]);
+            const next = scopeNamespaces.has(val) ? new Set() : new Set([val]);
             setScopeNamespaces(next);
-            // Clear lower-level selections when namespace selection changes
-            setScopeProjects(new Set());
-            setSelectedApps(new Set());
         } else if (view === 'projects') {
-            const proj = String(item);
-            // Only allow single selection - create a new Set with just this item or empty if already selected
-            const next = scopeProjects.has(proj) ? new Set() : new Set([proj]);
+            const next = scopeProjects.has(val) ? new Set() : new Set([val]);
             setScopeProjects(next);
-            // Clear lower-level selections when project selection changes
-            setSelectedApps(new Set());
         } else if (view === 'apps') {
             const app = (item as AppItem).name;
             const next = new Set(selectedApps);
@@ -260,20 +261,10 @@ export const App: React.FC = () => {
         setSelectedIdx(0);
         setActiveFilter('');
         setSearchQuery('');
+        clearLowerLevelSelections(view);
 
         const val = String(item);
         const next = new Set([val]);
-
-        const emptySet = new Set<string>();
-
-        switch (view) {
-            case 'clusters':
-                setScopeNamespaces(emptySet);
-            case 'namespaces':
-                setScopeProjects(emptySet);
-            case 'projects':
-                setSelectedApps(emptySet);
-        }
 
         switch (view) {
             case 'clusters':
