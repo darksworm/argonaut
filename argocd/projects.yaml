@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: hogwarts
+  namespace: argocd
+spec:
+  description: "Harry Potter — core"
+  destinations:
+  - namespace: hogwarts-dev
+    name: cluster-magic
+  - namespace: hogwarts-staging
+    name: cluster-magic
+  - namespace: hogwarts-qa
+    name: cluster-magic
+  - namespace: hogwarts-prod
+    name: cluster-magic
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: diagon
+  namespace: argocd
+spec:
+  description: "Harry Potter — Diagon Alley"
+  destinations:
+  - namespace: diagon-dev
+    name: cluster-magic
+  - namespace: diagon-staging
+    name: cluster-magic
+  - namespace: diagon-qa
+    name: cluster-magic
+  - namespace: diagon-prod
+    name: cluster-magic
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: hitchhiker
+  namespace: argocd
+spec:
+  description: "Hitchhiker's Guide — core"
+  destinations:
+  - namespace: hitchhiker-dev
+    name: cluster-scifi
+  - namespace: hitchhiker-staging
+    name: cluster-scifi
+  - namespace: hitchhiker-qa
+    name: cluster-scifi
+  - namespace: hitchhiker-prod
+    name: cluster-scifi
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: megadodo
+  namespace: argocd
+spec:
+  description: "Hitchhiker's Guide — Megadodo Publications"
+  destinations:
+  - namespace: megadodo-dev
+    name: cluster-scifi
+  - namespace: megadodo-staging
+    name: cluster-scifi
+  - namespace: megadodo-qa
+    name: cluster-scifi
+  - namespace: megadodo-prod
+    name: cluster-scifi
+  sourceRepos:
+  - '*'

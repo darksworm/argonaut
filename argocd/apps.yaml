@@ -1,0 +1,107 @@
+# apps-normal.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nerdy-demo
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # everything except the slow/broken ones
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: owlery}
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: potions}
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: quidditch}
+      - {project: hogwarts, namespace: hogwarts-qa,      cluster: cluster-magic, service: aurors}
+      - {project: hogwarts, namespace: hogwarts-qa,      cluster: cluster-magic, service: patronus}
+      - {project: hogwarts, namespace: hogwarts-prod,    cluster: cluster-magic, service: spellbook}
+      - {project: hogwarts, namespace: hogwarts-prod,    cluster: cluster-magic, service: room-of-requirement}
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: basilisk}
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: floo}
+
+      - {project: diagon, namespace: diagon-dev,     cluster: cluster-magic, service: ollivanders}
+      - {project: diagon, namespace: diagon-staging, cluster: cluster-magic, service: leaky-cauldron}
+      - {project: diagon, namespace: diagon-staging, cluster: cluster-magic, service: flourish-blotts}
+      - {project: diagon, namespace: diagon-qa,      cluster: cluster-magic, service: weasleys-wizard-wheezes}
+      - {project: diagon, namespace: diagon-qa,      cluster: cluster-magic, service: nocturn-alley}
+      - {project: diagon, namespace: diagon-prod,    cluster: cluster-magic, service: quality-quidditch}
+      - {project: diagon, namespace: diagon-prod,    cluster: cluster-magic, service: madam-malkins}
+      - {project: diagon, namespace: diagon-dev,     cluster: cluster-magic, service: eyelops-owl-emporium}
+      - {project: diagon, namespace: diagon-staging, cluster: cluster-magic, service: daily-prophet}
+
+      - {project: hitchhiker, namespace: hitchhiker-dev,     cluster: cluster-scifi, service: heart-of-gold}
+      - {project: hitchhiker, namespace: hitchhiker-staging, cluster: cluster-scifi, service: babel-fish}
+      - {project: hitchhiker, namespace: hitchhiker-staging, cluster: cluster-scifi, service: magrathea}
+      - {project: hitchhiker, namespace: hitchhiker-qa,      cluster: cluster-scifi, service: improbability-drive}
+      - {project: hitchhiker, namespace: hitchhiker-prod,    cluster: cluster-scifi, service: arthur-dent}
+      - {project: hitchhiker, namespace: hitchhiker-prod,    cluster: cluster-scifi, service: zaphod}
+      - {project: hitchhiker, namespace: hitchhiker-dev,     cluster: cluster-scifi, service: trillian}
+      - {project: hitchhiker, namespace: hitchhiker-staging, cluster: cluster-scifi, service: vogons}
+
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: guide}
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: towel}
+      - {project: megadodo, namespace: megadodo-staging, cluster: cluster-scifi, service: pan-galactic-gargle-blaster}
+      - {project: megadodo, namespace: megadodo-staging, cluster: cluster-scifi, service: slartibartfast}
+      - {project: megadodo, namespace: megadodo-qa,      cluster: cluster-scifi, service: krikkit}
+      - {project: megadodo, namespace: megadodo-prod,    cluster: cluster-scifi, service: zarniwoop}
+      - {project: megadodo, namespace: megadodo-prod,    cluster: cluster-scifi, service: hactar}
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: sirius-cybernetics}
+      - {project: megadodo, namespace: megadodo-staging, cluster: cluster-scifi, service: mostly-harmless}
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+    spec:
+      project: '{{project}}'
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: guestbook
+        targetRevision: HEAD
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'
+---
+# apps-special.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nerdy-demo-special
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: ministry, type: slow}
+      - {project: diagon,   namespace: diagon-dev,       cluster: cluster-magic, service: gringotts, type: slow}
+      - {project: hitchhiker, namespace: hitchhiker-dev, cluster: cluster-scifi, service: deep-thought, type: slow}
+      - {project: megadodo, namespace: megadodo-qa,      cluster: cluster-scifi, service: milliways, type: slow}
+      - {project: hitchhiker, namespace: hitchhiker-qa,  cluster: cluster-scifi, service: ford-prefect, type: broken}
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+    spec:
+      project: '{{project}}'
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        targetRevision: HEAD
+        path: kustomize-guestbook
+        kustomize:
+          patches:
+            - target:
+                kind: Deployment
+                name: guestbook-ui
+              patch: |-
+                {{ if eq .type "slow" -}}
+                - op: add
+                  path: /spec/template/spec/initContainers
+                  value:
+                    - name: wait-30s
+                      image: busybox
+                      command: ["sh","-c","sleep 30"]
+                {{ else if eq .type "broken" -}}
+                - op: add
+                  path: /spec/template/spec/containers/0/command
+                  value: ["sh","-c","echo Broken on purpose; exit 1"]
+                {{ end -}}
