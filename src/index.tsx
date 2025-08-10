@@ -485,6 +485,12 @@ const App: React.FC = () => {
         const desiredFile = await writeTmp(desiredDocs, `${target}-desired`);
         const liveFile = await writeTmp(liveDocs, `${target}-live`);
 
+        try {
+          await execa('git', ['--no-pager','diff','--no-index','--quiet','--', desiredFile, liveFile]);
+          setStatus('No differences.');
+          return;
+        } catch { /* has diffs: continue */ }
+
         const shell = 'bash';
         const cols = (process.stdout as any)?.columns || 80;
         const pager = process.platform === 'darwin' ? "less -r -+X -K" : "less -R -+X -K";

@@ -4,6 +4,8 @@ import type {ApplicationWatchEvent, ArgoApplication} from '../types/argo';
 export type ResourceDiff = {
   liveState?: string;
   targetState?: string;
+  name?: string;
+  namespace?: string;
 };
 
 export async function listApps(server: string, token: string, signal?: AbortSignal): Promise<ArgoApplication[]> {
