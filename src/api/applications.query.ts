@@ -1,10 +1,22 @@
 import {api} from './transport';
 import type {ApplicationWatchEvent, ArgoApplication} from '../types/argo';
 
+export type ResourceDiff = {
+  liveState?: string;
+  targetState?: string;
+};
+
 export async function listApps(server: string, token: string, signal?: AbortSignal): Promise<ArgoApplication[]> {
   const data: any = await api(server, token, '/api/v1/applications', { signal } as RequestInit).catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   return items as ArgoApplication[];
+}
+
+export async function getManagedResourceDiffs(server: string, token: string, appName: string, signal?: AbortSignal): Promise<ResourceDiff[]> {
+  const path = `/api/v1/applications/${encodeURIComponent(appName)}/managed-resources`;
+  const data: any = await api(server, token, path, { signal } as RequestInit).catch(() => null as any);
+  const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+  return items as ResourceDiff[];
 }
 
 // Async generator: yields {type, application}

@@ -7,6 +7,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import chalk from 'chalk';
 import {execa} from 'execa';
+import {spawn as ptySpawn, IPty} from 'node-pty';
 import ArgoNautBanner from "./banner";
 import packageJson from '../package.json';
 import type {AppItem, View, Mode} from './types/domain';
@@ -14,9 +15,9 @@ import type {ArgoCLIConfig} from './config/cli-config';
 import {readCLIConfig as readCLIConfigExt, writeCLIConfig as writeCLIConfigExt, getCurrentServer as getCurrentServerExt} from './config/cli-config';
 import {ensureSSOLogin as ensureSSOLoginExt, tokenFromConfig as tokenFromConfigExt, ensureToken as ensureTokenExt} from './auth/token';
 import {getApiVersion as getApiVersionApi} from './api/version';
-import {syncApp, syncApp as syncAppApi} from './api/applications.command';
+import {syncApp} from './api/applications.command';
 import {useApps} from './hooks/useApps';
-import {ensureHttps, hostFromServer} from './config/paths';
+import {getManagedResourceDiffs} from './api/applications.query';
 
 // Switch to terminal alternate screen on start, and restore on exit
 (function setupAlternateScreen() {
@@ -96,6 +97,25 @@ const COL = {
 function RowBG({active, children}:{active:boolean; children:React.ReactNode}) {
   // Only handle text color when active/checked, background is handled at the row level
   return <Text color={active ? 'black' : undefined}>{children}</Text>;
+}
+
+// Utilities for diff command
+function toYamlDoc(input?: string): string | null {
+  if (!input) return null;
+  try {
+    const obj = JSON.parse(input);
+    return YAML.stringify(obj, { lineWidth: 120 } as any);
+  } catch {
+    // assume already YAML
+    return input;
+  }
+}
+
+async function writeTmp(docs: string[], label: string): Promise<string> {
+  const file = path.join(os.tmpdir(), `${label}-${Date.now()}.yaml`);
+  const content = docs.filter(Boolean).join("\n---\n");
+  await fs.writeFile(file, content, 'utf8');
+  return file;
 }
 
 // ------------------------------
@@ -214,6 +234,7 @@ const App: React.FC = () => {
 
   // Input
   useInput((input, key) => {
+    if (mode === 'external') return;
     if (mode === 'help') {
       if (input === '?' || key.escape) setMode('normal');
       return;
@@ -438,6 +459,94 @@ const App: React.FC = () => {
         setStatus(`Login failed: ${e.message}`);
       } finally {
         setShowLogin(false);
+      }
+      return;
+    }
+
+    if (is('diff')) {
+      const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
+      if (!target) { setStatus('No app selected to diff.'); return; }
+      if (!server || !token) { setStatus('Not authenticated.'); return; }
+      try {
+        setMode('normal');
+        setStatus(`Preparing diff for ${target}…`);
+        const diffs = await getManagedResourceDiffs(server, token, target).catch(() => [] as any[]);
+        const desiredDocs: string[] = [];
+        const liveDocs: string[] = [];
+        for (const d of diffs as any[]) {
+          const tgt = toYamlDoc(d?.targetState);
+          const live = toYamlDoc(d?.liveState);
+          if (tgt) desiredDocs.push(tgt);
+          if (live) liveDocs.push(live);
+        }
+        const desiredFile = await writeTmp(desiredDocs, `${target}-desired`);
+        const liveFile = await writeTmp(liveDocs, `${target}-live`);
+
+        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+        const cmd = process.platform === 'win32'
+          ? `$ErrorActionPreference = 'SilentlyContinue';
+$hasDyff = Get-Command dyff -ErrorAction SilentlyContinue;
+$hasLess = Get-Command less -ErrorAction SilentlyContinue;
+if ($hasDyff) {
+  if ($hasLess) { $env:LESS='-R'; dyff between "${desiredFile}" "${liveFile}" | & less -R }
+  else {
+    if (Get-Command more -ErrorAction SilentlyContinue) { dyff between "${desiredFile}" "${liveFile}" | more }
+    else { dyff between "${desiredFile}" "${liveFile}" }
+    Write-Host ''; Write-Host '[Press q or ESC to close]';
+    while ($true) { $k = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown'); if ($k.Character -eq 'q' -or $k.Character -eq 'Q' -or $k.VirtualKeyCode -eq 27) { break } }
+  }
+} else {
+  if ($hasLess) { $env:LESS='-R'; git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | & less -R }
+  else {
+    if (Get-Command more -ErrorAction SilentlyContinue) { git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | more }
+    else { git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" }
+    Write-Host ''; Write-Host '[Press q or ESC to close]';
+    while ($true) { $k = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown'); if ($k.Character -eq 'q' -or $k.Character -eq 'Q' -or $k.VirtualKeyCode -eq 27) { break } }
+  }
+}`
+          : `if command -v dyff >/dev/null 2>&1; then
+  CMD='dyff between "${desiredFile}" "${liveFile}"'
+else
+  CMD='git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}"'
+fi
+if command -v less >/dev/null 2>&1; then
+  eval "$CMD" | LESS='-R' less -R
+else
+  eval "$CMD"
+  echo
+  echo "[Press q or ESC to close]"
+  while true; do IFS= read -rsn1 key; if [ "$key" = $'\e' ] || [ "$key" = 'q' ] || [ "$key" = 'Q' ]; then break; fi; done
+fi`;
+        const args = process.platform === 'win32' ? ['-Command', cmd] : ['-lc', cmd];
+
+        // Run the diff inside a proper PTY so interactive input works reliably
+        setMode('external');
+        const cols = (process.stdout as any)?.columns || 80;
+        const rows = (process.stdout as any)?.rows || 24;
+        const pty = ptySpawn(shell, args as any, { name: 'xterm-color', cols, rows, cwd: process.cwd(), env: { ...(process.env as any), LESS: '-R', GIT_PAGER: 'cat' } as any });
+        const onResize = () => {
+          try { pty.resize((process.stdout as any)?.columns || 80, (process.stdout as any)?.rows || 24); } catch {}
+        };
+        const onPtyData = (data: string) => { try { process.stdout.write(data); } catch {} };
+        pty.onData(onPtyData);
+        process.stdout.on('resize', onResize);
+        const stdinAny = process.stdin as any;
+        // Ensure stdin is in a working state for the PTY session
+        try { stdinAny.resume?.(); } catch {}
+        try { stdinAny.setRawMode?.(true); } catch {}
+        const onStdin = (chunk: Buffer) => { try { pty.write(chunk.toString()); } catch {} };
+        process.stdin.on('data', onStdin);
+        await new Promise<void>((resolve) => { pty.onExit(() => resolve()); });
+        // Cleanup temporary handlers
+        try { process.stdin.off('data', onStdin); } catch {}
+        try { process.stdout.off('resize', onResize); } catch {}
+        // Force raw mode back on and resume to make sure Ink receives input again
+        try { stdinAny.setRawMode?.(true); } catch {}
+        try { stdinAny.resume?.(); } catch {}
+        setMode('normal');
+        setStatus(`Diff closed for ${target}.`);
+      } catch (e:any) {
+        setStatus(`Diff failed: ${e?.message || String(e)}`);
       }
       return;
     }
