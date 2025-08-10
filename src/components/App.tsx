@@ -1,83 +1,28 @@
 import React, {useEffect, useMemo, useState, useRef} from 'react';
 import {render, Box, Text, useApp, useInput} from 'ink';
 import TextInput from 'ink-text-input';
-import os from 'node:os';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import YAML from 'yaml';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import {execa} from 'execa';
-import {spawn as ptySpawn} from 'node-pty';
+import {runAppDiffSession} from './DiffView';
 import ArgoNautBanner from "./banner";
-import packageJson from '../package.json';
-import type {AppItem, View, Mode} from './types/domain';
-import type {ArgoCLIConfig} from './config/cli-config';
+import packageJson from '../../package.json';
+import type {AppItem, View, Mode} from '../types/domain';
+import type {ArgoCLIConfig} from '../config/cli-config';
 import {
     readCLIConfig as readCLIConfigExt,
     writeCLIConfig as writeCLIConfigExt,
     getCurrentServer as getCurrentServerExt
-} from './config/cli-config';
+} from '../config/cli-config';
 import {
     ensureSSOLogin as ensureSSOLoginExt,
     tokenFromConfig as tokenFromConfigExt,
     ensureToken as ensureTokenExt
-} from './auth/token';
-import {getApiVersion as getApiVersionApi} from './api/version';
-import {syncApp} from './api/applications.command';
-import {useApps} from './hooks/useApps';
-import {getManagedResourceDiffs} from './api/applications.query';
-import Rollback from './components/Rollback';
-
-// Switch to terminal alternate screen on start, and restore on exit
-(function setupAlternateScreen() {
-    if (typeof process === 'undefined') return;
-    const out = process.stdout as any;
-    const isTTY = !!out && typeof out.isTTY === 'boolean' ? out.isTTY : false;
-    if (!isTTY) return;
-
-    let cleaned = false;
-    const enable = () => {
-        try {
-            out.write("\u001B[?1049h");
-        } catch {
-        }
-    };
-    const disable = () => {
-        if (cleaned) return;
-        cleaned = true;
-        try {
-            out.write("\u001B[?1049l");
-        } catch {
-        }
-    };
-
-    enable();
-
-    process.on('exit', disable);
-    process.on('SIGINT', () => {
-        disable();
-        process.exit(130);
-    });
-    process.on('SIGTERM', () => {
-        disable();
-        process.exit(143);
-    });
-    process.on('SIGHUP', () => {
-        disable();
-        process.exit(129);
-    });
-    process.on('uncaughtException', (err) => {
-        disable();
-        console.error(err);
-        process.exit(1);
-    });
-    process.on('unhandledRejection', (reason) => {
-        disable();
-        console.error(reason);
-        process.exit(1);
-    });
-})();
+} from '../auth/token';
+import {getApiVersion as getApiVersionApi} from '../api/version';
+import {syncApp} from '../api/applications.command';
+import {useApps} from '../hooks/useApps';
+import Rollback from './Rollback';
 
 // ------------------------------
 // UI helpers
@@ -129,30 +74,7 @@ const COL = {
     health: 6,
 } as const;
 
-// Utilities for diff command
-function toYamlDoc(input?: string): string | null {
-    if (!input) return null;
-    try {
-        const obj = JSON.parse(input);
-        return YAML.stringify(obj, {lineWidth: 120} as any);
-    } catch {
-        // assume already YAML
-        return input;
-    }
-}
-
-async function writeTmp(docs: string[], label: string): Promise<string> {
-    const file = path.join(os.tmpdir(), `${label}-${Date.now()}.yaml`);
-    const content = docs.filter(Boolean).join("\n---\n");
-    await fs.writeFile(file, content, 'utf8');
-    return file;
-}
-
-// ------------------------------
-// Main Ink component
-// ------------------------------
-
-const App: React.FC = () => {
+export const App: React.FC = () => {
     const {exit} = useApp();
 
     // Layout
@@ -566,105 +488,13 @@ const App: React.FC = () => {
                 setMode('normal');
                 setStatus(`Preparing diff for ${target}…`);
 
-                const diffs = await getManagedResourceDiffs(server, token, target).catch(() => [] as any[]);
-                const desiredDocs: string[] = [];
-                const liveDocs: string[] = [];
-                for (const d of diffs as any[]) {
-                    const tgt = toYamlDoc(d?.targetState);
-                    const live = toYamlDoc(d?.liveState);
-                    if (tgt) desiredDocs.push(tgt);
-                    if (live) liveDocs.push(live);
-                }
-                const desiredFile = await writeTmp(desiredDocs, `${target}-desired`);
-                const liveFile = await writeTmp(liveDocs, `${target}-live`);
-
-                try {
-                    await execa('git', ['--no-pager', 'diff', '--no-index', '--quiet', '--', desiredFile, liveFile]);
-                    setStatus('No differences.');
-                    return;
-                } catch { /* has diffs: continue */
-                }
-
-                const shell = 'bash';
-                const cols = (process.stdout as any)?.columns || 80;
-                const pager = process.platform === 'darwin' ? "less -r -+X -K" : "less -R -+X -K";
-
-                const cmd = `
-set -e
-if command -v delta >/dev/null 2>&1; then
-  # Use delta directly; force paging, keep colors; ignore nonzero exit meaning "has diffs"
-  DELTA_PAGER='${pager}' delta --paging=always --line-numbers --side-by-side --width=${cols} "${liveFile}" "${desiredFile}"|| true
-else
-  # Fallback: git diff with colors piped to less (mac uses -r, linux uses -R)
-  PAGER='${pager}'
-  if ! command -v less >/dev/null 2>&1; then
-    PAGER='sh -c "cat; printf \\"\\n[Press Enter to close] \\"; read -r _"'
-  fi
-  git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | eval "$PAGER" || true
-fi
-`;      // --- PTY session (no alt-screen toggling here) ---
-                setMode('external');
-
-                const args = process.platform === 'win32'
-                    ? ['-NoProfile', '-NonInteractive', '-Command', cmd]
-                    : ['-lc', cmd];
-
-                const rows = (process.stdout as any)?.rows || 24;
-
-                const pty = ptySpawn(shell, args as any, {
-                    name: 'xterm-256color',
-                    cols, rows,
-                    cwd: process.cwd(),
-                    env: {...(process.env as any), COLORTERM: 'truecolor'} as any
+                const opened = await runAppDiffSession(server, token, target, {
+                    forwardInput: true,
+                    onEnterExternal: () => setMode('external'),
+                    onExitExternal: () => {},
                 });
-
-                const onResize = () => {
-                    try {
-                        pty.resize((process.stdout as any)?.columns || 80, (process.stdout as any)?.rows || 24);
-                    } catch {
-                    }
-                };
-                const onPtyData = (data: string) => {
-                    try {
-                        process.stdout.write(data);
-                    } catch {
-                    }
-                };
-                pty.onData(onPtyData);
-                process.stdout.on('resize', onResize);
-
-                const stdinAny = process.stdin as any;
-                try {
-                    stdinAny.resume?.();
-                    stdinAny.setRawMode?.(true);
-                } catch {
-                }
-                const onStdin = (chunk: Buffer) => {
-                    try {
-                        pty.write(chunk.toString('utf8'));
-                    } catch {
-                    }
-                };
-                process.stdin.on('data', onStdin);
-
-                await new Promise<void>((resolve) => {
-                    pty.onExit(() => resolve());
-                });
-
-                // cleanup
-                try {
-                    process.stdin.off('data', onStdin);
-                    process.stdout.off('resize', onResize);
-                } catch {
-                }
-                try {
-                    stdinAny.setRawMode?.(true);
-                    stdinAny.resume?.();
-                } catch {
-                }
-
                 setMode('normal');
-                setStatus(`Diff closed for ${target}.`);
+                setStatus(opened ? `Diff closed for ${target}.` : 'No differences.');
             } catch (e: any) {
                 try {
                     const stdinAny = process.stdin as any;
@@ -1255,5 +1085,3 @@ fi
         </Box>
     );
 };
-
-render(<App/>);

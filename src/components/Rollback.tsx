@@ -1,13 +1,8 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
-import os from 'node:os';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import YAML from 'yaml';
-import {execa} from 'execa';
-import {spawn as ptySpawn} from 'node-pty';
-import {getApplication as getAppApi, getManifests as getManifestsApi, postRollback as postRollbackApi, getRevisionMetadata as getRevisionMetadataApi} from '../api/rollback';
+import {getApplication as getAppApi, postRollback as postRollbackApi, getRevisionMetadata as getRevisionMetadataApi} from '../api/rollback';
 import {watchApps} from '../api/applications.query';
+import {runRollbackDiffSession} from './DiffView';
 
 export type RollbackRow = {
   id: number;
@@ -148,42 +143,8 @@ export default function Rollback(props: RollbackProps) {
     const row = rows[idx];
     if (!row) { setError('No selection to diff.'); return; }
     try {
-      const current = await getManifestsApi(server, token, app).catch(() => []);
-      const target = await getManifestsApi(server, token, app, row.revision).catch(() => []);
-      const currentDocs = current.map(toYamlDoc).filter(Boolean) as string[];
-      const targetDocs = target.map(toYamlDoc).filter(Boolean) as string[];
-      const currentFile = await writeTmp(currentDocs, `${app}-current`);
-      const targetFile = await writeTmp(targetDocs, `${app}-target-${row.id}`);
-
-      // Try quiet diff first, bail if no diffs
-      try { await execa('git', ['--no-pager','diff','--no-index','--quiet','--', currentFile, targetFile]); setError('No differences.'); return; } catch {}
-
-      const shell = 'bash';
-      const cols = (process.stdout as any)?.columns || 80;
-      const pager = process.platform === 'darwin' ? "less -r -+X -K" : "less -R -+X -K";
-      const cmd = `
-:set -e
-if command -v delta >/dev/null 2>&1; then
-  DELTA_PAGER='${pager}' delta --paging=always --line-numbers --side-by-side --width=${cols} "${currentFile}" "${targetFile}" || true
-else
-  PAGER='${pager}'
-  if ! command -v less >/dev/null 2>&1; then
-    PAGER='sh -c "cat; printf \"\\n[Press Enter to close] \"; read -r _"'
-  fi
-  git --no-pager diff --no-index --color=always -- "${currentFile}" "${targetFile}" | eval "$PAGER" || true
-fi
-`;
-      const args = process.platform === 'win32' ? ['-NoProfile','-NonInteractive','-Command', cmd] : ['-lc', cmd];
-      const pty = ptySpawn(shell, args as any, { name:'xterm-256color', cols:(process.stdout as any)?.columns||80, rows:(process.stdout as any)?.rows||24, cwd:process.cwd(), env:{...(process.env as any), COLORTERM:'truecolor'} as any });
-      const onResize = () => { try { pty.resize((process.stdout as any)?.columns||80, (process.stdout as any)?.rows||24); } catch {} };
-      const onPtyData = (data: string) => { try { process.stdout.write(data); } catch {} };
-      pty.onData(onPtyData);
-      process.stdout.on('resize', onResize);
-      const stdinAny = process.stdin as any;
-      try { stdinAny.resume?.(); stdinAny.setRawMode?.(false);} catch {}
-      await new Promise<void>(resolve => { pty.onExit(() => resolve()); });
-      try { process.stdout.off('resize', onResize); } catch {}
-      try { stdinAny.setRawMode?.(true); stdinAny.resume?.(); } catch {}
+      const opened = await runRollbackDiffSession(server, token, app, row.revision, { forwardInput: true });
+      if (!opened) setError('No differences.');
     } catch (e: any) {
       setError(`Diff failed: ${e?.message || String(e)}`);
     }
@@ -358,22 +319,4 @@ function filterRollbackRow(row: RollbackRow, f: string): boolean {
   if (!q) return true;
   const fields = [String(row.id || ''), String(row.revision || ''), String(row.author || ''), String(row.date || ''), String(row.message || '')];
   return fields.some((s) => s.toLowerCase().includes(q));
-}
-
-function toYamlDoc(input?: string): string | null {
-  if (!input) return null;
-  try {
-    const obj = JSON.parse(input);
-    return YAML.stringify(obj, {lineWidth: 120} as any);
-  } catch {
-    // assume already YAML
-    return input;
-  }
-}
-
-async function writeTmp(docs: string[], label: string): Promise<string> {
-  const file = path.join(os.tmpdir(), `${label}-${Date.now()}.yaml`);
-  const content = docs.filter(Boolean).join("\n---\n");
-  await fs.writeFile(file, content, 'utf8');
-  return file;
 }
