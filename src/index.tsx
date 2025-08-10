@@ -669,17 +669,25 @@ fi
         }
 
         if (is('sync')) {
-            const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
-            if (!target && selectedApps.size === 0) {
-                setStatus('No app selected to sync.');
-                return;
-            }
-            if (target) {
-                setConfirmTarget(target);
+            // Prefer explicit arg; otherwise if multiple apps are selected, confirm multi-sync.
+            if (arg) {
+                setConfirmTarget(arg);
                 setMode('confirm-sync');
                 return;
             }
-            setConfirmTarget(`__MULTI__`);
+            if (selectedApps.size > 1) {
+                setConfirmTarget(`__MULTI__`);
+                setMode('confirm-sync');
+                return;
+            }
+            // Fallback to current cursor app (apps view) or the single selected app (if exactly one is selected)
+            const target = (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined)
+                || (selectedApps.size === 1 ? Array.from(selectedApps)[0] : undefined);
+            if (!target) {
+                setStatus('No app selected to sync.');
+                return;
+            }
+            setConfirmTarget(target);
             setMode('confirm-sync');
             return;
         }
@@ -957,7 +965,7 @@ fi
                     {confirmTarget === '__MULTI__' ? (
                         <>
                             <Text bold>Sync applications?</Text>
-                            <Box><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
+                            <Box><Text>Do you want to sync <Text color="magentaBright" bold>({selectedApps.size})</Text> applications? [y/N]</Text></Box>
                         </>
                     ) : (
                         <>
