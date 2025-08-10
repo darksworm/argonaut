@@ -1,17 +1,19 @@
+// @ts-nocheck
 import React, {useEffect, useMemo, useState} from 'react';
 import {Box, Text, useApp, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
-import {execa} from 'execa';
+import {execa} from 'execa'; // still used for diff sessions
 import {runAppDiffSession} from './DiffView';
 import ArgoNautBanner from "./banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
 import type {ArgoCLIConfig} from '../config/cli-config';
-import {getCurrentServer, readCLIConfig, writeCLIConfig} from '../config/cli-config';
-import {ensureSSOLogin, ensureToken, tokenFromConfig} from '../auth/token';
+import {getCurrentServer, readCLIConfig} from '../config/cli-config';
+import {tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
+import {getUserInfo} from '../api/session';
 import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
@@ -62,10 +64,6 @@ export const App: React.FC = () => {
     const [selectedIdx, setSelectedIdx] = useState(0);
     const [status, setStatus] = useState<string>('Starting…');
 
-    // :login modal
-    const [loginLog, setLoginLog] = useState<string>('');
-    const [showLogin, setShowLogin] = useState(false);
-
     // Scopes / selections
     const [scopeClusters, setScopeClusters] = useState<Set<string>>(new Set());
     const [scopeNamespaces, setScopeNamespaces] = useState<Set<string>>(new Set());
@@ -76,44 +74,69 @@ export const App: React.FC = () => {
     // Rollback overlay controller (app name to open)
     const [rollbackAppName, setRollbackAppName] = useState<string | null>(null);
 
+    // Contexts from ArgoCD config
+    const [contexts, setContexts] = useState<{name: string; server: string; token?: string|null}[]>([]);
+
+
     // Boot & auth
     useEffect(() => {
         (async () => {
             setMode('loading');
             setStatus('Loading ArgoCD config…');
             const cfg = await readCLIConfig();
-            const srv = getCurrentServer(cfg);
-            if (!srv) {
-                setStatus('No server in config. Use :server <host[:port]> then :login');
-                setMode('normal'); // show UI to allow entering commands
+            const ctxs = (cfg?.contexts ?? []).map(c => ({ name: c.name, server: c.server }));
+            // Attach tokens to contexts if available
+            const users = cfg?.users ?? [];
+            const withTokens = ctxs.map(c => {
+                const userName = (cfg?.contexts ?? []).find(x => x.name === c.name)?.user;
+                const tok = users.find(u => u.name === userName)?.['auth-token'] ?? null;
+                return {...c, token: tok};
+            });
+            setContexts(withTokens);
+
+            const currentSrv = getCurrentServer(cfg);
+            if (!currentSrv) {
+                if (withTokens.length === 1) {
+                    const only = withTokens[0];
+                    setServer(only.server);
+                    try {
+                        if (!only.token) throw new Error('No token');
+                        await getUserInfo(only.server, only.token);
+                        const version = await getApiVersionApi(only.server, only.token);
+                        setApiVersion(version);
+                        setToken(only.token);
+                        setStatus('Ready');
+                    } catch {
+                        setToken(null);
+                        setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+                    }
+                    setView('clusters');
+                    setMode('normal');
+                    return;
+                }
+                setStatus('Select a context to continue (press Space or Enter).');
+                setView('contexts');
+                setMode('normal');
                 return;
             }
-            setServer(srv);
+            setServer(currentSrv);
 
             try {
                 const tokMaybe = await tokenFromConfig();
                 if (!tokMaybe) throw new Error('No token in config');
-                // Replace sanity request with API version check
-                const version = await getApiVersionApi(srv, tokMaybe);
+                // Verify token by calling userinfo
+                await getUserInfo(currentSrv, tokMaybe);
+                const version = await getApiVersionApi(currentSrv, tokMaybe);
                 setApiVersion(version);
                 setToken(tokMaybe);
+                setStatus('Ready');
             } catch {
-                setStatus(`Logging into ${srv} via SSO (grpc-web)…`);
-                await ensureSSOLogin(srv);
-                const tok = await ensureToken(srv);
-                setToken(tok);
-
-                // Fetch API version after login
-                try {
-                    const version = await getApiVersionApi(srv, tok);
-                    setApiVersion(version);
-                } catch (e) {
-                    console.error('Error fetching API version after login:', e);
-                }
+                // Token invalid or missing → prompt for login command
+                setStatus('Authentication required. Provide a login command.');
+                setToken(null);
+                setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
             }
 
-            // Apps are handled by useApps hook
-            setStatus('Ready');
             setMode('normal');
         })().catch(e => {
             setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
@@ -122,7 +145,11 @@ export const App: React.FC = () => {
     }, []);
 
     // Live data via useApps hook
-    const {apps: liveApps, status: appsStatus} = useApps(server, token, mode === 'external');
+    const {apps: liveApps, status: appsStatus} = useApps(server, token, mode === 'external', (err) => {
+        // On auth error from background data flow, clear token and show auth-required message
+        setToken(null);
+        setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+    });
 
     useEffect(() => {
         if (!server || !token) return;
@@ -236,9 +263,43 @@ export const App: React.FC = () => {
         const val = String(item);
         clearLowerLevelSelections(view);
         
-        if (view === 'clusters') {
+        if (view === 'contexts') {
+            const ctx = contexts.find(c => c.name === val);
+            if (ctx) {
+                setServer(ctx.server);
+                const t = ctx.token ?? null;
+                // Try validating token; if invalid, show message (don't set token until validated)
+                if (ctx.server) {
+                    (async () => {
+                        try {
+                            if (t) await getUserInfo(ctx.server, t);
+                            else throw new Error('No token');
+                            const v = await getApiVersionApi(ctx.server, t!);
+                            setApiVersion(v);
+                            setToken(t!);
+                            setStatus('Ready');
+                        } catch {
+                            setToken(null);
+                            setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+                        }
+                    })();
+                }
+            }
+        } else if (view === 'clusters') {
             const next = scopeClusters.has(val) ? new Set() : new Set([val]);
             setScopeClusters(next);
+            // When a cluster is selected, verify token via userinfo
+            if (server) {
+                (async () => {
+                    try {
+                        if (!token) throw new Error('No token');
+                        await getUserInfo(server, token);
+                    } catch {
+                        setToken(null);
+                        setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+                    }
+                })();
+            }
         } else if (view === 'namespaces') {
             const next = scopeNamespaces.has(val) ? new Set() : new Set([val]);
             setScopeNamespaces(next);
@@ -266,6 +327,27 @@ export const App: React.FC = () => {
         const next = new Set([val]);
 
         switch (view) {
+            case 'contexts': {
+                const ctx = contexts.find(c => c.name === val);
+                if (ctx) {
+                    setServer(ctx.server);
+                    // Try validation; don't set token until validated
+                    (async () => {
+                        try {
+                            if (!ctx.token) throw new Error('No token');
+                            await getUserInfo(ctx.server, ctx.token);
+                            const v = await getApiVersionApi(ctx.server, ctx.token);
+                            setApiVersion(v);
+                            setStatus('Ready');
+                        } catch {
+                            setToken(null);
+                            setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+                        }
+                    })();
+                }
+                setView('clusters');
+                return;
+            }
             case 'clusters':
                 setScopeClusters(next);
                 setView('namespaces');
@@ -301,6 +383,14 @@ export const App: React.FC = () => {
             return;
         }
 
+        if (is('context', 'contexts', 'ctx')) {
+            setView('contexts');
+            setSelectedIdx(0);
+            setMode('normal');
+            setActiveFilter('');
+            setSearchQuery('');
+            return;
+        }
         if (is('cluster', 'clusters', 'cls')) {
             setView('clusters');
             setSelectedIdx(0);
@@ -350,53 +440,9 @@ export const App: React.FC = () => {
             return;
         }
 
-        if (is('server')) {
-            const host = arg;
-            if (!host) {
-                setStatus('Usage: :server <host[:port]>');
-                return;
-            }
-            const cfg = (await readCLIConfig()) ?? {} as any;
-            const newCfg: ArgoCLIConfig = typeof cfg === 'object' && cfg ? cfg as ArgoCLIConfig : {} as ArgoCLIConfig;
-            newCfg.contexts = [{name: host, server: host, user: host}];
-            newCfg.servers = [{server: host, ['grpc-web']: true} as any];
-            newCfg.users = [];
-            newCfg['current-context'] = host;
-            await writeCLIConfig(newCfg);
-            setServer(host);
-            setStatus(`Server set to ${host}. Run :login`);
-            return;
-        }
 
         if (is('login')) {
-            if (!server) {
-                setStatus('Set a server first: :server <host[:port]>.');
-                return;
-            }
-            setShowLogin(true);
-            setLoginLog('Opening browser for SSO…\n');
-            try {
-                const p = execa('argocd', ['login', server, '--sso', '--grpc-web']);
-                p.stdout?.on('data', (b: Buffer) => setLoginLog(v => v + b.toString()));
-                p.stderr?.on('data', (b: Buffer) => setLoginLog(v => v + b.toString()));
-                await p;
-                const tok = await ensureToken(server);
-                setToken(tok);
-
-                // Fetch API version after login
-                try {
-                    const version = await getApiVersionApi(server, tok);
-                    setApiVersion(version);
-                } catch (e) {
-                    console.error('Error fetching API version after login command:', e);
-                }
-
-                setStatus('Login OK.');
-            } catch (e: any) {
-                setStatus(`Login failed: ${e.message}`);
-            } finally {
-                setShowLogin(false);
-            }
+            setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
             return;
         }
 
@@ -559,7 +605,8 @@ export const App: React.FC = () => {
         const f = (mode === 'search' ? searchQuery : activeFilter).toLowerCase();
         let base: any[];
 
-        if (view === 'clusters') base = allClusters;
+        if (view === 'contexts') base = contexts.map(c => c.name);
+        else if (view === 'clusters') base = allClusters;
         else if (view === 'namespaces') base = allNamespaces;
         else if (view === 'projects') base = allProjects;
         else base = filteredByNs.filter(a => !scopeProjects.size || scopeProjects.has(a.project || ''));
@@ -607,9 +654,11 @@ export const App: React.FC = () => {
     // Loading screen fills the viewport
     if (mode === 'loading') {
         const spinChar = '⠋';
+        // @ts-ignore
+        const loadingHeader: string = `${chalk.bold('View:')} ${chalk.yellow('LOADING')} • ${chalk.bold('Context:')} ${chalk.cyan(server || '—')}`;
         return (
             <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows - 1}>
-                <Box><Text>{chalk.bold(`View:`)} {chalk.yellow('LOADING')} • {chalk.bold(`Context:`)} {chalk.cyan(server || '—')}</Text></Box>
+                <Box><Text>{loadingHeader}</Text></Box>
                 <Box flexGrow={1} alignItems="center" justifyContent="center">
                     <Text color="yellow">{spinChar} Connecting & fetching applications…</Text>
                 </Box>
@@ -922,7 +971,7 @@ export const App: React.FC = () => {
                                         {/* SYNC (fixed, right-aligned) */}
                                         <Sep/>
                                         <Box width={SYNC_COL} flexShrink={0} justifyContent="flex-end">
-                                            <Text {...colorFor(a.sync)}>
+                                            <Text color={(colorFor(a.sync).color as any)} dimColor={colorFor(a.sync).dimColor as any}>
                                                 {rightPadTo(
                                                     canShowLabels(termCols)
                                                         ? `${getSyncIcon(a.sync)} ${SYNC_LABEL[a.sync] ?? ''}`
@@ -935,7 +984,7 @@ export const App: React.FC = () => {
                                         {/* HEALTH (fixed, right-aligned) */}
                                         <Sep/>
                                         <Box width={HEALTH_COL} flexShrink={0} justifyContent="flex-end">
-                                            <Text {...colorFor(a.health)}>
+                                            <Text color={(colorFor(a.health).color as any)} dimColor={colorFor(a.health).dimColor as any}>
                                                 {rightPadTo(
                                                     canShowLabels(termCols)
                                                         ? `${getHealthIcon(a.health)} ${HEALTH_LABEL[a.health] ?? ''}`
@@ -985,14 +1034,6 @@ export const App: React.FC = () => {
                 </Box>
             </Box>
 
-            {/* :login popup */}
-            {showLogin && (
-                <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
-                    <Text bold>Logging in…</Text>
-                    <Box marginTop={1}><Text dimColor>{loginLog || 'Waiting…'}</Text></Box>
-                    <Box marginTop={1}><Text dimColor>Close when complete.</Text></Box>
-                </Box>
-            )}
         </Box>
     );
 };

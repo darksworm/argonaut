@@ -3,7 +3,12 @@ import {listApps, watchApps} from '../api/applications.query';
 import {appToItem} from '../services/app-mapper';
 import type {AppItem} from '../types/domain';
 
-export function useApps(server: string|null, token: string|null, paused: boolean = false) {
+export function useApps(
+  server: string | null,
+  token: string | null,
+  paused: boolean = false,
+  onAuthError?: (err: Error) => void
+) {
   const [apps, setApps] = useState<AppItem[]>([]);
   const [status, setStatus] = useState('Idle');
 
@@ -23,7 +28,7 @@ export function useApps(server: string|null, token: string|null, paused: boolean
         if (!cancelled) setApps(items);
         setStatus('Live');
         for await (const ev of watchApps(server, token, undefined, controller.signal)) {
-          const {type, application} = ev || {} as any;
+          const {type, application} = ev || ({} as any);
           // @ts-expect-error minimal runtime guard
           if (!application?.metadata?.name) continue;
           setApps(curr => {
@@ -38,10 +43,20 @@ export function useApps(server: string|null, token: string|null, paused: boolean
           // Silent on abort
           return;
         }
-        setStatus(`Error: ${e?.message || String(e)}`);
+        const msg = e?.message || String(e);
+        // If unauthorized, signal up to app to handle re-auth
+        if (/\b(401|403)\b/i.test(msg) || /unauthorized/i.test(msg)) {
+          onAuthError?.(e instanceof Error ? e : new Error(msg));
+          setStatus('Auth required');
+          return;
+        }
+        setStatus(`Error: ${msg}`);
       }
     })();
-    return () => { cancelled = true; controller.abort(); };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [server, token, paused]);
 
   return {apps, status};

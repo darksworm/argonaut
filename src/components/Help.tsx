@@ -44,7 +44,7 @@ const Help: React.FC<HelpProps> = ({version}) => (
       </Box>
       <Box>
         <Text>
-          :cls|:clusters|:cluster • :ns|:namespaces|:namespace • :proj|:projects|:project • :apps
+          :ctx|:contexts|:context • :cls|:clusters|:cluster • :ns|:namespaces|:namespace • :proj|:projects|:project • :apps
         </Text>
       </Box>
     </Box>
@@ -68,7 +68,7 @@ const Help: React.FC<HelpProps> = ({version}) => (
       </Box>
       <Box>
         <Text>
-          :server HOST[:PORT] • :login • :clear • :all • :q
+          :login • :clear • :all • :q
         </Text>
       </Box>
     </Box>
