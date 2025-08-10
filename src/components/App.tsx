@@ -523,14 +523,12 @@ export const App: React.FC = () => {
         }
     }
 
-    // ---------- Rollback handled by component ----------
     async function openRollbackFlow(appName: string) {
         setStatus(`Opening rollback for ${appName}…`);
         setRollbackAppName(appName);
         setMode('rollback');
     }
 
-    // ---------- Derive scopes from apps ----------
     const allClusters = useMemo(() => {
         const vals = apps.map(a => a.clusterLabel || '').filter(Boolean);
         return uniqueSorted(vals);
@@ -559,7 +557,6 @@ export const App: React.FC = () => {
     }, [filteredByNs]);
 
     const visibleItems = useMemo(() => {
-        // Use activeFilter when in normal mode, otherwise use searchQuery
         const f = (mode === 'search' ? searchQuery : activeFilter).toLowerCase();
         let base: any[];
 
@@ -607,7 +604,6 @@ export const App: React.FC = () => {
     const rowsSlice = visibleItems.slice(start, end);
 
     const tag = activeFilter && view === 'apps' ? `<${view}:${activeFilter}>` : `<${view}>`;
-
 
     // Loading screen fills the viewport
     if (mode === 'loading') {
