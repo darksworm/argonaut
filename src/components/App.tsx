@@ -138,6 +138,7 @@ export const App: React.FC = () => {
     }, [server, token]);
 
     const [confirmInput, setConfirmInput] = useState('');
+    const [confirmSyncPrune, setConfirmSyncPrune] = useState(false);
 
     // Input
     useInput((input, key) => {
@@ -171,6 +172,11 @@ export const App: React.FC = () => {
             // Esc or 'q' aborts immediately
             if (key.escape || input.toLowerCase() === 'q') {
                 confirmSync(false);
+                return;
+            }
+            // Toggle prune
+            if (input.toLowerCase() === 'p') {
+                setConfirmSyncPrune(v => !v);
                 return;
             }
             // All other handling is done via TextInput onSubmit in the confirm dialog
@@ -459,12 +465,14 @@ export const App: React.FC = () => {
             if (arg) {
                 setConfirmTarget(arg);
                 setConfirmInput('');
+                setConfirmSyncPrune(false);
                 setMode('confirm-sync');
                 return;
             }
             if (selectedApps.size > 1) {
                 setConfirmTarget(`__MULTI__`);
                 setConfirmInput('');
+                setConfirmSyncPrune(false);
                 setMode('confirm-sync');
                 return;
             }
@@ -477,6 +485,7 @@ export const App: React.FC = () => {
             }
             setConfirmTarget(target);
             setConfirmInput('');
+            setConfirmSyncPrune(false);
             setMode('confirm-sync');
             return;
         }
@@ -512,7 +521,7 @@ export const App: React.FC = () => {
         }
         try {
             setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
-            for (const n of names) syncApp(server, token, n);
+            for (const n of names) syncApp(server, token, n, { prune: confirmSyncPrune });
             setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
             // After syncing multiple apps, clear the selection
             if (isMulti) {
@@ -820,6 +829,11 @@ export const App: React.FC = () => {
                                     }}
                                 />
                             </Box>
+                            <Box marginTop={1}>
+                                <Text>
+                                    Prune [p]: <Text color={(confirmSyncPrune ? 'yellow' : undefined) as any}>{confirmSyncPrune ? 'on' : 'off'}</Text>
+                                </Text>
+                            </Box>
                         </>
                     ) : (
                         <>
@@ -857,6 +871,11 @@ export const App: React.FC = () => {
                                         // Ignore any other input, stay in confirm mode
                                     }}
                                 />
+                            </Box>
+                            <Box marginTop={1}>
+                                <Text>
+                                    Prune [p]: <Text color={(confirmSyncPrune ? 'yellow' : undefined) as any}>{confirmSyncPrune ? 'on' : 'off'}</Text>
+                                </Text>
                             </Box>
                         </>
                     )}
