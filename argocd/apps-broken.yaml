@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nerdy-demo-special-broken
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - {project: hitchhiker, namespace: hitchhiker-qa, cluster: cluster-scifi, service: ford-prefect-broken}
+          - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: ministry-broken}
+        # ...only the broken ones
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+    spec:
+      project: '{{project}}'
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: kustomize-guestbook
+        targetRevision: HEAD
+        kustomize:
+          namePrefix: '{{service}}-'
+          patches:
+            - target: {kind: Deployment, name: guestbook-ui}
+              patch: |-
+                - op: add
+                  path: /spec/template/spec/containers/0/command
+                  value: ["sh","-c","echo Broken on purpose; exit 1"]
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'

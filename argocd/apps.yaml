@@ -54,54 +54,12 @@ spec:
       project: '{{project}}'
       source:
         repoURL: https://github.com/argoproj/argocd-example-apps
-        path: guestbook
-        targetRevision: HEAD
-      destination:
-        name: '{{cluster}}'
-        namespace: '{{namespace}}'
----
-# apps-special.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: nerdy-demo-special
-  namespace: argocd
-spec:
-  generators:
-  - list:
-      elements:
-      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: ministry, type: slow}
-      - {project: diagon,   namespace: diagon-dev,       cluster: cluster-magic, service: gringotts, type: slow}
-      - {project: hitchhiker, namespace: hitchhiker-dev, cluster: cluster-scifi, service: deep-thought, type: slow}
-      - {project: megadodo, namespace: megadodo-qa,      cluster: cluster-scifi, service: milliways, type: slow}
-      - {project: hitchhiker, namespace: hitchhiker-qa,  cluster: cluster-scifi, service: ford-prefect, type: broken}
-  template:
-    metadata:
-      name: '{{project}}-{{service}}'
-    spec:
-      project: '{{project}}'
-      destination:
-        name: '{{cluster}}'
-        namespace: '{{namespace}}'
-      source:
-        repoURL: https://github.com/argoproj/argocd-example-apps
-        targetRevision: HEAD
         path: kustomize-guestbook
+        targetRevision: HEAD
         kustomize:
-          patches:
-            - target:
-                kind: Deployment
-                name: guestbook-ui
-              patch: |-
-                {{ if eq .type "slow" -}}
-                - op: add
-                  path: /spec/template/spec/initContainers
-                  value:
-                    - name: wait-30s
-                      image: busybox
-                      command: ["sh","-c","sleep 30"]
-                {{ else if eq .type "broken" -}}
-                - op: add
-                  path: /spec/template/spec/containers/0/command
-                  value: ["sh","-c","echo Broken on purpose; exit 1"]
-                {{ end -}}
+          namePrefix: '{{service}}-'
+          commonLabels:
+            app.kubernetes.io/instance: '{{project}}-{{service}}'
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'
