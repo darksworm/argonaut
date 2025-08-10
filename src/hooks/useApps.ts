@@ -3,12 +3,17 @@ import {listApps, watchApps} from '../api/applications.query';
 import {appToItem} from '../services/app-mapper';
 import type {AppItem} from '../types/domain';
 
-export function useApps(server: string|null, token: string|null) {
+export function useApps(server: string|null, token: string|null, paused: boolean = false) {
   const [apps, setApps] = useState<AppItem[]>([]);
   const [status, setStatus] = useState('Idle');
 
   useEffect(() => {
     if (!server || !token) return;
+    if (paused) {
+      // When paused, ensure status reflects paused state and avoid setting up watchers
+      setStatus('Paused');
+      return;
+    }
     const controller = new AbortController();
     let cancelled = false;
     (async () => {
@@ -37,7 +42,7 @@ export function useApps(server: string|null, token: string|null) {
       }
     })();
     return () => { cancelled = true; controller.abort(); };
-  }, [server, token]);
+  }, [server, token, paused]);
 
   return {apps, status};
 }

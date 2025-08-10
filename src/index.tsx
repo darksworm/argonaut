@@ -212,13 +212,14 @@ const App: React.FC = () => {
   }, []);
 
   // Live data via useApps hook
-  const {apps: liveApps, status: appsStatus} = useApps(server, token);
+  const {apps: liveApps, status: appsStatus} = useApps(server, token, mode === 'external');
 
   useEffect(() => {
     if (!server || !token) return;
+    if (mode === 'external') return; // pause syncing state while in external/diff mode
     setApps(liveApps);
     setStatus(appsStatus);
-  }, [server, token, liveApps, appsStatus]);
+  }, [server, token, liveApps, appsStatus, mode]);
 
   // Periodic API version refresh (1 min)
   useEffect(() => {
@@ -467,9 +468,11 @@ const App: React.FC = () => {
       const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
       if (!target) { setStatus('No app selected to diff.'); return; }
       if (!server || !token) { setStatus('Not authenticated.'); return; }
+
       try {
         setMode('normal');
         setStatus(`Preparing diff for ${target}…`);
+
         const diffs = await getManagedResourceDiffs(server, token, target).catch(() => [] as any[]);
         const desiredDocs: string[] = [];
         const liveDocs: string[] = [];
@@ -482,47 +485,71 @@ const App: React.FC = () => {
         const desiredFile = await writeTmp(desiredDocs, `${target}-desired`);
         const liveFile = await writeTmp(liveDocs, `${target}-live`);
 
-        const shell = 'bash';
-        const cmd = `if command -v dyff >/dev/null 2>&1; then
-  CMD='dyff between --omit-header "${desiredFile}" "${liveFile}"'
+        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+        const cols = (process.stdout as any)?.columns || 80; // keep this near your PTY spawn
+        const cmd = `
+set -e
+if command -v delta >/dev/null 2>&1; then
+  # delta can diff files directly; set a pager that preserves color
+  if [[ "$OSTYPE" == darwin* ]]; then
+    delta --paging=always --pager='less -r -+X -K' --line-numbers --width=${cols} "${desiredFile}" "${liveFile}"
+  else
+    delta --paging=always --pager='less -R -+X -K' --line-numbers --width=${cols} "${desiredFile}" "${liveFile}"
+  fi
+elif command -v dyff >/dev/null 2>&1; then
+  dyff between --omit-header "${desiredFile}" "${liveFile}" | \
+    ( [[ "$OSTYPE" == darwin* ]] && less -r -+X -K || less -R -+X -K )
 else
-  CMD='git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}"'
+  # fallback: git diff -> delta (if present) or less
+  git --no-pager diff --no-index --color=always -- "${desiredFile}" "${liveFile}" | \
+    ( command -v delta >/dev/null 2>&1 && \
+      delta --paging=always --pager="$( [[ "$OSTYPE" == darwin* ]] && echo 'less -r -+X -K' || echo 'less -R -+X -K' )" --width=${cols} \
+      || ( [[ "$OSTYPE" == darwin* ]] && less -r -+X -K || less -R -+X -K ) )
 fi
-# Print directly to the terminal to preserve colors and use terminal scrollback instead of less
-# macOS ships an old less which often drops colors; avoiding it here improves UX
-eval "$CMD"
-echo
-echo "[Press q or ESC to close] (Tip: use your terminal scrollback to browse the diff)"
-while true; do IFS= read -rsn1 key; if [ "$key" = $'\e' ] || [ "$key" = 'q' ] || [ "$key" = 'Q' ]; then break; fi; done`;
-        const args = process.platform === 'win32' ? ['-Command', cmd] : ['-lc', cmd];
-
-        // Run the diff inside a proper PTY so interactive input works reliably
+`;
+        // --- PTY session (no alt-screen toggling here) ---
         setMode('external');
-        const cols = (process.stdout as any)?.columns || 80;
+
+        const args = process.platform === 'win32'
+            ? ['-NoProfile', '-NonInteractive', '-Command', cmd]
+            : ['-lc', cmd];
+
         const rows = (process.stdout as any)?.rows || 24;
-        const pty = ptySpawn(shell, args as any, { name: 'xterm-color', cols, rows, cwd: process.cwd(), env: { ...(process.env as any), LESS: '-R', GIT_PAGER: 'cat' } as any });
+
+        const pty = ptySpawn(shell, args as any, {
+          name: 'xterm-256color',
+          cols, rows,
+          cwd: process.cwd(),
+          env: { ...(process.env as any), COLORTERM: 'truecolor' } as any
+        });
+
         const onResize = () => {
           try { pty.resize((process.stdout as any)?.columns || 80, (process.stdout as any)?.rows || 24); } catch {}
         };
         const onPtyData = (data: string) => { try { process.stdout.write(data); } catch {} };
         pty.onData(onPtyData);
         process.stdout.on('resize', onResize);
+
         const stdinAny = process.stdin as any;
-        // Ensure stdin is in a working state for the PTY session
-        try { stdinAny.resume?.(); } catch {}
-        try { stdinAny.setRawMode?.(true); } catch {}
-        const onStdin = (chunk: Buffer) => { try { pty.write(chunk.toString()); } catch {} };
+        try { stdinAny.resume?.(); stdinAny.setRawMode?.(true); } catch {}
+        const onStdin = (chunk: Buffer) => { try { pty.write(chunk.toString('utf8')); } catch {} };
         process.stdin.on('data', onStdin);
+
         await new Promise<void>((resolve) => { pty.onExit(() => resolve()); });
-        // Cleanup temporary handlers
-        try { process.stdin.off('data', onStdin); } catch {}
-        try { process.stdout.off('resize', onResize); } catch {}
-        // Force raw mode back on and resume to make sure Ink receives input again
-        try { stdinAny.setRawMode?.(true); } catch {}
-        try { stdinAny.resume?.(); } catch {}
+
+        // cleanup
+        try { process.stdin.off('data', onStdin); process.stdout.off('resize', onResize); } catch {}
+        try { stdinAny.setRawMode?.(true); stdinAny.resume?.(); } catch {}
+
         setMode('normal');
         setStatus(`Diff closed for ${target}.`);
-      } catch (e:any) {
+      } catch (e: any) {
+        try {
+          const stdinAny = process.stdin as any;
+          stdinAny.setRawMode?.(true);
+          stdinAny.resume?.();
+        } catch {}
+        setMode('normal');
         setStatus(`Diff failed: ${e?.message || String(e)}`);
       }
       return;
@@ -679,6 +706,11 @@ while true; do IFS= read -rsn1 key; if [ "$key" = $'\e' ] || [ "$key" = 'q' ] ||
         <Box><Text dimColor>{status}</Text></Box>
       </Box>
     );
+  }
+
+  // While in external diff mode, pause rendering the React app entirely
+  if (mode === 'external') {
+    return null;
   }
 
   return (
