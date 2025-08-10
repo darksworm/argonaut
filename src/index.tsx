@@ -1073,7 +1073,7 @@ fi
                     {confirmTarget === '__MULTI__' ? (
                         <>
                             <Text bold>Sync applications?</Text>
-                            <Box marginTop={1}><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
+                            <Box><Text>Sync <Text color="magentaBright" bold>{selectedApps.size}</Text> selected app(s)? [y/N]</Text></Box>
                         </>
                     ) : (
                         <>
