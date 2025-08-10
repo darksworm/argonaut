@@ -10,10 +10,10 @@ export type ArgoApplication = {
   metadata?: { name?: string };
   spec?: { project?: string; destination?: ArgoDestination };
   status?: {
-    sync?: { status?: string };
+    sync?: { status?: string; revision?: string };
     health?: { status?: string };
-    history?: Array<{ deployedAt?: string }>;
-    operationState?: { finishedAt?: string };
+    history?: Array<{ id?: number; revision?: string; deployedAt?: string; source?: any }>;
+    operationState?: { finishedAt?: string; phase?: string; message?: string };
     reconciledAt?: string;
   };
 };

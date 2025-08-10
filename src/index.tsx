@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState, useRef} from 'react';
 import {render, Box, Text, useApp, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import os from 'node:os';
@@ -25,6 +25,8 @@ import {
 } from './auth/token';
 import {getApiVersion as getApiVersionApi} from './api/version';
 import {syncApp} from './api/applications.command';
+import {canIRollback, getApplication as getAppApi, getSyncWindows as getSyncWindowsApi, getRevisionMetadata as getRevisionMetadataApi, getManifests as getManifestsApi, postRollback as postRollbackApi} from './api/rollback';
+import {watchApps} from './api/applications.query';
 import {useApps} from './hooks/useApps';
 import {getManagedResourceDiffs} from './api/applications.query';
 
@@ -199,6 +201,22 @@ const App: React.FC = () => {
     const [selectedApps, setSelectedApps] = useState<Set<string>>(new Set());
     const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
 
+    // Rollback flow state
+    const [rollbackApp, setRollbackApp] = useState<string | null>(null);
+    const [rollbackRows, setRollbackRows] = useState<any[]>([]);
+    const [rollbackIdx, setRollbackIdx] = useState(0);
+    const [rollbackFilter, setRollbackFilter] = useState('');
+    const [rollbackError, setRollbackError] = useState<string>('');
+    const metaAbortRef = useRef<AbortController | null>(null);
+    const [rollbackFromRev, setRollbackFromRev] = useState<string | undefined>(undefined);
+    const [rollbackDryRun, setRollbackDryRun] = useState(true);
+    const [rollbackPrune, setRollbackPrune] = useState(false);
+    const [rollbackHistoryId, setRollbackHistoryId] = useState<number | null>(null);
+    const [rollbackProgressLog, setRollbackProgressLog] = useState<string[]>([]);
+    const rollbackWatchAbortRef = useRef<AbortController | null>(null);
+    const [rollbackEditingFilter, setRollbackEditingFilter] = useState(false);
+    const [rollbackMetaLoadingKey, setRollbackMetaLoadingKey] = useState<string | null>(null);
+
     // Boot & auth
     useEffect(() => {
         (async () => {
@@ -305,6 +323,29 @@ const App: React.FC = () => {
                 return;
             }
             // All other handling is done via TextInput onSubmit in the confirm dialog
+            return;
+        }
+        if (mode === 'rollback') {
+            if (key.escape || input === 'q') { setMode('normal'); return; }
+            if (input === 'j' || key.downArrow) { setRollbackIdx(i => Math.min(i + 1, Math.max(0, rollbackRows.filter(r => filterRollbackRow(r, rollbackFilter)).length - 1))); return; }
+            if (input === 'k' || key.upArrow) { setRollbackIdx(i => Math.max(i - 1, 0)); return; }
+            if (input.toLowerCase() === 'd') { runRollbackDiff(); return; }
+            if (input.toLowerCase() === 'c' || key.return) { setMode('rollback-confirm'); return; }
+            return;
+        }
+        if (mode === 'rollback-confirm') {
+            if (key.escape || input === 'q') { setMode('rollback'); return; }
+            if (input.toLowerCase() === 'p') { setRollbackPrune(v => !v); return; }
+            if (input.toLowerCase() === 'r') { setRollbackDryRun(v => !v); return; }
+            if (input.toLowerCase() === 'c' || key.return) { executeRollback(true); return; }
+            return;
+        }
+        if (mode === 'rollback-progress') {
+            if (key.escape) {
+                try { rollbackWatchAbortRef.current?.abort(); } catch {}
+                setMode('normal');
+                return;
+            }
             return;
         }
 
@@ -670,6 +711,14 @@ fi
             return;
         }
 
+        if (is('rollback')) {
+            const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
+            if (!target) { setStatus('No app selected to rollback.'); return; }
+            if (!server || !token) { setStatus('Not authenticated.'); return; }
+            await openRollbackFlow(target);
+            return;
+        }
+
         if (is('sync')) {
             // Prefer explicit arg; otherwise if multiple apps are selected, confirm multi-sync.
             if (arg) {
@@ -739,6 +788,225 @@ fi
         }
     }
 
+    // ---------- Rollback helpers ----------
+    async function openRollbackFlow(appName: string) {
+        try {
+            setStatus(`Opening rollback for ${appName}…`);
+            const app = await getAppApi(server!, token!, appName).catch(()=>({} as any));
+            const fromRev = app?.status?.sync?.revision || '';
+            setRollbackFromRev(fromRev || undefined);
+            const hist = Array.isArray(app?.status?.history) ? [...(app.status!.history!)] : [];
+            const rows = hist
+                .map(h => ({ id: Number(h?.id ?? 0), revision: String(h?.revision || ''), deployedAt: h?.deployedAt }))
+                .filter(h => h.id > 0 && h.revision)
+                .sort((a,b)=> b.id - a.id);
+            if (rows.length === 0) {
+                setStatus('No previous syncs found.');
+                setRollbackError('No previous syncs found.');
+                setRollbackApp(appName);
+                setRollbackRows([]);
+                setRollbackIdx(0);
+                setRollbackFilter('');
+                setMode('rollback');
+                return;
+            }
+            setRollbackError('');
+            setRollbackApp(appName);
+            setRollbackRows(rows);
+            setRollbackIdx(0);
+            setRollbackFilter('');
+            setMode('rollback');
+        } catch (e: any) {
+            setRollbackError(e?.message || String(e));
+            setRollbackApp(appName);
+            setRollbackRows([]);
+            setRollbackIdx(0);
+            setRollbackFilter('');
+            setMode('rollback');
+        }
+    }
+
+    function shortSha(s?: string) { return (s || '').slice(0,7); }
+    function singleLine(input?: string): string {
+        const s = String(input || '');
+        // Replace newlines/tabs with spaces and collapse multiple spaces
+        return s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    }
+    function filterRollbackRow(row: any, f: string): boolean {
+        const q = (f || '').toLowerCase();
+        if (!q) return true;
+        const fields = [String(row.id||''), String(row.revision||''), String(row.author||''), String(row.date||''), String(row.message||'')];
+        return fields.some(s => s.toLowerCase().includes(q));
+    }
+
+    async function runRollbackDiff() {
+        if (!server || !token || !rollbackApp) { setStatus('Not authenticated.'); return; }
+        const row: any = rollbackRows[rollbackIdx];
+        if (!row) { setStatus('No selection to diff.'); return; }
+        try {
+            setStatus(`Preparing diff for ${rollbackApp} (${shortSha(row.revision)})…`);
+            const current = await getManifestsApi(server, token, rollbackApp).catch(()=>[]);
+            const target = await getManifestsApi(server, token, rollbackApp, row.revision).catch(()=>[]);
+            const currentDocs = current.map(toYamlDoc).filter(Boolean) as string[];
+            const targetDocs = target.map(toYamlDoc).filter(Boolean) as string[];
+            const currentFile = await writeTmp(currentDocs, `${rollbackApp}-current`);
+            const targetFile = await writeTmp(targetDocs, `${rollbackApp}-target-${row.id}`);
+
+            // Try quiet diff first, bail if no diffs
+            try { await execa('git', ['--no-pager','diff','--no-index','--quiet','--', currentFile, targetFile]); setStatus('No differences.'); return; } catch {}
+
+            const shell = 'bash';
+            const cols = (process.stdout as any)?.columns || 80;
+            const pager = process.platform === 'darwin' ? "less -r -+X -K" : "less -R -+X -K";
+            const cmd = `
+set -e
+if command -v delta >/dev/null 2>&1; then
+  DELTA_PAGER='${pager}' delta --paging=always --line-numbers --side-by-side --width=${cols} "${currentFile}" "${targetFile}" || true
+else
+  PAGER='${pager}'
+  if ! command -v less >/dev/null 2>&1; then
+    PAGER='sh -c "cat; printf \"\\n[Press Enter to close] \"; read -r _"'
+  fi
+  git --no-pager diff --no-index --color=always -- "${currentFile}" "${targetFile}" | eval "$PAGER" || true
+fi
+`;
+            setMode('external');
+            const args = process.platform === 'win32' ? ['-NoProfile','-NonInteractive','-Command', cmd] : ['-lc', cmd];
+            const pty = ptySpawn(shell, args as any, { name:'xterm-256color', cols:(process.stdout as any)?.columns||80, rows:(process.stdout as any)?.rows||24, cwd:process.cwd(), env:{...(process.env as any), COLORTERM:'truecolor'} as any });
+            const onResize = () => { try { pty.resize((process.stdout as any)?.columns||80, (process.stdout as any)?.rows||24); } catch {} };
+            const onPtyData = (data: string) => { try { process.stdout.write(data); } catch {} };
+            pty.onData(onPtyData);
+            process.stdout.on('resize', onResize);
+            const stdinAny = process.stdin as any;
+            try { stdinAny.resume?.(); stdinAny.setRawMode?.(false);} catch {}
+            await new Promise<void>(resolve => { pty.onExit(() => resolve()); });
+            try { process.stdout.off('resize', onResize); } catch {}
+            try { stdinAny.setRawMode?.(true); stdinAny.resume?.(); } catch {}
+            setMode('rollback');
+            setStatus('Diff closed.');
+        } catch (e:any) {
+            try { const stdinAny = process.stdin as any; stdinAny.setRawMode?.(true); stdinAny.resume?.(); } catch {}
+            setMode('rollback');
+            setStatus(`Diff failed: ${e?.message || String(e)}`);
+        }
+    }
+
+    async function executeRollback(confirm: boolean) {
+        if (!confirm) { setMode('rollback'); setStatus('Rollback cancelled.'); return; }
+        const row: any = rollbackRows[rollbackIdx];
+        if (!server || !token || !rollbackApp || !row) { setStatus('Not ready.'); return; }
+        try {
+            setStatus(`Rollback ${rollbackApp} to ${shortSha(row.revision)}${rollbackDryRun?' (dry-run)':''}…`);
+            setRollbackHistoryId(row.id);
+            await postRollbackApi(server, token, rollbackApp, { id: row.id, name: rollbackApp, dryRun: rollbackDryRun, prune: rollbackPrune });
+            if (rollbackDryRun) {
+                setMode('rollback-confirm');
+                setRollbackError('Dry run completed.');
+                return;
+            }
+            // Start streaming progress
+            setMode('rollback-progress');
+            setRollbackProgressLog([]);
+            try { rollbackWatchAbortRef.current?.abort(); } catch {}
+            const ac = new AbortController(); rollbackWatchAbortRef.current = ac;
+            (async () => {
+                try {
+                    for await (const evt of watchApps(server!, token!, undefined, ac.signal)) {
+                        const app = evt?.application; const name = app?.metadata?.name;
+                        if (name !== rollbackApp) continue;
+                        const phase = app?.status?.operationState?.phase || '';
+                        const msg = app?.status?.operationState?.message || '';
+                        const h = app?.status?.health?.status || '';
+                        const s = app?.status?.sync?.status || '';
+                        setRollbackProgressLog(log => [...log, `[${new Date().toISOString()}] ${phase||s} ${h} ${msg}`].slice(-200));
+                        if ((h === 'Healthy' && s === 'Synced') || phase === 'Failed' || phase === 'Error') {
+                            try { ac.abort(); } catch {}
+                            break;
+                        }
+                    }
+                } catch (e:any) {
+                    if (!ac.signal.aborted) setRollbackProgressLog(log => [...log, `Stream error: ${e?.message||String(e)}`]);
+                } finally {
+                    // Close overlay on success
+                    setMode('normal');
+                    setStatus(`Rollback to ${shortSha(row.revision)} ${rollbackApp ? 'completed' : ''}`);
+                }
+            })();
+        } catch (e:any) {
+            setRollbackError(e?.message || String(e));
+            setMode('rollback-confirm');
+        }
+    }
+
+    // ---------- Rollback overlays UI ----------
+    const rollbackOverlay = (mode === 'rollback') && (
+        <Box paddingX={1} flexDirection="column">
+            <Text bold>Rollback: <Text color="magentaBright">{rollbackApp}</Text></Text>
+            <Box marginTop={1}>
+                <Text>Current revision: <Text color="cyan">{shortSha(rollbackFromRev)}</Text></Text>
+            </Box>
+            {rollbackError && (
+                <Box marginTop={1}><Text color="red">{rollbackError}</Text></Box>
+            )}
+            <Box marginTop={1} flexDirection="column">
+                <Box>
+                    <Box width={6}><Text bold>ID</Text></Box>
+                    <Box width={10}><Text bold>Revision</Text></Box>
+                    <Box width={20}><Text bold>Deployed</Text></Box>
+                    <Box flexGrow={1}><Text bold>Message</Text></Box>
+                </Box>
+                {(() => {
+                    const rows = rollbackRows.filter(r => filterRollbackRow(r, rollbackFilter));
+                    const maxRows = Math.max(1, Math.min(10, rows.length));
+                    const start = Math.max(0, Math.min(rollbackIdx - Math.floor(maxRows/2), Math.max(0, rows.length - maxRows)));
+                    const slice = rows.slice(start, start + maxRows);
+                    return slice.map((r:any, i:number) => {
+                        const actual = start + i;
+                        const active = actual === rollbackIdx;
+                        return (
+                            <Box key={`${r.id}-${r.revision}`} backgroundColor={active ? 'magentaBright' : undefined}>
+                                <Box width={6}><Text>{String(r.id)}</Text></Box>
+                                <Box width={10}><Text>{shortSha(r.revision)}</Text></Box>
+                                <Box width={20}><Text>{r.deployedAt ? humanizeSince(r.deployedAt) + ' ago' : '—'}</Text></Box>
+                                <Box flexGrow={1}><Text wrap="truncate-end">{(rollbackMetaLoadingKey === `${rollbackApp}:${r.id}:${r.revision}`) ? '(loading…)' : singleLine(r.message || r.metaError || '')}</Text></Box>
+                            </Box>
+                        );
+                    });
+                })()}
+            </Box>
+            <Box marginTop={1}><Text dimColor>j/k to move • d diff • c confirm • Esc/q cancel</Text></Box>
+        </Box>
+    );
+
+    const rollbackConfirmOverlay = (mode === 'rollback-confirm') && (() => {
+        const row: any = rollbackRows[rollbackIdx];
+        return (
+            <Box paddingX={2} flexDirection="column">
+                <Text bold>Confirm rollback</Text>
+                <Box marginTop={1}><Text>App: <Text color="magentaBright">{rollbackApp}</Text></Text></Box>
+                <Box><Text>From: <Text color="cyan">{shortSha(rollbackFromRev)}</Text> → To: <Text color="cyan">{row ? shortSha(row.revision) : '—'}</Text></Text></Box>
+                <Box><Text>History ID: <Text color="cyan">{row?.id ?? '—'}</Text></Text></Box>
+                {rollbackError && (
+                    <Box marginTop={1}><Text color="red">{rollbackError}</Text></Box>
+                )}
+                <Box marginTop={1}><Text>Dry-run [r]: <Text color={rollbackDryRun ? 'green' : 'yellow'}>{rollbackDryRun ? 'on' : 'off'}</Text> • Prune [p]: <Text color={rollbackPrune ? 'yellow' : undefined}>{rollbackPrune ? 'on' : 'off'}</Text></Text></Box>
+                <Box marginTop={1}><Text dimColor>Press c to confirm, Esc/q to go back</Text></Box>
+            </Box>
+        );
+    })();
+
+    const rollbackProgressOverlay = (mode === 'rollback-progress') && (
+        <Box paddingX={2} flexDirection="column">
+            <Text bold>Rollback in progress: <Text color="magentaBright">{rollbackApp}</Text></Text>
+            <Box marginTop={1} flexDirection="column">
+                {rollbackProgressLog.slice(-Math.max(5, Math.min(20, rollbackProgressLog.length))).map((l, i) => (
+                    <Text key={i} dimColor>{l}</Text>
+                ))}
+            </Box>
+            <Box marginTop={1}><Text dimColor>Esc to close</Text></Box>
+        </Box>
+    );
+
     // ---------- Derive scopes from apps ----------
     const allClusters = useMemo(() => {
         const vals = apps.map(a => a.clusterLabel || '').filter(Boolean);
@@ -794,6 +1062,33 @@ fi
         setSelectedIdx(s => Math.min(s, Math.max(0, visibleItems.length - 1)));
     }, [visibleItems.length]);
 
+    // Fetch revision metadata for highlighted rollback row (debounced via AbortController)
+    useEffect(() => {
+        if (mode !== 'rollback') return;
+        if (!server || !token || !rollbackApp) return;
+        const row: any = rollbackRows[rollbackIdx];
+        if (!row || row.author) return;
+        try { metaAbortRef.current?.abort(); } catch {}
+        const ac = new AbortController(); metaAbortRef.current = ac;
+        const key = `${rollbackApp}:${row.id}:${row.revision}`;
+        setRollbackMetaLoadingKey(key);
+        (async () => {
+            try {
+                const meta = await getRevisionMetadataApi(server, token, rollbackApp, row.revision, ac.signal);
+                const upd = [...rollbackRows];
+                upd[rollbackIdx] = { ...row, author: meta?.author, date: meta?.date, message: meta?.message };
+                setRollbackRows(upd);
+            } catch (e: any) {
+                const upd = [...rollbackRows];
+                upd[rollbackIdx] = { ...row, metaError: e?.message || String(e) };
+                setRollbackRows(upd);
+            } finally {
+                setRollbackMetaLoadingKey(prev => prev === key ? null : prev);
+            }
+        })();
+        return () => { try { ac.abort(); } catch {} };
+    }, [mode, rollbackIdx, rollbackRows, rollbackApp, server, token]);
+
     // ---------- Height calc (full-screen, exact) ----------
     const BORDER_LINES = 2;
     // Reserve enough lines for the top banner/logo (ASCII logo is 6 lines in wide mode)
@@ -837,7 +1132,7 @@ fi
             </Box>
             <Box marginTop={1}>
                 <Box width={24}><Text color="green" bold>ACTIONS</Text></Box>
-                <Box><Text>:sync [app] (confirm, REST only)</Text></Box>
+                <Box><Text>:sync [app] • :rollback [app]</Text></Box>
             </Box>
             <Box marginTop={1}>
                 <Box width={24}><Text color="green" bold>MISC</Text></Box>
@@ -864,6 +1159,30 @@ fi
     // While in external diff mode, pause rendering the React app entirely
     if (mode === 'external') {
         return null;
+    }
+
+    // Full-screen rollback overlays: occupy whole screen and hide the apps UI, but keep header
+    if (mode === 'rollback' || mode === 'rollback-confirm' || mode === 'rollback-progress') {
+        return (
+            <Box flexDirection="column" paddingX={1} height={termRows - 1}>
+                <ArgoNautBanner
+                    server={server}
+                    clusterScope={fmtScope(scopeClusters)}
+                    namespaceScope={fmtScope(scopeNamespaces)}
+                    projectScope={fmtScope(scopeProjects)}
+                    termCols={termCols}
+                    termRows={availableRows}
+                    apiVersion={apiVersion}
+                    argonautVersion={packageJson.version}
+                />
+                <Box flexDirection="column" marginTop={1} flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1} flexWrap="nowrap">
+                    <Box flexDirection="column" marginTop={1} flexGrow={1}>
+                        {rollbackOverlay || rollbackConfirmOverlay || rollbackProgressOverlay}
+                    </Box>
+                    <Box flexGrow={1}/>
+                </Box>
+            </Box>
+        );
     }
 
     const GUTTER = 1;
@@ -965,6 +1284,12 @@ fi
                     />
                     <Box width={2}/>
                     <Text dimColor>(Enter to run, Esc to cancel)</Text>
+                </Box>
+            )}
+
+            {(mode === 'rollback' || mode === 'rollback-confirm' || mode === 'rollback-progress') && (
+                <Box flexDirection="column" marginTop={1} flexGrow={1}>
+                    {rollbackOverlay || rollbackConfirmOverlay || rollbackProgressOverlay}
                 </Box>
             )}
 

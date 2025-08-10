@@ -12,4 +12,4 @@ export type AppItem = {
 };
 
 export type View = 'clusters' | 'namespaces' | 'projects' | 'apps';
-export type Mode = 'normal' | 'loading' | 'search' | 'command' | 'help' | 'confirm-sync' | 'external';
+export type Mode = 'normal' | 'loading' | 'search' | 'command' | 'help' | 'confirm-sync' | 'rollback' | 'rollback-confirm' | 'rollback-progress' | 'external';
