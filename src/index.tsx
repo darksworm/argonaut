@@ -499,7 +499,7 @@ const App: React.FC = () => {
 set -e
 if command -v delta >/dev/null 2>&1; then
   # Use delta directly; force paging, keep colors; ignore nonzero exit meaning "has diffs"
-  DELTA_PAGER='${pager}' delta --paging=always --line-numbers --side-by-side --width=${cols} "${desiredFile}" "${liveFile}" || true
+  DELTA_PAGER='${pager}' delta --paging=always --line-numbers --side-by-side --width=${cols} "${liveFile}" "${desiredFile}"|| true
 else
   # Fallback: git diff with colors piped to less (mac uses -r, linux uses -R)
   PAGER='${pager}'
