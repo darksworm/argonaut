@@ -1,0 +1,37 @@
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+name: release-please
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: release
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          # Use the built-in GITHUB_TOKEN; no PAT required for standard usage
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: node
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v4
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+      - if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: |
+          npm ci
+          npm run build
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
