@@ -798,7 +798,7 @@ export const App: React.FC = () => {
                     {confirmTarget === '__MULTI__' ? (
                         <>
                             <Text bold>Sync applications?</Text>
-                            <Box>
+                            <Box marginBottom={1}>
                                 <Text>Do you want to sync <Text color="magentaBright"
                                                                 bold>({selectedApps.size})</Text> applications? (y/n):
                                 </Text>
