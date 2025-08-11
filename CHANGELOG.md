@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/darksworm/argonaut/compare/v1.0.0...v1.0.1) (2025-08-11)
+
+
+### Bug Fixes
+
+* **import:** correct casing of Banner import ([c2c9c72](https://github.com/darksworm/argonaut/commit/c2c9c722f6b5dd76e7ab3913ad5f18b5c18a927f))
+
 ## 1.0.0 (2025-08-11)
 
 
