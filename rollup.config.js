@@ -5,7 +5,7 @@ export default {
   input: 'src/main.tsx', // adjust if your entry point is different
   output: [
     {
-      file: 'dist/bundle.js',
+      file: 'dist/cli.js',
       format: 'cjs',
       sourcemap: true,
     },
