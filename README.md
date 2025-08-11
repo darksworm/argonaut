@@ -7,6 +7,13 @@ Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + I
 
 ---
 
+## 📦 Prerequisites
+
+- [**Argo CD CLI**](https://argo-cd.readthedocs.io/en/stable/cli_installation/) installed
+- [**Delta**](https://dandavison.github.io/delta/installation.html) installed for enhanced diffs (optional, falls back to `git`)
+
+---
+
 ## 🚀 Quick Start
 ```bash
 # Install the Argonaut CLI globally
@@ -37,7 +44,6 @@ argonaut
 
 ## 📸 Screenshots
 
-
 ### **Apps**  
 <img src="assets/argonaut_apps.png" alt="Apps list"/>
 
@@ -51,8 +57,3 @@ argonaut
 <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
 
 ---
-
-## 📦 Prerequisites
-
-- [**Argo CD CLI**](https://argo-cd.readthedocs.io/en/stable/cli_installation/) installed 
-- [**Delta**](https://dandavison.github.io/delta/installation.html) installed for enhanced diffs (optional, falls back to `git`)
