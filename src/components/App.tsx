@@ -18,6 +18,7 @@ import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
 import Help from './Help';
+import {ResourceStream} from './ResourceStream';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 
 const COL = {
@@ -73,6 +74,8 @@ export const App: React.FC = () => {
 
     // Rollback overlay controller (app name to open)
     const [rollbackAppName, setRollbackAppName] = useState<string | null>(null);
+    // Single-app sync view (resource stream)
+    const [syncViewApp, setSyncViewApp] = useState<string | null>(null);
 
     // Boot & auth
     useEffect(() => {
@@ -133,10 +136,12 @@ export const App: React.FC = () => {
 
     const [confirmInput, setConfirmInput] = useState('');
     const [confirmSyncPrune, setConfirmSyncPrune] = useState(false);
+    const [confirmSyncWatch, setConfirmSyncWatch] = useState(true);
 
     // Input
     useInput((input, key) => {
         if (mode === 'external') return;
+        if (mode === 'sync-view') return; // handled by ResourceStream
         if (mode === 'help') {
             if (input === '?' || key.escape) setMode('normal');
             return;
@@ -171,6 +176,13 @@ export const App: React.FC = () => {
             // Toggle prune
             if (input.toLowerCase() === 'p') {
                 setConfirmSyncPrune(v => !v);
+                return;
+            }
+            // Toggle watch (only when not multi)
+            if (input.toLowerCase() === 'w') {
+                if (confirmTarget !== '__MULTI__') {
+                    setConfirmSyncWatch(v => !v);
+                }
                 return;
             }
             // All other handling is done via TextInput onSubmit in the confirm dialog
@@ -419,6 +431,7 @@ export const App: React.FC = () => {
                 setConfirmTarget(arg);
                 setConfirmInput('');
                 setConfirmSyncPrune(false);
+                setConfirmSyncWatch(true);
                 setMode('confirm-sync');
                 return;
             }
@@ -426,6 +439,7 @@ export const App: React.FC = () => {
                 setConfirmTarget(`__MULTI__`);
                 setConfirmInput('');
                 setConfirmSyncPrune(false);
+                setConfirmSyncWatch(false); // disabled for multi
                 setMode('confirm-sync');
                 return;
             }
@@ -439,6 +453,7 @@ export const App: React.FC = () => {
             setConfirmTarget(target);
             setConfirmInput('');
             setConfirmSyncPrune(false);
+            setConfirmSyncWatch(true);
             setMode('confirm-sync');
             return;
         }
@@ -476,9 +491,13 @@ export const App: React.FC = () => {
             setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
             for (const n of names) syncApp(server, token, n, { prune: confirmSyncPrune });
             setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
-            // After syncing multiple apps, clear the selection
-            if (isMulti) {
-                setSelectedApps(new Set());
+            // Show resource stream only for single-app syncs and when watch is enabled
+            if (!isMulti && confirmSyncWatch) {
+                setSyncViewApp(names[0]);
+                setMode('sync-view');
+            } else {
+                // After syncing multiple apps, clear the selection
+                if (isMulti) setSelectedApps(new Set());
             }
         } catch (e: any) {
             setStatus(`Sync failed: ${e.message}`);
@@ -783,6 +802,8 @@ export const App: React.FC = () => {
                             <Box marginTop={1}>
                                 <Text>
                                     Prune [p]: <Text color={(confirmSyncPrune ? 'yellow' : undefined) as any}>{confirmSyncPrune ? 'on' : 'off'}</Text>
+                                    {' '}•{' '}
+                                    <Text dimColor>Watch [w]: disabled for multi-app sync</Text>
                                 </Text>
                             </Box>
                         </>
@@ -826,6 +847,8 @@ export const App: React.FC = () => {
                             <Box marginTop={1}>
                                 <Text>
                                     Prune [p]: <Text color={(confirmSyncPrune ? 'yellow' : undefined) as any}>{confirmSyncPrune ? 'on' : 'off'}</Text>
+                                    {' '}•{' '}
+                                    Watch [w]: <Text color={(confirmSyncWatch ? 'yellow' : undefined) as any}>{confirmSyncWatch ? 'on' : 'off'}</Text>
                                 </Text>
                             </Box>
                         </>
@@ -838,6 +861,11 @@ export const App: React.FC = () => {
                  flexWrap="nowrap">
                 {mode === 'help' ? (
                     <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version}/></Box>
+                ) : mode === 'sync-view' && server && token && syncViewApp ? (
+                    <Box flexDirection="column" flexGrow={1}>
+                        <ResourceStream baseUrl={server} token={token} appName={syncViewApp}
+                                        onExit={() => { setMode('normal'); setSyncViewApp(null); }}/>
+                    </Box>
                 ) : (
                     <Box flexDirection="column">
                         {/* Header row */}
