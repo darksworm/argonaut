@@ -1,35 +1,38 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: nerdy-demo-special-slow
+  name: nerdy-demo-special-slowapps
   namespace: argocd
 spec:
+  goTemplate: true
+  # goTemplateOptions: ["missingkey=error"]   # helpful
+
   generators:
     - list:
         elements:
-          - {project: diagon, namespace: diagon-dev, cluster: cluster-magic, service: gringotts}
-          - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: ministry}
-        # ...only the slow ones
+          - {project: diagon,  namespace: diagon-dev,      cluster: cluster-magic, service: gringotts-slow, type: slow}
+          - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: ministry-slow,  type: slow}
+
   template:
     metadata:
-      name: '{{project}}-{{service}}'
+      name: '{{ .project }}-{{ .service }}'
     spec:
-      project: '{{project}}'
+      project: '{{ .project }}'
       source:
         repoURL: https://github.com/argoproj/argocd-example-apps
         path: kustomize-guestbook
         targetRevision: HEAD
         kustomize:
-          namePrefix: '{{service}}-'
+          namePrefix: '{{ .service }}-'
           patches:
             - target: {kind: Deployment, name: guestbook-ui}
               patch: |-
                 - op: add
                   path: /spec/template/spec/initContainers
                   value:
-                  - name: wait-30s
-                    image: busybox
-                    command: ["sh","-c","sleep 30"]
+                    - name: wait-30s
+                      image: busybox
+                      command: ["sh","-c","sleep 30"]
       destination:
-        name: '{{cluster}}'
-        namespace: '{{namespace}}'
+        name: '{{ .cluster }}'
+        namespace: '{{ .namespace }}'
