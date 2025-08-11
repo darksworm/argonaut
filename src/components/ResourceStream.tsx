@@ -105,14 +105,12 @@ export type ResourceStreamProps = {
   baseUrl: string;      // e.g. https://argocd.example.com
   token: string;        // Argo CD JWT
   appName: string;      // Application name
-  context?: string;     // optional kube context for k9s
-  namespace?: string;   // optional namespace for k9s
   onExit?: () => void;  // called when user quits the view (press 'q')
 };
 
 export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, context, namespace, onExit}) => {
   const [rows, setRows] = useState<ResourceNode[]>([]);
-  const [hint, setHint] = useState('Press k to open k9s • Press q to return');
+  const [hint, setHint] = useState('Press q to return');
 
   useEffect(() => {
     let cancel = false;
