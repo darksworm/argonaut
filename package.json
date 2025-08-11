@@ -1,5 +1,6 @@
 {
   "name": "argonaut-cli",
+  "author": "darksworm (Ilmars Janis Bluzmanis)",
   "version": "1.0.3",
   "private": false,
   "type": "module",
@@ -8,6 +9,14 @@
     "start": "node dist/index.js",
     "build": "rollup -c"
   },
+  "bugs": {
+    "url": "https://github.com/darksworm/argonaut/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/darksworm/argonaut.git"
+  },
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "chalk": "^5.5.0",
     "execa": "^9.6.0",
