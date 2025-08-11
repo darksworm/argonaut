@@ -1,7 +1,5 @@
-// @ts-nocheck
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {spawn} from 'node:child_process';
 import {ensureHttps} from '../config/paths';
 import '../api/transport'; // ensure TLS relax env is applied (self-signed certs)
 import {colorFor} from '../utils';
@@ -123,11 +121,40 @@ export type ResourceStreamProps = {
   onExit?: () => void;  // called when user quits the view (press 'q')
 };
 
-export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, context, namespace, onExit}) => {
+export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, onExit}) => {
   const [rows, setRows] = useState<ResourceNode[]>([]);
-  const [hint, setHint] = useState('Press q to return');
+  const [hint, setHint] = useState('Press q or Esc to return');
   const [syncByKey, setSyncByKey] = useState<Record<string, string>>({});
 
+  // Initial fetch: resource tree (non-streaming) so view has immediate data
+  useEffect(() => {
+    const controller = new AbortController();
+    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}/resource-tree`;
+    (async () => {
+      try {
+        const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: controller.signal} as any);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const tree: ApplicationTree = await res.json();
+        const next = (tree.nodes ?? []).map(n => ({
+          group: (n as any).group,
+          kind: n.kind,
+          name: n.name,
+          namespace: n.namespace,
+          version: (n as any).version,
+          health: n.health
+        }));
+        setRows(next);
+      } catch (err: any) {
+        const msg = String(err?.message ?? err);
+        if (!/aborted|AbortError/i.test(msg)) {
+          setHint(h => h.includes('Stream error') ? h : `Load error: ${msg}`);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [baseUrl, token, appName]);
+
+  // Stream: resource tree updates
   useEffect(() => {
     let cancel = false;
     const controller = new AbortController();
@@ -154,6 +181,34 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
       }
     })();
     return () => { cancel = true; controller.abort(); };
+  }, [baseUrl, token, appName]);
+
+  // Initial fetch: application status -> syncByKey
+  useEffect(() => {
+    const controller = new AbortController();
+    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}`;
+    (async () => {
+      try {
+        const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: controller.signal} as any);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const app = await res.json();
+        const resources = app?.status?.resources || [];
+        if (Array.isArray(resources)) {
+          const m: Record<string, string> = {};
+          for (const r of resources) {
+            const k = keyFor(r as any);
+            if (k) m[k] = (r as any).status || '-';
+          }
+          setSyncByKey(m);
+        }
+      } catch (err: any) {
+        const msg = String(err?.message ?? err);
+        if (!/aborted|AbortError/i.test(msg)) {
+          setHint(h => h.includes('Stream error') ? h : `${h}`);
+        }
+      }
+    })();
+    return () => controller.abort();
   }, [baseUrl, token, appName]);
 
   // Stream application watch events to derive per-resource sync status
@@ -183,9 +238,9 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
     return () => controller.abort();
   }, [baseUrl, token, appName]);
 
-  useInput((input) => {
-    const ch = input.toLowerCase();
-    if (ch === 'q') {
+  useInput((input, key) => {
+    const ch = (input || '').toLowerCase();
+    if (ch === 'q' || key?.escape) {
       onExit?.();
     }
   });

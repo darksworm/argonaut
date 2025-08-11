@@ -4,12 +4,10 @@ import {Box, Text, useApp, useInput} from 'ink';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
-import {execa} from 'execa'; // still used for diff sessions
 import {runAppDiffSession} from './DiffView';
 import ArgoNautBanner from "./banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
-import type {ArgoCLIConfig} from '../config/cli-config';
 import {getCurrentServer, readCLIConfig} from '../config/cli-config';
 import {tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
@@ -75,7 +73,7 @@ export const App: React.FC = () => {
     // Rollback overlay controller (app name to open)
     const [rollbackAppName, setRollbackAppName] = useState<string | null>(null);
     // Single-app sync view (resource stream)
-    const [syncViewApp, setSyncViewApp] = useState<string | null>(null);
+    const [syncViewApp, setResourcesApp] = useState<string | null>(null);
 
     // Boot & auth
     useEffect(() => {
@@ -141,7 +139,7 @@ export const App: React.FC = () => {
     // Input
     useInput((input, key) => {
         if (mode === 'external') return;
-        if (mode === 'sync-view') return; // handled by ResourceStream
+        if (mode === 'resources') return; // handled by ResourceStream
         if (mode === 'help') {
             if (input === '?' || key.escape) setMode('normal');
             return;
@@ -375,6 +373,21 @@ export const App: React.FC = () => {
             return;
         }
 
+        if (is('resources', 'resource', 'res')) {
+            const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || (selectedApps.size === 1 ? Array.from(selectedApps)[0] : undefined);
+            if (!target) {
+                setStatus('No app selected to open resources view.');
+                return;
+            }
+            if (!server || !token) {
+                setStatus('Not authenticated.');
+                return;
+            }
+            setResourcesApp(target);
+            setMode('resources');
+            return;
+        }
+
         if (is('diff')) {
             const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
             if (!target) {
@@ -493,8 +506,8 @@ export const App: React.FC = () => {
             setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
             // Show resource stream only for single-app syncs and when watch is enabled
             if (!isMulti && confirmSyncWatch) {
-                setSyncViewApp(names[0]);
-                setMode('sync-view');
+                setResourcesApp(names[0]);
+                setMode('resources');
             } else {
                 // After syncing multiple apps, clear the selection
                 if (isMulti) setSelectedApps(new Set());
@@ -861,10 +874,10 @@ export const App: React.FC = () => {
                  flexWrap="nowrap">
                 {mode === 'help' ? (
                     <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version}/></Box>
-                ) : mode === 'sync-view' && server && token && syncViewApp ? (
+                ) : mode === 'resources' && server && token && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
-                        <ResourceStream baseUrl={server} token={token} appName={syncViewApp}
-                                        onExit={() => { setMode('normal'); setSyncViewApp(null); }}/>
+                        <ResourceStream baseUrl={server} token={token} appName={syncViewApp} namespace={apps.find(a => a.name === syncViewApp)?.namespace}
+                                        onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>
                 ) : (
                     <Box flexDirection="column">
