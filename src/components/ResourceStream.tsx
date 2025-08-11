@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {spawn} from 'node:child_process';
 import {ensureHttps} from '../config/paths';
@@ -9,14 +9,30 @@ import {colorFor} from '../utils';
 // Types for streamed resources
 export type Health = {status?: string; message?: string};
 export type ResourceNode = {
+  group?: string;
   kind: string;
   name: string;
   namespace?: string;
+  version?: string;
   health?: Health;
-  syncStatus?: string;
 };
 export type ApplicationTree = {
   nodes?: ResourceNode[];
+};
+
+export type ApplicationWatchEvent = {
+  application?: {
+    status?: {
+      resources?: Array<{
+        group?: string;
+        kind?: string;
+        name?: string;
+        namespace?: string;
+        version?: string;
+        status?: string; // Synced | OutOfSync | Unknown
+      }>;
+    };
+  };
 };
 
 // Stream NDJSON from ArgoCD streaming API; yields objects at obj.result
@@ -54,15 +70,14 @@ export async function* streamJsonResults<T>(url: string, token: string, signal?:
   }
 }
 
-function pad(s: string, w: number) {
-  return (s ?? '').slice(0, w).padEnd(w, ' ');
-}
+const keyFor = (n: {group?: string; kind?: string; namespace?: string; name?: string; version?: string}) =>
+  `${n.group || ''}/${n.kind || ''}/${n.namespace || ''}/${n.name || ''}/${n.version || ''}`;
 
-function ResourceRow({r}: {r: ResourceNode}) {
-  const sync = r.syncStatus ?? '-';
-  const health = r.health?.status ?? '-';
-  const syncColor = colorFor(sync);
-  const healthColor = colorFor(health);
+function ResourceRow({r, syncByKey}: {r: ResourceNode; syncByKey: Record<string, string>}) {
+  const status = r.health?.status ?? '-';
+  const statusColor = colorFor(status);
+  const syncVal = syncByKey[keyFor(r)] ?? '-';
+  const syncColor = colorFor(syncVal);
   return (
     <Box width="100%">
       <Box width={13}>
@@ -74,17 +89,17 @@ function ResourceRow({r}: {r: ResourceNode}) {
       </Box>
       <Box width={1}/>
       <Box width={12} justifyContent="flex-end">
-        <Text color={syncColor.color as any} dimColor={syncColor.dimColor as any} wrap="truncate">{sync}</Text>
+        <Text color={syncColor.color as any} dimColor={syncColor.dimColor as any} wrap="truncate">{syncVal}</Text>
       </Box>
       <Box width={1}/>
-      <Box width={10} justifyContent="flex-end">
-        <Text color={healthColor.color as any} dimColor={healthColor.dimColor as any} wrap="truncate">{health}</Text>
+      <Box width={12} justifyContent="flex-end">
+        <Text color={statusColor.color as any} dimColor={statusColor.dimColor as any} wrap="truncate">{status}</Text>
       </Box>
     </Box>
   );
 }
 
-function Table({rows}: {rows: ResourceNode[]}) {
+function Table({rows, syncByKey}: {rows: ResourceNode[]; syncByKey: Record<string, string>}) {
   return (
     <Box flexDirection="column">
       <Box>
@@ -94,9 +109,9 @@ function Table({rows}: {rows: ResourceNode[]}) {
         <Box width={1}/>
         <Box width={12} justifyContent="flex-end"><Text bold color="yellowBright">SYNC</Text></Box>
         <Box width={1}/>
-        <Box width={10} justifyContent="flex-end"><Text bold color="yellowBright">HEALTH</Text></Box>
+        <Box width={12} justifyContent="flex-end"><Text bold color="yellowBright">STATUS</Text></Box>
       </Box>
-      {rows.map((r, i) => <ResourceRow key={`${r.kind}//${r.name}/${i}`} r={r} />)}
+      {rows.map((r, i) => <ResourceRow key={`${r.kind}//${r.name}/${i}`} r={r} syncByKey={syncByKey} />)}
     </Box>
   );
 }
@@ -111,6 +126,7 @@ export type ResourceStreamProps = {
 export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, context, namespace, onExit}) => {
   const [rows, setRows] = useState<ResourceNode[]>([]);
   const [hint, setHint] = useState('Press q to return');
+  const [syncByKey, setSyncByKey] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancel = false;
@@ -121,10 +137,11 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
         for await (const tree of streamJsonResults<ApplicationTree>(url, token, controller.signal)) {
           if (cancel) break;
           const next = (tree.nodes ?? []).map(n => ({
+            group: (n as any).group,
             kind: n.kind,
             name: n.name,
             namespace: n.namespace,
-            syncStatus: n.syncStatus,
+            version: (n as any).version,
             health: n.health
           }));
           setRows(next);
@@ -139,6 +156,33 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
     return () => { cancel = true; controller.abort(); };
   }, [baseUrl, token, appName]);
 
+  // Stream application watch events to derive per-resource sync status
+  useEffect(() => {
+    const controller = new AbortController();
+    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications?name=${encodeURIComponent(appName)}`;
+    (async () => {
+      try {
+        for await (const evt of streamJsonResults<ApplicationWatchEvent>(url, token, controller.signal)) {
+          const resources = evt?.application?.status?.resources || [];
+          if (!resources || !Array.isArray(resources)) continue;
+          const m: Record<string, string> = {};
+          for (const r of resources) {
+            const k = keyFor(r as any);
+            if (k) m[k] = r.status || '-';
+          }
+          setSyncByKey(m);
+        }
+      } catch (err: any) {
+        const msg = String(err?.message ?? err);
+        if (!/aborted|AbortError/i.test(msg)) {
+          // Don't override main hint if already set; append minimal info
+          setHint(h => h.includes('Stream error') ? h : `${h}`);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [baseUrl, token, appName]);
+
   useInput((input) => {
     const ch = input.toLowerCase();
     if (ch === 'q') {
@@ -150,7 +194,7 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
     <Box flexDirection="column">
       <Text bold>Resources for: {appName}</Text>
       <Box paddingTop={1}/>
-      <Table rows={rows} />
+      <Table rows={rows} syncByKey={syncByKey} />
       <Box marginTop={1}><Text dimColor>{hint}</Text></Box>
     </Box>
   );
