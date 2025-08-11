@@ -8,7 +8,7 @@ export type HelpProps = {
 const Help: React.FC<HelpProps> = ({version}) => (
   <Box flexDirection="column" paddingX={2} paddingY={1}>
     <Box justifyContent="center">
-      <Text color="magentaBright" paddingRight={1} bold>
+      <Text color="magentaBright" bold>
         Argonaut {version}
       </Text>
     </Box>

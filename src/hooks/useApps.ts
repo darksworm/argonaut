@@ -29,12 +29,16 @@ export function useApps(
         setStatus('Live');
         for await (const ev of watchApps(server, token, undefined, controller.signal)) {
           const {type, application} = ev || ({} as any);
-          // @ts-expect-error minimal runtime guard
           if (!application?.metadata?.name) continue;
           setApps(curr => {
             const map = new Map(curr.map(a => [a.name, a] as const));
-            if (type === 'DELETED') map.delete(application.metadata.name);
-            else map.set(application.metadata.name, appToItem(application as any));
+            if (application?.metadata?.name) {
+              if (type === 'DELETED') {
+                map.delete(application.metadata.name);
+              } else {
+                map.set(application.metadata.name, appToItem(application as any));
+              }
+            }
             return Array.from(map.values());
           });
         }

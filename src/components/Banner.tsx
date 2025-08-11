@@ -25,7 +25,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
                                                        }) => {
     const isNarrow = termCols <= 100;   // stack vertically
 
-    const Context = ({paddingBottom, paddingTop}) => (
+    const Context = ({paddingBottom, paddingTop}: {paddingBottom: number, paddingTop: number}) => (
         <Box
             flexDirection="column"
             paddingRight={2}
@@ -86,7 +86,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
     // Wide: side-by-side, bottom-aligned
     return (
         <Box justifyContent="space-between" alignItems="flex-end">
-            <Context />
+            <Context paddingBottom={0} paddingTop={0}/>
             <Logo paddingBottom={0} align="flex-end" />
         </Box>
     );
