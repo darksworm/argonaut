@@ -1,10 +1,5 @@
 import {ensureHttps} from '../config/paths';
 
-// Ignore SSL verification for all HTTPS requests in this process (needed for self-signed APIs)
-if (typeof process !== 'undefined') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
-
 export async function api(base: string, token: string, path: string, init?: RequestInit) {
   const url = ensureHttps(base) + path;
   // Normalize headers to a plain record for RequestInit compatibility

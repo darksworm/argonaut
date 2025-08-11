@@ -15,6 +15,7 @@ import {getUserInfo} from '../api/session';
 import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
+import AuthRequiredView from './AuthRequiredView';
 import Help from './Help';
 import {ResourceStream} from './ResourceStream';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
@@ -100,8 +101,6 @@ export const App: React.FC = () => {
                 setToken(tokMaybe);
                 setStatus('Ready');
             } catch {
-                // Token invalid or missing → prompt for login command
-                setStatus('Authentication required. Provide a login command.');
                 setToken(null);
                 setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
             }
@@ -192,6 +191,10 @@ export const App: React.FC = () => {
         }
 
         // normal
+        if (input.toLowerCase() === 'q') {
+            exit();
+            return;
+        }
         if (input === '?') {
             setMode('help');
             return;
@@ -618,6 +621,24 @@ export const App: React.FC = () => {
     // While in external diff mode, pause rendering the React app entirely
     if (mode === 'external') {
         return null;
+    }
+
+    // Authentication required full-screen view
+    const authRequired = (status || '').toLowerCase().startsWith('authentication required');
+    if (!token && authRequired) {
+        return (
+            <AuthRequiredView
+                server={server}
+                apiVersion={apiVersion}
+                termCols={termCols}
+                termRows={termRows}
+                clusterScope={fmtScope(scopeClusters)}
+                namespaceScope={fmtScope(scopeNamespaces)}
+                projectScope={fmtScope(scopeProjects)}
+                argonautVersion={packageJson.version}
+                message={status}
+            />
+        );
     }
 
     // Full-screen rollback overlay: occupy whole screen and hide the apps UI, but keep header
