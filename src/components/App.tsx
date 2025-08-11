@@ -147,8 +147,18 @@ export const App: React.FC = () => {
             if (key.escape) {
                 setMode('normal');
                 setSearchQuery('');
+                return;
             }
-            // Enter handled by TextInput onSubmit
+            // Allow navigating the filtered list while typing
+            if (key.downArrow) {
+                setSelectedIdx(s => Math.min(s + 1, Math.max(0, visibleItems.length - 1)));
+                return;
+            }
+            if (key.upArrow) {
+                setSelectedIdx(s => Math.max(s - 1, 0));
+                return;
+            }
+            // Enter is handled by TextInput onSubmit; other typing goes to TextInput
             return;
         }
 
