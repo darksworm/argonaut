@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/darksworm/argonaut/compare/v1.0.4...v1.0.5) (2025-08-11)
+
+
+### Bug Fixes
+
+* **Banner:** remove unused termRows parameter ([67b7236](https://github.com/darksworm/argonaut/commit/67b72360be48f3c13550db7b7c7c43e87e7b7c3d))
+
 ## [1.0.4](https://github.com/darksworm/argonaut/compare/v1.0.3...v1.0.4) (2025-08-11)
 
 
