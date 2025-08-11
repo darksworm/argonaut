@@ -5,7 +5,7 @@ import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import {runAppDiffSession} from './DiffView';
-import ArgoNautBanner from "./banner";
+import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
 import {getCurrentServer, readCLIConfig} from '../config/cli-config';
