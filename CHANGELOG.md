@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/darksworm/argonaut/compare/v1.0.5...v1.1.0) (2025-08-11)
+
+
+### Features
+
+* **filter:** allow up/down navigation with arrow keys when filtering ([a795e07](https://github.com/darksworm/argonaut/commit/a795e07a4f5e9eb00e435a25b471b7b7b3f676ed))
+
+
+### Bug Fixes
+
+* **sync:** correct spacing when syncing multiple apps ([469f309](https://github.com/darksworm/argonaut/commit/469f309981757acf572e85fddd8b1455def94937))
+
 ## [1.0.5](https://github.com/darksworm/argonaut/compare/v1.0.4...v1.0.5) (2025-08-11)
 
 
