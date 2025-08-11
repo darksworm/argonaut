@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/darksworm/argonaut/compare/v1.0.2...v1.0.3) (2025-08-11)
+
+
+### Bug Fixes
+
+* **package:** update package name to argonaut-cli ([94a72d0](https://github.com/darksworm/argonaut/commit/94a72d0fe25a55462e1a5e34b81f6233a6717d18))
+
 ## [1.0.2](https://github.com/darksworm/argonaut/compare/v1.0.1...v1.0.2) (2025-08-11)
 
 
