@@ -1,7 +1,7 @@
 {
   "name": "argonaut-cli",
   "author": "darksworm (Ilmars Janis Bluzmanis)",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": false,
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
     "build": "rollup -c",
     "prepublishOnly": "npm run build"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "bugs": {
     "url": "https://github.com/darksworm/argonaut/issues"
   },
