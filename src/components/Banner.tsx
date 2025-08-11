@@ -19,7 +19,6 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
                                                            namespaceScope,
                                                            projectScope,
                                                            termCols = 80,
-                                                           termRows = 24,
                                                            apiVersion,
                                                            argonautVersion,
                                                        }) => {
