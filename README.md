@@ -38,17 +38,17 @@ argonaut
 ## 📸 Screenshots
 
 
-1. **Apps**  
-   <img src="assets/argonaut_apps.png" alt="Apps list"/>
+### **Apps**  
+<img src="assets/argonaut_apps.png" alt="Apps list"/>
 
-2. **Resources**  
-   <img src="assets/argonaut_resources.png" alt="Resources view"/>
+### **Resources**  
+<img src="assets/argonaut_resources.png" alt="Resources view"/>
 
-3. **Diff**  
-   <img src="assets/argonaut_diff.png" alt="External diff"/>
+### **Diff**  
+<img src="assets/argonaut_diff.png" alt="External diff"/>
 
-4. **Rollback**  
-   <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
+### **Rollback**  
+<img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
 
 ---
 
