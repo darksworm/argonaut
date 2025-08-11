@@ -1,5 +1,5 @@
 {
-  "name": "argonaut",
+  "name": "argonaut-cli",
   "version": "1.0.2",
   "private": false,
   "type": "module",
