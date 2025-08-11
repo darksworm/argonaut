@@ -7,6 +7,20 @@ Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + I
 
 ---
 
+## 🚀 Quick Start
+```bash
+# Install the Argonaut CLI globally
+npm i --global argonaut-cli
+
+# Log in to your Argo CD server
+argocd login
+
+# Start Argonaut
+argonaut
+```
+
+---
+
 ## ✨ Highlights
 
 - **Instant app browsing** with live updates (NDJSON streams)
