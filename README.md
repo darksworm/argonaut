@@ -55,5 +55,3 @@ argonaut
 
 ### **Rollback**  
 <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
-
----
