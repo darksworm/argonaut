@@ -2,6 +2,7 @@
 
 Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + Ink**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
 
+> [!IMPORTANT]  
 > Inspired by the great UX of [k9s](https://k9scli.io) — but for Argo CD.
 
 ---
