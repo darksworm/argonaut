@@ -804,15 +804,16 @@ export const App: React.FC = () => {
 
             {/* Confirm sync popup */}
             {mode === 'confirm-sync' && (
-                <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column">
+                <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column" width="100%">
                     {confirmTarget === '__MULTI__' ? (
                         <>
                             <Text bold>Sync applications?</Text>
-                            <Box marginBottom={1}>
-                                <Text>Do you want to sync <Text color="magentaBright"
-                                                                bold>({selectedApps.size})</Text> applications? (y/n):
-                                </Text>
-                                <TextInput
+                            <Box marginBottom={1} flexDirection="column">
+                                <Box>
+                                    <Text>Do you want to sync <Text color="magentaBright" bold>({selectedApps.size})</Text> applications? (y/n):</Text>
+                                </Box>
+                                <Box>
+                                    <TextInput
                                     value={confirmInput}
                                     onChange={(val) => {
                                         const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
@@ -842,6 +843,7 @@ export const App: React.FC = () => {
                                         // Ignore any other input, stay in confirm mode
                                     }}
                                 />
+                                </Box>
                             </Box>
                             <Box marginTop={1}>
                                 <Text>
@@ -854,10 +856,12 @@ export const App: React.FC = () => {
                     ) : (
                         <>
                             <Text bold>Sync application?</Text>
-                            <Box marginTop={1}>
-                                <Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>?
-                                    (y/n): </Text>
-                                <TextInput
+                            <Box marginTop={1} flexDirection="column">
+                                <Box>
+                                    <Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? (y/n):</Text>
+                                </Box>
+                                <Box>
+                                    <TextInput
                                     value={confirmInput}
                                     onChange={(val) => {
                                         const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
@@ -887,6 +891,7 @@ export const App: React.FC = () => {
                                         // Ignore any other input, stay in confirm mode
                                     }}
                                 />
+                                </Box>
                             </Box>
                             <Box marginTop={1}>
                                 <Text>
