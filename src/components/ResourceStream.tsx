@@ -80,19 +80,19 @@ function ResourceRow({r, syncByKey}: {r: ResourceNode; syncByKey: Record<string,
   const syncColor = colorFor(syncVal);
   return (
     <Box width="100%">
-      <Box width={13}>
+      <Box width={13} flexShrink={0}>
         <Text wrap="truncate">{r.kind}</Text>
       </Box>
-      <Box width={1}/>
+      <Box width={1} flexShrink={0}/>
       <Box flexGrow={1} flexShrink={1} minWidth={0}>
         <Text wrap="truncate-end">{r.name}</Text>
       </Box>
-      <Box width={1}/>
-      <Box width={12} justifyContent="flex-end">
+      <Box width={1} flexShrink={0}/>
+      <Box width={12} flexShrink={0} justifyContent="flex-end">
         <Text color={syncColor.color as any} dimColor={syncColor.dimColor as any} wrap="truncate">{syncVal}</Text>
       </Box>
-      <Box width={1}/>
-      <Box width={12} justifyContent="flex-end">
+      <Box width={1} flexShrink={0}/>
+      <Box width={12} flexShrink={0} justifyContent="flex-end">
         <Text color={statusColor.color as any} dimColor={statusColor.dimColor as any} wrap="truncate">{status}</Text>
       </Box>
     </Box>
@@ -103,13 +103,13 @@ function Table({rows, syncByKey}: {rows: ResourceNode[]; syncByKey: Record<strin
   return (
     <Box flexDirection="column">
       <Box>
-        <Box width={13}><Text bold color="yellowBright">KIND</Text></Box>
-        <Box width={1}/>
+        <Box width={13} flexShrink={0}><Text bold color="yellowBright">KIND</Text></Box>
+        <Box width={1} flexShrink={0}/>
         <Box flexGrow={1} flexShrink={1} minWidth={0}><Text bold color="yellowBright">NAME</Text></Box>
-        <Box width={1}/>
-        <Box width={12} justifyContent="flex-end"><Text bold color="yellowBright">SYNC</Text></Box>
-        <Box width={1}/>
-        <Box width={12} justifyContent="flex-end"><Text bold color="yellowBright">STATUS</Text></Box>
+        <Box width={1} flexShrink={0}/>
+        <Box width={12} flexShrink={0} justifyContent="flex-end"><Text bold color="yellowBright">SYNC</Text></Box>
+        <Box width={1} flexShrink={0}/>
+        <Box width={12} flexShrink={0} justifyContent="flex-end"><Text bold color="yellowBright">STATUS</Text></Box>
       </Box>
       {rows.map((r, i) => <ResourceRow key={`${r.kind}//${r.name}/${i}`} r={r} syncByKey={syncByKey} />)}
     </Box>
