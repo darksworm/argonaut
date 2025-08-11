@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "tsx src/main.tsx",
     "start": "node dist/index.js",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "prepublishOnly": "npm run build"
   },
+  "engines": { "node": ">=18" },
   "bugs": {
     "url": "https://github.com/darksworm/argonaut/issues"
   },
