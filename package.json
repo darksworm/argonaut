@@ -1,7 +1,7 @@
 {
   "name": "argonaut",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.tsx",
