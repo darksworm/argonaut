@@ -18,8 +18,7 @@ jobs:
         id: release
         uses: googleapis/release-please-action@v4
         with:
-          # Use the built-in GITHUB_TOKEN; no PAT required for standard usage
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: node
       - if: ${{ steps.release.outputs.release_created == 'true' }}
         uses: actions/checkout@v4
