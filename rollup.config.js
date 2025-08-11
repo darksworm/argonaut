@@ -2,18 +2,19 @@ import typescript from 'rollup-plugin-typescript2';
 import json from '@rollup/plugin-json';
 
 export default {
-  input: 'src/main.tsx', // adjust if your entry point is different
-  output: [
-    {
-      file: 'dist/cli.js',
-      format: 'cjs',
-      sourcemap: true,
-    },
+  input: 'src/main.tsx',             // make this your CLI entry
+  output: {
+    file: 'dist/cli.js',            // matches package.json "bin"
+    format: 'esm',
+    sourcemap: true,
+    banner: '#!/usr/bin/env node'   // required for CLI
+  },
+  external: [
+    'node:fs','node:path','node:os','node:process','node:child_process',
+    'node-pty','chalk','execa','react','ink','ink-text-input','yaml'
   ],
   plugins: [
     json(),
-    typescript({
-      tsconfig: './tsconfig.json'
-    })
+    typescript({ tsconfig: './tsconfig.json' })
   ]
 };
