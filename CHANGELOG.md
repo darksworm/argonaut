@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/darksworm/argonaut/compare/v1.0.1...v1.0.2) (2025-08-11)
+
+
+### Bug Fixes
+
+* **import:** correct casing of ArgoNautBanner import ([cecbba3](https://github.com/darksworm/argonaut/commit/cecbba3ed0a8e0fb87759d3d3c8ae09b0c7f9a0b))
+
 ## [1.0.1](https://github.com/darksworm/argonaut/compare/v1.0.0...v1.0.1) (2025-08-11)
 
 
