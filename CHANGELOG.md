@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.4](https://github.com/darksworm/argonaut/compare/v1.0.3...v1.0.4) (2025-08-11)
+
+
+### Bug Fixes
+
+* **package:** add prepublish script and specify Node.js engine version ([501bf43](https://github.com/darksworm/argonaut/commit/501bf4377edbb684b5f3ecca3d5b0fd67fabedba))
+* **rollup:** rename output file to cli.js ([ebd15fe](https://github.com/darksworm/argonaut/commit/ebd15fe0f2462900b49341acf689e987f0343a44))
+* **rollup:** update output format to ESM and add shebang for CLI ([4e9ec59](https://github.com/darksworm/argonaut/commit/4e9ec592a86f312df6afa341864076b5f4bc2725))
+
 ## [1.0.3](https://github.com/darksworm/argonaut/compare/v1.0.2...v1.0.3) (2025-08-11)
 
 
