@@ -10,6 +10,7 @@
     "build": "rollup -c",
     "prepublishOnly": "npm run build"
   },
+  "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
     "node": ">=18"
   },
@@ -41,5 +42,6 @@
   },
   "bin": {
     "argonaut": "./dist/cli.js"
-  }
+  },
+  "keywords": ["argocd", "argo-cd", "k8s", "kubernetes", "gitops", "continuous-delivery", "cd", "devops", "infrastructure-as-code", "applications", "applicationset", "resource-tree", "sync", "rollback", "health", "status", "events", "projects", "clusters", "repositories", "helm", "kustomize", "k9s-like", "terminal-ui", "text-ui", "react-cli", "react-tui", "tui", "terminal", "cli", "yaml"]
 }
