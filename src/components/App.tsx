@@ -18,6 +18,7 @@ import Rollback from './Rollback';
 import AuthRequiredView from './AuthRequiredView';
 import Help from './Help';
 import {ResourceStream} from './ResourceStream';
+import ConfirmationBox from './ConfirmationBox';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 
 const COL = {
@@ -136,7 +137,6 @@ export const App: React.FC = () => {
         getApiVersionApi(server, token).then(setApiVersion)
     }, [server, token]);
 
-    const [confirmInput, setConfirmInput] = useState('');
     const [confirmSyncPrune, setConfirmSyncPrune] = useState(false);
     const [confirmSyncWatch, setConfirmSyncWatch] = useState(true);
 
@@ -205,7 +205,7 @@ export const App: React.FC = () => {
                 }
                 return;
             }
-            // All other handling is done via TextInput onSubmit in the confirm dialog
+            // All other handling is done via the ConfirmationBox component
             return;
         }
         if (mode === 'rollback') {
@@ -470,7 +470,6 @@ export const App: React.FC = () => {
             // Prefer explicit arg; otherwise if multiple apps are selected, confirm multi-sync.
             if (arg) {
                 setConfirmTarget(arg);
-                setConfirmInput('');
                 setConfirmSyncPrune(false);
                 setConfirmSyncWatch(true);
                 setMode('confirm-sync');
@@ -478,7 +477,6 @@ export const App: React.FC = () => {
             }
             if (selectedApps.size > 1) {
                 setConfirmTarget(`__MULTI__`);
-                setConfirmInput('');
                 setConfirmSyncPrune(false);
                 setConfirmSyncWatch(false); // disabled for multi
                 setMode('confirm-sync');
@@ -492,7 +490,6 @@ export const App: React.FC = () => {
                 return;
             }
             setConfirmTarget(target);
-            setConfirmInput('');
             setConfirmSyncPrune(false);
             setConfirmSyncWatch(true);
             setMode('confirm-sync');
@@ -679,26 +676,20 @@ export const App: React.FC = () => {
                     apiVersion={apiVersion}
                     argonautVersion={packageJson.version}
                 />
-                <Box flexDirection="column" marginTop={1} flexGrow={1} borderStyle="round" borderColor="magenta"
-                     paddingX={1} flexWrap="nowrap">
-                    <Box flexDirection="column" marginTop={1} flexGrow={1}>
-                        <Rollback
-                            app={rollbackAppName}
-                            server={server}
-                            token={token}
-                            onClose={() => {
-                                setMode('normal');
-                                setRollbackAppName(null);
-                            }}
-                            onStartWatching={(appName) => {
-                                setResourcesApp(appName);
-                                setMode('resources');
-                                setRollbackAppName(null);
-                            }}
-                        />
-                    </Box>
-                    <Box flexGrow={1}/>
-                </Box>
+                <Rollback
+                    app={rollbackAppName}
+                    server={server}
+                    token={token}
+                    onClose={() => {
+                        setMode('normal');
+                        setRollbackAppName(null);
+                    }}
+                    onStartWatching={(appName) => {
+                        setResourcesApp(appName);
+                        setMode('resources');
+                        setRollbackAppName(null);
+                    }}
+                />
             </Box>
         );
     }
@@ -820,108 +811,28 @@ export const App: React.FC = () => {
                 </Box>
             )}
 
-
             {/* Confirm sync popup */}
             {mode === 'confirm-sync' && (
-                <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column" width="100%">
-                    {confirmTarget === '__MULTI__' ? (
-                        <>
-                            <Text bold>Sync applications?</Text>
-                            <Box marginBottom={1} flexDirection="column">
-                                <Box>
-                                    <Text>Do you want to sync <Text color="magentaBright" bold>({selectedApps.size})</Text> applications? (y/n):</Text>
-                                </Box>
-                                <Box>
-                                    <TextInput
-                                    value={confirmInput}
-                                    onChange={(val) => {
-                                        const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
-                                        // Allow only prefixes of y/yes or n/no
-                                        if (/^(y(es?)?|n(o?)?)?$/.test(filtered)) {
-                                            // Limit to max length of the longest allowed word
-                                            setConfirmInput(filtered.slice(0, 3));
-                                        }
-                                        // else ignore invalid characters (do not update state)
-                                    }}
-                                    onSubmit={(val) => {
-                                        const t = (val || '').trim().toLowerCase();
-                                        // reset input each submit
-                                        setConfirmInput('');
-                                        if (t === 'y' || t === 'yes') {
-                                            confirmSync(true);
-                                            return;
-                                        }
-                                        if (t === 'n' || t === 'no') {
-                                            confirmSync(false);
-                                            return;
-                                        }
-                                        if (t === '') {
-                                            // Do nothing on empty submit
-                                            return;
-                                        }
-                                        // Ignore any other input, stay in confirm mode
-                                    }}
-                                />
-                                </Box>
-                            </Box>
-                            <Box marginTop={1}>
-                                <Text>
-                                    Prune [p]: <Text color={(confirmSyncPrune ? 'yellow' : undefined) as any}>{confirmSyncPrune ? 'on' : 'off'}</Text>
-                                    {' '}•{' '}
-                                    <Text dimColor>Watch [w]: disabled for multi-app sync</Text>
-                                </Text>
-                            </Box>
-                        </>
-                    ) : (
-                        <>
-                            <Text bold>Sync application?</Text>
-                            <Box marginTop={1} flexDirection="column">
-                                <Box>
-                                    <Text>Do you want to sync <Text color="magentaBright" bold>{confirmTarget}</Text>? (y/n):</Text>
-                                </Box>
-                                <Box>
-                                    <TextInput
-                                    value={confirmInput}
-                                    onChange={(val) => {
-                                        const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
-                                        // Allow only prefixes of y/yes or n/no
-                                        if (/^(y(es?)?|n(o?)?)?$/.test(filtered)) {
-                                            // Limit to max length of the longest allowed word
-                                            setConfirmInput(filtered.slice(0, 3));
-                                        }
-                                        // else ignore invalid characters (do not update state)
-                                    }}
-                                    onSubmit={(val) => {
-                                        const t = (val || '').trim().toLowerCase();
-                                        // reset input each submit
-                                        setConfirmInput('');
-                                        if (t === 'y' || t === 'yes') {
-                                            confirmSync(true);
-                                            return;
-                                        }
-                                        if (t === 'n' || t === 'no') {
-                                            confirmSync(false);
-                                            return;
-                                        }
-                                        if (t === '') {
-                                            // Do nothing on empty submit
-                                            return;
-                                        }
-                                        // Ignore any other input, stay in confirm mode
-                                    }}
-                                />
-                                </Box>
-                            </Box>
-                            <Box marginTop={1}>
-                                <Text>
-                                    Prune [p]: <Text color={(confirmSyncPrune ? 'yellow' : undefined) as any}>{confirmSyncPrune ? 'on' : 'off'}</Text>
-                                    {' '}•{' '}
-                                    Watch [w]: <Text color={(confirmSyncWatch ? 'yellow' : undefined) as any}>{confirmSyncWatch ? 'on' : 'off'}</Text>
-                                </Text>
-                            </Box>
-                        </>
-                    )}
-                </Box>
+                <ConfirmationBox
+                    title={confirmTarget === '__MULTI__' ? 'Sync applications?' : 'Sync application?'}
+                    message={confirmTarget === '__MULTI__' ? 'Do you want to sync' : 'Do you want to sync'}
+                    target={confirmTarget === '__MULTI__' ? String(selectedApps.size) : confirmTarget!}
+                    isMulti={confirmTarget === '__MULTI__'}
+                    options={[
+                        {
+                            key: 'p',
+                            label: 'Prune',
+                            value: confirmSyncPrune
+                        },
+                        { 
+                            key: 'w', 
+                            label: 'Watch', 
+                            value: confirmSyncWatch, 
+                            disabled: confirmTarget === '__MULTI__'
+                        }
+                    ]}
+                    onConfirm={confirmSync}
+                />
             )}
 
             {/* Content area (fills space) */}
