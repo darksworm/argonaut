@@ -118,10 +118,11 @@ export type ResourceStreamProps = {
   baseUrl: string;      // e.g. https://argocd.example.com
   token: string;        // Argo CD JWT
   appName: string;      // Application name
+  appNamespace?: string; // Application control plane namespace
   onExit?: () => void;  // called when user quits the view (press 'q')
 };
 
-export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, onExit}) => {
+export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, appNamespace, onExit}) => {
   const [rows, setRows] = useState<ResourceNode[]>([]);
   const [hint, setHint] = useState('Press q or Esc to return');
   const [syncByKey, setSyncByKey] = useState<Record<string, string>>({});
@@ -129,7 +130,9 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
   // Initial fetch: resource tree (non-streaming) so view has immediate data
   useEffect(() => {
     const controller = new AbortController();
-    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}/resource-tree`;
+    const params = new URLSearchParams();
+    if (appNamespace) params.set('appNamespace', appNamespace);
+    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}/resource-tree${params.toString() ? `?${params.toString()}` : ''}`;
     (async () => {
       try {
         const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: controller.signal} as any);
@@ -152,13 +155,15 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
       }
     })();
     return () => controller.abort();
-  }, [baseUrl, token, appName]);
+  }, [baseUrl, token, appName, appNamespace]);
 
   // Stream: resource tree updates
   useEffect(() => {
     let cancel = false;
     const controller = new AbortController();
-    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications/${encodeURIComponent(appName)}/resource-tree`;
+    const params = new URLSearchParams();
+    if (appNamespace) params.set('appNamespace', appNamespace);
+    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications/${encodeURIComponent(appName)}/resource-tree${params.toString() ? `?${params.toString()}` : ''}`;
     (async () => {
       try {
         for await (const tree of streamJsonResults<ApplicationTree>(url, token, controller.signal)) {
@@ -181,12 +186,14 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
       }
     })();
     return () => { cancel = true; controller.abort(); };
-  }, [baseUrl, token, appName]);
+  }, [baseUrl, token, appName, appNamespace]);
 
   // Initial fetch: application status -> syncByKey
   useEffect(() => {
     const controller = new AbortController();
-    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}`;
+    const params = new URLSearchParams();
+    if (appNamespace) params.set('appNamespace', appNamespace);
+    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}${params.toString() ? `?${params.toString()}` : ''}`;
     (async () => {
       try {
         const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: controller.signal} as any);
@@ -209,12 +216,15 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
       }
     })();
     return () => controller.abort();
-  }, [baseUrl, token, appName]);
+  }, [baseUrl, token, appName, appNamespace]);
 
   // Stream application watch events to derive per-resource sync status
   useEffect(() => {
     const controller = new AbortController();
-    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications?name=${encodeURIComponent(appName)}`;
+    const params = new URLSearchParams();
+    params.set('name', appName);
+    if (appNamespace) params.set('appNamespace', appNamespace);
+    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications?${params.toString()}`;
     (async () => {
       try {
         for await (const evt of streamJsonResults<ApplicationWatchEvent>(url, token, controller.signal)) {
@@ -236,7 +246,7 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
       }
     })();
     return () => controller.abort();
-  }, [baseUrl, token, appName]);
+  }, [baseUrl, token, appName, appNamespace]);
 
   useInput((input, key) => {
     const ch = (input || '').toLowerCase();
