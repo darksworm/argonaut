@@ -1,7 +1,6 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {getApplication as getAppApi, postRollback as postRollbackApi, getRevisionMetadata as getRevisionMetadataApi} from '../api/rollback';
-import {watchApps} from '../api/applications.query';
 import {runRollbackDiffSession} from './DiffView';
 import {humanizeSince, shortSha, singleLine} from "../utils";
 
@@ -20,12 +19,13 @@ interface RollbackProps {
   server: string | null;
   token: string | null;
   onClose: () => void;
+  onStartWatching: (appName: string) => void;
 }
 
 export default function Rollback(props: RollbackProps) {
-  const {app, server, token, onClose} = props;
+  const {app, server, token, onClose, onStartWatching} = props;
 
-  type SubMode = 'list' | 'confirm' | 'progress';
+  type SubMode = 'list' | 'confirm';
   const [subMode, setSubMode] = useState<SubMode>('list');
   const [fromRev, setFromRev] = useState<string | undefined>(undefined);
   const [rows, setRows] = useState<RollbackRow[]>([]);
@@ -33,10 +33,8 @@ export default function Rollback(props: RollbackProps) {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('');
   const [prune, setPrune] = useState(false);
-  const [progressLog, setProgressLog] = useState<string[]>([]);
   const [metaLoadingKey, setMetaLoadingKey] = useState<string | null>(null);
   const metaAbortRef = useRef<AbortController | null>(null);
-  const rollbackWatchAbortRef = useRef<AbortController | null>(null);
 
   // Initial fetch of app history and current revision
   useEffect(() => {
@@ -75,7 +73,6 @@ export default function Rollback(props: RollbackProps) {
     })();
     return () => {
       try { metaAbortRef.current?.abort(); } catch {}
-      try { rollbackWatchAbortRef.current?.abort(); } catch {}
     };
   }, [app, server, token]);
 
@@ -125,14 +122,6 @@ export default function Rollback(props: RollbackProps) {
       if (input.toLowerCase() === 'c' || key.return) { executeRollback(true); return; }
       return;
     }
-    if (subMode === 'progress') {
-      if (key.escape) {
-        try { rollbackWatchAbortRef.current?.abort(); } catch {}
-        onClose();
-        return;
-      }
-      return;
-    }
   });
 
   async function runRollbackDiff() {
@@ -153,33 +142,8 @@ export default function Rollback(props: RollbackProps) {
     if (!server || !token || !row) { setError('Not ready.'); return; }
     try {
       await postRollbackApi(server, token, app, {id: row.id, name: app, prune});
-      // Start streaming progress
-      setSubMode('progress');
-      setProgressLog([]);
-      try { rollbackWatchAbortRef.current?.abort(); } catch {}
-      const ac = new AbortController();
-      rollbackWatchAbortRef.current = ac;
-      (async () => {
-        try {
-          for await (const evt of watchApps(server!, token!, undefined, ac.signal)) {
-            const appl: any = evt?.application; const name = appl?.metadata?.name;
-            if (name !== app) continue;
-            const phase = appl?.status?.operationState?.phase || '';
-            const msg = appl?.status?.operationState?.message || '';
-            const h = appl?.status?.health?.status || '';
-            const s = appl?.status?.sync?.status || '';
-            setProgressLog(log => [...log, `[${new Date().toISOString()}] ${phase||s} ${h} ${msg}`].slice(-200));
-            if ((h === 'Healthy' && s === 'Synced') || phase === 'Failed' || phase === 'Error') {
-              try { ac.abort(); } catch {}
-              break;
-            }
-          }
-        } catch (e: any) {
-          if (!ac.signal.aborted) setProgressLog(log => [...log, `Stream error: ${e?.message||String(e)}`]);
-        } finally {
-          onClose();
-        }
-      })();
+      // Close rollback view and start watching via resources view
+      onStartWatching(app);
     } catch (e: any) {
       setError(e?.message || String(e));
       setSubMode('confirm');
@@ -291,24 +255,8 @@ export default function Rollback(props: RollbackProps) {
     );
   }
 
-  // progress
-  return (
-    <Box paddingX={2} flexDirection="column">
-      <Text bold>
-        Rollback in progress: <Text color="magentaBright">{app}</Text>
-      </Text>
-      <Box marginTop={1} flexDirection="column">
-        {progressLog.slice(-Math.max(5, Math.min(20, progressLog.length))).map((l, i) => (
-          <Text key={i} dimColor>
-            {l}
-          </Text>
-        ))}
-      </Box>
-      <Box marginTop={1}>
-        <Text dimColor>Esc to close</Text>
-      </Box>
-    </Box>
-  );
+  // Should not reach here since we only have 'list' and 'confirm' modes
+  return null;
 }
 
 function filterRollbackRow(row: RollbackRow, f: string): boolean {

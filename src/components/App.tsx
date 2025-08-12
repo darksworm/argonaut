@@ -690,6 +690,11 @@ export const App: React.FC = () => {
                                 setMode('normal');
                                 setRollbackAppName(null);
                             }}
+                            onStartWatching={(appName) => {
+                                setResourcesApp(appName);
+                                setMode('resources');
+                                setRollbackAppName(null);
+                            }}
                         />
                     </Box>
                     <Box flexGrow={1}/>
