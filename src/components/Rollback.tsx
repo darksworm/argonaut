@@ -23,12 +23,13 @@ interface RollbackProps {
     app: string;
     server: string | null;
     token: string | null;
+    appNamespace?: string;
     onClose: () => void;
     onStartWatching: (appName: string) => void;
 }
 
 export default function Rollback(props: RollbackProps) {
-    const {app, server, token, onClose, onStartWatching} = props;
+    const {app, server, token, appNamespace, onClose, onStartWatching} = props;
 
     type SubMode = 'list' | 'confirm';
     const [subMode, setSubMode] = useState<SubMode>('list');
@@ -51,7 +52,7 @@ export default function Rollback(props: RollbackProps) {
                     setRows([]);
                     return;
                 }
-                const appObj = await getAppApi(server, token, app).catch(() => ({} as any));
+                const appObj = await getAppApi(server, token, app, appNamespace).catch(() => ({} as any));
                 const from = appObj?.status?.sync?.revision || '';
                 setFromRev(from || undefined);
                 const hist = Array.isArray(appObj?.status?.history) ? [...(appObj.status!.history!)] : [];
@@ -105,7 +106,7 @@ export default function Rollback(props: RollbackProps) {
         setMetaLoadingKey(key);
         (async () => {
             try {
-                const meta = await getRevisionMetadataApi(server, token, app, row.revision, ac.signal);
+                const meta = await getRevisionMetadataApi(server, token, app, row.revision, appNamespace, ac.signal);
                 const upd = [...rows];
                 upd[idx] = {...row, author: meta?.author, date: meta?.date, message: meta?.message};
                 setRows(upd);
@@ -204,7 +205,7 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         try {
-            await postRollbackApi(server, token, app, {id: row.id, name: app, prune});
+            await postRollbackApi(server, token, app, {id: row.id, name: app, prune, appNamespace});
             // Start watching via resources view and close rollback
             if (watch) onStartWatching(app); else onClose();
         } catch (e: any) {
