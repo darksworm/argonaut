@@ -75,6 +75,9 @@ export const App: React.FC = () => {
     const [rollbackAppName, setRollbackAppName] = useState<string | null>(null);
     // Single-app sync view (resource stream)
     const [syncViewApp, setResourcesApp] = useState<string | null>(null);
+    
+    // Vim-style navigation state for gg
+    const [lastGPressed, setLastGPressed] = useState<number>(0);
 
     // Boot & auth
     useEffect(() => {
@@ -233,6 +236,20 @@ export const App: React.FC = () => {
 
         if (input === 'j' || key.downArrow) setSelectedIdx(s => Math.min(s + 1, Math.max(0, visibleItems.length - 1)));
         if (input === 'k' || key.upArrow) setSelectedIdx(s => Math.max(s - 1, 0));
+        
+        // Vim-style navigation: gg to go to top, G to go to bottom
+        if (input === 'g') {
+            const now = Date.now();
+            if (now - lastGPressed < 500) { // 500ms window for double g
+                setSelectedIdx(0); // Go to top
+            }
+            setLastGPressed(now);
+            return;
+        }
+        if (input === 'G') {
+            setSelectedIdx(Math.max(0, visibleItems.length - 1)); // Go to bottom
+            return;
+        }
 
         // Esc clears current view selection
         if (key.escape) {

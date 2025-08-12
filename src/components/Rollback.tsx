@@ -42,6 +42,9 @@ export default function Rollback(props: RollbackProps) {
     const [watch, setWatch] = useState(true);
     const [metaLoadingKey, setMetaLoadingKey] = useState<string | null>(null);
     const metaAbortRef = useRef<AbortController | null>(null);
+    
+    // Vim-style navigation state for gg
+    const [lastGPressed, setLastGPressed] = useState<number>(0);
 
     // Initial fetch of app history and current revision
     useEffect(() => {
@@ -139,6 +142,21 @@ export default function Rollback(props: RollbackProps) {
             }
             if (input === 'k' || key.upArrow) {
                 setIdx(i => Math.max(i - 1, 0));
+                return;
+            }
+            
+            // Vim-style navigation: gg to go to top, G to go to bottom
+            if (input === 'g') {
+                const now = Date.now();
+                if (now - lastGPressed < 500) { // 500ms window for double g
+                    setIdx(0); // Go to top
+                }
+                setLastGPressed(now);
+                return;
+            }
+            if (input === 'G') {
+                const filteredLength = rows.filter(r => filterRollbackRow(r, filter)).length;
+                setIdx(Math.max(0, filteredLength - 1)); // Go to bottom
                 return;
             }
             if (input.toLowerCase() === 'd') {
