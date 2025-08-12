@@ -842,6 +842,7 @@ export const App: React.FC = () => {
                 ) : mode === 'resources' && server && token && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
                         <ResourceStream baseUrl={server} token={token} appName={syncViewApp}
+                                        appNamespace={apps.find(a => a.name === syncViewApp)?.appNamespace}
                                         onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>
                 ) : (
