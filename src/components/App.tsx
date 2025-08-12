@@ -526,7 +526,10 @@ export const App: React.FC = () => {
         }
         try {
             setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
-            for (const n of names) syncApp(server, token, n, { prune: confirmSyncPrune });
+            for (const n of names) {
+                const app = apps.find(a => a.name === n);
+                syncApp(server, token, n, { prune: confirmSyncPrune, appNamespace: app?.appNamespace });
+            }
             setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
             // Show resource stream only for single-app syncs and when watch is enabled
             if (!isMulti && confirmSyncWatch) {
@@ -679,6 +682,7 @@ export const App: React.FC = () => {
                     app={rollbackAppName}
                     server={server}
                     token={token}
+                    appNamespace={apps.find(a => a.name === rollbackAppName)?.appNamespace}
                     onClose={() => {
                         setMode('normal');
                         setRollbackAppName(null);

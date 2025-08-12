@@ -3,13 +3,17 @@ import type {ArgoApplication} from '../types/argo';
 
 export type RevisionMetadata = { author?: string; date?: string; message?: string; tags?: string[] };
 
-export async function getApplication(server: string, token: string, name: string, signal?: AbortSignal): Promise<ArgoApplication> {
-  const data: any = await api(server, token, `/api/v1/applications/${encodeURIComponent(name)}`, { signal } as RequestInit).catch(() => null as any);
+export async function getApplication(server: string, token: string, name: string, appNamespace?: string, signal?: AbortSignal): Promise<ArgoApplication> {
+  const params = new URLSearchParams();
+  if (appNamespace) params.set('appNamespace', appNamespace);
+  const data: any = await api(server, token, `/api/v1/applications/${encodeURIComponent(name)}${params.toString() ? `?${params.toString()}` : ''}`, { signal } as RequestInit).catch(() => null as any);
   return (data || {}) as ArgoApplication;
 }
 
-export async function getRevisionMetadata(server: string, token: string, name: string, revision: string, signal?: AbortSignal): Promise<RevisionMetadata | null> {
-  const path = `/api/v1/applications/${encodeURIComponent(name)}/revisions/${encodeURIComponent(revision)}/metadata`;
+export async function getRevisionMetadata(server: string, token: string, name: string, revision: string, appNamespace?: string, signal?: AbortSignal): Promise<RevisionMetadata | null> {
+  const params = new URLSearchParams();
+  if (appNamespace) params.set('appNamespace', appNamespace);
+  const path = `/api/v1/applications/${encodeURIComponent(name)}/revisions/${encodeURIComponent(revision)}/metadata${params.toString() ? `?${params.toString()}` : ''}`;
   const data: any = await api(server, token, path, { signal } as RequestInit).catch(() => null as any);
   if (!data) return null;
   return {
@@ -30,7 +34,9 @@ export async function getManifests(server: string, token: string, name: string, 
   return arr.map(x => typeof x === 'string' ? x : JSON.stringify(x));
 }
 
-export async function postRollback(server: string, token: string, name: string, body: { id: number; name: string; dryRun?: boolean; prune?: boolean }): Promise<any> {
-  const path = `/api/v1/applications/${encodeURIComponent(name)}/rollback`;
+export async function postRollback(server: string, token: string, name: string, body: { id: number; name: string; dryRun?: boolean; prune?: boolean; appNamespace?: string }): Promise<any> {
+  const params = new URLSearchParams();
+  if (body.appNamespace) params.set('appNamespace', body.appNamespace);
+  const path = `/api/v1/applications/${encodeURIComponent(name)}/rollback${params.toString() ? `?${params.toString()}` : ''}`;
   return api(server, token, path, { method: 'POST', body: JSON.stringify(body) });
 }
