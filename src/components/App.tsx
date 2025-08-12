@@ -85,7 +85,9 @@ export const App: React.FC = () => {
 
             const currentSrv = getCurrentServer(cfg);
             if (!currentSrv) {
-                setStatus('No current context configured in ArgoCD config. Please set `current-context` and login using argocd.');
+                // If config can't be loaded or has no current context, require authentication
+                setToken(null);
+                setStatus('Authentication required: No ArgoCD context configured. Please run `argocd login` to configure and authenticate.');
                 setMode('normal');
                 return;
             }
