@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/darksworm/argonaut/compare/v1.1.1...v1.2.0) (2025-08-12)
+
+
+### Features
+
+* add application control plane namespace support ([c69e6b1](https://github.com/darksworm/argonaut/commit/c69e6b197f2dda4f407c2bc4aa07256e0a3546fc))
+* add appNamespace support to ResourceStream ([0e90068](https://github.com/darksworm/argonaut/commit/0e90068dd6968e3861e06c23eeba56d03a9cc922))
+* add appNamespace support to sync and rollback APIs ([2663133](https://github.com/darksworm/argonaut/commit/26631339d819d5f43c1f3f472686791c850076b0))
+* add vim-style gg and G navigation hotkeys ([dad0314](https://github.com/darksworm/argonaut/commit/dad0314d2c5adf7fc48dd958c7a9be2cdfd99b7c))
+* **rollback:** consistent UI/UX with sync ([e5fe7b2](https://github.com/darksworm/argonaut/commit/e5fe7b22b35249bda104a825355c11cffcc87f9f))
+* **rollback:** show resources view when rolling back ([c47c1ac](https://github.com/darksworm/argonaut/commit/c47c1ac56ed8d19fe3d677b7e7992ca651e75bc5))
+
 ## [1.1.1](https://github.com/darksworm/argonaut/compare/v1.1.0...v1.1.1) (2025-08-12)
 
 
