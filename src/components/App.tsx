@@ -87,8 +87,8 @@ export const App: React.FC = () => {
             if (!currentSrv) {
                 // If config can't be loaded or has no current context, require authentication
                 setToken(null);
-                setStatus('Authentication required: No ArgoCD context configured. Please run `argocd login` to configure and authenticate.');
-                setMode('normal');
+                setStatus('No ArgoCD context configured. Please run `argocd login` to configure and authenticate.');
+                setMode('auth-required');
                 return;
             }
             setServer(currentSrv);
@@ -104,7 +104,9 @@ export const App: React.FC = () => {
                 setStatus('Ready');
             } catch {
                 setToken(null);
-                setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+                setStatus('please use argocd login to authenticate before running argonaut');
+                setMode('auth-required');
+                return;
             }
 
             setMode('normal');
@@ -118,12 +120,13 @@ export const App: React.FC = () => {
     const {apps: liveApps, status: appsStatus} = useApps(server, token, mode === 'external', (err) => {
         // On auth error from background data flow, clear token and show auth-required message
         setToken(null);
-        setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+        setStatus('please use argocd login to authenticate before running argonaut');
+        setMode('auth-required');
     });
 
     useEffect(() => {
         if (!server || !token) return;
-        if (mode === 'external') return; // pause syncing state while in external/diff mode
+        if (mode === 'external' || mode === 'auth-required') return; // pause syncing state while in external/diff mode or auth required
         setApps(liveApps);
         setStatus(appsStatus);
     }, [server, token, liveApps, appsStatus, mode]);
@@ -141,6 +144,14 @@ export const App: React.FC = () => {
     useInput((input, key) => {
         if (mode === 'external') return;
         if (mode === 'resources') return; // handled by ResourceStream
+        if (mode === 'auth-required') {
+            if (input.toLowerCase() === 'q') {
+                exit();
+                return;
+            }
+            // All other input ignored in auth-required mode
+            return;
+        }
         if (mode === 'help') {
             if (input === '?' || key.escape) setMode('normal');
             return;
@@ -267,7 +278,8 @@ export const App: React.FC = () => {
                         await getUserInfo(server, token);
                     } catch {
                         setToken(null);
-                        setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+                        setStatus('please use argocd login to authenticate before running argonaut');
+                        setMode('auth-required');
                     }
                 })();
             }
@@ -384,7 +396,8 @@ export const App: React.FC = () => {
 
 
         if (is('login')) {
-            setStatus('Authentication required: please use argocd login to authenticate before running argonaut');
+            setStatus('please use argocd login to authenticate before running argonaut');
+            setMode('auth-required');
             return;
         }
 
@@ -636,8 +649,7 @@ export const App: React.FC = () => {
     }
 
     // Authentication required full-screen view
-    const authRequired = (status || '').toLowerCase().startsWith('authentication required');
-    if (!token && authRequired) {
+    if (mode === 'auth-required') {
         return (
             <AuthRequiredView
                 server={server}
