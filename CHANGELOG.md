@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/darksworm/argonaut/compare/v1.1.0...v1.1.1) (2025-08-12)
+
+
+### Bug Fixes
+
+* **login:** show AuthRequired component when no server found ([e802ab4](https://github.com/darksworm/argonaut/commit/e802ab45f7a89a9e6f05b81b8a0ef8bb693a42ba))
+* **sync:** improve layout of confirm sync popup for better readability ([5d617bf](https://github.com/darksworm/argonaut/commit/5d617bf1659f7f4ab3c23d524c5db25da15ffba3))
+
 ## [1.1.0](https://github.com/darksworm/argonaut/compare/v1.0.5...v1.1.0) (2025-08-11)
 
 
