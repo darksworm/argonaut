@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, {useEffect, useMemo, useState} from 'react';
 import {Box, Text, useApp, useInput} from 'ink';
 import TextInput from 'ink-text-input';
@@ -249,14 +248,14 @@ export const App: React.FC = () => {
     });
 
     function clearLowerLevelSelections(view: View) {
-        const emptySet = new Set();
+        const emptyStringSet = new Set<string>();
         switch (view) {
             case 'clusters':
-                setScopeNamespaces(emptySet);
+                setScopeNamespaces(emptyStringSet);
             case 'namespaces':
-                setScopeProjects(emptySet);
+                setScopeProjects(emptyStringSet);
             case 'projects':
-                setSelectedApps(emptySet);
+                setSelectedApps(emptyStringSet);
         }
     }
 
@@ -268,7 +267,7 @@ export const App: React.FC = () => {
         clearLowerLevelSelections(view);
         
         if (view === 'clusters') {
-            const next = scopeClusters.has(val) ? new Set() : new Set([val]);
+            const next = scopeClusters.has(val) ? new Set<string>() : new Set([val]);
             setScopeClusters(next);
             // When a cluster is selected, verify token via userinfo
             if (server) {
@@ -284,10 +283,10 @@ export const App: React.FC = () => {
                 })();
             }
         } else if (view === 'namespaces') {
-            const next = scopeNamespaces.has(val) ? new Set() : new Set([val]);
+            const next = scopeNamespaces.has(val) ? new Set<string>() : new Set([val]);
             setScopeNamespaces(next);
         } else if (view === 'projects') {
-            const next = scopeProjects.has(val) ? new Set() : new Set([val]);
+            const next = scopeProjects.has(val) ? new Set<string>() : new Set([val]);
             setScopeProjects(next);
         } else if (view === 'apps') {
             const app = (item as AppItem).name;
@@ -842,7 +841,7 @@ export const App: React.FC = () => {
                     <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version}/></Box>
                 ) : mode === 'resources' && server && token && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
-                        <ResourceStream baseUrl={server} token={token} appName={syncViewApp} namespace={apps.find(a => a.name === syncViewApp)?.namespace}
+                        <ResourceStream baseUrl={server} token={token} appName={syncViewApp}
                                         onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>
                 ) : (
