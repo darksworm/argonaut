@@ -7,7 +7,7 @@ export type ArgoDestination = {
 };
 
 export type ArgoApplication = {
-  metadata?: { name?: string };
+  metadata?: { name?: string; namespace?: string };
   spec?: { project?: string; destination?: ArgoDestination };
   status?: {
     sync?: { status?: string; revision?: string };
