@@ -23,6 +23,7 @@ export function appToItem(a: ArgoApplication): AppItem {
     project: a?.spec?.project,
     clusterId: id,
     clusterLabel: label,
-    namespace: dest.namespace
+    namespace: dest.namespace,
+    appNamespace: a?.metadata?.namespace
   };
 }
