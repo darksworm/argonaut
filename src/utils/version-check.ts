@@ -14,7 +14,7 @@ interface VersionCheckResult {
   error?: string;
 }
 
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_DURATION = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 const CACHE_FILE = join(tmpdir(), '.argonaut-version-cache.json');
 
 async function getCachedResult(): Promise<VersionCheckResult | null> {
