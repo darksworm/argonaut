@@ -5,7 +5,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import { patchYogaTopLevelAwait } from './plugins/patch-yoga-toplevel-await.js';
 
 export default {
-  input: 'src/main.tsx',
+  input: 'src/main-sea.tsx',
   output: {
     file: 'dist/sea-bundle.cjs',
     format: 'cjs',
@@ -22,6 +22,28 @@ export default {
     'node-pty'
   ],
   plugins: [
+    // Add stubs for optional dependencies that are dynamically required
+    {
+      name: 'stub-optional-deps',
+      resolveId(id) {
+        if (id === 'bufferutil' || id === 'utf-8-validate' || id === 'react-devtools-core') {
+          return id;
+        }
+        return null;
+      },
+      load(id) {
+        if (id === 'bufferutil') {
+          return 'export default {}; export const BufferUtil = {};';
+        }
+        if (id === 'utf-8-validate') {
+          return 'export default function validate() { return true; }; export { validate };';
+        }
+        if (id === 'react-devtools-core') {
+          return 'export default { connectToDevTools: () => {} }; export const connectToDevTools = () => {};';
+        }
+        return null;
+      }
+    },
     patchYogaTopLevelAwait(),
     nodeResolve({
       preferBuiltins: true,

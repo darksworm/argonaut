@@ -15,47 +15,22 @@ export function patchYogaTopLevelAwait() {
       if (id.includes('node_modules/yoga-layout/dist/src/index.js')) {
         console.log('🔧 Patching yoga-layout top-level await...');
         
-        // Replace the problematic line
+        // Replace the problematic line with delayed initialization
         patchedCode = patchedCode.replace(
           /const Yoga = wrapAssembly\(await loadYoga\(\)\);/g,
           `
 // Patched for SEA compatibility - remove top-level await
 let Yoga = null;
-let yogaPromise = null;
 
-function ensureYogaLoaded() {
-  if (!yogaPromise) {
-    yogaPromise = loadYoga().then(yoga => {
-      Yoga = wrapAssembly(yoga);
-      return Yoga;
-    });
-  }
-  return yogaPromise;
-}
-
-// Initialize immediately but don't block module loading
-ensureYogaLoaded().catch(console.error);
-
-// Create a proxy that initializes on first access
-const YogaProxy = new Proxy({}, {
-  get(target, prop) {
-    if (!Yoga) {
-      throw new Error('Yoga WASM not yet loaded. This should not happen in normal usage.');
-    }
-    return Yoga[prop];
-  }
+// Initialize Yoga asynchronously
+loadYoga().then(yoga => {
+  Yoga = wrapAssembly(yoga);
+}).catch(e => {
+  console.error('Failed to load Yoga WASM:', e);
 });
 
-// For modules that expect Yoga to be available immediately, 
-// we'll need to handle this differently, but this gets us past the parsing stage
-const YogaExport = YogaProxy;
+// Export the variable that will be set when ready
           `
-        );
-        
-        // Also need to update the export
-        patchedCode = patchedCode.replace(
-          /export default Yoga;/g,
-          'export default YogaExport;'
         );
         
         if (patchedCode !== code) {
