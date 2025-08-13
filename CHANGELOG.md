@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/darksworm/argonaut/compare/v1.2.0...v1.3.0) (2025-08-13)
+
+
+### Features
+
+* **version-checker:** add version checker with npm registry integration ([#11](https://github.com/darksworm/argonaut/issues/11)) ([3dd5b8a](https://github.com/darksworm/argonaut/commit/3dd5b8ab4cf55f27b2ddca6001ce73229940a5e7))
+
 ## [1.2.0](https://github.com/darksworm/argonaut/compare/v1.1.1...v1.2.0) (2025-08-12)
 
 
