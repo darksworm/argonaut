@@ -4,4 +4,5 @@ build/
 dist/
 out/
 *.iml
+src/data/licenses.ts
 
