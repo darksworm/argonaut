@@ -111,9 +111,7 @@ export const App: React.FC = () => {
                 
                 // Check for version updates
                 checkVersion(packageJson.version).then(result => {
-                    if (result.isOutdated) {
-                        setIsVersionOutdated(true);
-                    }
+                    setIsVersionOutdated(result.isOutdated);
                     if (result.latestVersion) {
                         setLatestVersion(result.latestVersion);
                     }
