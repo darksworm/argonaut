@@ -4,6 +4,7 @@ import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import {runAppDiffSession} from './DiffView';
+import {runLicenseSession} from './LicenseView';
 import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
@@ -374,6 +375,31 @@ export const App: React.FC = () => {
         }
         if (is('help', '?')) {
             setMode('help');
+            return;
+        }
+        if (is('license', 'licenses')) {
+            try {
+                setMode('normal');
+                setStatus('Opening licenses…');
+
+                await runLicenseSession({
+                    forwardInput: true,
+                    onEnterExternal: () => setMode('external'),
+                    onExitExternal: () => {
+                    },
+                });
+                setMode('normal');
+                setStatus('License viewer closed.');
+            } catch (e: any) {
+                try {
+                    const stdinAny = process.stdin as any;
+                    stdinAny.setRawMode?.(true);
+                    stdinAny.resume?.();
+                } catch {
+                }
+                setMode('normal');
+                setStatus(`License viewer failed: ${e?.message || String(e)}`);
+            }
             return;
         }
 

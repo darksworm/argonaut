@@ -10,8 +10,9 @@ export default {
     banner: '#!/usr/bin/env node'   // required for CLI
   },
   external: [
-    'node:fs','node:path','node:os','node:process','node:child_process',
-    'node-pty','chalk','execa','react','ink','ink-text-input','yaml'
+    'node:fs','node:fs/promises','node:path','node:os','node:process','node:child_process',
+    'node-pty','chalk','execa','react','react/jsx-runtime','ink','ink-text-input','yaml','string-width',
+    'fs','path','os'
   ],
   plugins: [
     json(),
