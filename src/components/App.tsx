@@ -18,6 +18,7 @@ import AuthRequiredView from './AuthRequiredView';
 import Help from './Help';
 import {ResourceStream} from './ResourceStream';
 import ConfirmationBox from './ConfirmationBox';
+import {checkVersion} from '../utils/version-check';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 
 const COL = {
@@ -63,6 +64,8 @@ export const App: React.FC = () => {
     const [command, setCommand] = useState(':');
     const [selectedIdx, setSelectedIdx] = useState(0);
     const [status, setStatus] = useState<string>('Starting…');
+    const [isVersionOutdated, setIsVersionOutdated] = useState<boolean>(false);
+    const [latestVersion, setLatestVersion] = useState<string | undefined>(undefined);
 
     // Scopes / selections
     const [scopeClusters, setScopeClusters] = useState<Set<string>>(new Set());
@@ -105,6 +108,19 @@ export const App: React.FC = () => {
                 setApiVersion(version);
                 setToken(tokMaybe);
                 setStatus('Ready');
+                
+                // Check for version updates
+                checkVersion(packageJson.version).then(result => {
+                    setIsVersionOutdated(result.isOutdated);
+                    if (result.latestVersion) {
+                        setLatestVersion(result.latestVersion);
+                    }
+                    if (result.error && !result.latestVersion) {
+                        setStatus(prevStatus => prevStatus === 'Ready' ? 'Ready • Could not check for updates' : prevStatus);
+                    }
+                }).catch(() => {
+                    // Silently ignore version check errors
+                });
             } catch {
                 setToken(null);
                 setStatus('please use argocd login to authenticate before running argonaut');
@@ -859,7 +875,7 @@ export const App: React.FC = () => {
             <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1}
                  flexWrap="nowrap">
                 {mode === 'help' ? (
-                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version}/></Box>
+                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} isOutdated={isVersionOutdated} latestVersion={latestVersion}/></Box>
                 ) : mode === 'resources' && server && token && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
                         <ResourceStream baseUrl={server} token={token} appName={syncViewApp}
@@ -974,6 +990,7 @@ export const App: React.FC = () => {
                 <Box>
                     <Text dimColor>
                         {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
+                        {isVersionOutdated && <Text color="yellow"> • Update available!</Text>}
                     </Text>
                 </Box>
             </Box>

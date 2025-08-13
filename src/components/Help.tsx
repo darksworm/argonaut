@@ -3,13 +3,18 @@ import {Box, Text} from 'ink';
 
 export type HelpProps = {
   version: string;
+  isOutdated?: boolean;
+  latestVersion?: string;
 };
 
-const Help: React.FC<HelpProps> = ({version}) => (
+const Help: React.FC<HelpProps> = ({version, isOutdated, latestVersion}) => (
   <Box flexDirection="column" paddingX={2} paddingY={1}>
     <Box justifyContent="center">
       <Text color="magentaBright" bold>
         Argonaut {version}
+        {isOutdated && latestVersion && (
+          <Text color="yellow"> (latest: {latestVersion})</Text>
+        )}
       </Text>
     </Box>
     <Box marginTop={1}>
