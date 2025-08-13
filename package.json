@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "tsx src/main.tsx",
     "start": "node dist/index.js",
+    "prebuild": "npm run generate:licenses",
     "build": "rollup -c",
+    "generate:licenses": "mkdir -p dist && npx generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && node scripts/generate-licenses.cjs",
     "prepublishOnly": "npm run build"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
@@ -35,6 +37,7 @@
     "@rollup/plugin-json": "^6.1.0",
     "@types/node": "^24.2.0",
     "@types/react": "^19.1.9",
+    "generate-license-file": "^4.0.0",
     "rollup": "^4.46.2",
     "rollup-plugin-typescript2": "^0.36.0",
     "tsx": "^4.20.3",
