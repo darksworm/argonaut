@@ -5,7 +5,7 @@
   "private": false,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/main.tsx",
+    "dev": "[ -f \"src/data/licenses.ts\" ] || npm run generate:licenses; tsx src/main.tsx",
     "start": "node dist/index.js",
     "prebuild": "npm run generate:licenses",
     "build": "rollup -c",
