@@ -2,6 +2,7 @@ import typescript from 'rollup-plugin-typescript2';
 import json from '@rollup/plugin-json';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import { patchYogaTopLevelAwait } from './plugins/patch-yoga-toplevel-await.js';
 
 export default {
   input: 'src/main.tsx',
@@ -21,6 +22,7 @@ export default {
     'node-pty'
   ],
   plugins: [
+    patchYogaTopLevelAwait(),
     nodeResolve({
       preferBuiltins: true,
       exportConditions: ['node', 'require'],
