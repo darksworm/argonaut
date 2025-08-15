@@ -24,9 +24,11 @@ export async function getRevisionMetadata(server: string, token: string, name: s
   };
 }
 
-export async function getManifests(server: string, token: string, name: string, revision?: string, signal?: AbortSignal): Promise<string[]> {
-  const qs = revision ? `?revision=${encodeURIComponent(revision)}` : '';
-  const path = `/api/v1/applications/${encodeURIComponent(name)}/manifests${qs}`;
+export async function getManifests(server: string, token: string, name: string, revision?: string, signal?: AbortSignal, appNamespace?: string): Promise<string[]> {
+  const params = new URLSearchParams();
+  if (revision) params.set('revision', revision);
+  if (appNamespace) params.set('appNamespace', appNamespace);
+  const path = `/api/v1/applications/${encodeURIComponent(name)}/manifests${params.toString() ? `?${params.toString()}` : ''}`;
   const data: any = await api(server, token, path, { signal } as RequestInit).catch(() => null as any);
   // Argo can return {manifests: string[]} or raw array. Normalize.
   const arr: any[] = Array.isArray(data?.manifests) ? data.manifests : (Array.isArray(data) ? data : []);

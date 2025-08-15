@@ -56,13 +56,13 @@ export default function Rollback(props: RollbackProps) {
                     return;
                 }
                 const appObj = await getAppApi(server, token, app, appNamespace).catch(() => ({} as any));
-                const from = appObj?.status?.sync?.revision || '';
+                const from = appObj?.status?.sync?.revision ?? appObj?.status?.history?.[0]?.revisions?.[0] ?? '';
                 setFromRev(from || undefined);
                 const hist = Array.isArray(appObj?.status?.history) ? [...(appObj.status!.history!)] : [];
                 const r: RollbackRow[] = hist
                     .map((h: any) => ({
                         id: Number(h?.id ?? 0),
-                        revision: String(h?.revision || ''),
+                        revision: String(h?.revision ?? h?.revisions?.[0] ?? ''),
                         deployedAt: h?.deployedAt
                     }))
                     .filter(h => h.id > 0 && h.revision)
@@ -204,7 +204,7 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         try {
-            const opened = await runRollbackDiffSession(server, token, app, row.revision, {forwardInput: true});
+            const opened = await runRollbackDiffSession(server, token, app, row.revision, {forwardInput: true}, appNamespace);
             if (!opened) setError('No differences.');
         } catch (e: any) {
             setError(`Diff failed: ${e?.message || String(e)}`);
@@ -223,7 +223,7 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         try {
-            await postRollbackApi(server, token, app, {id: row.id, name: app, prune, appNamespace});
+            const res = await postRollbackApi(server, token, app, {id: row.id, name: app, prune, appNamespace});
             // Start watching via resources view and close rollback
             if (watch) onStartWatching(app); else onClose();
         } catch (e: any) {
