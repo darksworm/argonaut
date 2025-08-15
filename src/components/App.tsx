@@ -15,7 +15,8 @@ import {getUserInfo} from '../api/session';
 import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
-import AuthRequiredView from './AuthRequiredView';
+import LoginView from './LoginView';
+import LoadingView from './LoadingView';
 import Help from './Help';
 import {ResourceStream} from './ResourceStream';
 import ConfirmationBox from './ConfirmationBox';
@@ -87,14 +88,14 @@ export const App: React.FC = () => {
     useEffect(() => {
         (async () => {
             setMode('loading');
-            setStatus('Loading ArgoCD config…');
+            setStatus('Loading Argo CD config…');
             const cfg = await readCLIConfig();
 
             const currentSrv = getCurrentServer(cfg);
             if (!currentSrv) {
                 // If config can't be loaded or has no current context, require authentication
                 setToken(null);
-                setStatus('No ArgoCD context configured. Please run `argocd login` to configure and authenticate.');
+                setStatus('No Argo CD context configured. Please configure your login settings below.');
                 setMode('auth-required');
                 return;
             }
@@ -124,7 +125,7 @@ export const App: React.FC = () => {
                 });
             } catch {
                 setToken(null);
-                setStatus('please use argocd login to authenticate before running argonaut');
+                setStatus('Authentication required. Please configure your login settings.');
                 setMode('auth-required');
                 return;
             }
@@ -140,7 +141,7 @@ export const App: React.FC = () => {
     const {apps: liveApps, status: appsStatus} = useApps(server, token, mode === 'external', (err) => {
         // On auth error from background data flow, clear token and show auth-required message
         setToken(null);
-        setStatus('please use argocd login to authenticate before running argonaut');
+        setStatus('Authentication required. Please configure your login settings.');
         setMode('auth-required');
     });
 
@@ -162,13 +163,14 @@ export const App: React.FC = () => {
     // Input
     useInput((input, key) => {
         if (mode === 'external') return;
+        if (mode === 'auth-required') return;
         if (mode === 'resources') return; // handled by ResourceStream
-        if (mode === 'auth-required') {
+        if (mode === 'loading') {
             if (input.toLowerCase() === 'q') {
                 exit();
                 return;
             }
-            // All other input ignored in auth-required mode
+            // All other input ignored in loading mode
             return;
         }
         if (mode === 'help') {
@@ -311,7 +313,7 @@ export const App: React.FC = () => {
                         await getUserInfo(server, token);
                     } catch {
                         setToken(null);
-                        setStatus('please use argocd login to authenticate before running argonaut');
+                        setStatus('Authentication required. Please configure your login settings.');
                         setMode('auth-required');
                     }
                 })();
@@ -454,7 +456,7 @@ export const App: React.FC = () => {
 
 
         if (is('login')) {
-            setStatus('please use argocd login to authenticate before running argonaut');
+            setStatus('Authentication required. Please configure your login settings.');
             setMode('auth-required');
             return;
         }
@@ -687,17 +689,15 @@ export const App: React.FC = () => {
 
     // Loading screen fills the viewport
     if (mode === 'loading') {
-        const spinChar = '⠋';
-        // @ts-ignore
-        const loadingHeader: string = `${chalk.bold('View:')} ${chalk.yellow('LOADING')} • ${chalk.bold('Context:')} ${chalk.cyan(server || '—')}`;
         return (
-            <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows - 1}>
-                <Box><Text>{loadingHeader}</Text></Box>
-                <Box flexGrow={1} alignItems="center" justifyContent="center">
-                    <Text color="yellow">{spinChar} Connecting & fetching applications…</Text>
-                </Box>
-                <Box><Text dimColor>{status}</Text></Box>
-            </Box>
+            <LoadingView
+                termRows={termRows}
+                message="Connecting…"
+                server={server}
+                showHeader={true}
+                showAbort={true}
+                onAbort={() => setMode('auth-required')}
+            />
         );
     }
 
@@ -709,16 +709,14 @@ export const App: React.FC = () => {
     // Authentication required full-screen view
     if (mode === 'auth-required') {
         return (
-            <AuthRequiredView
+            <LoginView
                 server={server}
-                apiVersion={apiVersion}
-                termCols={termCols}
                 termRows={termRows}
-                clusterScope={fmtScope(scopeClusters)}
-                namespaceScope={fmtScope(scopeNamespaces)}
-                projectScope={fmtScope(scopeProjects)}
-                argonautVersion={packageJson.version}
-                message={status}
+                onLoginSuccess={() => {
+                    // Force a re-initialization of the app after successful login
+                    setMode('normal');
+                    setStatus('Logged in');
+                }}
             />
         );
     }

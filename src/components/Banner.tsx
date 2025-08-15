@@ -38,7 +38,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
                     {clusterScope && clusterScope !== '—' && <Text><Text bold>Cluster:</Text> {clusterScope}</Text>}
                     {namespaceScope && namespaceScope !== '—' && <Text><Text bold>Namespace:</Text> {namespaceScope}</Text>}
                     {projectScope && projectScope !== '—' && <Text><Text bold>Project:</Text> {projectScope}</Text>}
-                    {!isNarrow && apiVersion && <Text><Text bold>ArgoCD:</Text> <Text color="green">{apiVersion}</Text></Text>}
+                    {!isNarrow && apiVersion && <Text><Text bold>Argo CD:</Text> <Text color="green">{apiVersion}</Text></Text>}
                 </>
             )}
         </Box>

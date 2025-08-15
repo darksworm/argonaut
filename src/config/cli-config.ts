@@ -4,7 +4,7 @@ import YAML from 'yaml';
 import {CONFIG_PATH} from './paths';
 
 export type ArgoContext = {name: string; server: string; user: string};
-export type ArgoServer  = {server: string; ['grpc-web']?: boolean; ['grpc-web-root-path']?: string; insecure?: boolean};
+export type ArgoServer  = {server: string; ['grpc-web']?: boolean; ['grpc-web-root-path']?: string; insecure?: boolean; ['plain-text']?: boolean; core?: boolean};
 export type ArgoUser    = {name: string; ['auth-token']?: string};
 export type ArgoCLIConfig = {
   contexts?: ArgoContext[];
