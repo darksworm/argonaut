@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/darksworm/argonaut/compare/v1.3.0...v1.4.0) (2025-08-15)
+
+
+### Features
+
+* **help:** add licenses command ([0515221](https://github.com/darksworm/argonaut/commit/05152213a5994499b3c13ff215a98ac386aba2ad))
+* **licenses:** add licenses view and command ([a419286](https://github.com/darksworm/argonaut/commit/a41928670f6b45e72d56e631f7f9b791ae937106))
+
+
+### Bug Fixes
+
+* **rollback:** temporary fix for apps with multiple sources not showing revisions in the rollback view ([776d89c](https://github.com/darksworm/argonaut/commit/776d89c8f673206454dacef67ac9d3b6de50cc50))
+
 ## [1.3.0](https://github.com/darksworm/argonaut/compare/v1.2.0...v1.3.0) (2025-08-13)
 
 
