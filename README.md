@@ -36,9 +36,7 @@ argonaut
 - **Live resources view** per app with health & sync status
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
-- **Robust streaming**: tolerant to partial frames & reconnects
 - **Keyboard-only workflow** with Vim-like navigation
-- **Clear error surfaces** and an auth gate when your session is invalid
 
 ---
 
