@@ -8,6 +8,7 @@ import {runLicenseSession} from './LicenseView';
 import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
+import OfficeSupplyManager, {rulerLineMode} from './OfficeSupplyManager';
 import {getCurrentServer, readCLIConfig} from '../config/cli-config';
 import {tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
@@ -173,6 +174,9 @@ export const App: React.FC = () => {
         }
         if (mode === 'help') {
             if (input === '?' || key.escape) setMode('normal');
+            return;
+        }
+        if (mode === 'rulerline') {
             return;
         }
         if (mode === 'search') {
@@ -567,6 +571,11 @@ export const App: React.FC = () => {
             return;
         }
 
+        if (cmd === rulerLineMode) {
+            setMode('rulerline');
+            return;
+        }
+
         setStatus(`Unknown command: ${cmd}`);
     }
 
@@ -704,6 +713,11 @@ export const App: React.FC = () => {
     // While in external diff mode, pause rendering the React app entirely
     if (mode === 'external') {
         return null;
+    }
+
+    // Office supply management full-screen view
+    if (mode === 'rulerline') {
+        return <OfficeSupplyManager onExit={() => setMode('normal')} />;
     }
 
     // Authentication required full-screen view
