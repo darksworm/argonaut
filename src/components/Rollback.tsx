@@ -56,13 +56,13 @@ export default function Rollback(props: RollbackProps) {
                     return;
                 }
                 const appObj = await getAppApi(server, token, app, appNamespace).catch(() => ({} as any));
-                const from = appObj?.status?.sync?.revision || '';
+                const from = appObj?.status?.sync?.revision ?? appObj?.status?.history?.[0]?.revisions?.[0] ?? '';
                 setFromRev(from || undefined);
                 const hist = Array.isArray(appObj?.status?.history) ? [...(appObj.status!.history!)] : [];
                 const r: RollbackRow[] = hist
                     .map((h: any) => ({
                         id: Number(h?.id ?? 0),
-                        revision: String(h?.revision || ''),
+                        revision: String(h?.revision ?? h?.revisions?.[0] ?? ''),
                         deployedAt: h?.deployedAt
                     }))
                     .filter(h => h.id > 0 && h.revision)
