@@ -146,9 +146,9 @@ export async function runAppDiffSession(server: string, token: string, app: stri
   return true;
 }
 
-export async function runRollbackDiffSession(server: string, token: string, app: string, revision: string, opts: DiffSessionOptions = {}): Promise<boolean> {
-  const current = await getManifestsApi(server, token, app).catch(() => []);
-  const target = await getManifestsApi(server, token, app, revision).catch(() => []);
+export async function runRollbackDiffSession(server: string, token: string, app: string, revision: string, opts: DiffSessionOptions = {}, appNamespace?: string): Promise<boolean> {
+  const current = await getManifestsApi(server, token, app, undefined, undefined, appNamespace).catch(() => []);
+  const target = await getManifestsApi(server, token, app, revision, undefined, appNamespace).catch(() => []);
   const currentDocs = current.map(toYamlDoc).filter(Boolean) as string[];
   const targetDocs = target.map(toYamlDoc).filter(Boolean) as string[];
   const currentFile = await writeTmp(currentDocs, `${app}-current`);
