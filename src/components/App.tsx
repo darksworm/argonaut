@@ -9,14 +9,17 @@ import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
 import {getCurrentServer, readCLIConfig} from '../config/cli-config';
+import {readArgonautConfig, detectNewServers} from '../config/argonaut-config';
 import {tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
-import {getUserInfo} from '../api/session';
+import {getUserInfo, login} from '../api/session';
 import {syncApp} from '../api/applications.command';
 import {useApps} from '../hooks/useApps';
 import Rollback from './Rollback';
-import LoginView from './LoginView';
+import ImportView from './ImportView';
+import ConfigView from './ConfigView';
 import LoadingView from './LoadingView';
+import PasswordPrompt from './PasswordPrompt';
 import Help from './Help';
 import {ResourceStream} from './ResourceStream';
 import ConfirmationBox from './ConfirmationBox';
@@ -51,6 +54,18 @@ export const App: React.FC = () => {
     // Modes & view
     const [mode, setMode] = useState<Mode>('loading');
     const [view, setView] = useState<View>('clusters');
+    
+    // Config mode state
+    const [configMode, setConfigMode] = useState<'config' | null>(null);
+    
+    // Server selection state
+    const [availableServers, setAvailableServers] = useState<any[]>([]);
+    const [selectedServerIndex, setSelectedServerIndex] = useState(0);
+    const [showServerSelection, setShowServerSelection] = useState(false);
+    
+    // Password prompt state
+    const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+    const [currentServerForAuth, setCurrentServerForAuth] = useState<any>(null);
 
     // Auth
     const [server, setServer] = useState<string | null>(null);
@@ -88,28 +103,87 @@ export const App: React.FC = () => {
     useEffect(() => {
         (async () => {
             setMode('loading');
-            setStatus('Loading Argo CD config…');
-            const cfg = await readCLIConfig();
-
-            const currentSrv = getCurrentServer(cfg);
-            if (!currentSrv) {
-                // If config can't be loaded or has no current context, require authentication
-                setToken(null);
-                setStatus('No Argo CD context configured. Please configure your login settings below.');
+            setStatus('Initializing…');
+            
+            console.log('[DEBUG] Starting app initialization...');
+            
+            // Check if we have an Argonaut config
+            const argonautConfig = await readArgonautConfig();
+            console.log('[DEBUG] Argonaut config:', argonautConfig ? 'exists' : 'not found');
+            
+            if (!argonautConfig) {
+                // No Argonaut config exists - check if ArgoCD config exists for import
+                setStatus('Checking for ArgoCD configuration…');
+                const argoConfig = await readCLIConfig();
+                console.log('[DEBUG] ArgoCD config:', argoConfig ? 'exists' : 'not found');
+                
+                if (!argoConfig) {
+                    // No ArgoCD config either - show import view with instructions
+                    setStatus('No ArgoCD configuration found. Please run "argocd login" first.');
+                    setMode('auth-required');
+                    return;
+                }
+                
+                // ArgoCD config exists - show import flow
+                console.log('[DEBUG] Showing import flow...');
+                setStatus('ArgoCD configuration detected. Starting import…');
                 setMode('auth-required');
                 return;
             }
-            setServer(currentSrv);
+            
+            // We have Argonaut config - check for new servers to import
+            setStatus('Checking for new ArgoCD servers…');
+            const newServers = await detectNewServers();
+            const hasNewServers = newServers.some(s => s.isNew);
+            console.log('[DEBUG] New servers check:', hasNewServers ? 'found new servers' : 'no new servers');
+            
+            if (hasNewServers) {
+                setStatus(`Found ${newServers.filter(s => s.isNew).length} new server(s) to import.`);
+                setMode('auth-required');
+                return;
+            }
+            
+            // Continue with normal auth flow using Argonaut config
+            setStatus('Loading Argonaut server config…');
+            const importedServers = argonautConfig.servers.filter(s => s.imported);
+            console.log('[DEBUG] Imported servers:', importedServers.length);
+            
+            if (importedServers.length === 0) {
+                setToken(null);
+                setStatus('No imported servers found. Please import servers from ArgoCD config.');
+                setMode('auth-required');
+                return;
+            }
+            
+            // If multiple servers, show selection screen
+            if (importedServers.length > 1) {
+                console.log('[DEBUG] Multiple servers found, showing selection...');
+                setAvailableServers(importedServers);
+                setSelectedServerIndex(0);
+                setShowServerSelection(true);
+                setStatus('Multiple servers available. Select one to connect.');
+                setMode('normal');
+                return;
+            }
+            
+            // Single server - proceed with authentication
+            const serverConfig = importedServers[0];
+            setServer(serverConfig.serverUrl);
+            console.log('[DEBUG] Trying to authenticate with server:', serverConfig.serverUrl);
 
             try {
+                console.log('[DEBUG] Getting token from config...');
                 const tokMaybe = await tokenFromConfig();
                 if (!tokMaybe) throw new Error('No token in config');
+                console.log('[DEBUG] Got token, verifying with userinfo...');
                 // Verify token by calling userinfo
-                await getUserInfo(currentSrv, tokMaybe);
-                const version = await getApiVersionApi(currentSrv, tokMaybe);
+                await getUserInfo(serverConfig.serverUrl, tokMaybe);
+                console.log('[DEBUG] User info verified, getting API version...');
+                const version = await getApiVersionApi(serverConfig.serverUrl, tokMaybe);
                 setApiVersion(version);
                 setToken(tokMaybe);
                 setStatus('Ready');
+                console.log('[DEBUG] Authentication successful!');
                 
                 // Check for version updates
                 checkVersion(packageJson.version).then(result => {
@@ -123,15 +197,17 @@ export const App: React.FC = () => {
                 }).catch(() => {
                     // Silently ignore version check errors
                 });
-            } catch {
+            } catch (e) {
+                console.log('[DEBUG] Authentication failed:', e);
                 setToken(null);
-                setStatus('Authentication required. Please configure your login settings.');
+                setStatus('Authentication expired. Please run "argocd login" or configure servers in settings.');
                 setMode('auth-required');
                 return;
             }
 
             setMode('normal');
         })().catch(e => {
+            console.log('[DEBUG] Boot error:', e);
             setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
             setMode('normal');
         });
@@ -165,12 +241,40 @@ export const App: React.FC = () => {
         if (mode === 'external') return;
         if (mode === 'auth-required') return;
         if (mode === 'resources') return; // handled by ResourceStream
+        if (configMode === 'config') return; // handled by ConfigView
+        if (showPasswordPrompt) return; // handled by PasswordPrompt
         if (mode === 'loading') {
             if (input.toLowerCase() === 'q') {
                 exit();
                 return;
             }
             // All other input ignored in loading mode
+            return;
+        }
+        
+        // Server selection mode
+        if (showServerSelection) {
+            if (input.toLowerCase() === 'q') {
+                exit();
+                return;
+            }
+            if (input === 'j' || key.downArrow) {
+                setSelectedServerIndex(prev => Math.min(prev + 1, availableServers.length - 1));
+                return;
+            }
+            if (input === 'k' || key.upArrow) {
+                setSelectedServerIndex(prev => Math.max(prev - 1, 0));
+                return;
+            }
+            if (key.return) {
+                connectToSelectedServer();
+                return;
+            }
+            if (input === ':') {
+                setMode('command');
+                setCommand(':');
+                return;
+            }
             return;
         }
         if (mode === 'help') {
@@ -455,6 +559,11 @@ export const App: React.FC = () => {
         }
 
 
+        if (is('config', 'settings')) {
+            setConfigMode('config');
+            return;
+        }
+
         if (is('login')) {
             setStatus('Authentication required. Please configure your login settings.');
             setMode('auth-required');
@@ -611,6 +720,116 @@ export const App: React.FC = () => {
         setMode('rollback');
     }
 
+    async function connectToSelectedServer() {
+        const serverConfig = availableServers[selectedServerIndex];
+        if (!serverConfig) return;
+        
+        setShowServerSelection(false);
+        setMode('loading');
+        setServer(serverConfig.serverUrl);
+        setStatus('Connecting to selected server…');
+        
+        try {
+            console.log('[DEBUG] Connecting to selected server:', serverConfig.serverUrl);
+            const tokMaybe = await tokenFromConfig();
+            if (!tokMaybe) throw new Error('No token in config');
+            
+            // Verify token by calling userinfo
+            await getUserInfo(serverConfig.serverUrl, tokMaybe);
+            const version = await getApiVersionApi(serverConfig.serverUrl, tokMaybe);
+            setApiVersion(version);
+            setToken(tokMaybe);
+            setStatus('Ready');
+            
+            // Check for version updates
+            checkVersion(packageJson.version).then(result => {
+                setIsVersionOutdated(result.isOutdated);
+                if (result.latestVersion) {
+                    setLatestVersion(result.latestVersion);
+                }
+                if (result.error && !result.latestVersion) {
+                    setStatus(prevStatus => prevStatus === 'Ready' ? 'Ready • Could not check for updates' : prevStatus);
+                }
+            }).catch(() => {
+                // Silently ignore version check errors
+            });
+            
+            setMode('normal');
+        } catch (e) {
+            console.log('[DEBUG] Authentication failed:', e);
+            setToken(null);
+            
+            // If authentication failed, check if we need password input
+            if (serverConfig.sso || serverConfig.core) {
+                setStatus('Please authenticate using the ArgoCD CLI first.');
+                setShowServerSelection(true);
+                setMode('normal');
+            } else {
+                // Show password prompt for username/password auth
+                setCurrentServerForAuth(serverConfig);
+                setShowPasswordPrompt(true);
+                setShowServerSelection(false);
+                setMode('normal');
+            }
+        }
+    }
+
+    async function handlePasswordSubmit(credentials: { username?: string; password: string }) {
+        if (!currentServerForAuth) return;
+        
+        setShowPasswordPrompt(false);
+        setMode('loading');
+        setStatus('Authenticating...');
+        
+        try {
+            const username = credentials.username || currentServerForAuth.username;
+            if (!username) {
+                throw new Error('Username is required');
+            }
+            
+            console.log('[DEBUG] Attempting login with username/password...');
+            const loginResult = await login(currentServerForAuth.serverUrl, username, credentials.password);
+            
+            // Verify the token works
+            await getUserInfo(currentServerForAuth.serverUrl, loginResult.token);
+            const version = await getApiVersionApi(currentServerForAuth.serverUrl, loginResult.token);
+            
+            setServer(currentServerForAuth.serverUrl);
+            setToken(loginResult.token);
+            setApiVersion(version);
+            setStatus('Ready');
+            setCurrentServerForAuth(null);
+            
+            // Check for version updates
+            checkVersion(packageJson.version).then(result => {
+                setIsVersionOutdated(result.isOutdated);
+                if (result.latestVersion) {
+                    setLatestVersion(result.latestVersion);
+                }
+                if (result.error && !result.latestVersion) {
+                    setStatus(prevStatus => prevStatus === 'Ready' ? 'Ready • Could not check for updates' : prevStatus);
+                }
+            }).catch(() => {
+                // Silently ignore version check errors
+            });
+            
+            setMode('normal');
+        } catch (e) {
+            console.log('[DEBUG] Password authentication failed:', e);
+            setToken(null);
+            setStatus(`Authentication failed: ${e instanceof Error ? e.message : String(e)}`);
+            setShowPasswordPrompt(true);
+            setMode('normal');
+        }
+    }
+
+    function handlePasswordCancel() {
+        setShowPasswordPrompt(false);
+        setCurrentServerForAuth(null);
+        setShowServerSelection(true);
+        setStatus('Authentication cancelled. Select another server.');
+    }
+
     const allClusters = useMemo(() => {
         const vals = apps.map(a => a.clusterLabel || '').filter(Boolean);
         return uniqueSorted(vals);
@@ -696,7 +915,7 @@ export const App: React.FC = () => {
                 server={server}
                 showHeader={true}
                 showAbort={true}
-                onAbort={() => setMode('auth-required')}
+                onAbort={() => setConfigMode('config')}
             />
         );
     }
@@ -706,16 +925,42 @@ export const App: React.FC = () => {
         return null;
     }
 
-    // Authentication required full-screen view
+    // Configuration view
+    if (configMode === 'config') {
+        return (
+            <ConfigView
+                termRows={termRows}
+                onClose={() => setConfigMode(null)}
+            />
+        );
+    }
+
+    // Password prompt view
+    if (showPasswordPrompt && currentServerForAuth) {
+        return (
+            <PasswordPrompt
+                termRows={termRows}
+                serverConfig={currentServerForAuth}
+                onSubmit={handlePasswordSubmit}
+                onCancel={handlePasswordCancel}
+            />
+        );
+    }
+
+    // Import/authentication required full-screen view
     if (mode === 'auth-required') {
         return (
-            <LoginView
-                server={server}
+            <ImportView
                 termRows={termRows}
-                onLoginSuccess={() => {
-                    // Force a re-initialization of the app after successful login
-                    setMode('normal');
-                    setStatus('Logged in');
+                onComplete={() => {
+                    // Force a re-initialization of the app after import
+                    setMode('loading');
+                    setStatus('Restarting…');
+                    // Force re-initialization by clearing relevant state
+                    setToken(null);
+                    setServer(null);
+                    setApps([]);
+                    // The useEffect will re-run due to dependency changes
                 }}
             />
         );
@@ -906,6 +1151,39 @@ export const App: React.FC = () => {
                                         appNamespace={apps.find(a => a.name === syncViewApp)?.appNamespace}
                                         onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>
+                ) : showServerSelection ? (
+                    <Box flexDirection="column" paddingX={1} paddingY={1}>
+                        <Text bold color="cyan">📡 Select Server</Text>
+                        <Box marginTop={1}>
+                            <Text dimColor>Choose a server to connect to:</Text>
+                        </Box>
+                        
+                        <Box marginTop={1} flexDirection="column">
+                            {availableServers.map((server, index) => (
+                                <Box 
+                                    key={server.serverUrl} 
+                                    backgroundColor={selectedServerIndex === index ? 'magentaBright' : undefined}
+                                    paddingX={1}
+                                    marginY={0}
+                                >
+                                    <Box flexGrow={1}>
+                                        <Text>
+                                            <Text color="cyan">{server.serverUrl}</Text>
+                                            {server.contextName && <Text dimColor> ({server.contextName})</Text>}
+                                        </Text>
+                                    </Box>
+                                    <Box paddingLeft={2}>
+                                        <Text dimColor>
+                                            {server.lastConnected ? 
+                                                `Last: ${new Date(server.lastConnected).toLocaleDateString()}` : 
+                                                'Never connected'
+                                            }
+                                        </Text>
+                                    </Box>
+                                </Box>
+                            ))}
+                        </Box>
+                    </Box>
                 ) : (
                     <Box flexDirection="column">
                         {/* Header row */}
@@ -1010,11 +1288,25 @@ export const App: React.FC = () => {
 
             {/* Bottom tag and status on opposite sides */}
             <Box justifyContent="space-between">
-                <Box><Text dimColor>{tag}</Text></Box>
                 <Box>
                     <Text dimColor>
-                        {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
-                        {isVersionOutdated && <Text color="yellow"> • Update available!</Text>}
+                        {showServerSelection ? (
+                            'j/k navigate • Enter to connect • : for commands • q to quit'
+                        ) : (
+                            tag
+                        )}
+                    </Text>
+                </Box>
+                <Box>
+                    <Text dimColor>
+                        {showServerSelection ? (
+                            `${selectedServerIndex + 1}/${availableServers.length} servers`
+                        ) : (
+                            <>
+                                {status} • {visibleItems.length ? `${selectedIdx + 1}/${visibleItems.length}` : '0/0'}
+                                {isVersionOutdated && <Text color="yellow"> • Update available!</Text>}
+                            </>
+                        )}
                     </Text>
                 </Box>
             </Box>
