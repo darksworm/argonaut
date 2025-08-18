@@ -34,30 +34,20 @@ export async function* watchApps(
   const path = `/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
   
   const client = getHttpClient(server.config, server.token);
-  const stream = await client.stream(path, { signal });
-  
-  const decoder = new TextDecoder();
-  let buffer = '';
-  
+  const res = await client.stream(path, { signal });
+  if (!res.ok || !res.body) throw new Error(`watch failed: ${res.status} ${res.statusText}`);
+  const reader = (res.body as any).getReader();
+  const dec = new TextDecoder(); let buf = '';
   try {
-    for await (const chunk of stream) {
-      if (signal?.aborted) return;
-      
-      // Convert chunk to Uint8Array if it's a Buffer
-      const uint8Array = chunk instanceof Buffer ? new Uint8Array(chunk) : chunk as Uint8Array;
-      buffer += decoder.decode(uint8Array, { stream: true });
-      
-      for (let i; (i = buffer.indexOf('\n')) >= 0; ) {
-        const line = buffer.slice(0, i).trim(); 
-        buffer = buffer.slice(i + 1);
-        
+    for (;;) {
+      const {value, done} = await reader.read(); if (done) return;
+      buf += dec.decode(value, {stream:true});
+      for (let i; (i = buf.indexOf('\n')) >= 0; ) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i+1);
         if (!line) continue;
-        
         try {
           const msg = JSON.parse(line);
-          if (msg?.result) {
-            yield msg.result as ApplicationWatchEvent;
-          }
+          if (msg?.result) yield msg.result as ApplicationWatchEvent; // { type, application }
         } catch {
           // ignore malformed lines
         }
@@ -65,7 +55,9 @@ export async function* watchApps(
     }
   } catch (e: any) {
     // If aborted, exit silently; otherwise rethrow
-    if (e?.message === 'Request aborted' || signal?.aborted) return;
+    if (e?.name === 'AbortError') return;
+    // Some runtimes may wrap abort as DOMException or custom error; check signal
+    if (signal?.aborted) return;
     throw e;
   }
 }
