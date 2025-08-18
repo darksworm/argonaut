@@ -1,28 +1,28 @@
 import https from 'node:https';
 import http from 'node:http';
+import {URL} from 'node:url';
 import type {ServerConfig} from '../types/server';
 
 export interface HttpClient {
-  get(path: string, options?: RequestInit): Promise<any>;
-  post(path: string, body?: any, options?: RequestInit): Promise<any>;
-  put(path: string, body?: any, options?: RequestInit): Promise<any>;
-  delete(path: string, options?: RequestInit): Promise<any>;
-  stream(path: string, options?: RequestInit): Promise<Response>;
+  get(path: string, options?: { signal?: AbortSignal }): Promise<any>;
+  post(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any>;
+  put(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any>;
+  delete(path: string, options?: { signal?: AbortSignal }): Promise<any>;
+  stream(path: string, options?: { signal?: AbortSignal }): Promise<NodeJS.ReadableStream>;
 }
 
 class ArgoHttpClient implements HttpClient {
   private baseUrl: string;
   private token: string;
   private agent?: https.Agent | http.Agent;
+  private isHttps: boolean;
 
   constructor(serverConfig: ServerConfig, token: string) {
     this.baseUrl = serverConfig.baseUrl;
     this.token = token;
-
-    // Create appropriate agent based on URL protocol and insecure flag
-    const isHttps = this.baseUrl.startsWith('https://');
+    this.isHttps = this.baseUrl.startsWith('https://');
     
-    if (isHttps) {
+    if (this.isHttps) {
       this.agent = new https.Agent({
         rejectUnauthorized: !serverConfig.insecure
       });
@@ -31,93 +31,119 @@ class ArgoHttpClient implements HttpClient {
     }
   }
 
-  private async request(path: string, options: RequestInit = {}): Promise<Response> {
-    const url = this.baseUrl + path;
-    
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.token}`,
-      'Content-Type': 'application/json',
-      ...this.getHeaders(options.headers)
-    };
+  private async request(path: string, method: string = 'GET', body?: any, options?: { signal?: AbortSignal }): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(this.baseUrl + path);
+      const requestModule = this.isHttps ? https : http;
+      
+      const requestOptions: http.RequestOptions = {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method,
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+          ...(body && { 'Content-Length': Buffer.byteLength(JSON.stringify(body)) })
+        },
+        agent: this.agent
+      };
 
-    const requestOptions: RequestInit = {
-      ...options,
-      headers,
-      // @ts-ignore - Node.js fetch supports agent
-      agent: this.agent
-    };
-
-    const response = await fetch(url, requestOptions);
-    
-    if (!response.ok) {
-      throw new Error(`${options.method || 'GET'} ${path} → ${response.status} ${response.statusText}`);
-    }
-    
-    return response;
-  }
-
-  private getHeaders(headers?: HeadersInit): Record<string, string> {
-    const result: Record<string, string> = {};
-    
-    if (!headers) return result;
-    
-    if (headers instanceof Headers) {
-      headers.forEach((value, key) => {
-        result[key] = value;
+      const req = requestModule.request(requestOptions, (res) => {
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`${method} ${path} → ${res.statusCode} ${res.statusMessage}`));
+            return;
+          }
+          
+          try {
+            const contentType = res.headers['content-type'];
+            if (contentType?.includes('json')) {
+              resolve(JSON.parse(data));
+            } else {
+              resolve(data);
+            }
+          } catch (e) {
+            resolve(data);
+          }
+        });
       });
-    } else if (Array.isArray(headers)) {
-      for (const [key, value] of headers) {
-        result[key] = value;
+
+      req.on('error', reject);
+
+      if (options?.signal) {
+        options.signal.addEventListener('abort', () => {
+          req.destroy();
+          reject(new Error('Request aborted'));
+        });
       }
-    } else {
-      Object.assign(result, headers);
-    }
-    
-    return result;
+
+      if (body) {
+        req.write(JSON.stringify(body));
+      }
+      
+      req.end();
+    });
   }
 
-  private async parseResponse(response: Response): Promise<any> {
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('json')) {
-      return response.json();
-    }
-    return response.text();
+  async get(path: string, options?: { signal?: AbortSignal }): Promise<any> {
+    return this.request(path, 'GET', undefined, options);
   }
 
-  async get(path: string, options: RequestInit = {}): Promise<any> {
-    const response = await this.request(path, { ...options, method: 'GET' });
-    return this.parseResponse(response);
+  async post(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any> {
+    return this.request(path, 'POST', body, options);
   }
 
-  async post(path: string, body?: any, options: RequestInit = {}): Promise<any> {
-    const requestOptions: RequestInit = {
-      ...options,
-      method: 'POST',
-      body: body ? JSON.stringify(body) : undefined
-    };
-    
-    const response = await this.request(path, requestOptions);
-    return this.parseResponse(response);
+  async put(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any> {
+    return this.request(path, 'PUT', body, options);
   }
 
-  async put(path: string, body?: any, options: RequestInit = {}): Promise<any> {
-    const requestOptions: RequestInit = {
-      ...options,
-      method: 'PUT',
-      body: body ? JSON.stringify(body) : undefined
-    };
-    
-    const response = await this.request(path, requestOptions);
-    return this.parseResponse(response);
+  async delete(path: string, options?: { signal?: AbortSignal }): Promise<any> {
+    return this.request(path, 'DELETE', undefined, options);
   }
 
-  async delete(path: string, options: RequestInit = {}): Promise<any> {
-    const response = await this.request(path, { ...options, method: 'DELETE' });
-    return this.parseResponse(response);
-  }
+  async stream(path: string, options?: { signal?: AbortSignal }): Promise<NodeJS.ReadableStream> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(this.baseUrl + path);
+      const requestModule = this.isHttps ? https : http;
+      
+      const requestOptions: http.RequestOptions = {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+        agent: this.agent
+      };
 
-  async stream(path: string, options: RequestInit = {}): Promise<Response> {
-    return this.request(path, { ...options, method: 'GET' });
+      const req = requestModule.request(requestOptions, (res) => {
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`GET ${path} → ${res.statusCode} ${res.statusMessage}`));
+          return;
+        }
+        
+        resolve(res);
+      });
+
+      req.on('error', reject);
+
+      if (options?.signal) {
+        options.signal.addEventListener('abort', () => {
+          req.destroy();
+          reject(new Error('Request aborted'));
+        });
+      }
+      
+      req.end();
+    });
   }
 }
 
