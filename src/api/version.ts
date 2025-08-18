@@ -1,8 +1,9 @@
 import {api} from './transport';
+import type {Server} from '../types/server';
 
-export async function getApiVersion(baseUrl: string, token: string): Promise<string> {
+export async function getApiVersion(server: Server): Promise<string> {
   try {
-    const data = await api(baseUrl, token, '/api/version');
+    const data = await api(server, '/api/version');
     return (data as any)?.Version || 'Unknown';
   } catch {
     return 'Unknown';
