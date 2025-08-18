@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {ensureHttps} from '../config/paths';
-import '../api/transport'; // ensure TLS relax env is applied (self-signed certs)
+import {getHttpClient} from '../services/http-client';
+import type {ServerConfig} from '../types/server';
 import {colorFor} from '../utils';
 
 // Types for streamed resources
@@ -34,37 +34,44 @@ export type ApplicationWatchEvent = {
 };
 
 // Stream NDJSON from ArgoCD streaming API; yields objects at obj.result
-export async function* streamJsonResults<T>(url: string, token: string, signal?: AbortSignal): AsyncGenerator<T> {
-  const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal} as any);
-  if (!(res as any).body) throw new Error('No response body');
-  const reader = (res as any).body.getReader();
+export async function* streamJsonResults<T>(serverConfig: ServerConfig, token: string, path: string, signal?: AbortSignal): AsyncGenerator<T> {
+  const client = getHttpClient(serverConfig, token);
+  const stream = await client.stream(path, { signal });
+  
   const decoder = new TextDecoder();
-  let buf = '';
-
-  while (true) {
-    const {value, done} = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, {stream: true});
-
-    let nl: number;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line) continue;
-      try {
-        const obj = JSON.parse(line);
-        if (obj?.result) yield obj.result as T;
-      } catch {
-        // tolerate partial/non-NDJSON frames; keep buffering
+  let buffer = '';
+  
+  try {
+    for await (const chunk of stream) {
+      if (signal?.aborted) return;
+      
+      // Convert chunk to Uint8Array if it's a Buffer
+      const uint8Array = chunk instanceof Buffer ? new Uint8Array(chunk) : chunk as Uint8Array;
+      buffer += decoder.decode(uint8Array, { stream: true });
+      
+      let nl: number;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (obj?.result) yield obj.result as T;
+        } catch {
+          // tolerate partial/non-NDJSON frames; keep buffering
+        }
       }
     }
-  }
 
-  if (buf.trim()) {
-    try {
-      const obj = JSON.parse(buf.trim());
-      if (obj?.result) yield obj.result as T;
-    } catch {/* ignore */}
+    if (buffer.trim()) {
+      try {
+        const obj = JSON.parse(buffer.trim());
+        if (obj?.result) yield obj.result as T;
+      } catch {/* ignore */}
+    }
+  } catch (e: any) {
+    if (e?.message === 'Request aborted' || signal?.aborted) return;
+    throw e;
   }
 }
 
@@ -115,14 +122,14 @@ function Table({rows, syncByKey}: {rows: ResourceNode[]; syncByKey: Record<strin
 }
 
 export type ResourceStreamProps = {
-  baseUrl: string;      // e.g. https://argocd.example.com
+  serverConfig: ServerConfig; // Server configuration with baseUrl and insecure flag
   token: string;        // Argo CD JWT
   appName: string;      // Application name
   appNamespace?: string; // Application control plane namespace
   onExit?: () => void;  // called when user quits the view (press 'q')
 };
 
-export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, appName, appNamespace, onExit}) => {
+export const ResourceStream: React.FC<ResourceStreamProps> = ({serverConfig, token, appName, appNamespace, onExit}) => {
   const [rows, setRows] = useState<ResourceNode[]>([]);
   const [hint, setHint] = useState('Press q or Esc to return');
   const [syncByKey, setSyncByKey] = useState<Record<string, string>>({});
@@ -130,14 +137,13 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
   // Initial fetch: resource tree (non-streaming) so view has immediate data
   useEffect(() => {
     const controller = new AbortController();
+    const client = getHttpClient(serverConfig, token);
     const params = new URLSearchParams();
     if (appNamespace) params.set('appNamespace', appNamespace);
-    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}/resource-tree${params.toString() ? `?${params.toString()}` : ''}`;
+    const path = `/api/v1/applications/${encodeURIComponent(appName)}/resource-tree${params.toString() ? `?${params.toString()}` : ''}`;
     (async () => {
       try {
-        const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: controller.signal} as any);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const tree: ApplicationTree = await res.json();
+        const tree: ApplicationTree = await client.get(path, { signal: controller.signal });
         const next = (tree.nodes ?? []).map(n => ({
           group: (n as any).group,
           kind: n.kind,
@@ -149,13 +155,13 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
         setRows(next);
       } catch (err: any) {
         const msg = String(err?.message ?? err);
-        if (!/aborted|AbortError/i.test(msg)) {
+        if (!/aborted|Request aborted/i.test(msg)) {
           setHint(h => h.includes('Stream error') ? h : `Load error: ${msg}`);
         }
       }
     })();
     return () => controller.abort();
-  }, [baseUrl, token, appName, appNamespace]);
+  }, [serverConfig, token, appName, appNamespace]);
 
   // Stream: resource tree updates
   useEffect(() => {
@@ -163,10 +169,10 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
     const controller = new AbortController();
     const params = new URLSearchParams();
     if (appNamespace) params.set('appNamespace', appNamespace);
-    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications/${encodeURIComponent(appName)}/resource-tree${params.toString() ? `?${params.toString()}` : ''}`;
+    const path = `/api/v1/stream/applications/${encodeURIComponent(appName)}/resource-tree${params.toString() ? `?${params.toString()}` : ''}`;
     (async () => {
       try {
-        for await (const tree of streamJsonResults<ApplicationTree>(url, token, controller.signal)) {
+        for await (const tree of streamJsonResults<ApplicationTree>(serverConfig, token, path, controller.signal)) {
           if (cancel) break;
           const next = (tree.nodes ?? []).map(n => ({
             group: (n as any).group,
@@ -180,25 +186,24 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
         }
       } catch (err: any) {
         const msg = String(err?.message ?? err);
-        if (!/aborted|AbortError/i.test(msg)) {
+        if (!/aborted|Request aborted/i.test(msg)) {
           setHint(`Stream error: ${msg}`);
         }
       }
     })();
     return () => { cancel = true; controller.abort(); };
-  }, [baseUrl, token, appName, appNamespace]);
+  }, [serverConfig, token, appName, appNamespace]);
 
   // Initial fetch: application status -> syncByKey
   useEffect(() => {
     const controller = new AbortController();
+    const client = getHttpClient(serverConfig, token);
     const params = new URLSearchParams();
     if (appNamespace) params.set('appNamespace', appNamespace);
-    const url = `${ensureHttps(baseUrl)}/api/v1/applications/${encodeURIComponent(appName)}${params.toString() ? `?${params.toString()}` : ''}`;
+    const path = `/api/v1/applications/${encodeURIComponent(appName)}${params.toString() ? `?${params.toString()}` : ''}`;
     (async () => {
       try {
-        const res = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: controller.signal} as any);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const app = await res.json();
+        const app = await client.get(path, { signal: controller.signal });
         const resources = app?.status?.resources || [];
         if (Array.isArray(resources)) {
           const m: Record<string, string> = {};
@@ -210,13 +215,13 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
         }
       } catch (err: any) {
         const msg = String(err?.message ?? err);
-        if (!/aborted|AbortError/i.test(msg)) {
+        if (!/aborted|Request aborted/i.test(msg)) {
           setHint(h => h.includes('Stream error') ? h : `${h}`);
         }
       }
     })();
     return () => controller.abort();
-  }, [baseUrl, token, appName, appNamespace]);
+  }, [serverConfig, token, appName, appNamespace]);
 
   // Stream application watch events to derive per-resource sync status
   useEffect(() => {
@@ -224,10 +229,10 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
     const params = new URLSearchParams();
     params.set('name', appName);
     if (appNamespace) params.set('appNamespace', appNamespace);
-    const url = `${ensureHttps(baseUrl)}/api/v1/stream/applications?${params.toString()}`;
+    const path = `/api/v1/stream/applications?${params.toString()}`;
     (async () => {
       try {
-        for await (const evt of streamJsonResults<ApplicationWatchEvent>(url, token, controller.signal)) {
+        for await (const evt of streamJsonResults<ApplicationWatchEvent>(serverConfig, token, path, controller.signal)) {
           const resources = evt?.application?.status?.resources || [];
           if (!resources || !Array.isArray(resources)) continue;
           const m: Record<string, string> = {};
@@ -239,14 +244,14 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({baseUrl, token, a
         }
       } catch (err: any) {
         const msg = String(err?.message ?? err);
-        if (!/aborted|AbortError/i.test(msg)) {
+        if (!/aborted|Request aborted/i.test(msg)) {
           // Don't override main hint if already set; append minimal info
           setHint(h => h.includes('Stream error') ? h : `${h}`);
         }
       }
     })();
     return () => controller.abort();
-  }, [baseUrl, token, appName, appNamespace]);
+  }, [serverConfig, token, appName, appNamespace]);
 
   useInput((input, key) => {
     const ch = (input || '').toLowerCase();
