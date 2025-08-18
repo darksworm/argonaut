@@ -8,8 +8,8 @@ export type UserInfo = {
   loggedIn?: boolean;
 };
 
-export async function getUserInfo(server: string, token: string): Promise<UserInfo> {
+export async function getUserInfo(baseUrl: string, token: string): Promise<UserInfo> {
   // Throws on non-2xx; caller should handle and interpret as invalid token
-  const data = await api(server, token, '/api/v1/session/userinfo');
+  const data = await api(baseUrl, token, '/api/v1/session/userinfo');
   return data as UserInfo;
 }

@@ -1,7 +1,5 @@
-import {ensureHttps} from '../config/paths';
-
-export async function api(base: string, token: string, path: string, init?: RequestInit) {
-  const url = ensureHttps(base) + path;
+export async function api(baseUrl: string, token: string, path: string, init?: RequestInit) {
+  const url = baseUrl + path;
   // Normalize headers to a plain record for RequestInit compatibility
   const baseHeaders: Record<string, string> = {
     Authorization: `Bearer ${token}`,

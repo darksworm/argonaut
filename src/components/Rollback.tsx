@@ -21,7 +21,7 @@ export type RollbackRow = {
 
 interface RollbackProps {
     app: string;
-    server: string | null;
+    baseUrl: string | null;
     token: string | null;
     appNamespace?: string;
     onClose: () => void;
@@ -29,7 +29,7 @@ interface RollbackProps {
 }
 
 export default function Rollback(props: RollbackProps) {
-    const {app, server, token, appNamespace, onClose, onStartWatching} = props;
+    const {app, baseUrl, token, appNamespace, onClose, onStartWatching} = props;
 
     type SubMode = 'list' | 'confirm';
     const [subMode, setSubMode] = useState<SubMode>('list');
@@ -50,12 +50,12 @@ export default function Rollback(props: RollbackProps) {
     useEffect(() => {
         (async () => {
             try {
-                if (!server || !token) {
+                if (!baseUrl || !token) {
                     setError('Not authenticated.');
                     setRows([]);
                     return;
                 }
-                const appObj = await getAppApi(server, token, app, appNamespace).catch(() => ({} as any));
+                const appObj = await getAppApi(baseUrl, token, app, appNamespace).catch(() => ({} as any));
                 const from = appObj?.status?.sync?.revision ?? appObj?.status?.history?.[0]?.revisions?.[0] ?? '';
                 setFromRev(from || undefined);
                 const hist = Array.isArray(appObj?.status?.history) ? [...(appObj.status!.history!)] : [];
@@ -91,12 +91,12 @@ export default function Rollback(props: RollbackProps) {
             } catch {
             }
         };
-    }, [app, server, token]);
+    }, [app, baseUrl, token]);
 
     // Fetch revision metadata for highlighted row
     useEffect(() => {
         if (subMode !== 'list') return;
-        if (!server || !token) return;
+        if (!baseUrl || !token) return;
         const row = rows[idx];
         if (!row || row.author) return;
         try {
@@ -109,7 +109,7 @@ export default function Rollback(props: RollbackProps) {
         setMetaLoadingKey(key);
         (async () => {
             try {
-                const meta = await getRevisionMetadataApi(server, token, app, row.revision, appNamespace, ac.signal);
+                const meta = await getRevisionMetadataApi(baseUrl, token, app, row.revision, appNamespace, ac.signal);
                 const upd = [...rows];
                 upd[idx] = {...row, author: meta?.author, date: meta?.date, message: meta?.message};
                 setRows(upd);
@@ -127,7 +127,7 @@ export default function Rollback(props: RollbackProps) {
             } catch {
             }
         };
-    }, [subMode, idx, rows, app, server, token]);
+    }, [subMode, idx, rows, app, baseUrl, token]);
 
     // Key handling inside rollback overlay
     useInput((input, key) => {
@@ -194,7 +194,7 @@ export default function Rollback(props: RollbackProps) {
     });
 
     async function runRollbackDiff() {
-        if (!server || !token) {
+        if (!baseUrl || !token) {
             setError('Not authenticated.');
             return;
         }
@@ -204,7 +204,7 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         try {
-            const opened = await runRollbackDiffSession(server, token, app, row.revision, {forwardInput: true}, appNamespace);
+            const opened = await runRollbackDiffSession(baseUrl, token, app, row.revision, {forwardInput: true}, appNamespace);
             if (!opened) setError('No differences.');
         } catch (e: any) {
             setError(`Diff failed: ${e?.message || String(e)}`);
@@ -218,12 +218,12 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         const row = rows[idx];
-        if (!server || !token || !row) {
+        if (!baseUrl || !token || !row) {
             setError('Not ready.');
             return;
         }
         try {
-            const res = await postRollbackApi(server, token, app, {id: row.id, name: app, prune, appNamespace});
+            const res = await postRollbackApi(baseUrl, token, app, {id: row.id, name: app, prune, appNamespace});
             // Start watching via resources view and close rollback
             if (watch) onStartWatching(app); else onClose();
         } catch (e: any) {

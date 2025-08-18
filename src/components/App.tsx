@@ -9,7 +9,8 @@ import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
 import OfficeSupplyManager, {rulerLineMode} from './OfficeSupplyManager';
-import {getCurrentServer, readCLIConfig} from '../config/cli-config';
+import {getCurrentServerUrl, readCLIConfig} from '../config/cli-config';
+import {hostFromUrl} from '../config/paths';
 import {tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
 import {getUserInfo} from '../api/session';
@@ -53,7 +54,7 @@ export const App: React.FC = () => {
     const [view, setView] = useState<View>('clusters');
 
     // Auth
-    const [server, setServer] = useState<string | null>(null);
+    const [baseUrl, setBaseUrl] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
 
     // Data
@@ -91,22 +92,22 @@ export const App: React.FC = () => {
             setStatus('Loading ArgoCD config…');
             const cfg = await readCLIConfig();
 
-            const currentSrv = getCurrentServer(cfg);
-            if (!currentSrv) {
+            const currentUrl = getCurrentServerUrl(cfg);
+            if (!currentUrl) {
                 // If config can't be loaded or has no current context, require authentication
                 setToken(null);
                 setStatus('No ArgoCD context configured. Please run `argocd login` to configure and authenticate.');
                 setMode('auth-required');
                 return;
             }
-            setServer(currentSrv);
+            setBaseUrl(currentUrl);
 
             try {
                 const tokMaybe = await tokenFromConfig();
                 if (!tokMaybe) throw new Error('No token in config');
                 // Verify token by calling userinfo
-                await getUserInfo(currentSrv, tokMaybe);
-                const version = await getApiVersionApi(currentSrv, tokMaybe);
+                await getUserInfo(currentUrl, tokMaybe);
+                const version = await getApiVersionApi(currentUrl, tokMaybe);
                 setApiVersion(version);
                 setToken(tokMaybe);
                 setStatus('Ready');
@@ -138,7 +139,7 @@ export const App: React.FC = () => {
     }, []);
 
     // Live data via useApps hook
-    const {apps: liveApps, status: appsStatus} = useApps(server, token, mode === 'external', (err) => {
+    const {apps: liveApps, status: appsStatus} = useApps(baseUrl, token, mode === 'external', (err) => {
         // On auth error from background data flow, clear token and show auth-required message
         setToken(null);
         setStatus('please use argocd login to authenticate before running argonaut');
@@ -146,16 +147,16 @@ export const App: React.FC = () => {
     });
 
     useEffect(() => {
-        if (!server || !token) return;
+        if (!baseUrl || !token) return;
         if (mode === 'external' || mode === 'auth-required') return; // pause syncing state while in external/diff mode or auth required
         setApps(liveApps);
         setStatus(appsStatus);
-    }, [server, token, liveApps, appsStatus, mode]);
+    }, [baseUrl, token, liveApps, appsStatus, mode]);
 
     useEffect(() => {
-        if(!server || !token) return;
-        getApiVersionApi(server, token).then(setApiVersion)
-    }, [server, token]);
+        if(!baseUrl || !token) return;
+        getApiVersionApi(baseUrl, token).then(setApiVersion)
+    }, [baseUrl, token]);
 
     const [confirmSyncPrune, setConfirmSyncPrune] = useState(false);
     const [confirmSyncWatch, setConfirmSyncWatch] = useState(true);
@@ -308,11 +309,11 @@ export const App: React.FC = () => {
             const next = scopeClusters.has(val) ? new Set<string>() : new Set([val]);
             setScopeClusters(next);
             // When a cluster is selected, verify token via userinfo
-            if (server) {
+            if (baseUrl) {
                 (async () => {
                     try {
                         if (!token) throw new Error('No token');
-                        await getUserInfo(server, token);
+                        await getUserInfo(baseUrl, token);
                     } catch {
                         setToken(null);
                         setStatus('please use argocd login to authenticate before running argonaut');
@@ -469,7 +470,7 @@ export const App: React.FC = () => {
                 setStatus('No app selected to open resources view.');
                 return;
             }
-            if (!server || !token) {
+            if (!baseUrl || !token) {
                 setStatus('Not authenticated.');
                 return;
             }
@@ -484,7 +485,7 @@ export const App: React.FC = () => {
                 setStatus('No app selected to diff.');
                 return;
             }
-            if (!server || !token) {
+            if (!baseUrl || !token) {
                 setStatus('Not authenticated.');
                 return;
             }
@@ -493,7 +494,7 @@ export const App: React.FC = () => {
                 setMode('normal');
                 setStatus(`Preparing diff for ${target}…`);
 
-                const opened = await runAppDiffSession(server, token, target, {
+                const opened = await runAppDiffSession(baseUrl, token, target, {
                     forwardInput: true,
                     onEnterExternal: () => setMode('external'),
                     onExitExternal: () => {
@@ -520,7 +521,7 @@ export const App: React.FC = () => {
                 setStatus('No app selected to rollback.');
                 return;
             }
-            if (!server || !token) {
+            if (!baseUrl || !token) {
                 setStatus('Not authenticated.');
                 return;
             }
@@ -588,7 +589,7 @@ export const App: React.FC = () => {
             setStatus('Sync cancelled.');
             return;
         }
-        if (!server || !token) {
+        if (!baseUrl || !token) {
             setStatus('Not authenticated.');
             return;
         }
@@ -596,7 +597,7 @@ export const App: React.FC = () => {
             setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
             for (const n of names) {
                 const app = apps.find(a => a.name === n);
-                syncApp(server, token, n, { prune: confirmSyncPrune, appNamespace: app?.appNamespace });
+                syncApp(baseUrl, token, n, { prune: confirmSyncPrune, appNamespace: app?.appNamespace });
             }
             setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
             // Show resource stream only for single-app syncs and when watch is enabled
@@ -698,7 +699,7 @@ export const App: React.FC = () => {
     if (mode === 'loading') {
         const spinChar = '⠋';
         // @ts-ignore
-        const loadingHeader: string = `${chalk.bold('View:')} ${chalk.yellow('LOADING')} • ${chalk.bold('Context:')} ${chalk.cyan(server || '—')}`;
+        const loadingHeader: string = `${chalk.bold('View:')} ${chalk.yellow('LOADING')} • ${chalk.bold('Context:')} ${chalk.cyan(hostFromUrl(baseUrl) || '—')}`;
         return (
             <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows - 1}>
                 <Box><Text>{loadingHeader}</Text></Box>
@@ -724,7 +725,7 @@ export const App: React.FC = () => {
     if (mode === 'auth-required') {
         return (
             <AuthRequiredView
-                server={server}
+                server={baseUrl ? hostFromUrl(baseUrl) : null}
                 apiVersion={apiVersion}
                 termCols={termCols}
                 termRows={termRows}
@@ -742,7 +743,7 @@ export const App: React.FC = () => {
         return (
             <Box flexDirection="column" paddingX={1} height={termRows - 1}>
                 <ArgoNautBanner
-                    server={server}
+                    server={baseUrl ? hostFromUrl(baseUrl) : null}
                     clusterScope={fmtScope(scopeClusters)}
                     namespaceScope={fmtScope(scopeNamespaces)}
                     projectScope={fmtScope(scopeProjects)}
@@ -753,7 +754,7 @@ export const App: React.FC = () => {
                 />
                 <Rollback
                     app={rollbackAppName}
-                    server={server}
+                    baseUrl={baseUrl}
                     token={token}
                     appNamespace={apps.find(a => a.name === rollbackAppName)?.appNamespace}
                     onClose={() => {
@@ -837,7 +838,7 @@ export const App: React.FC = () => {
     return (
         <Box flexDirection="column" paddingX={1} height={termRows - 1}>
             <ArgoNautBanner
-                server={server}
+                server={baseUrl ? hostFromUrl(baseUrl) : null}
                 clusterScope={fmtScope(scopeClusters)}
                 namespaceScope={fmtScope(scopeNamespaces)}
                 projectScope={fmtScope(scopeProjects)}
@@ -916,9 +917,9 @@ export const App: React.FC = () => {
                  flexWrap="nowrap">
                 {mode === 'help' ? (
                     <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} isOutdated={isVersionOutdated} latestVersion={latestVersion}/></Box>
-                ) : mode === 'resources' && server && token && syncViewApp ? (
+                ) : mode === 'resources' && baseUrl && token && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
-                        <ResourceStream baseUrl={server} token={token} appName={syncViewApp}
+                        <ResourceStream baseUrl={baseUrl} token={token} appName={syncViewApp}
                                         appNamespace={apps.find(a => a.name === syncViewApp)?.appNamespace}
                                         onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>
