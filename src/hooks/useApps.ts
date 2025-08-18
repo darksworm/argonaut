@@ -4,7 +4,7 @@ import {appToItem} from '../services/app-mapper';
 import type {AppItem} from '../types/domain';
 
 export function useApps(
-  server: string | null,
+  baseUrl: string | null,
   token: string | null,
   paused: boolean = false,
   onAuthError?: (err: Error) => void
@@ -13,7 +13,7 @@ export function useApps(
   const [status, setStatus] = useState('Idle');
 
   useEffect(() => {
-    if (!server || !token) return;
+    if (!baseUrl || !token) return;
     if (paused) {
       // When paused, ensure status reflects paused state and avoid setting up watchers
       setStatus('Paused');
@@ -24,10 +24,10 @@ export function useApps(
     (async () => {
       setStatus('Loading…');
       try {
-        const items = (await listApps(server, token, controller.signal)).map(appToItem);
+        const items = (await listApps(baseUrl, token, controller.signal)).map(appToItem);
         if (!cancelled) setApps(items);
         setStatus('Live');
-        for await (const ev of watchApps(server, token, undefined, controller.signal)) {
+        for await (const ev of watchApps(baseUrl, token, undefined, controller.signal)) {
           const {type, application} = ev || ({} as any);
           if (!application?.metadata?.name) continue;
           setApps(curr => {
@@ -61,7 +61,7 @@ export function useApps(
       cancelled = true;
       controller.abort();
     };
-  }, [server, token, paused]);
+  }, [baseUrl, token, paused]);
 
   return {apps, status};
 }

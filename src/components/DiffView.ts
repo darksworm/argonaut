@@ -122,9 +122,9 @@ fi
 }
 
 // High-level helpers that prepare data and run the session
-export async function runAppDiffSession(server: string, token: string, app: string, opts: DiffSessionOptions = {}): Promise<boolean> {
+export async function runAppDiffSession(baseUrl: string, token: string, app: string, opts: DiffSessionOptions = {}): Promise<boolean> {
   // Load diffs from API
-  const diffs = await getManagedResourceDiffs(server, token, app).catch(() => [] as any[]);
+  const diffs = await getManagedResourceDiffs(baseUrl, token, app).catch(() => [] as any[]);
   const desiredDocs: string[] = [];
   const liveDocs: string[] = [];
   for (const d of diffs as any[]) {
@@ -146,9 +146,9 @@ export async function runAppDiffSession(server: string, token: string, app: stri
   return true;
 }
 
-export async function runRollbackDiffSession(server: string, token: string, app: string, revision: string, opts: DiffSessionOptions = {}, appNamespace?: string): Promise<boolean> {
-  const current = await getManifestsApi(server, token, app, undefined, undefined, appNamespace).catch(() => []);
-  const target = await getManifestsApi(server, token, app, revision, undefined, appNamespace).catch(() => []);
+export async function runRollbackDiffSession(baseUrl: string, token: string, app: string, revision: string, opts: DiffSessionOptions = {}, appNamespace?: string): Promise<boolean> {
+  const current = await getManifestsApi(baseUrl, token, app, undefined, undefined, appNamespace).catch(() => []);
+  const target = await getManifestsApi(baseUrl, token, app, revision, undefined, appNamespace).catch(() => []);
   const currentDocs = current.map(toYamlDoc).filter(Boolean) as string[];
   const targetDocs = target.map(toYamlDoc).filter(Boolean) as string[];
   const currentFile = await writeTmp(currentDocs, `${app}-current`);

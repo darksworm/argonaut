@@ -8,29 +8,29 @@ export type ResourceDiff = {
   namespace?: string;
 };
 
-export async function listApps(server: string, token: string, signal?: AbortSignal): Promise<ArgoApplication[]> {
-  const data: any = await api(server, token, '/api/v1/applications', { signal } as RequestInit).catch(() => null as any);
+export async function listApps(baseUrl: string, token: string, signal?: AbortSignal): Promise<ArgoApplication[]> {
+  const data: any = await api(baseUrl, token, '/api/v1/applications', { signal } as RequestInit).catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   return items as ArgoApplication[];
 }
 
-export async function getManagedResourceDiffs(server: string, token: string, appName: string, signal?: AbortSignal): Promise<ResourceDiff[]> {
+export async function getManagedResourceDiffs(baseUrl: string, token: string, appName: string, signal?: AbortSignal): Promise<ResourceDiff[]> {
   const path = `/api/v1/applications/${encodeURIComponent(appName)}/managed-resources`;
-  const data: any = await api(server, token, path, { signal } as RequestInit).catch(() => null as any);
+  const data: any = await api(baseUrl, token, path, { signal } as RequestInit).catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   return items as ResourceDiff[];
 }
 
 // Async generator: yields {type, application}
 export async function* watchApps(
-  server: string,
+  baseUrl: string,
   token: string,
   params?: Record<string, string | string[]>,
   signal?: AbortSignal
 ): AsyncGenerator<ApplicationWatchEvent, void, unknown> {
   const qs = new URLSearchParams();
   if (params) Object.entries(params).forEach(([k,v]) => Array.isArray(v) ? v.forEach(x=>qs.append(k,x)) : qs.set(k,v));
-  const url = `${server.startsWith('http')?server:`https://${server}`}/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
+  const url = `${baseUrl}/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal });
   if (!res.ok || !res.body) throw new Error(`watch failed: ${res.status} ${res.statusText}`);
   const reader = (res.body as any).getReader();
