@@ -928,7 +928,7 @@ export const App: React.FC = () => {
                     <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} isOutdated={isVersionOutdated} latestVersion={latestVersion}/></Box>
                 ) : mode === 'resources' && server && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
-                        <ResourceStream baseUrl={server.config.baseUrl} token={server.token} appName={syncViewApp}
+                        <ResourceStream serverConfig={server.config} token={server.token} appName={syncViewApp}
                                         appNamespace={apps.find(a => a.name === syncViewApp)?.appNamespace}
                                         onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>
