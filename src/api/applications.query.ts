@@ -1,4 +1,5 @@
 import {api} from './transport';
+import {getHttpClient} from '../services/http-client';
 import type {Server} from '../types/server';
 import type {ApplicationWatchEvent, ArgoApplication} from '../types/argo';
 
@@ -30,24 +31,10 @@ export async function* watchApps(
 ): AsyncGenerator<ApplicationWatchEvent, void, unknown> {
   const qs = new URLSearchParams();
   if (params) Object.entries(params).forEach(([k,v]) => Array.isArray(v) ? v.forEach(x=>qs.append(k,x)) : qs.set(k,v));
-  const url = `${server.baseUrl}/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
+  const path = `/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
   
-  const fetchInit: RequestInit = { 
-    headers: { Authorization: `Bearer ${server.token}` }, 
-    signal 
-  };
-
-  // Handle insecure TLS for streaming connections
-  if (server.insecure && typeof globalThis !== 'undefined' && 'process' in globalThis) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-  }
-
-  const res = await fetch(url, fetchInit);
-  
-  // Reset the TLS setting after the request
-  if (server.insecure && typeof globalThis !== 'undefined' && 'process' in globalThis) {
-    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  }
+  const client = getHttpClient(server.config, server.token);
+  const res = await client.stream(path, { signal });
   if (!res.ok || !res.body) throw new Error(`watch failed: ${res.status} ${res.statusText}`);
   const reader = (res.body as any).getReader();
   const dec = new TextDecoder(); let buf = '';

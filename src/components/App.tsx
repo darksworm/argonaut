@@ -107,9 +107,8 @@ export const App: React.FC = () => {
                 
                 // Create server object with token
                 const serverObj: Server = {
-                    baseUrl: serverConfig.baseUrl,
-                    token: tokMaybe,
-                    insecure: serverConfig.insecure
+                    config: serverConfig,
+                    token: tokMaybe
                 };
                 
                 // Verify token by calling userinfo
@@ -710,7 +709,7 @@ export const App: React.FC = () => {
     if (mode === 'loading') {
         const spinChar = '⠋';
         // @ts-ignore
-        const loadingHeader: string = `${chalk.bold('View:')} ${chalk.yellow('LOADING')} • ${chalk.bold('Context:')} ${chalk.cyan(server ? hostFromUrl(server.baseUrl) : '—')}`;
+        const loadingHeader: string = `${chalk.bold('View:')} ${chalk.yellow('LOADING')} • ${chalk.bold('Context:')} ${chalk.cyan(server ? hostFromUrl(server.config.baseUrl) : '—')}`;
         return (
             <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} height={termRows - 1}>
                 <Box><Text>{loadingHeader}</Text></Box>
@@ -736,7 +735,7 @@ export const App: React.FC = () => {
     if (mode === 'auth-required') {
         return (
             <AuthRequiredView
-                server={server ? hostFromUrl(server.baseUrl) : null}
+                server={server ? hostFromUrl(server.config.baseUrl) : null}
                 apiVersion={apiVersion}
                 termCols={termCols}
                 termRows={termRows}
@@ -754,7 +753,7 @@ export const App: React.FC = () => {
         return (
             <Box flexDirection="column" paddingX={1} height={termRows - 1}>
                 <ArgoNautBanner
-                    server={server ? hostFromUrl(server.baseUrl) : null}
+                    server={server ? hostFromUrl(server.config.baseUrl) : null}
                     clusterScope={fmtScope(scopeClusters)}
                     namespaceScope={fmtScope(scopeNamespaces)}
                     projectScope={fmtScope(scopeProjects)}
@@ -848,7 +847,7 @@ export const App: React.FC = () => {
     return (
         <Box flexDirection="column" paddingX={1} height={termRows - 1}>
             <ArgoNautBanner
-                server={server ? hostFromUrl(server.baseUrl) : null}
+                server={server ? hostFromUrl(server.config.baseUrl) : null}
                 clusterScope={fmtScope(scopeClusters)}
                 namespaceScope={fmtScope(scopeNamespaces)}
                 projectScope={fmtScope(scopeProjects)}
@@ -929,7 +928,7 @@ export const App: React.FC = () => {
                     <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} isOutdated={isVersionOutdated} latestVersion={latestVersion}/></Box>
                 ) : mode === 'resources' && server && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
-                        <ResourceStream baseUrl={server.baseUrl} token={server.token} appName={syncViewApp}
+                        <ResourceStream baseUrl={server.config.baseUrl} token={server.token} appName={syncViewApp}
                                         appNamespace={apps.find(a => a.name === syncViewApp)?.appNamespace}
                                         onExit={() => { setMode('normal'); setResourcesApp(null); }}/>
                     </Box>

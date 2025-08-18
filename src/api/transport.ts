@@ -1,44 +1,23 @@
 import type {Server} from '../types/server';
+import {getHttpClient} from '../services/http-client';
 
 export async function api(server: Server, path: string, init?: RequestInit) {
-  const url = server.baseUrl + path;
-  // Normalize headers to a plain record for RequestInit compatibility
-  const baseHeaders: Record<string, string> = {
-    Authorization: `Bearer ${server.token}`,
-    'Content-Type': 'application/json'
-  };
-  if (init?.headers) {
-    const h = init.headers as any;
-    if (typeof (h as any)?.forEach === 'function') {
-      // Headers instance
-      (h as Headers).forEach((v: string, k: string) => { baseHeaders[k] = v; });
-    } else {
-      Object.assign(baseHeaders, h as Record<string, string>);
-    }
-  }
-
-  // Handle insecure TLS
-  const fetchInit: RequestInit = {
-    method: init?.method ?? 'GET',
-    headers: baseHeaders,
-    body: init?.body,
-    signal: init?.signal
-  };
-
-  // For insecure connections, we need to configure the agent to ignore cert errors
-  if (server.insecure && typeof globalThis !== 'undefined' && 'process' in globalThis) {
-    // In Node.js environment, we can set rejectUnauthorized to false
-    // This is a Node.js-specific feature and won't work in browsers
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-  }
-
-  const res = await fetch(url, fetchInit);
+  const client = getHttpClient(server.config, server.token);
   
-  // Reset the TLS setting after the request
-  if (server.insecure && typeof globalThis !== 'undefined' && 'process' in globalThis) {
-    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  const method = init?.method?.toUpperCase() || 'GET';
+  
+  switch (method) {
+    case 'GET':
+      return client.get(path, init);
+    case 'POST':
+      const body = init?.body ? JSON.parse(init.body as string) : undefined;
+      return client.post(path, body, init);
+    case 'PUT':
+      const putBody = init?.body ? JSON.parse(init.body as string) : undefined;
+      return client.put(path, putBody, init);
+    case 'DELETE':
+      return client.delete(path, init);
+    default:
+      throw new Error(`Unsupported HTTP method: ${method}`);
   }
-
-  if (!res.ok) throw new Error(`${init?.method ?? 'GET'} ${path} → ${res.status} ${res.statusText}`);
-  return res.headers.get('content-type')?.includes('json') ? res.json() : res.text();
 }
