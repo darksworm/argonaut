@@ -1,4 +1,5 @@
 import {api} from './transport';
+import type {Server} from '../types/server';
 import type {ApplicationWatchEvent, ArgoApplication} from '../types/argo';
 
 export type ResourceDiff = {
@@ -8,30 +9,45 @@ export type ResourceDiff = {
   namespace?: string;
 };
 
-export async function listApps(baseUrl: string, token: string, signal?: AbortSignal): Promise<ArgoApplication[]> {
-  const data: any = await api(baseUrl, token, '/api/v1/applications', { signal } as RequestInit).catch(() => null as any);
+export async function listApps(server: Server, signal?: AbortSignal): Promise<ArgoApplication[]> {
+  const data: any = await api(server, '/api/v1/applications', { signal } as RequestInit).catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   return items as ArgoApplication[];
 }
 
-export async function getManagedResourceDiffs(baseUrl: string, token: string, appName: string, signal?: AbortSignal): Promise<ResourceDiff[]> {
+export async function getManagedResourceDiffs(server: Server, appName: string, signal?: AbortSignal): Promise<ResourceDiff[]> {
   const path = `/api/v1/applications/${encodeURIComponent(appName)}/managed-resources`;
-  const data: any = await api(baseUrl, token, path, { signal } as RequestInit).catch(() => null as any);
+  const data: any = await api(server, path, { signal } as RequestInit).catch(() => null as any);
   const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   return items as ResourceDiff[];
 }
 
 // Async generator: yields {type, application}
 export async function* watchApps(
-  baseUrl: string,
-  token: string,
+  server: Server,
   params?: Record<string, string | string[]>,
   signal?: AbortSignal
 ): AsyncGenerator<ApplicationWatchEvent, void, unknown> {
   const qs = new URLSearchParams();
   if (params) Object.entries(params).forEach(([k,v]) => Array.isArray(v) ? v.forEach(x=>qs.append(k,x)) : qs.set(k,v));
-  const url = `${baseUrl}/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal });
+  const url = `${server.baseUrl}/api/v1/stream/applications${qs.size?`?${qs.toString()}`:''}`;
+  
+  const fetchInit: RequestInit = { 
+    headers: { Authorization: `Bearer ${server.token}` }, 
+    signal 
+  };
+
+  // Handle insecure TLS for streaming connections
+  if (server.insecure && typeof globalThis !== 'undefined' && 'process' in globalThis) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
+
+  const res = await fetch(url, fetchInit);
+  
+  // Reset the TLS setting after the request
+  if (server.insecure && typeof globalThis !== 'undefined' && 'process' in globalThis) {
+    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  }
   if (!res.ok || !res.body) throw new Error(`watch failed: ${res.status} ${res.statusText}`);
   const reader = (res.body as any).getReader();
   const dec = new TextDecoder(); let buf = '';

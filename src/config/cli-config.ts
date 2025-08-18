@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import {CONFIG_PATH, ensureHttps} from './paths';
+import type {ServerConfig} from '../types/server';
 
 export type ArgoContext = {name: string; server: string; user: string};
 export type ArgoServer  = {server: string; ['grpc-web']?: boolean; ['grpc-web-root-path']?: string; insecure?: boolean; ['plain-text']?: boolean};
@@ -48,4 +49,16 @@ export function getCurrentServerUrl(cfg: ArgoCLIConfig | null): string | null {
   if (!serverUrl) return null;
   const serverConfig = getCurrentServerConfig(cfg);
   return ensureHttps(serverUrl, serverConfig?.['plain-text']);
+}
+
+export function getCurrentServerConfigObj(cfg: ArgoCLIConfig | null): ServerConfig | null {
+  if (!cfg) return null;
+  const serverUrl = getCurrentServer(cfg);
+  if (!serverUrl) return null;
+  const serverConfig = getCurrentServerConfig(cfg);
+  
+  return {
+    baseUrl: ensureHttps(serverUrl, serverConfig?.['plain-text']),
+    insecure: serverConfig?.insecure
+  };
 }

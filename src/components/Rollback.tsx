@@ -8,6 +8,7 @@ import {
 import {runRollbackDiffSession} from './DiffView';
 import ConfirmationBox from './ConfirmationBox';
 import {humanizeSince, shortSha, singleLine} from "../utils";
+import type {Server} from '../types/server';
 
 export type RollbackRow = {
     id: number;
@@ -21,15 +22,14 @@ export type RollbackRow = {
 
 interface RollbackProps {
     app: string;
-    baseUrl: string | null;
-    token: string | null;
+    server: Server | null;
     appNamespace?: string;
     onClose: () => void;
     onStartWatching: (appName: string) => void;
 }
 
 export default function Rollback(props: RollbackProps) {
-    const {app, baseUrl, token, appNamespace, onClose, onStartWatching} = props;
+    const {app, server, appNamespace, onClose, onStartWatching} = props;
 
     type SubMode = 'list' | 'confirm';
     const [subMode, setSubMode] = useState<SubMode>('list');
@@ -50,12 +50,12 @@ export default function Rollback(props: RollbackProps) {
     useEffect(() => {
         (async () => {
             try {
-                if (!baseUrl || !token) {
+                if (!server) {
                     setError('Not authenticated.');
                     setRows([]);
                     return;
                 }
-                const appObj = await getAppApi(baseUrl, token, app, appNamespace).catch(() => ({} as any));
+                const appObj = await getAppApi(server, app, appNamespace).catch(() => ({} as any));
                 const from = appObj?.status?.sync?.revision ?? appObj?.status?.history?.[0]?.revisions?.[0] ?? '';
                 setFromRev(from || undefined);
                 const hist = Array.isArray(appObj?.status?.history) ? [...(appObj.status!.history!)] : [];
@@ -91,12 +91,12 @@ export default function Rollback(props: RollbackProps) {
             } catch {
             }
         };
-    }, [app, baseUrl, token]);
+    }, [app, server]);
 
     // Fetch revision metadata for highlighted row
     useEffect(() => {
         if (subMode !== 'list') return;
-        if (!baseUrl || !token) return;
+        if (!server) return;
         const row = rows[idx];
         if (!row || row.author) return;
         try {
@@ -109,7 +109,7 @@ export default function Rollback(props: RollbackProps) {
         setMetaLoadingKey(key);
         (async () => {
             try {
-                const meta = await getRevisionMetadataApi(baseUrl, token, app, row.revision, appNamespace, ac.signal);
+                const meta = await getRevisionMetadataApi(server, app, row.revision, appNamespace, ac.signal);
                 const upd = [...rows];
                 upd[idx] = {...row, author: meta?.author, date: meta?.date, message: meta?.message};
                 setRows(upd);
@@ -127,7 +127,7 @@ export default function Rollback(props: RollbackProps) {
             } catch {
             }
         };
-    }, [subMode, idx, rows, app, baseUrl, token]);
+    }, [subMode, idx, rows, app, server]);
 
     // Key handling inside rollback overlay
     useInput((input, key) => {
@@ -194,7 +194,7 @@ export default function Rollback(props: RollbackProps) {
     });
 
     async function runRollbackDiff() {
-        if (!baseUrl || !token) {
+        if (!server) {
             setError('Not authenticated.');
             return;
         }
@@ -204,7 +204,7 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         try {
-            const opened = await runRollbackDiffSession(baseUrl, token, app, row.revision, {forwardInput: true}, appNamespace);
+            const opened = await runRollbackDiffSession(server, app, row.revision, {forwardInput: true}, appNamespace);
             if (!opened) setError('No differences.');
         } catch (e: any) {
             setError(`Diff failed: ${e?.message || String(e)}`);
@@ -218,12 +218,12 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         const row = rows[idx];
-        if (!baseUrl || !token || !row) {
+        if (!server || !row) {
             setError('Not ready.');
             return;
         }
         try {
-            const res = await postRollbackApi(baseUrl, token, app, {id: row.id, name: app, prune, appNamespace});
+            const res = await postRollbackApi(server, app, {id: row.id, name: app, prune, appNamespace});
             // Start watching via resources view and close rollback
             if (watch) onStartWatching(app); else onClose();
         } catch (e: any) {

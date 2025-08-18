@@ -1,4 +1,5 @@
 import {api} from './transport';
+import type {Server} from '../types/server';
 
 export type UserInfo = {
   iss?: string;
@@ -8,8 +9,8 @@ export type UserInfo = {
   loggedIn?: boolean;
 };
 
-export async function getUserInfo(baseUrl: string, token: string): Promise<UserInfo> {
+export async function getUserInfo(server: Server): Promise<UserInfo> {
   // Throws on non-2xx; caller should handle and interpret as invalid token
-  const data = await api(baseUrl, token, '/api/v1/session/userinfo');
+  const data = await api(server, '/api/v1/session/userinfo');
   return data as UserInfo;
 }
