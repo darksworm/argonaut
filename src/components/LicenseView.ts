@@ -34,9 +34,11 @@ else
 fi
 `;
 
-  const args = process.platform === 'win32'
-    ? ['-NoProfile', '-NonInteractive', '-Command', cmd]
-    : ['-lc', cmd];
+  const cmdFile = path.join(os.tmpdir(), `argonaut-licenses-cmd.sh`);
+  await fs.writeFile(cmdFile, cmd, 'utf8');
+  await fs.chmod(cmdFile, 0o755);
+
+  const args = ['-lc', cmdFile];
 
   opts.onEnterExternal?.();
 
