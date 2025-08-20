@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: release
         id: release
@@ -55,4 +56,4 @@ jobs:
     uses: ./.github/workflows/build-binaries.yml
     with:
       upload-to-release: true
-      upload-url: ${{ github.event.release.upload_url }}
+      release-tag: ${{ needs.release-please.outputs.tag_name }}

@@ -8,8 +8,8 @@ on:
         required: false
         type: boolean
         default: false
-      upload-url:
-        description: 'GitHub release upload URL (required if upload-to-release is true)'
+      release-tag:
+        description: 'Git tag to upload assets to (required if upload-to-release is true)'
         required: false
         type: string
 
@@ -52,14 +52,14 @@ jobs:
 
       - name: Upload binary to release
         if: ${{ inputs.upload-to-release }}
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release-tag }}
+          files: |
+            ./${{ matrix.name }}
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ inputs.upload-url }}
-          asset_path: ./${{ matrix.name }}
-          asset_name: ${{ matrix.name }}
-          asset_content_type: application/octet-stream
 
       - name: Upload binary as artifact
         if: ${{ !inputs.upload-to-release }}
