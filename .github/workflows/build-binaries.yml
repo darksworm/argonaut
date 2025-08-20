@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload binary to release
         if: ${{ inputs.upload-to-release }}
-        uses: actions/upload-release-asset@v2
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
