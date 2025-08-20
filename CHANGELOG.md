@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/darksworm/argonaut/compare/v1.5.1...v1.5.2) (2025-08-20)
+
+
+### Bug Fixes
+
+* **ci:** update release asset upload to use new action and parameters ([18180f1](https://github.com/darksworm/argonaut/commit/18180f1f4fe559a4c78c2738d4142a2e63cbe148))
+
 ## [1.5.1](https://github.com/darksworm/argonaut/compare/v1.5.0...v1.5.1) (2025-08-20)
 
 
