@@ -78,7 +78,7 @@ const Help: React.FC<HelpProps> = ({version, isOutdated, latestVersion}) => (
       </Box>
     </Box>
     <Box marginTop={1}>
-      <Text dimColor>Press ? or Esc to close</Text>
+      <Text dimColor>Press q or Esc to close</Text>
     </Box>
   </Box>
 );
