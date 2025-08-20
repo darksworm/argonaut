@@ -1,5 +1,8 @@
 on:
-  pull_request
+  pull_request:
+  push:
+    branches:
+      - main
 
 name: test build
 
@@ -12,7 +15,7 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: bun run build:node
 
   build-binaries:
     uses: ./.github/workflows/build-binaries.yml
