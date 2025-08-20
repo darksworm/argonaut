@@ -20,10 +20,14 @@ export const getPty = async (): Promise<PtySpawn> => {
 }
 
 const loadPty = async (): Promise<PtySpawn> => {
-    if (process.versions && (process.versions as any).bun) {
-        return (await import("bun-pty")).spawn as PtySpawn;
-    } else {
-        return (await import("node-pty")).spawn as PtySpawn;
+    try {
+        if (process.versions && (process.versions as any).bun) {
+            return (await import("bun-pty")).spawn as PtySpawn;
+        } else {
+            return (await import("node-pty")).spawn as PtySpawn;
+        }
+    } catch (error) {
+        throw new Error(`Failed to load PTY library: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 

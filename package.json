@@ -12,7 +12,8 @@
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "bun": ">=1.2.20"
   },
   "bugs": {
     "url": "https://github.com/darksworm/argonaut/issues"
@@ -39,9 +40,7 @@
     "generate-license-file": "^4.0.0",
     "react-devtools-core": "^6.1.5",
     "rollup": "^4.46.4",
-    "rollup-plugin-typescript2": "^0.36.0",
-    "tsx": "^4.20.4",
-    "typescript": "^5.9.2"
+    "rollup-plugin-typescript2": "^0.36.0"
   },
   "bin": {
     "argonaut": "./dist/cli.js"
