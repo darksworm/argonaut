@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.0](https://github.com/darksworm/argonaut/compare/v1.4.0...v1.5.0) (2025-08-20)
+
+
+### Features
+
+* **binary:** refactor(core): migrated project to bun ([35042f4](https://github.com/darksworm/argonaut/commit/35042f41b306ec4ca555183c5555922ed3bf7e77))
+
+
+### Bug Fixes
+
+* **binary:** diff works in binary build ([06b2997](https://github.com/darksworm/argonaut/commit/06b2997f06b0bd7af9f911c254502a6fbc29746b))
+* **build:** downgrade upload-release-asset action to v1 ([79ffc41](https://github.com/darksworm/argonaut/commit/79ffc4174029f797270f006b1a9248de1bece83c))
+* **config:** respect insecure attribute in config ([0fa3742](https://github.com/darksworm/argonaut/commit/0fa374280092b78f6b354f0dfea842246d57eb8e))
+* **config:** respect plain-text attribute in config ([36ad4a4](https://github.com/darksworm/argonaut/commit/36ad4a4c34cb206fe2582f39b42327d98e5b6abc))
+* **help:** update help close command from '?' to 'q' ([cdeffb7](https://github.com/darksworm/argonaut/commit/cdeffb7c9fcec238308145dfa70f95df37e2fa13))
+* **http:** implement proper insecure flag handling with native Node.js HTTP ([1c36e68](https://github.com/darksworm/argonaut/commit/1c36e6882b483974ce737e934e8c2003b5cf68ac))
+* **http:** improve signal handling and streaming implementation ([5a49618](https://github.com/darksworm/argonaut/commit/5a49618ba61b85243b949135fc0c21fe4b583821))
+* **licenses:** working with bun-pty ([7d73787](https://github.com/darksworm/argonaut/commit/7d7378796f9d86037de73d85710b7aeb24873853))
+* **streaming:** replace all fetch calls with HTTP client for insecure flag support ([9458d01](https://github.com/darksworm/argonaut/commit/9458d013613404ebe49818c936e55a9ccc01961f))
+
 ## [1.4.0](https://github.com/darksworm/argonaut/compare/v1.3.0...v1.4.0) (2025-08-15)
 
 
