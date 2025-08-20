@@ -5,12 +5,15 @@
   "private": false,
   "type": "module",
   "scripts": {
-    "dev": "[ -f \"src/data/licenses.ts\" ] || npm run generate:licenses; tsx src/main.tsx",
-    "start": "node dist/index.js",
-    "prebuild": "npm run generate:licenses",
-    "build": "rollup -c",
-    "generate:licenses": "mkdir -p dist && npx generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && node scripts/generate-licenses.cjs",
-    "prepublishOnly": "npm run build"
+    "dev": "[ -f \"src/data/licenses.ts\" ] || bun run generate:licenses; bun src/main.tsx",
+    "start": "bun dist/index.js",
+    "prebuild": "bun run generate:licenses",
+    "build": "bun run build:bundle",
+    "build:bundle": "bun build src/main.tsx --outdir dist --target node --format esm --external node-pty",
+    "build:binary": "bun build --compile src/main.tsx --outfile argonaut-cli",
+    "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
+    "prepublishOnly": "bun run build",
+    "publish:npm": "npm publish"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
@@ -25,26 +28,24 @@
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "chalk": "^5.5.0",
+    "chalk": "^5.6.0",
     "execa": "^9.6.0",
-    "ink": "^6.1.0",
+    "ink": "^6.2.1",
     "ink-text-input": "^6.0.0",
     "node-pty": "^1.0.0",
     "react": "^19.1.1",
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@rollup/plugin-json": "^6.1.0",
-    "@types/node": "^24.2.0",
-    "@types/react": "^19.1.9",
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.10",
     "generate-license-file": "^4.0.0",
-    "rollup": "^4.46.2",
-    "rollup-plugin-typescript2": "^0.36.0",
-    "tsx": "^4.20.3",
+    "react-devtools-core": "^6.1.5",
+    "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
   "bin": {
-    "argonaut": "./dist/cli.js"
+    "argonaut": "./dist/main.js"
   },
   "keywords": [
     "argocd",

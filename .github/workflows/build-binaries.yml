@@ -1,0 +1,65 @@
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+name: build-binaries
+
+jobs:
+  build-binaries:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            name: argonaut-linux-x64
+          - os: ubuntu-latest  
+            target: bun-linux-arm64
+            name: argonaut-linux-arm64
+          - os: macos-latest
+            target: bun-darwin-x64
+            name: argonaut-darwin-x64
+          - os: macos-latest
+            target: bun-darwin-arm64
+            name: argonaut-darwin-arm64
+          - os: windows-latest
+            target: bun-windows-x64
+            name: argonaut-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binary
+        run: bun build --compile --target=${{ matrix.target }} --minify --sourcemap src/main.tsx --outfile ${{ matrix.name }}
+
+      - name: Upload binary to release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ matrix.name }}
+          asset_name: ${{ matrix.name }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload binary as artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ./${{ matrix.name }}
+          retention-days: 30
