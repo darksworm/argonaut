@@ -24,10 +24,10 @@ jobs:
           - os: ubuntu-latest  
             target: bun-linux-arm64
             name: argonaut-linux-arm64
-          - os: macos-latest
+          - os: macos-15
             target: bun-darwin-x64
             name: argonaut-darwin-x64
-          - os: macos-latest
+          - os: macos-15
             target: bun-darwin-arm64
             name: argonaut-darwin-arm64
 
