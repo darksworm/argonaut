@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/darksworm/argonaut/compare/v1.5.0...v1.5.1) (2025-08-20)
+
+
+### Bug Fixes
+
+* **ci:** npm auth for releases ([733ee32](https://github.com/darksworm/argonaut/commit/733ee320bd4b4286a036c8e7cb248821370b4896))
+
 ## [1.5.0](https://github.com/darksworm/argonaut/compare/v1.4.0...v1.5.0) (2025-08-20)
 
 
