@@ -51,7 +51,7 @@ jobs:
         run: bun run generate:licenses
 
       - name: Build binary
-        run: bun build --compile --target=${{ matrix.target }} --minify --sourcemap src/main.tsx --outfile ${{ matrix.name }}
+        run: bun run build:binary -- --target=${{ matrix.target }} --outfile ${{ matrix.name }}
 
       - name: Upload binary to release
         if: ${{ inputs.upload-to-release }}
