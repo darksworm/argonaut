@@ -8,7 +8,7 @@
     "dev": "[ -f \"src/data/licenses.ts\" ] || bun run generate:licenses; bun src/main.tsx",
     "start": "bun dist/index.js",
     "build": "bun run generate:licenses && bun run build:bundle",
-    "build:bundle": "bun build src/main.tsx --outdir dist --target node --format esm --external node-pty",
+    "build:bundle": "bun build src/main.tsx --outdir dist --target node --format esm",
     "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap  src/main.tsx --outfile argonaut-cli",
     "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
     "prepublishOnly": "bun run build",
@@ -27,11 +27,11 @@
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
+    "bun-pty": "^0.3.2",
     "chalk": "^5.6.0",
     "execa": "^9.6.0",
     "ink": "^6.2.1",
     "ink-text-input": "^6.0.0",
-    "node-pty": "^1.0.0",
     "react": "^19.1.1",
     "yaml": "^2.8.1"
   },
