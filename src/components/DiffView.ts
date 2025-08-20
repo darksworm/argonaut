@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import {execa} from 'execa';
-import {spawn as ptySpawn} from 'node-pty';
+import {spawn as ptySpawn} from 'bun-pty';
 import {getManagedResourceDiffs} from '../api/applications.query';
 import {getManifests as getManifestsApi} from '../api/rollback';
 import type {Server} from '../types/server';
@@ -67,9 +67,14 @@ else
 fi
 `;
 
+  // Write command to temporary file
+  const cmdFile = path.join(os.tmpdir(), `argonaut-diff-cmd.sh`);
+  await fs.writeFile(cmdFile, cmd, 'utf8');
+  await fs.chmod(cmdFile, 0o755);
+
   const args = process.platform === 'win32'
-    ? ['-NoProfile', '-NonInteractive', '-Command', cmd]
-    : ['-lc', cmd];
+    ? ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', cmdFile]
+    : [cmdFile];
 
   opts.onEnterExternal?.();
 
@@ -117,6 +122,11 @@ fi
   try {
     stdinAny.setRawMode?.(true);
     stdinAny.resume?.();
+  } catch { /* noop */ }
+
+  // Clean up temporary command file
+  try {
+    await fs.unlink(cmdFile);
   } catch { /* noop */ }
 
   opts.onExitExternal?.();

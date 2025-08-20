@@ -1,7 +1,7 @@
 import os from 'node:os';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {spawn as ptySpawn} from 'node-pty';
+import {spawn as ptySpawn} from 'bun-pty';
 import {ALL_LICENSES} from '../data/licenses.js';
 
 export type LicenseSessionOptions = {
@@ -42,7 +42,8 @@ fi
 
   const pty = ptySpawn(shell, args as any, {
     name: 'xterm-256color',
-    cols, rows,
+    cols: process.stdout.columns,
+    rows: process.stdout.rows,
     cwd: process.cwd(),
     env: { ...(process.env as any), COLORTERM: 'truecolor' } as any,
   });
