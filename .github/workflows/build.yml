@@ -13,3 +13,6 @@ jobs:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
       - run: bun run build
+
+  build-binaries:
+    uses: ./.github/workflows/build-binaries.yml
