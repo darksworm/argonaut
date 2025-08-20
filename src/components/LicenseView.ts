@@ -1,8 +1,8 @@
 import os from 'node:os';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {spawn as ptySpawn} from 'bun-pty';
 import {ALL_LICENSES} from '../data/licenses.js';
+import {getPty} from "./pty";
 
 export type LicenseSessionOptions = {
   // If true, forward process.stdin to the PTY (interactive paging). Defaults to true.
@@ -40,12 +40,17 @@ fi
 
   opts.onEnterExternal?.();
 
-  const pty = ptySpawn(shell, args as any, {
+  const spawnPty = await getPty();
+  const pty = spawnPty(shell, args, {
     name: 'xterm-256color',
     cols: process.stdout.columns,
     rows: process.stdout.rows,
     cwd: process.cwd(),
-    env: { ...(process.env as any), COLORTERM: 'truecolor' } as any,
+    env: { ...(process.env as any),
+    cols,
+    rows,
+    COLORTERM: 'truecolor'
+    },
   });
 
   const onResize = () => {

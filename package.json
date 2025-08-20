@@ -12,7 +12,8 @@
     "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap  src/main.tsx --outfile argonaut-cli",
     "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
     "prepublishOnly": "bun run build",
-    "publish:npm": "npm publish"
+    "publish:npm": "npm publish",
+    "tsx": "tsx src/main.tsx"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {

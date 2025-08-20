@@ -3,10 +3,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import {execa} from 'execa';
-import {spawn as ptySpawn} from 'bun-pty';
 import {getManagedResourceDiffs} from '../api/applications.query';
 import {getManifests as getManifestsApi} from '../api/rollback';
 import type {Server} from '../types/server';
+import {getPty} from "./pty";
 
 export function toYamlDoc(input?: string): string | null {
   if (!input) return null;
@@ -78,7 +78,8 @@ fi
 
   opts.onEnterExternal?.();
 
-  const pty = ptySpawn(shell, args as any, {
+  const spawnPty = await getPty();
+  const pty = spawnPty(shell, args as any, {
     name: 'xterm-256color',
     cols, rows,
     cwd: process.cwd(),
