@@ -9,7 +9,7 @@
     "start": "bun dist/index.js",
     "build": "bun run generate:licenses && bun run build:bundle",
     "build:bundle": "bun build src/main.tsx --outdir dist --target node --format esm --external node-pty",
-    "build:binary": "bun run generate:licenses && bun build --compile src/main.tsx --outfile argonaut-cli",
+    "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap --bytecode  src/main.tsx --outfile argonaut-cli",
     "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
     "prepublishOnly": "bun run build",
     "publish:npm": "npm publish"
