@@ -6,14 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "[ -f \"src/data/licenses.ts\" ] || bun run generate:licenses; bun src/main.tsx",
-    "start": "bun dist/index.js",
-    "build": "bun run generate:licenses && bun run build:bundle",
-    "build:bundle": "bun build src/main.tsx --outdir dist --target node --format esm",
+    "build:node": "bun run generate:licenses && rollup -c rollup.config.js --configPlugin typescript2",
     "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap  src/main.tsx --outfile argonaut-cli",
-    "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
-    "prepublishOnly": "bun run build",
-    "publish:npm": "npm publish",
-    "tsx": "tsx src/main.tsx"
+    "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
@@ -33,19 +28,23 @@
     "execa": "^9.6.0",
     "ink": "^6.2.1",
     "ink-text-input": "^6.0.0",
+    "node-pty": "^1.0.0",
     "react": "^19.1.1",
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@rollup/plugin-json": "^6.1.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "generate-license-file": "^4.0.0",
     "react-devtools-core": "^6.1.5",
+    "rollup": "^4.46.4",
+    "rollup-plugin-typescript2": "^0.36.0",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   },
   "bin": {
-    "argonaut": "./dist/main.js"
+    "argonaut": "./dist/cli.js"
   },
   "keywords": [
     "argocd",
