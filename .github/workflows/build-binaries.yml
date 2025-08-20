@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate licenses 
+        run: bun run generate:licenses
+
       - name: Build binary
         run: bun build --compile --target=${{ matrix.target }} --minify --sourcemap src/main.tsx --outfile ${{ matrix.name }}
 
