@@ -115,7 +115,8 @@ aurs:
 
 nix:
   - name: argonaut
-    ids: [bun]
+    ids: [ bun-archives ]
+    goamd64: v1
     repository:
       owner: darksworm
       name: nur-packages
