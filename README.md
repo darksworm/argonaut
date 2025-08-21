@@ -14,11 +14,36 @@ Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + I
 
 ---
 
-## 🚀 Quick Start
-```bash
-# Install the Argonaut CLI globally
-npm i --global argonaut-cli
+## 🚀 Installation methods
 
+<details>
+  <summary><strong>Homebrew</strong></summary>
+
+```bash
+brew tap darksworm/homebrew-tap
+brew install darksworm/tap/argonaut
+```
+</details>
+
+<details>
+  <summary><strong>npm</strong></summary>
+
+```bash
+npm i --global argonaut-cli
+```
+</details>
+
+<details>
+  <summary><strong>download a binary</strong></summary>
+  
+- [linux x64](https://github.com/darksworm/argonaut/releases/download/latest/argonaut-linux-x64)
+- [linux arm64](https://github.com/darksworm/argonaut/releases/download/latest/argonaut-linux-arm64)
+- [darwin x64](https://github.com/darksworm/argonaut/releases/download/latest/argonaut-darwin-x64)
+- [darwin arm64](https://github.com/darksworm/argonaut/releases/download/latest/argonaut-darwin-arm64)
+</details>
+
+## ⚡ Quickstart
+```bash
 # Log in to your Argo CD server
 argocd login
 
