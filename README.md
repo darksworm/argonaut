@@ -33,20 +33,21 @@ npm i --global argonaut-cli
 ```
 </details>
 
-[//]: # (<details>)
+<details>
+  <summary><strong>AUR (Arch User Repository)</strong></summary>
 
-[//]: # (  <summary><strong>download a binary</strong></summary>)
+```bash
+yay -S argonaut-bin
+```
+</details>
 
-[//]: # (  )
-[//]: # (- [linux x64]&#40;https://github.com/darksworm/argonaut/releases/download/latest/argonaut-linux-x64&#41;)
+<details>
+  <summary><strong>Linux - manual</strong></summary>
 
-[//]: # (- [linux arm64]&#40;https://github.com/darksworm/argonaut/releases/download/latest/argonaut-linux-arm64&#41;)
+You can download binaries and packages in from the [**latest release**](https://github.com/darksworm/argonaut/releases/latest).
 
-[//]: # (- [darwin x64]&#40;https://github.com/darksworm/argonaut/releases/download/latest/argonaut-darwin-x64&#41;)
+</details>
 
-[//]: # (- [darwin arm64]&#40;https://github.com/darksworm/argonaut/releases/download/latest/argonaut-darwin-arm64&#41;)
-
-[//]: # (</details>)
 
 ## ⚡ Quickstart
 ```bash

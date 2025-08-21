@@ -112,3 +112,18 @@ aurs:
     commit_author:
       name: goreleaser
       email: bot@goreleaser.com
+
+nfpms:
+  - id: linux-packages
+    ids: [bun]
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    maintainer: "darksworm <bot@goreleaser.com>"
+    homepage: "https://github.com/darksworm/argonaut"
+    description: "A CLI tool for managing Argo CD applications"
+    license: GPL-3.0-or-later
+    section: utils
+    priority: optional
+    provides: [argonaut]
+    conflicts: [argonaut]
