@@ -1,0 +1,155 @@
+version: 2
+
+project_name: argonaut
+
+# Skip builds since we use pre-built Bun binaries
+builds:
+  - skip: true
+
+# Archives for different platforms  
+archives:
+  - id: argonaut
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+# Linux packages (.deb and .rpm)
+nfpms:
+  - id: argonaut
+    package_name: argonaut
+    vendor: darksworm
+    homepage: https://github.com/darksworm/argonaut
+    maintainer: darksworm
+    description: A GitOps CLI tool for managing ArgoCD applications
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    section: utils
+    priority: optional
+    file_name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/argonaut/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/argonaut/README.md
+      - src: CHANGELOG.md
+        dst: /usr/share/doc/argonaut/CHANGELOG.md
+      - src: dist/argonaut-linux-amd64
+        dst: /usr/bin/argonaut
+        file_info:
+          mode: 0755
+    dependencies:
+      - git
+
+# Homebrew tap formula
+brews:
+  - name: argonaut
+    description: A GitOps CLI tool for managing ArgoCD applications
+    homepage: https://github.com/darksworm/argonaut
+    license: MIT
+    repository:
+      owner: darksworm
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    test: |
+      system "#{bin}/argonaut", "version"
+    install: |
+      if OS.mac?
+        if Hardware::CPU.arm?
+          bin.install "argonaut-darwin-arm64" => "argonaut"
+        else
+          bin.install "argonaut-darwin-amd64" => "argonaut" 
+        end
+      elsif OS.linux?
+        if Hardware::CPU.arm?
+          bin.install "argonaut-linux-arm64" => "argonaut"
+        else
+          bin.install "argonaut-linux-amd64" => "argonaut"
+        end
+      end
+    caveats: |
+      To get started with argonaut:
+        argonaut --help
+
+# AUR package
+aurs:
+  - name: argonaut-bin
+    homepage: https://github.com/darksworm/argonaut
+    description: A GitOps CLI tool for managing ArgoCD applications
+    maintainers:
+      - 'darksworm'
+    license: GPL-3.0-or-later
+    private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
+    git_url: ssh://aur@aur.archlinux.org/argonaut-bin.git
+    package: |
+      # Determine binary name based on architecture
+      if [ "$CARCH" = "x86_64" ]; then
+          _binname="argonaut-linux-amd64"
+      elif [ "$CARCH" = "aarch64" ]; then
+          _binname="argonaut-linux-arm64"
+      fi
+      
+      # bin
+      install -Dm755 "./${_binname}" "${pkgdir}/usr/bin/argonaut"
+      
+      # license
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/argonaut/LICENSE"
+      
+      # documentation
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/argonaut/README.md"
+      install -Dm644 "./CHANGELOG.md" "${pkgdir}/usr/share/doc/argonaut/CHANGELOG.md"
+    url_template: "https://github.com/darksworm/argonaut/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    commit_author:
+      name: goreleaser
+      email: bot@goreleaser.com
+    commit_msg_template: "upgpkg: {{ .PackageName }} {{ .Version }}"
+
+# Release configuration
+release:
+  draft: false
+  prerelease: auto
+  name_template: "{{ .Tag }}"
+
+# Snapshot releases  
+snapshot:
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Bug Fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: "Performance Improvements"
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 2
+    - title: "Documentation"
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 3
+    - title: "Other Changes"
+      order: 999
+
+# Checksum file
+checksum:
+  name_template: 'checksums.txt'
+
