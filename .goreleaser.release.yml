@@ -8,6 +8,10 @@ builds:
     builder: bun
     binary: argonaut
     main: src/main.tsx
+    hooks:
+      pre: |
+        bun install --frozen-lockfile
+        bun run generate:licenses
     targets:
       - linux-x64-modern
       - linux-arm64

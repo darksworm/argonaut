@@ -80,9 +80,6 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
           restore-keys: bun-${{ runner.os }}-
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
       - name: Setup SSH key for AUR
         if: env.AUR_SSH_PRIVATE_KEY != ''
         uses: webfactory/ssh-agent@v0.9.0
