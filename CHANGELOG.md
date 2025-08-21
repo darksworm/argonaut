@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/darksworm/argonaut/compare/v1.6.1...v1.7.0) (2025-08-21)
+
+
+### Features
+
+* **multi-platform:** update GoReleaser configuration for Bun builds and packaging ([ced3591](https://github.com/darksworm/argonaut/commit/ced3591d214a1863535962364de87717dc385491))
+
 ## [1.6.1](https://github.com/darksworm/argonaut/compare/v1.6.0...v1.6.1) (2025-08-21)
 
 
