@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/darksworm/argonaut/compare/v1.5.2...v1.5.3) (2025-08-21)
+
+
+### Bug Fixes
+
+* **build:** release to homebrew ([9ac165c](https://github.com/darksworm/argonaut/commit/9ac165c56296d361f9c239e9d906d0f598864479))
+
 ## [1.5.2](https://github.com/darksworm/argonaut/compare/v1.5.1...v1.5.2) (2025-08-20)
 
 
