@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/darksworm/argonaut/compare/v1.10.0...v1.10.1) (2025-08-21)
+
+
+### Bug Fixes
+
+* **multi-platform:** add Nix installation step in release pipeline ([79517ce](https://github.com/darksworm/argonaut/commit/79517ceb7d2e8353ee012c4d18a8d9f261c030d6))
+
 ## [1.10.0](https://github.com/darksworm/argonaut/compare/v1.9.0...v1.10.0) (2025-08-21)
 
 
