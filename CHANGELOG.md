@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.2](https://github.com/darksworm/argonaut/compare/v1.10.1...v1.10.2) (2025-08-21)
+
+
+### Bug Fixes
+
+* **multi-platform:** update Nix configuration for argonaut package ([f04e6f6](https://github.com/darksworm/argonaut/commit/f04e6f680868b039b611974953eba5dbcb3c6611))
+
 ## [1.10.1](https://github.com/darksworm/argonaut/compare/v1.10.0...v1.10.1) (2025-08-21)
 
 
