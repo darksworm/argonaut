@@ -2,126 +2,62 @@ version: 2
 
 project_name: argonaut
 
-# Skip builds since we use pre-built Bun binaries
+# Build with Bun (bun build --compile)
 builds:
-  - skip: true
+  - id: bun
+    builder: bun
+    binary: argonaut
+    main: src/main.tsx
+    targets:
+      - linux-x64-modern
+      - linux-arm64
+      - darwin-x64
+      - darwin-arm64
 
-# Archives for different platforms  
+# Package artifacts (use tar.gz, no deprecation warnings)
 archives:
-  - id: argonaut
+  - id: bun-archives
+    ids: [bun]  # which build(s) to package
+    formats: ["tar.gz"]  # use plural 'formats' (no deprecation)
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-    builds_info:
-      group: root
-      owner: root
     files:
-      - LICENSE
-      - README.md
-      - CHANGELOG.md
+      - LICENSE*
+      - README*
+      - CHANGELOG*
 
-# Linux packages (.deb and .rpm)
-nfpms:
-  - id: argonaut
-    package_name: argonaut
-    vendor: darksworm
-    homepage: https://github.com/darksworm/argonaut
-    maintainer: darksworm
-    description: A GitOps CLI tool for managing ArgoCD applications
-    license: MIT
-    formats:
-      - deb
-      - rpm
-    bindir: /usr/bin
-    section: utils
-    priority: optional
-    file_name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-    contents:
-      - src: LICENSE
-        dst: /usr/share/doc/argonaut/LICENSE
-      - src: README.md
-        dst: /usr/share/doc/argonaut/README.md
-      - src: CHANGELOG.md
-        dst: /usr/share/doc/argonaut/CHANGELOG.md
-      - src: dist/argonaut-linux-amd64
-        dst: /usr/bin/argonaut
-        file_info:
-          mode: 0755
-    dependencies:
-      - git
-
-# Homebrew tap formula
-brews:
+# macOS distribution via Homebrew Casks (Formulas are deprecated)
+homebrew_casks:
   - name: argonaut
     description: A GitOps CLI tool for managing ArgoCD applications
     homepage: https://github.com/darksworm/argonaut
-    license: MIT
+    ids: [bun-archives]    # use the archives above
+    binary: argonaut       # the binary name inside the archive
     repository:
       owner: darksworm
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    test: |
-      system "#{bin}/argonaut", "version"
-    install: |
-      if OS.mac?
-        if Hardware::CPU.arm?
-          bin.install "argonaut-darwin-arm64" => "argonaut"
-        else
-          bin.install "argonaut-darwin-amd64" => "argonaut" 
-        end
-      elsif OS.linux?
-        if Hardware::CPU.arm?
-          bin.install "argonaut-linux-arm64" => "argonaut"
-        else
-          bin.install "argonaut-linux-amd64" => "argonaut"
-        end
-      end
+    # If you don't sign/notarize, consider removing quarantine on install:
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/argonaut"]
+          end
     caveats: |
-      To get started with argonaut:
+      To get started:
         argonaut --help
 
-# AUR package
-aurs:
-  - name: argonaut-bin
-    homepage: https://github.com/darksworm/argonaut
-    description: A GitOps CLI tool for managing ArgoCD applications
-    maintainers:
-      - 'darksworm'
-    license: GPL-3.0-or-later
-    private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
-    git_url: ssh://aur@aur.archlinux.org/argonaut-bin.git
-    package: |
-      # Determine binary name based on architecture
-      if [ "$CARCH" = "x86_64" ]; then
-          _binname="argonaut-linux-amd64"
-      elif [ "$CARCH" = "aarch64" ]; then
-          _binname="argonaut-linux-arm64"
-      fi
-      
-      # bin
-      install -Dm755 "./${_binname}" "${pkgdir}/usr/bin/argonaut"
-      
-      # license
-      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/argonaut/LICENSE"
-      
-      # documentation
-      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/argonaut/README.md"
-      install -Dm644 "./CHANGELOG.md" "${pkgdir}/usr/share/doc/argonaut/CHANGELOG.md"
-    url_template: "https://github.com/darksworm/argonaut/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    commit_author:
-      name: goreleaser
-      email: bot@goreleaser.com
-    commit_msg_template: "upgpkg: {{ .PackageName }} {{ .Version }}"
-
-# Release configuration
+# Release config
 release:
   draft: false
   prerelease: auto
   name_template: "{{ .Tag }}"
 
-# Snapshot releases  
-snapshot:
+# Snapshot releases
+snapshot: {}
 
-# Changelog configuration
+# Changelog (GitHub, grouped)
 changelog:
   sort: asc
   use: github
@@ -130,9 +66,9 @@ changelog:
       - "^test:"
       - "^chore"
       - "merge conflict"
-      - Merge pull request
-      - Merge remote-tracking branch
-      - Merge branch
+      - "Merge pull request"
+      - "Merge remote-tracking branch"
+      - "Merge branch"
   groups:
     - title: "New Features"
       regexp: "^.*feat[(\\w)]*:+.*$"
@@ -149,7 +85,24 @@ changelog:
     - title: "Other Changes"
       order: 999
 
-# Checksum file
+# Checksums for all artifacts
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
+# AUR example (kept commented)
+# aurs:
+#   - name: argonaut-bin
+#     homepage: https://github.com/darksworm/argonaut
+#     description: A GitOps CLI tool for managing ArgoCD applications
+#     maintainers: ['darksworm']
+#     license: MIT
+#     private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
+#     git_url: ssh://aur@aur.archlinux.org/argonaut-bin.git
+#     package: |
+#       install -Dm755 "./argonaut" "${pkgdir}/usr/bin/argonaut"
+#       install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/argonaut/LICENSE"
+#       install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/argonaut/README.md"
+#       install -Dm644 "./CHANGELOG.md" "${pkgdir}/usr/share/doc/argonaut/CHANGELOG.md"
+#     url_template: "https://github.com/darksworm/argonaut/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+#     commit_author: { name: goreleaser, email: bot@goreleaser.com }
+#     commit_msg_template: "upgpkg: {{ .PackageName }} {{ .Version }}"
