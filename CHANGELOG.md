@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/darksworm/argonaut/compare/v1.9.0...v1.10.0) (2025-08-21)
+
+
+### Features
+
+* **multi-platform:** add nix configuration for argonaut package in goreleaser ([6807f59](https://github.com/darksworm/argonaut/commit/6807f5974dd1f78c243ac787fa63c69c5937773c))
+
 ## [1.9.0](https://github.com/darksworm/argonaut/compare/v1.8.2...v1.9.0) (2025-08-21)
 
 
