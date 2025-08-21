@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/darksworm/argonaut/compare/v1.8.1...v1.8.2) (2025-08-21)
+
+
+### Bug Fixes
+
+* **multi-platform:** update AUR configuration for argonaut-bin package ([72db1fb](https://github.com/darksworm/argonaut/commit/72db1fb3b55fbb0484a16b008078e84171a71bdc))
+
 ## [1.8.1](https://github.com/darksworm/argonaut/compare/v1.8.0...v1.8.1) (2025-08-21)
 
 
