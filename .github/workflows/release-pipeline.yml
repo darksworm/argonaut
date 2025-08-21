@@ -57,3 +57,65 @@ jobs:
     with:
       upload-to-release: true
       release-tag: ${{ needs.release-please.outputs.tag_name }}
+
+  update-homebrew:
+    needs: [release-please, build-binaries]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get release info for all binaries
+        id: release_info
+        run: |
+          VERSION=$(echo ${{ needs.release-please.outputs.tag_name }} | sed 's/^v//')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
+          # Base URL for all binaries
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}"
+          
+          # Define binary names and calculate SHA256 for each
+          BINARIES=("argonaut-darwin-x64" "argonaut-darwin-arm64" "argonaut-linux-x64" "argonaut-linux-arm64")
+          
+          for binary in "${BINARIES[@]}"; do
+            echo "Processing ${binary}..."
+            curl -L -o "${binary}" "${BASE_URL}/${binary}"
+            sha256=$(sha256sum "${binary}" | cut -d' ' -f1)
+            
+            # Output variables for each binary
+            case "${binary}" in
+              "argonaut-darwin-x64")
+                echo "darwin_x64_url=${BASE_URL}/${binary}" >> $GITHUB_OUTPUT
+                echo "darwin_x64_sha256=${sha256}" >> $GITHUB_OUTPUT
+                ;;
+              "argonaut-darwin-arm64")
+                echo "darwin_arm64_url=${BASE_URL}/${binary}" >> $GITHUB_OUTPUT
+                echo "darwin_arm64_sha256=${sha256}" >> $GITHUB_OUTPUT
+                ;;
+              "argonaut-linux-x64")
+                echo "linux_x64_url=${BASE_URL}/${binary}" >> $GITHUB_OUTPUT
+                echo "linux_x64_sha256=${sha256}" >> $GITHUB_OUTPUT
+                ;;
+              "argonaut-linux-arm64")
+                echo "linux_arm64_url=${BASE_URL}/${binary}" >> $GITHUB_OUTPUT
+                echo "linux_arm64_sha256=${sha256}" >> $GITHUB_OUTPUT
+                ;;
+            esac
+          done
+
+      - name: Update Homebrew formula
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: ${{ github.repository_owner }}/homebrew-aerospace
+          event-type: update-argonaut-formula
+          client-payload: |
+            {
+              "version": "${{ steps.release_info.outputs.version }}",
+              "darwin_x64_url": "${{ steps.release_info.outputs.darwin_x64_url }}",
+              "darwin_x64_sha256": "${{ steps.release_info.outputs.darwin_x64_sha256 }}",
+              "darwin_arm64_url": "${{ steps.release_info.outputs.darwin_arm64_url }}",
+              "darwin_arm64_sha256": "${{ steps.release_info.outputs.darwin_arm64_sha256 }}",
+              "linux_x64_url": "${{ steps.release_info.outputs.linux_x64_url }}",
+              "linux_x64_sha256": "${{ steps.release_info.outputs.linux_x64_sha256 }}",
+              "linux_arm64_url": "${{ steps.release_info.outputs.linux_arm64_url }}",
+              "linux_arm64_sha256": "${{ steps.release_info.outputs.linux_arm64_sha256 }}"
+            }
