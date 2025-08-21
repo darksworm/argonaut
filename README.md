@@ -41,6 +41,20 @@ yay -S argonaut-bin
 ```
 </details>
 
+[//]: # ()
+[//]: # (<details>)
+
+[//]: # (  <summary><strong>NUR &#40;Nix User Repository&#41;</strong></summary>)
+
+[//]: # ()
+[//]: # (```bash)
+
+[//]: # (nix-env -iA nur.repos.darksworm.argonaut)
+
+[//]: # (```)
+
+[//]: # (</details>)
+
 <details>
   <summary><strong>Linux - manual</strong></summary>
 

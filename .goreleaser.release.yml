@@ -113,6 +113,15 @@ aurs:
       name: goreleaser
       email: bot@goreleaser.com
 
+nix:
+  - name: argonaut
+    ids: [bun]
+    repository:
+      owner: darksworm
+      name: nur-packages
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
 nfpms:
   - id: linux-packages
     ids: [bun]
