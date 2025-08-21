@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/darksworm/argonaut/compare/v1.6.0...v1.6.1) (2025-08-21)
+
+
+### Bug Fixes
+
+* **multi-platform:** update GoReleaser configuration file name in release pipeline ([821342e](https://github.com/darksworm/argonaut/commit/821342e142a78edf0b99db374fccb1f8cb075bf8))
+
 ## [1.6.0](https://github.com/darksworm/argonaut/compare/v1.5.3...v1.6.0) (2025-08-21)
 
 
