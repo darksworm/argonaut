@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/darksworm/argonaut/compare/v1.7.0...v1.8.0) (2025-08-21)
+
+
+### Features
+
+* **multi-platform:** enable AUR support for argonaut-bin in GoReleaser configuration ([ea081e9](https://github.com/darksworm/argonaut/commit/ea081e9a1d1987ebe015aef389914af7477ba244))
+
+
+### Bug Fixes
+
+* **multi-platform:** generate licenses file in pre-build step ([805b6c3](https://github.com/darksworm/argonaut/commit/805b6c3a6f9840eee5c1588aaac03978eed04feb))
+
 ## [1.7.0](https://github.com/darksworm/argonaut/compare/v1.6.1...v1.7.0) (2025-08-21)
 
 
