@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/darksworm/argonaut/compare/v1.8.2...v1.9.0) (2025-08-21)
+
+
+### Features
+
+* **multi-platform:** add nfpms configuration for Linux packages in goreleaser ([b66f3ff](https://github.com/darksworm/argonaut/commit/b66f3ff9d656e3b91e11ca2cc3534e315971d0ba))
+
 ## [1.8.2](https://github.com/darksworm/argonaut/compare/v1.8.1...v1.8.2) (2025-08-21)
 
 
