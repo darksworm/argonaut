@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.1](https://github.com/darksworm/argonaut/compare/v1.8.0...v1.8.1) (2025-08-21)
+
+
+### Bug Fixes
+
+* **multi-platform:** generate licenses file in pre-build step ([d1111b9](https://github.com/darksworm/argonaut/commit/d1111b952d59985edc3d6114f80f3a1650f4149c))
+* **multi-platform:** generate licenses file in pre-build step ([bf572bc](https://github.com/darksworm/argonaut/commit/bf572bc6e7180fa6a8d0be14ad9bb020487af224))
+
 ## [1.8.0](https://github.com/darksworm/argonaut/compare/v1.7.0...v1.8.0) (2025-08-21)
 
 
