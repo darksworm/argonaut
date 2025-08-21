@@ -68,6 +68,12 @@ jobs:
           git config --global user.name "goreleaser"
           git config --global user.email "bot@goreleaser.com"
 
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
