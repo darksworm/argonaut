@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/darksworm/argonaut/compare/v1.5.3...v1.6.0) (2025-08-21)
+
+
+### Features
+
+* **release:** add GoReleaser configuration for building and publishing binaries ([000a435](https://github.com/darksworm/argonaut/commit/000a4355c322ae279c3c85cffe6bbb7cfb686a07))
+
+
+### Bug Fixes
+
+* **build:** hopefully fix linux binary ([351a66b](https://github.com/darksworm/argonaut/commit/351a66b4e88fae042143b2b7abf9e9080dd971ae))
+
 ## [1.5.3](https://github.com/darksworm/argonaut/compare/v1.5.2...v1.5.3) (2025-08-21)
 
 
