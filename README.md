@@ -17,19 +17,20 @@ Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + I
 ## 🚀 Installation methods
 
 <details>
+  <summary><strong>npm (recommended)</strong></summary>
+
+```bash
+npm i --global argonaut-cli
+```
+</details>
+
+The methods below use pre-built binaries and are currently still experimental. If you encounter issues, please use the npm method above.
+<details>
   <summary><strong>Homebrew</strong></summary>
 
 ```bash
 brew tap darksworm/homebrew-tap
 brew install darksworm/tap/argonaut
-```
-</details>
-
-<details>
-  <summary><strong>npm</strong></summary>
-
-```bash
-npm i --global argonaut-cli
 ```
 </details>
 
