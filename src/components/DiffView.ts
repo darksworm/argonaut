@@ -7,6 +7,7 @@ import {getManagedResourceDiffs} from '../api/applications.query';
 import {getManifests as getManifestsApi} from '../api/rollback';
 import type {Server} from '../types/server';
 import {showInkPager} from './InkPager';
+import {stripKubernetesFields} from '../utils/kube-strip';
 
 // Cache delta availability at startup
 let deltaAvailable: boolean | null = null;
@@ -76,11 +77,12 @@ function stripDiffHeader(diffOutput: string): string {
   return lines.slice(startIndex).join('\n');
 }
 
-export function toYamlDoc(input?: string): string | null {
+export function toYamlDoc(input?: string, strip: boolean = true): string | null {
   if (!input) return null;
   try {
     const obj = JSON.parse(input);
-    return YAML.stringify(obj, {lineWidth: 120} as any);
+    const processed = strip ? stripKubernetesFields(obj) : obj;
+    return YAML.stringify(processed, {lineWidth: 120} as any);
   } catch {
     // assume already YAML
     return input;
@@ -96,6 +98,10 @@ export async function writeTmp(docs: string[], label: string): Promise<string> {
 
 export type DiffSessionOptions = {
   title?: string;
+  /**
+   * Whether to strip system fields for cleaner diffs (default: true)
+   */
+  stripFields?: boolean;
 };
 
 // Shows diff between two files using delta if available, otherwise git+less.
@@ -142,14 +148,16 @@ export async function runExternalDiffSession(fileLeft: string, fileRight: string
 
 // High-level helpers that prepare data and run the session
 export async function runAppDiffSession(server: Server, app: string, opts: DiffSessionOptions = {}): Promise<boolean> {
+  const { stripFields = true } = opts;
+  
   // Load diffs from API
   const diffsResult = await getManagedResourceDiffs(server, app);
   const diffs = diffsResult.isOk() ? diffsResult.value : [] as any[];
   const desiredDocs: string[] = [];
   const liveDocs: string[] = [];
   for (const d of diffs as any[]) {
-    const tgt = toYamlDoc((d as any)?.targetState);
-    const live = toYamlDoc((d as any)?.liveState);
+    const tgt = toYamlDoc((d as any)?.targetState, stripFields);
+    const live = toYamlDoc((d as any)?.liveState, stripFields);
     if (tgt) desiredDocs.push(tgt);
     if (live) liveDocs.push(live);
   }
@@ -169,10 +177,12 @@ export async function runAppDiffSession(server: Server, app: string, opts: DiffS
 }
 
 export async function runRollbackDiffSession(server: Server, app: string, revision: string, opts: DiffSessionOptions = {}, appNamespace?: string): Promise<boolean> {
+  const { stripFields = true } = opts;
+  
   const current = await getManifestsApi(server, app, undefined, undefined, appNamespace).catch(() => []);
   const target = await getManifestsApi(server, app, revision, undefined, appNamespace).catch(() => []);
-  const currentDocs = current.map(toYamlDoc).filter(Boolean) as string[];
-  const targetDocs = target.map(toYamlDoc).filter(Boolean) as string[];
+  const currentDocs = current.map(manifest => toYamlDoc(manifest, stripFields)).filter(Boolean) as string[];
+  const targetDocs = target.map(manifest => toYamlDoc(manifest, stripFields)).filter(Boolean) as string[];
   const currentFile = await writeTmp(currentDocs, `${app}-current`);
   const targetFile = await writeTmp(targetDocs, `${app}-target-${revision}`);
 
