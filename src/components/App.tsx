@@ -872,8 +872,6 @@ export const App: React.FC = () => {
         return (
             <LogViewer 
                 onClose={() => setMode('normal')} 
-                termRows={termRows} 
-                termCols={termCols} 
             />
         );
     }
