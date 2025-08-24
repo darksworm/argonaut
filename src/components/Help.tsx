@@ -81,7 +81,7 @@ const Help: React.FC<HelpProps> = ({version, isOutdated, latestVersion}) => {
       </HelpSection>
 
       <Box marginTop={1} justifyContent="center">
-        <Text dimColor>Press q or Esc to close</Text>
+        <Text dimColor>Press ?, q or Esc to close</Text>
       </Box>
     </Box>
   );

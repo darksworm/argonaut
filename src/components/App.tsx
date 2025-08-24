@@ -233,7 +233,7 @@ export const App: React.FC = () => {
             return;
         }
         if (mode === 'help') {
-            if (input === 'q' || key.escape) setMode('normal');
+            if (input === 'q' || input === '?' || key.escape) setMode('normal');
             return;
         }
         if (mode === 'rulerline') {
