@@ -446,7 +446,7 @@ export const App: React.FC = () => {
                 statusLog.info('Opening licenses…', 'license');
 
                 await runLicenseSession({
-                    title: 'Third Party Licenses'
+                    title: 'Licenses'
                 });
                 
                 // Small delay and trigger re-render with status message
