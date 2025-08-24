@@ -56,7 +56,6 @@ function ErrorDisplay({
 }) {
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
   const [termCols, setTermCols] = useState(process.stdout.columns || 80);
-  const { rerender } = useApp();
 
   useEffect(() => {
     const onResize = () => {
@@ -78,9 +77,8 @@ function ErrorDisplay({
             title: 'Error Logs'
           });
           
-          // Small delay and force Ink re-render
+          // Small delay and close logs (state change will trigger re-render)
           await new Promise(resolve => setTimeout(resolve, 50));
-          rerender();
           onToggleLogs(false);
         } catch (e: any) {
           try {
@@ -94,7 +92,7 @@ function ErrorDisplay({
     };
     
     openLogs();
-  }, [showLogs, rerender, onToggleLogs]);
+  }, [showLogs, onToggleLogs]);
 
   useInput((input, key) => {
     if (input === 'l' || input === 'L') {

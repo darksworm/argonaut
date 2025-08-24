@@ -36,7 +36,7 @@ const COL = {
 } as const;
 
 export const App: React.FC = () => {
-    const {exit, rerender} = useApp();
+    const {exit} = useApp();
 
     // Layout
     const [termRows, setTermRows] = useState(process.stdout.rows || 24);
@@ -68,9 +68,9 @@ export const App: React.FC = () => {
                 title: 'Session Logs'
             });
             
-            // Small delay and force Ink re-render to ensure proper redraw
+            // Small delay and trigger re-render with status message
             await new Promise(resolve => setTimeout(resolve, 50));
-            rerender();
+            statusLog.info('Log viewer closed.', 'logs');
             
         } catch (e: any) {
             try {
@@ -450,9 +450,8 @@ export const App: React.FC = () => {
                     title: 'Third Party Licenses'
                 });
                 
-                // Small delay and force Ink re-render
+                // Small delay and trigger re-render with status message
                 await new Promise(resolve => setTimeout(resolve, 50));
-                rerender();
                 setMode('normal');
                 statusLog.info('License viewer closed.', 'license');
             } catch (e: any) {
@@ -558,11 +557,8 @@ export const App: React.FC = () => {
                     title: `${target} - Live vs Desired`
                 });
                 
-                if (opened) {
-                    // Small delay and force Ink re-render
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    rerender();
-                }
+                // Small delay and trigger re-render with status message  
+                await new Promise(resolve => setTimeout(resolve, 50));
                 setMode('normal');
                 statusLog.info(opened ? `Diff closed for ${target}.` : 'No differences.', 'diff');
             } catch (e: any) {
