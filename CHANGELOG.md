@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.11.0](https://github.com/darksworm/argonaut/compare/v1.10.2...v1.11.0) (2025-08-24)
+
+
+### Features
+
+* add automatic view tracking to all logs ([2fddbab](https://github.com/darksworm/argonaut/commit/2fddbabc94d7af7d18aaeb7fc3a8571339dcaec3))
+* **auth-required:** allow switching to logs view ([3fe2f35](https://github.com/darksworm/argonaut/commit/3fe2f35127f17de765269edf5f7956079953bae3))
+* implement comprehensive API error handling system ([ce79b9a](https://github.com/darksworm/argonaut/commit/ce79b9a6c7a4b2df02688b7a64eaebd5f2d155fd))
+* proper error handling, logs and display ([c659b78](https://github.com/darksworm/argonaut/commit/c659b78f3fddc08512f960a3159da476a0d97f1e))
+* replace less + pty with ink native pager ([60dd959](https://github.com/darksworm/argonaut/commit/60dd959ff73fed7e3129a02672e7995e142a6eb2))
+
+
+### Bug Fixes
+
+* **banner:** make sure the version number doesn't break the logo ([46a7559](https://github.com/darksworm/argonaut/commit/46a75590ea755fe7957161afae7008e20ac70fc8))
+* cast mutableStdout and mutableStdin to appropriate stream types ([4eb0d50](https://github.com/darksworm/argonaut/commit/4eb0d507a990cdce6be34c246ce50aa4a9292e33))
+* correct import path in tools/logs.ts ([a6f895c](https://github.com/darksworm/argonaut/commit/a6f895ca9cb22a3e08b9b69de9ad4b5f7858e2cd))
+* **diff:** stop ink rendering when showing diff ([2331331](https://github.com/darksworm/argonaut/commit/23313314b808f6a281fbf49ad6972195bf37e6ff))
+* **diff:** stop ink rendering when showing diff ([8dedafb](https://github.com/darksworm/argonaut/commit/8dedafb2703fbdaf851261b70f12030eef42e600))
+* **diff:** stop ink rendering when showing diff ([7c12fbe](https://github.com/darksworm/argonaut/commit/7c12fbe5925bb9837a01bca08ca78830380964bb))
+* **diff:** stop ink rendering when showing diff ([a01024e](https://github.com/darksworm/argonaut/commit/a01024efac4ba8732d1ae3493ba6e1eec8344aef))
+* ensure continuous session following in log tailer ([e773bd8](https://github.com/darksworm/argonaut/commit/e773bd8befd8d5aa2f63d474ce7c4d92f53d8a44))
+* remove unused bun-pty and node-pty dependencies ([c1f247d](https://github.com/darksworm/argonaut/commit/c1f247d7a2937698970c3cef2c76f9d3af06b56f))
+* remove unused props from LogViewer component ([a89f793](https://github.com/darksworm/argonaut/commit/a89f793bd4f9d6b7e8bfef903f18999a3ef0379a))
+* replace non-existent rerender() with status log messages ([8a4e09a](https://github.com/darksworm/argonaut/commit/8a4e09ade7abf80d6003de5f9e694f2afaf0a9c4))
+* resolve circular dependency between main.tsx and ink-control.ts ([8ce000f](https://github.com/darksworm/argonaut/commit/8ce000ffdf76f2afe03727798a8cb3b7b4fb9100))
+* resolve TypeScript build errors ([a0e7693](https://github.com/darksworm/argonaut/commit/a0e76933bb4e67e528a909f82de7dac0948f88f5))
+
 ## [1.10.2](https://github.com/darksworm/argonaut/compare/v1.10.1...v1.10.2) (2025-08-21)
 
 
