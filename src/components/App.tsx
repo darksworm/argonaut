@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import stringWidth from 'string-width';
 import {runAppDiffSession} from './DiffView';
 import {runLicenseSession} from './LicenseView';
+import {runLogViewerSession} from '../services/log-viewer';
 import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
@@ -25,7 +26,6 @@ import {checkVersion} from '../utils/version-check';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 import { useAsyncEffect } from '../hooks/useAsyncEffect';
 import { useStatus } from '../hooks/useStatus';
-import LogViewer from './LogViewer';
 import { log, setCurrentView } from '../services/logger';
 
 const COL = {
@@ -36,7 +36,7 @@ const COL = {
 } as const;
 
 export const App: React.FC = () => {
-    const {exit} = useApp();
+    const {exit, rerender} = useApp();
 
     // Layout
     const [termRows, setTermRows] = useState(process.stdout.rows || 24);
@@ -59,9 +59,29 @@ export const App: React.FC = () => {
     const [previousMode, setPreviousMode] = useState<Mode>('normal');
     
     // Function to switch to logs mode while tracking previous mode
-    const switchToLogs = () => {
-        setPreviousMode(mode);
-        setMode('logs');
+    const switchToLogs = async () => {
+        try {
+            setMode('normal');
+            statusLog.info('Opening logs…', 'logs');
+
+            await runLogViewerSession({
+                title: 'Session Logs'
+            });
+            
+            // Small delay and force Ink re-render to ensure proper redraw
+            await new Promise(resolve => setTimeout(resolve, 50));
+            rerender();
+            
+        } catch (e: any) {
+            try {
+                const stdinAny = process.stdin as any;
+                stdinAny.setRawMode?.(true);
+                stdinAny.resume?.();
+            } catch {
+            }
+            setMode('normal');
+            statusLog.error(`Log viewer failed: ${e?.message || String(e)}`, 'logs');
+        }
     };
     
     // Track view changes in logger
@@ -215,10 +235,6 @@ export const App: React.FC = () => {
         }
         if (mode === 'help') {
             if (input === 'q' || key.escape) setMode('normal');
-            return;
-        }
-        if (mode === 'logs') {
-            // LogViewer component handles its own input
             return;
         }
         if (mode === 'rulerline') {
@@ -887,14 +903,6 @@ export const App: React.FC = () => {
     const getSyncIcon = (s: string) => SYNC_ICON_ASCII[s];
     const getHealthIcon = (h: string) => HEALTH_ICON_ASCII[h] ?? ASCII_ICONS.quest;
 
-    // If in logs mode, render LogViewer fullscreen
-    if (mode === 'logs') {
-        return (
-            <LogViewer 
-                onClose={() => setMode(previousMode)}
-            />
-        );
-    }
 
     return (
         <Box flexDirection="column" paddingX={1} height={termRows - 1}>
