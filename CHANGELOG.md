@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.12.0](https://github.com/darksworm/argonaut/compare/v1.11.0...v1.12.0) (2025-08-24)
+
+
+### Features
+
+* add :logs command to help screen ([b5b0102](https://github.com/darksworm/argonaut/commit/b5b0102f763c614368a02ba036f5f8fa847413b9))
+* allow ? key to close help screen ([f205e92](https://github.com/darksworm/argonaut/commit/f205e925a6c9143a26b323a3e63104b9925f8d1d))
+* improve diff cleaning and header stripping ([9cee1c6](https://github.com/darksworm/argonaut/commit/9cee1c6a2d1306a4af3a9f8da44ac8df16471245))
+* improve help screen responsive layout ([fdfeef9](https://github.com/darksworm/argonaut/commit/fdfeef9d751a54c332e49dfb056d234a24fe8f86))
+* strip garbage from diff ([b34bb2a](https://github.com/darksworm/argonaut/commit/b34bb2a57563f07417b8513e98b5d980489376e5))
+
 ## [1.11.0](https://github.com/darksworm/argonaut/compare/v1.10.2...v1.11.0) (2025-08-24)
 
 
