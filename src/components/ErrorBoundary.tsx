@@ -25,8 +25,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logReactError(error, errorInfo);
-    this.setState({ error, errorInfo });
+    // Log side effects only; state is set via getDerivedStateFromError to avoid nested updates
+    try { logReactError(error, errorInfo); } catch {}
+    // Do not call setState here to prevent update loops
   }
 
   render() {

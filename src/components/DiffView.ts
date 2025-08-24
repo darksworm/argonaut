@@ -7,7 +7,7 @@ import {getManagedResourceDiffs} from '../api/applications.query';
 import {getManifests as getManifestsApi} from '../api/rollback';
 import type {Server} from '../types/server';
 import {getPty} from "./pty";
-import { rawStdoutWrite } from "../ink-control";
+import { rawStdoutWrite, beginExclusiveInput, endExclusiveInput } from "../ink-control";
 
 function enterAltScreen() {
   // save cursor; enter alt screen; clear; home; hide cursor; enable wrap
@@ -94,6 +94,9 @@ fi
   // Enter alternate screen to isolate PTY rendering
   enterAltScreen();
 
+  // Hand exclusive input to the PTY (disconnect Ink from real stdin)
+  beginExclusiveInput();
+
   const spawnPty = await getPty();
   const pty = spawnPty(shell, args as any, {
     name: 'xterm-256color',
@@ -157,6 +160,9 @@ fi
   try { clearTimeout(t0 as any); } catch {}
   try { clearTimeout(t1 as any); } catch {}
   try { ptyDataDisposable?.dispose?.(); } catch {}
+
+  // Give input back to Ink AFTER PTY is fully done
+  endExclusiveInput();
 
   // Leave alternate screen and restore UI
   leaveAltScreen();

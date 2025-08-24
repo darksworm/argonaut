@@ -4,6 +4,10 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initializeLogger, log } from './services/logger';
 import { setupGlobalErrorHandlers } from './services/error-handler';
 import { mutableStdout, setInkInstance } from './ink-control';
+import { MutableStdin } from './stdin/mutableStdin';
+
+// Export a shared MutableStdin so other modules (ink-control) can manage input handoff
+export const mutableStdin = new MutableStdin();
 
 function setupAlternateScreen() {
     if (typeof process === 'undefined') return;
@@ -79,10 +83,12 @@ async function main() {
             <ErrorBoundary>
                 <App/>
             </ErrorBoundary>,
-            { stdout: mutableStdout, stderr: process.stderr, patchConsole: false }
+            { stdout: mutableStdout, stderr: process.stderr, stdin: mutableStdin, patchConsole: false, exitOnCtrlC: false }
         );
         const inkInstance = mount();
         setInkInstance(inkInstance, mount);
+        // Initially attach process.stdin to feed Ink
+        try { mutableStdin.attach(process.stdin as any); } catch {}
     } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         log.error('Failed to render React application', 'main', {
