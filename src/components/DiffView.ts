@@ -20,7 +20,7 @@ let deltaAvailable: boolean | null = null;
 const checkDelta = (): boolean => {
   if (deltaAvailable === null) {
     try {
-      require("child_process").execSync("command -v delta", {
+      require("node:child_process").execSync("command -v delta", {
         stdio: "ignore",
       });
       deltaAvailable = true;
@@ -383,7 +383,7 @@ export async function runRollbackDiffSession(
  * });
  */
 export function createAppSpecificNeatConfig(
-  appName: string,
+  _appName: string,
   overrides: Partial<NeatConfig> = {},
 ): NeatConfig {
   return createNeatConfig({

@@ -75,7 +75,7 @@ export async function showInkPager(
           displayLine = line.replace(regex, `${highlightColor}$1\x1b[0m`);
         }
 
-        rawStdoutWrite(displayLine + "\n");
+        rawStdoutWrite(`${displayLine}\n`);
       } else {
         // Pad with empty lines to fill the screen
         rawStdoutWrite("\n");
@@ -182,11 +182,11 @@ export async function showInkPager(
           } else if (key === "\x7f" || key === "\b") {
             // Backspace in search
             inputBuffer = inputBuffer.slice(0, -1);
-            rawStdoutWrite("\x1b[2K\rSearch: " + inputBuffer);
+            rawStdoutWrite(`\x1b[2K\rSearch: ${inputBuffer}`);
           } else if (key.length === 1 && key >= " ") {
             // Regular character in search
             inputBuffer += key;
-            rawStdoutWrite("\x1b[2K\rSearch: " + inputBuffer);
+            rawStdoutWrite(`\x1b[2K\rSearch: ${inputBuffer}`);
           }
           return;
         }

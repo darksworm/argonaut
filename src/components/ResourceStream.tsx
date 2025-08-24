@@ -56,17 +56,19 @@ export async function* streamJsonResults<T>(
         chunk instanceof Buffer ? new Uint8Array(chunk) : (chunk as Uint8Array);
       buffer += decoder.decode(uint8Array, { stream: true });
 
-      let nl: number;
-      while ((nl = buffer.indexOf("\n")) >= 0) {
+      let nl = buffer.indexOf("\n");
+      while (nl >= 0) {
         const line = buffer.slice(0, nl).trim();
         buffer = buffer.slice(nl + 1);
-        if (!line) continue;
-        try {
-          const obj = JSON.parse(line);
-          if (obj?.result) yield obj.result as T;
-        } catch {
-          // tolerate partial/non-NDJSON frames; keep buffering
+        if (line) {
+          try {
+            const obj = JSON.parse(line);
+            if (obj?.result) yield obj.result as T;
+          } catch {
+            // tolerate partial/non-NDJSON frames; keep buffering
+          }
         }
+        nl = buffer.indexOf("\n");
       }
     }
 

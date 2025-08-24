@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import { err, ok, type Result } from "neverthrow";
 import YAML from "yaml";
 import type { ServerConfig } from "../types/server";
@@ -8,18 +7,18 @@ import { CONFIG_PATH, ensureHttps } from "./paths";
 export type ArgoContext = { name: string; server: string; user: string };
 export type ArgoServer = {
   server: string;
-  ["grpc-web"]?: boolean;
-  ["grpc-web-root-path"]?: string;
+  "grpc-web"?: boolean;
+  "grpc-web-root-path"?: string;
   insecure?: boolean;
-  ["plain-text"]?: boolean;
+  "plain-text"?: boolean;
 };
-export type ArgoUser = { name: string; ["auth-token"]?: string };
+export type ArgoUser = { name: string; "auth-token"?: string };
 export type ArgoCLIConfig = {
   contexts?: ArgoContext[];
   servers?: ArgoServer[];
   users?: ArgoUser[];
-  ["current-context"]?: string;
-  ["prompts-enabled"]?: boolean;
+  "current-context"?: string;
+  "prompts-enabled"?: boolean;
 };
 
 export async function readCLIConfig(): Promise<

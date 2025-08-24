@@ -1,5 +1,5 @@
 import { Box, Text, useInput } from "ink";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getApplication as getAppApi,
   getRevisionMetadata as getRevisionMetadataApi,
@@ -64,7 +64,7 @@ export default function Rollback(props: RollbackProps) {
           "";
         setFromRev(from || undefined);
         const hist = Array.isArray(appObj?.status?.history)
-          ? [...appObj.status!.history!]
+          ? [...appObj.status.history]
           : [];
         const r: RollbackRow[] = hist
           .map((h: any) => ({
@@ -97,7 +97,7 @@ export default function Rollback(props: RollbackProps) {
         metaAbortRef.current?.abort();
       } catch {}
     };
-  }, [app, server]);
+  }, [app, server, appNamespace]);
 
   // Fetch revision metadata for highlighted row
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function Rollback(props: RollbackProps) {
         ac.abort();
       } catch {}
     };
-  }, [subMode, idx, rows, app, server]);
+  }, [subMode, idx, rows, app, server, appNamespace]);
 
   // Key handling inside rollback overlay
   useInput((input, key) => {
@@ -257,11 +257,10 @@ export default function Rollback(props: RollbackProps) {
       return;
     }
     try {
-      const res = await postRollbackApi(server, app, {
+      await postRollbackApi(server, app, {
         id: row.id,
         name: app,
-        prune,
-        appNamespace,
+        dryRun: false,
       });
       // Start watching via resources view and close rollback
       if (watch) onStartWatching(app);
@@ -366,7 +365,7 @@ export default function Rollback(props: RollbackProps) {
                       <Box width={20}>
                         <Text>
                           {r.deployedAt
-                            ? humanizeSince(r.deployedAt) + " ago"
+                            ? `${humanizeSince(r.deployedAt)} ago`
                             : "—"}
                         </Text>
                       </Box>

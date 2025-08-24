@@ -83,7 +83,7 @@ class ArgoHttpClient implements HttpClient {
               if (contentType?.includes("json") && data) {
                 errorData = JSON.parse(data);
               }
-            } catch (e) {
+            } catch {
               // If parsing fails, use raw data
               errorData = data;
             }
@@ -106,7 +106,7 @@ class ArgoHttpClient implements HttpClient {
             } else {
               resolve(data);
             }
-          } catch (e) {
+          } catch {
             resolve(data);
           }
         });
@@ -186,7 +186,7 @@ class ArgoHttpClient implements HttpClient {
               if (contentType?.includes("json") && errorData) {
                 parsedError = JSON.parse(errorData);
               }
-            } catch (e) {
+            } catch {
               parsedError = errorData;
             }
 
@@ -234,10 +234,16 @@ class HttpClientManager {
     const key = `${serverConfig.baseUrl}:${token}:${serverConfig.insecure || false}`;
 
     if (!this.clients.has(key)) {
-      this.clients.set(key, new ArgoHttpClient(serverConfig, token));
+      const client = new ArgoHttpClient(serverConfig, token);
+      this.clients.set(key, client);
+      return client;
     }
 
-    return this.clients.get(key)!;
+    const existingClient = this.clients.get(key);
+    if (!existingClient) {
+      throw new Error("HTTP client not found in cache");
+    }
+    return existingClient;
   }
 
   // Clear all clients (useful for logout/config changes)

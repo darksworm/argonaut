@@ -13,6 +13,7 @@ export function useApps(
   const [apps, setApps] = useState<AppItem[]>([]);
   const [status, setStatus] = useState("Idle");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: onAuthError is a callback that would cause infinite re-renders
   useEffect(() => {
     if (!server) return;
     if (paused) {

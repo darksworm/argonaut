@@ -40,6 +40,9 @@ const COL = {
   health: 6,
 } as const;
 
+const GUTTER = 1;
+const Sep: React.FC = () => <Box width={GUTTER} />;
+
 export const App: React.FC = () => {
   const { exit } = useApp();
 
@@ -105,7 +108,7 @@ export const App: React.FC = () => {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [status, statusLog] = useStatus("Starting…");
   const [isVersionOutdated, setIsVersionOutdated] = useState<boolean>(false);
-  const [latestVersion, setLatestVersion] = useState<string | undefined>(
+  const [_latestVersion, setLatestVersion] = useState<string | undefined>(
     undefined,
   );
 
@@ -205,12 +208,14 @@ export const App: React.FC = () => {
         if (result.latestVersion) {
           setLatestVersion(result.latestVersion);
         }
+        return result;
       })
       .mapErr((err) => {
         statusLog.warn(
           `Ready • Could not check for updates ${err.message}`,
           "version-check",
         );
+        return err;
       });
 
     setMode("normal");
@@ -221,7 +226,7 @@ export const App: React.FC = () => {
   const { apps: liveApps, status: appsStatus } = useApps(
     server,
     mode === "external",
-    (err) => {
+    () => {
       // On auth error from background data flow, clear server and show auth-required message
       setServer(null);
       statusLog.error(
@@ -237,7 +242,7 @@ export const App: React.FC = () => {
     if (mode === "external" || mode === "auth-required") return; // pause syncing state while in external/diff mode or auth required
     setApps(liveApps);
     statusLog.set(appsStatus);
-  }, [server, liveApps, appsStatus, mode]);
+  }, [server, liveApps, appsStatus, mode, statusLog]);
 
   useEffect(() => {
     if (!server) return;
@@ -385,8 +390,10 @@ export const App: React.FC = () => {
   function clearLowerLevelSelections(view: View) {
     const emptyStringSet = new Set<string>();
     switch (view) {
+      // biome-ignore lint/suspicious/noFallthroughSwitchClause: intentional fallthrough
       case "clusters":
         setScopeNamespaces(emptyStringSet);
+      // biome-ignore lint/suspicious/noFallthroughSwitchClause: intentional fallthrough
       case "namespaces":
         setScopeProjects(emptyStringSet);
       case "projects":
@@ -717,7 +724,11 @@ export const App: React.FC = () => {
   async function confirmSync(yes: boolean) {
     setMode("normal");
     const isMulti = confirmTarget === "__MULTI__";
-    const names = isMulti ? Array.from(selectedApps) : [confirmTarget!];
+    const names = isMulti
+      ? Array.from(selectedApps)
+      : confirmTarget
+        ? [confirmTarget]
+        : [];
     setConfirmTarget(null);
     if (!yes) {
       statusLog.info("Sync cancelled.", "sync");
@@ -956,9 +967,7 @@ export const App: React.FC = () => {
     );
   }
 
-  const GUTTER = 1;
   const MIN_NAME = 12;
-  const Sep = () => <Box width={GUTTER} />;
 
   // Single-cell icons (text variant) and ASCII fallback
   const ASCII_ICONS = {
@@ -1097,7 +1106,7 @@ export const App: React.FC = () => {
           target={
             confirmTarget === "__MULTI__"
               ? String(selectedApps.size)
-              : confirmTarget!
+              : confirmTarget || ""
           }
           isMulti={confirmTarget === "__MULTI__"}
           options={[

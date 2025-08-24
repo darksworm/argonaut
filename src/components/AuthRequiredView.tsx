@@ -68,8 +68,8 @@ const AuthRequiredView: React.FC<Props> = ({
             {message || "Please login to ArgoCD before running argonaut."}
           </Text>
           <Box height={1} />
-          {instructions.map((line, idx) => (
-            <Text key={idx} dimColor>
+          {instructions.map((line) => (
+            <Text key={line} dimColor>
               - {line}
             </Text>
           ))}

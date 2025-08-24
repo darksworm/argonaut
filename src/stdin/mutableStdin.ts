@@ -6,10 +6,9 @@ export class MutableStdin extends PassThrough {
   private real: NodeJS.ReadStream | null = null;
   // Pretend to be a TTY for Ink; manage raw mode locally without touching real stdin
   public isTTY: boolean = true;
-  private rawMode = false;
-  public setRawMode(enable: boolean) {
+  public setRawMode(_enable: boolean) {
     // No-op: Ink requires this to exist; we intentionally don't alter real stdin here
-    this.rawMode = !!enable;
+    // The enable parameter is intentionally ignored
   }
 
   // Provide ref/unref that Ink expects on TTY streams

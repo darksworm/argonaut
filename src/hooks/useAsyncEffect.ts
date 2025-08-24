@@ -6,7 +6,7 @@ import { type DependencyList, useEffect } from "react";
  * calling any returned cleanup function.
  */
 export function useAsyncEffect(
-  effect: () => Promise<void | (() => void)>,
+  effect: () => Promise<undefined | (() => void)>,
   deps?: DependencyList,
 ) {
   useEffect(() => {
@@ -31,5 +31,6 @@ export function useAsyncEffect(
         cleanup();
       }
     };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: deps is a parameter passed through
   }, deps);
 }

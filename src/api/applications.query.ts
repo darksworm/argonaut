@@ -54,9 +54,15 @@ export async function* watchApps(
 ): AsyncGenerator<ApplicationWatchEvent, void, unknown> {
   const qs = new URLSearchParams();
   if (params)
-    Object.entries(params).forEach(([k, v]) =>
-      Array.isArray(v) ? v.forEach((x) => qs.append(k, x)) : qs.set(k, v),
-    );
+    Object.entries(params).forEach(([k, v]) => {
+      if (Array.isArray(v)) {
+        v.forEach((x) => {
+          qs.append(k, x);
+        });
+      } else {
+        qs.set(k, v);
+      }
+    });
   const path = `/api/v1/stream/applications${qs.size ? `?${qs.toString()}` : ""}`;
 
   const client = getHttpClient(server.config, server.token);
@@ -74,20 +80,22 @@ export async function* watchApps(
         chunk instanceof Buffer ? new Uint8Array(chunk) : (chunk as Uint8Array);
       buffer += decoder.decode(uint8Array, { stream: true });
 
-      for (let i; (i = buffer.indexOf("\n")) >= 0; ) {
+      let i = buffer.indexOf("\n");
+      while (i >= 0) {
         const line = buffer.slice(0, i).trim();
         buffer = buffer.slice(i + 1);
 
-        if (!line) continue;
-
-        try {
-          const msg = JSON.parse(line);
-          if (msg?.result) {
-            yield msg.result as ApplicationWatchEvent;
+        if (line) {
+          try {
+            const msg = JSON.parse(line);
+            if (msg?.result) {
+              yield msg.result as ApplicationWatchEvent;
+            }
+          } catch {
+            // ignore malformed lines
           }
-        } catch {
-          // ignore malformed lines
         }
+        i = buffer.indexOf("\n");
       }
     }
   } catch (e: any) {

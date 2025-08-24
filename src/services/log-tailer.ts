@@ -1,5 +1,5 @@
-import { spawn } from "child_process";
-import { existsSync } from "fs";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { err, ok, ResultAsync } from "neverthrow";
 import { Logger } from "./logger";
 

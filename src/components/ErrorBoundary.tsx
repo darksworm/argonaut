@@ -1,4 +1,4 @@
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 import { logReactError } from "../services/error-handler";
 import { runLogViewerSession } from "../services/log-viewer";
@@ -36,10 +36,10 @@ export class ErrorBoundary extends React.Component<
   }
 
   render() {
-    if (this.state.hasError) {
+    if (this.state.hasError && this.state.error) {
       return (
         <ErrorDisplay
-          error={this.state.error!}
+          error={this.state.error}
           showLogs={this.state.showLogs}
           onToggleLogs={(showLogs: boolean) => this.setState({ showLogs })}
         />
@@ -60,12 +60,10 @@ function ErrorDisplay({
   onToggleLogs: (showLogs: boolean) => void;
 }) {
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
-  const [termCols, setTermCols] = useState(process.stdout.columns || 80);
 
   useEffect(() => {
     const onResize = () => {
       setTermRows(process.stdout.rows || 24);
-      setTermCols(process.stdout.columns || 80);
     };
 
     process.stdout.on("resize", onResize);
@@ -85,7 +83,7 @@ function ErrorDisplay({
           // Small delay and close logs (state change will trigger re-render)
           await new Promise((resolve) => setTimeout(resolve, 50));
           onToggleLogs(false);
-        } catch (e: any) {
+        } catch {
           try {
             const stdinAny = process.stdin as any;
             stdinAny.setRawMode?.(true);

@@ -1,5 +1,4 @@
-import { spawn } from "child_process";
-import { log } from "../services/logger";
+import { spawn } from "node:child_process";
 
 export interface CrashDetectorOptions {
   command: string;

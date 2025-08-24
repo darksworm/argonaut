@@ -52,7 +52,6 @@ const loadSupplies = (): string[] => {
 const OfficeSupplyManager: React.FC<OfficeSupplyProps> = ({ onExit }) => {
   const [supplies] = useState<string[]>(() => loadSupplies()); // Load immediately
   const [currentSupply, setCurrentSupply] = useState(0);
-  const [organizing, setOrganizing] = useState(true); // Start organizing immediately
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
   const [termCols, setTermCols] = useState(process.stdout.columns || 80);
 
@@ -75,14 +74,14 @@ const OfficeSupplyManager: React.FC<OfficeSupplyProps> = ({ onExit }) => {
   }, []);
 
   useEffect(() => {
-    if (!organizing || supplies.length === 0) return;
+    if (supplies.length === 0) return;
 
     const interval = setInterval(() => {
       setCurrentSupply((prev) => (prev + 1) % supplies.length);
     }, 1000 / STAPLER_SPEED);
 
     return () => clearInterval(interval);
-  }, [organizing, supplies.length]);
+  }, [supplies.length]);
 
   if (supplies.length === 0) {
     return (

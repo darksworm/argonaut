@@ -1,4 +1,4 @@
-import { err, ok, ResultAsync } from "neverthrow";
+import { ResultAsync } from "neverthrow";
 import type { Server } from "../types/server";
 import { api } from "./transport";
 

@@ -1,8 +1,6 @@
 import { Box, Text, useStdout } from "ink";
 import type React from "react";
 
-export type HelpProps = {};
-
 const HelpSection: React.FC<{
   title: string;
   children: React.ReactNode;
@@ -20,7 +18,7 @@ const HelpSection: React.FC<{
   </Box>
 );
 
-const Help: React.FC<HelpProps> = () => {
+const Help: React.FC = () => {
   const { stdout } = useStdout();
   const terminalWidth = stdout?.columns || 80;
   const isWide = terminalWidth >= 60;
