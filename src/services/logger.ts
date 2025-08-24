@@ -196,6 +196,9 @@ class Logger {
 // Singleton logger instance
 let globalLogger: Logger | null = null;
 
+// Global view context for logging
+let globalViewContext: string | null = null;
+
 // Initialize the global logger with a session ID based on current timestamp
 export function initializeLogger(sessionId?: string): ResultAsync<Logger, { message: string }> {
   const id = sessionId || new Date().toISOString().replace(/[:.]/g, '-').replace('T', '-').split('Z')[0];
@@ -221,12 +224,37 @@ export function getLogger(): Logger | null {
   return globalLogger;
 }
 
+// Set the current view context for all logs
+export function setCurrentView(view: string): void {
+  globalViewContext = view;
+}
+
+// Get the current view context
+export function getCurrentView(): string | null {
+  return globalViewContext;
+}
+
+// Helper function to combine context with view
+function combineContext(context?: string): string | undefined {
+  const parts: string[] = [];
+  
+  if (globalViewContext) {
+    parts.push(`view:${globalViewContext}`);
+  }
+  
+  if (context) {
+    parts.push(context);
+  }
+  
+  return parts.length > 0 ? parts.join('|') : undefined;
+}
+
 // Convenience functions for logging
 export const log = {
-  debug: (message: string, context?: string, data?: any) => globalLogger?.debug(message, context, data),
-  info: (message: string, context?: string, data?: any) => globalLogger?.info(message, context, data),
-  warn: (message: string, context?: string, data?: any) => globalLogger?.warn(message, context, data),
-  error: (message: string, context?: string, data?: any) => globalLogger?.error(message, context, data),
+  debug: (message: string, context?: string, data?: any) => globalLogger?.debug(message, combineContext(context), data),
+  info: (message: string, context?: string, data?: any) => globalLogger?.info(message, combineContext(context), data),
+  warn: (message: string, context?: string, data?: any) => globalLogger?.warn(message, combineContext(context), data),
+  error: (message: string, context?: string, data?: any) => globalLogger?.error(message, combineContext(context), data),
 };
 
 export { Logger };
