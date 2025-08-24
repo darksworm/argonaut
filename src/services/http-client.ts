@@ -1,14 +1,25 @@
-import https from 'node:https';
-import http from 'node:http';
-import {URL} from 'node:url';
-import type {ServerConfig} from '../types/server';
+import http from "node:http";
+import https from "node:https";
+import { URL } from "node:url";
+import type { ServerConfig } from "../types/server";
 
 export interface HttpClient {
   get(path: string, options?: { signal?: AbortSignal }): Promise<any>;
-  post(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any>;
-  put(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any>;
+  post(
+    path: string,
+    body?: any,
+    options?: { signal?: AbortSignal },
+  ): Promise<any>;
+  put(
+    path: string,
+    body?: any,
+    options?: { signal?: AbortSignal },
+  ): Promise<any>;
   delete(path: string, options?: { signal?: AbortSignal }): Promise<any>;
-  stream(path: string, options?: { signal?: AbortSignal }): Promise<NodeJS.ReadableStream>;
+  stream(
+    path: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<NodeJS.ReadableStream>;
 }
 
 class ArgoHttpClient implements HttpClient {
@@ -20,68 +31,77 @@ class ArgoHttpClient implements HttpClient {
   constructor(serverConfig: ServerConfig, token: string) {
     this.baseUrl = serverConfig.baseUrl;
     this.token = token;
-    this.isHttps = this.baseUrl.startsWith('https://');
-    
+    this.isHttps = this.baseUrl.startsWith("https://");
+
     if (this.isHttps) {
       this.agent = new https.Agent({
-        rejectUnauthorized: !serverConfig.insecure
+        rejectUnauthorized: !serverConfig.insecure,
       });
     } else {
       this.agent = new http.Agent();
     }
   }
 
-  private async request(path: string, method: string = 'GET', body?: any, options?: { signal?: AbortSignal }): Promise<any> {
+  private async request(
+    path: string,
+    method: string = "GET",
+    body?: any,
+    options?: { signal?: AbortSignal },
+  ): Promise<any> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.baseUrl + path);
       const requestModule = this.isHttps ? https : http;
-      
+
       const requestOptions: http.RequestOptions = {
         hostname: url.hostname,
         port: url.port,
         path: url.pathname + url.search,
         method,
         headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json',
-          ...(body && { 'Content-Length': Buffer.byteLength(JSON.stringify(body)) })
+          Authorization: `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+          ...(body && {
+            "Content-Length": Buffer.byteLength(JSON.stringify(body)),
+          }),
         },
-        agent: this.agent
+        agent: this.agent,
       };
 
       const req = requestModule.request(requestOptions, (res) => {
-        let data = '';
-        
-        res.on('data', (chunk) => {
+        let data = "";
+
+        res.on("data", (chunk) => {
           data += chunk;
         });
-        
-        res.on('end', () => {
+
+        res.on("end", () => {
           if (res.statusCode && res.statusCode >= 400) {
             // Parse error response body for structured error information
             let errorData: any = null;
             try {
-              const contentType = res.headers['content-type'];
-              if (contentType?.includes('json') && data) {
+              const contentType = res.headers["content-type"];
+              if (contentType?.includes("json") && data) {
                 errorData = JSON.parse(data);
               }
             } catch (e) {
               // If parsing fails, use raw data
               errorData = data;
             }
-            
+
             // Create error with status code and parsed response data
-            const error = new Error(`${method} ${path} → ${res.statusCode} ${res.statusMessage}`);
+            const error = new Error(
+              `${method} ${path} → ${res.statusCode} ${res.statusMessage}`,
+            );
             (error as any).status = res.statusCode;
             (error as any).statusText = res.statusMessage;
             (error as any).data = errorData;
             reject(error);
             return;
           }
-          
+
           try {
-            const contentType = res.headers['content-type'];
-            if (contentType?.includes('json')) {
+            const contentType = res.headers["content-type"];
+            if (contentType?.includes("json")) {
               resolve(JSON.parse(data));
             } else {
               resolve(data);
@@ -92,73 +112,87 @@ class ArgoHttpClient implements HttpClient {
         });
       });
 
-      req.on('error', reject);
+      req.on("error", reject);
 
       if (options?.signal) {
-        options.signal.addEventListener('abort', () => {
+        options.signal.addEventListener("abort", () => {
           req.destroy();
-          reject(new Error('Request aborted'));
+          reject(new Error("Request aborted"));
         });
       }
 
       if (body) {
         req.write(JSON.stringify(body));
       }
-      
+
       req.end();
     });
   }
 
-
   async get(path: string, options?: { signal?: AbortSignal }): Promise<any> {
-    return this.request(path, 'GET', undefined, options);
+    return this.request(path, "GET", undefined, options);
   }
 
-  async post(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any> {
-    return this.request(path, 'POST', body, options);
+  async post(
+    path: string,
+    body?: any,
+    options?: { signal?: AbortSignal },
+  ): Promise<any> {
+    return this.request(path, "POST", body, options);
   }
 
-  async put(path: string, body?: any, options?: { signal?: AbortSignal }): Promise<any> {
-    return this.request(path, 'PUT', body, options);
+  async put(
+    path: string,
+    body?: any,
+    options?: { signal?: AbortSignal },
+  ): Promise<any> {
+    return this.request(path, "PUT", body, options);
   }
 
   async delete(path: string, options?: { signal?: AbortSignal }): Promise<any> {
-    return this.request(path, 'DELETE', undefined, options);
+    return this.request(path, "DELETE", undefined, options);
   }
 
-  async stream(path: string, options?: { signal?: AbortSignal }): Promise<NodeJS.ReadableStream> {
+  async stream(
+    path: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<NodeJS.ReadableStream> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.baseUrl + path);
       const requestModule = this.isHttps ? https : http;
-      
+
       const requestOptions: http.RequestOptions = {
         hostname: url.hostname,
         port: url.port,
         path: url.pathname + url.search,
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${this.token}`,
+          Authorization: `Bearer ${this.token}`,
         },
-        agent: this.agent
+        agent: this.agent,
       };
 
       const req = requestModule.request(requestOptions, (res) => {
         if (res.statusCode && res.statusCode >= 400) {
           // For streams, we'll collect the error body and reject with structured error
-          let errorData = '';
-          res.on('data', (chunk) => { errorData += chunk; });
-          res.on('end', () => {
+          let errorData = "";
+          res.on("data", (chunk) => {
+            errorData += chunk;
+          });
+          res.on("end", () => {
             let parsedError: any = null;
             try {
-              const contentType = res.headers['content-type'];
-              if (contentType?.includes('json') && errorData) {
+              const contentType = res.headers["content-type"];
+              if (contentType?.includes("json") && errorData) {
                 parsedError = JSON.parse(errorData);
               }
             } catch (e) {
               parsedError = errorData;
             }
-            
-            const error = new Error(`GET ${path} → ${res.statusCode} ${res.statusMessage}`);
+
+            const error = new Error(
+              `GET ${path} → ${res.statusCode} ${res.statusMessage}`,
+            );
             (error as any).status = res.statusCode;
             (error as any).statusText = res.statusMessage;
             (error as any).data = parsedError;
@@ -166,19 +200,19 @@ class ArgoHttpClient implements HttpClient {
           });
           return;
         }
-        
+
         resolve(res);
       });
 
-      req.on('error', reject);
+      req.on("error", reject);
 
       if (options?.signal) {
-        options.signal.addEventListener('abort', () => {
+        options.signal.addEventListener("abort", () => {
           req.destroy();
-          reject(new Error('Request aborted'));
+          reject(new Error("Request aborted"));
         });
       }
-      
+
       req.end();
     });
   }
@@ -198,11 +232,11 @@ class HttpClientManager {
 
   getClient(serverConfig: ServerConfig, token: string): HttpClient {
     const key = `${serverConfig.baseUrl}:${token}:${serverConfig.insecure || false}`;
-    
+
     if (!this.clients.has(key)) {
       this.clients.set(key, new ArgoHttpClient(serverConfig, token));
     }
-    
+
     return this.clients.get(key)!;
   }
 
@@ -222,6 +256,9 @@ class HttpClientManager {
 export const httpClientManager = HttpClientManager.getInstance();
 
 // Convenience function to get a client
-export function getHttpClient(serverConfig: ServerConfig, token: string): HttpClient {
+export function getHttpClient(
+  serverConfig: ServerConfig,
+  token: string,
+): HttpClient {
   return httpClientManager.getClient(serverConfig, token);
 }

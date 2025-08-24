@@ -1,8 +1,9 @@
 // @ts-nocheck
-import React from 'react';
-import {Box, Text} from 'ink';
-import ArgoNautBanner from './Banner';
-import chalk from 'chalk';
+
+import chalk from "chalk";
+import { Box, Text } from "ink";
+import type React from "react";
+import ArgoNautBanner from "./Banner";
 
 interface Props {
   server: string | null;
@@ -27,11 +28,11 @@ const AuthRequiredView: React.FC<Props> = ({
   argonautVersion,
   message,
 }) => {
-  const headerMsg = `${chalk.bold('View:')} ${chalk.red('AUTH REQUIRED')} • ${chalk.bold('Context:')} ${chalk.cyan(server || '—')}`;
+  const headerMsg = `${chalk.bold("View:")} ${chalk.red("AUTH REQUIRED")} • ${chalk.bold("Context:")} ${chalk.cyan(server || "—")}`;
   const instructions = [
-    '1. Run: argocd login <your-argocd-server>',
-    '2. Follow prompts to authenticate',
-    '3. Re-run argonaut',
+    "1. Run: argocd login <your-argocd-server>",
+    "2. Follow prompts to authenticate",
+    "3. Re-run argonaut",
   ];
 
   return (
@@ -47,25 +48,37 @@ const AuthRequiredView: React.FC<Props> = ({
         argonautVersion={argonautVersion}
       />
 
-      <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="red" paddingX={2} paddingY={1}>
-        <Box flexGrow={1} alignItems="center" justifyContent="center" flexDirection="column">
-          <Text>
-            {chalk.bgRed.white.bold(' AUTHENTICATION REQUIRED ')}
-          </Text>
+      <Box
+        flexDirection="column"
+        flexGrow={1}
+        borderStyle="round"
+        borderColor="red"
+        paddingX={2}
+        paddingY={1}
+      >
+        <Box
+          flexGrow={1}
+          alignItems="center"
+          justifyContent="center"
+          flexDirection="column"
+        >
+          <Text>{chalk.bgRed.white.bold(" AUTHENTICATION REQUIRED ")}</Text>
           <Box height={1} />
           <Text color="redBright" bold>
-            {message || 'Please login to ArgoCD before running argonaut.'}
+            {message || "Please login to ArgoCD before running argonaut."}
           </Text>
           <Box height={1} />
           {instructions.map((line, idx) => (
-            <Text key={idx} dimColor>- {line}</Text>
+            <Text key={idx} dimColor>
+              - {line}
+            </Text>
           ))}
           <Box height={1} />
           <Text dimColor>
-            Current context: {server ? chalk.cyan(server) : 'unknown'}
+            Current context: {server ? chalk.cyan(server) : "unknown"}
           </Text>
           <Text dimColor>
-            Press {chalk.yellow('l')} to view logs, {chalk.yellow('q')} to quit.
+            Press {chalk.yellow("l")} to view logs, {chalk.yellow("q")} to quit.
           </Text>
         </Box>
       </Box>

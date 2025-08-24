@@ -1,5 +1,5 @@
-import { MutableStdout } from './stdout/mutableStdout';
-import { MutableStdin } from './stdin/mutableStdin';
+import { MutableStdin } from "./stdin/mutableStdin";
+import { MutableStdout } from "./stdout/mutableStdout";
 
 // A mutable stdout that Ink will write to (so we can mute/unmute without unmounting)
 export const mutableStdout = new MutableStdout(process.stdout as any);
@@ -9,20 +9,28 @@ export const mutableStdin = new MutableStdin();
 
 // Mute Ink/logs (those writing via Ink's stdout) while PTY owns the terminal
 export function enterExternal() {
-  try { mutableStdout.mute(); } catch {}
+  try {
+    mutableStdout.mute();
+  } catch {}
 }
 
 // Restore stdout for Ink/logs
 export function exitExternal() {
-  try { mutableStdout.unmute(); } catch {}
+  try {
+    mutableStdout.unmute();
+  } catch {}
 }
 
 // Exclusive stdin handoff helpers
 export function beginExclusiveInput() {
-  try { mutableStdin.detach(process.stdin as any); } catch {}
+  try {
+    mutableStdin.detach(process.stdin as any);
+  } catch {}
 }
 export function endExclusiveInput() {
-  try { mutableStdin.attach(process.stdin as any); } catch {}
+  try {
+    mutableStdin.attach(process.stdin as any);
+  } catch {}
 }
 
 // Write directly to the real stdout even when muted

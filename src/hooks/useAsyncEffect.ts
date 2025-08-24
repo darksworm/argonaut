@@ -1,4 +1,4 @@
-import { useEffect, type DependencyList } from 'react';
+import { type DependencyList, useEffect } from "react";
 
 /**
  * A wrapper around useEffect that allows async functions as the effect callback.
@@ -7,24 +7,24 @@ import { useEffect, type DependencyList } from 'react';
  */
 export function useAsyncEffect(
   effect: () => Promise<void | (() => void)>,
-  deps?: DependencyList
+  deps?: DependencyList,
 ) {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
     let cancelled = false;
-    
+
     (async () => {
       try {
         const result = await effect();
-        if (!cancelled && typeof result === 'function') {
+        if (!cancelled && typeof result === "function") {
           cleanup = result;
         }
       } catch (error) {
         // Let the effect handle its own errors
-        console.error('useAsyncEffect error:', error);
+        console.error("useAsyncEffect error:", error);
       }
     })();
-    
+
     return () => {
       cancelled = true;
       if (cleanup) {

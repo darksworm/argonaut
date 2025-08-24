@@ -12,7 +12,12 @@ export type ArgoApplication = {
   status?: {
     sync?: { status?: string; revision?: string };
     health?: { status?: string };
-    history?: Array<{ id?: number; revision?: string; deployedAt?: string; source?: any }>;
+    history?: Array<{
+      id?: number;
+      revision?: string;
+      deployedAt?: string;
+      source?: any;
+    }>;
     operationState?: { finishedAt?: string; phase?: string; message?: string };
     reconciledAt?: string;
   };

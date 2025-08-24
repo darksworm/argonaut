@@ -1,6 +1,6 @@
-import React, {useState} from 'react';
-import {Box, Text, useInput} from 'ink';
-import TextInput from 'ink-text-input';
+import { Box, Text, useInput } from "ink";
+import TextInput from "ink-text-input";
+import React, { useState } from "react";
 
 export interface ConfirmationOption {
   key: string;
@@ -20,11 +20,18 @@ interface ConfirmationBoxProps {
 
 // TODO: handle the input completely in this component
 export default function ConfirmationBox(props: ConfirmationBoxProps) {
-  const {title, message, target, isMulti = false, options = [], onConfirm} = props;
-  const [confirmInput, setConfirmInput] = useState('');
+  const {
+    title,
+    message,
+    target,
+    isMulti = false,
+    options = [],
+    onConfirm,
+  } = props;
+  const [confirmInput, setConfirmInput] = useState("");
 
   const handleInputChange = (val: string) => {
-    const filtered = (val || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+    const filtered = (val || "").replace(/[^a-zA-Z]/g, "").toLowerCase();
     // Allow only prefixes of y/yes or n/no
     if (/^(y(es?)?|n(o?)?)?$/.test(filtered)) {
       // Limit to max length of the longest allowed word
@@ -34,18 +41,18 @@ export default function ConfirmationBox(props: ConfirmationBoxProps) {
   };
 
   const handleInputSubmit = (val: string) => {
-    const t = (val || '').trim().toLowerCase();
+    const t = (val || "").trim().toLowerCase();
     // reset input each submit
-    setConfirmInput('');
-    if (t === 'y' || t === 'yes') {
+    setConfirmInput("");
+    if (t === "y" || t === "yes") {
       onConfirm(true);
       return;
     }
-    if (t === 'n' || t === 'no') {
+    if (t === "n" || t === "no") {
       onConfirm(false);
       return;
     }
-    if (t === '') {
+    if (t === "") {
       // Do nothing on empty submit
       return;
     }
@@ -53,17 +60,24 @@ export default function ConfirmationBox(props: ConfirmationBoxProps) {
   };
 
   return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1} flexDirection="column" width="100%">
+    <Box
+      borderStyle="round"
+      borderColor="yellow"
+      paddingX={2}
+      paddingY={1}
+      flexDirection="column"
+      width="100%"
+    >
       <Text bold>{title}</Text>
       <Box marginTop={1}>
         <Text>
-          {message}{' '}
+          {message}{" "}
           {target && (
             <Text color="magentaBright" bold>
               {isMulti ? `(${target})` : target}
             </Text>
           )}
-          ? (y/n):{' '}
+          ? (y/n):{" "}
         </Text>
         <TextInput
           value={confirmInput}
@@ -76,14 +90,15 @@ export default function ConfirmationBox(props: ConfirmationBoxProps) {
           <Text>
             {options.map((opt, i) => (
               <React.Fragment key={opt.key}>
-                {i > 0 && ' • '}
+                {i > 0 && " • "}
                 {opt.disabled ? (
-                  <Text dimColor>
-                    {opt.label}: disabled
-                  </Text>
+                  <Text dimColor>{opt.label}: disabled</Text>
                 ) : (
                   <>
-                    {opt.label} [{opt.key}]: <Text color={(opt.value ? 'yellow' : undefined) as any}>{opt.value ? 'on' : 'off'}</Text>
+                    {opt.label} [{opt.key}]:{" "}
+                    <Text color={(opt.value ? "yellow" : undefined) as any}>
+                      {opt.value ? "on" : "off"}
+                    </Text>
                   </>
                 )}
               </React.Fragment>

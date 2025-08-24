@@ -1,10 +1,10 @@
-import { promises as fs } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import pino from 'pino';
-import { ResultAsync, err, ok } from 'neverthrow';
+import { promises as fs } from "fs";
+import { err, ok, ResultAsync } from "neverthrow";
+import { tmpdir } from "os";
+import { join } from "path";
+import pino from "pino";
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogEntry {
   timestamp: string;
@@ -29,14 +29,17 @@ class Logger {
     this.sessionId = config.sessionId;
     this.keepSessions = config.keepSessions ?? 5;
     this.logFilePath = join(tmpdir(), `argonaut-session-${this.sessionId}.log`);
-    
-    this.pinoLogger = pino({
-      level: 'debug',
-      timestamp: pino.stdTimeFunctions.isoTime,
-    }, pino.destination({
-      dest: this.logFilePath,
-      sync: false,
-    }));
+
+    this.pinoLogger = pino(
+      {
+        level: "debug",
+        timestamp: pino.stdTimeFunctions.isoTime,
+      },
+      pino.destination({
+        dest: this.logFilePath,
+        sync: false,
+      }),
+    );
   }
 
   debug(message: string, context?: string, data?: any): void {
@@ -65,53 +68,53 @@ class Logger {
 
   // Clean up old session files, keeping only the most recent N sessions
   cleanupOldSessions(): ResultAsync<void, { message: string }> {
-    return ResultAsync.fromPromise(fs.readdir(tmpdir()), () => ({ 
-      message: 'Failed to read temp directory' 
-    }))
-      .andThen(files => {
-        const sessionFiles = files
-          .filter(f => f.startsWith('argonaut-session-') && f.endsWith('.log'))
-          .map(f => ({ name: f, path: join(tmpdir(), f) }))
-          .sort((a, b) => b.name.localeCompare(a.name)); // Sort by name (timestamp) descending
-        
-        if (sessionFiles.length <= this.keepSessions) {
-          return ResultAsync.fromSafePromise(Promise.resolve());
-        }
+    return ResultAsync.fromPromise(fs.readdir(tmpdir()), () => ({
+      message: "Failed to read temp directory",
+    })).andThen((files) => {
+      const sessionFiles = files
+        .filter((f) => f.startsWith("argonaut-session-") && f.endsWith(".log"))
+        .map((f) => ({ name: f, path: join(tmpdir(), f) }))
+        .sort((a, b) => b.name.localeCompare(a.name)); // Sort by name (timestamp) descending
 
-        const filesToDelete = sessionFiles.slice(this.keepSessions);
-        const deletePromises = filesToDelete.map(file => 
-          ResultAsync.fromPromise(
-            fs.unlink(file.path),
-            () => ({ message: `Failed to delete old log file: ${file.name}` })
-          )
-        );
+      if (sessionFiles.length <= this.keepSessions) {
+        return ResultAsync.fromSafePromise(Promise.resolve());
+      }
 
-        return ResultAsync.combine(deletePromises).map(() => undefined);
-      });
+      const filesToDelete = sessionFiles.slice(this.keepSessions);
+      const deletePromises = filesToDelete.map((file) =>
+        ResultAsync.fromPromise(fs.unlink(file.path), () => ({
+          message: `Failed to delete old log file: ${file.name}`,
+        })),
+      );
+
+      return ResultAsync.combine(deletePromises).map(() => undefined);
+    });
   }
 
   // Get all available session files, sorted by modification time (newest first)
   static getAvailableSessions(): ResultAsync<string[], { message: string }> {
-    return ResultAsync.fromPromise(fs.readdir(tmpdir()), () => ({ 
-      message: 'Failed to read temp directory' 
+    return ResultAsync.fromPromise(fs.readdir(tmpdir()), () => ({
+      message: "Failed to read temp directory",
     }))
-      .andThen(files => {
-        const sessionFiles = files
-          .filter(f => f.startsWith('argonaut-session-') && f.endsWith('.log'));
-        
+      .andThen((files) => {
+        const sessionFiles = files.filter(
+          (f) => f.startsWith("argonaut-session-") && f.endsWith(".log"),
+        );
+
         return ResultAsync.combine(
-          sessionFiles.map(f => 
-            ResultAsync.fromPromise(
-              fs.stat(join(tmpdir(), f)),
-              () => ({ message: `Failed to stat ${f}` })
-            ).map(stats => ({ file: f, mtime: stats.mtime }))
-          )
+          sessionFiles.map((f) =>
+            ResultAsync.fromPromise(fs.stat(join(tmpdir(), f)), () => ({
+              message: `Failed to stat ${f}`,
+            })).map((stats) => ({ file: f, mtime: stats.mtime })),
+          ),
         );
       })
-      .map(fileStats => 
+      .map((fileStats) =>
         fileStats
           .sort((a, b) => b.mtime.getTime() - a.mtime.getTime()) // Sort by modification time descending
-          .map(fs => fs.file.replace('argonaut-session-', '').replace('.log', ''))
+          .map((fs) =>
+            fs.file.replace("argonaut-session-", "").replace(".log", ""),
+          ),
       );
   }
 
@@ -122,61 +125,78 @@ class Logger {
 
   // Get the most recent session file
   static getLatestSessionFile(): ResultAsync<string, { message: string }> {
-    return Logger.getAvailableSessions()
-      .andThen(sessions => {
-        if (sessions.length === 0) {
-          return err({ message: 'No session files found' });
-        }
-        return ok(Logger.getSessionFilePath(sessions[0]));
-      });
+    return Logger.getAvailableSessions().andThen((sessions) => {
+      if (sessions.length === 0) {
+        return err({ message: "No session files found" });
+      }
+      return ok(Logger.getSessionFilePath(sessions[0]));
+    });
   }
 
   // Read and parse log entries from a session file
-  static readSessionLogs(sessionId: string): ResultAsync<LogEntry[], { message: string }> {
+  static readSessionLogs(
+    sessionId: string,
+  ): ResultAsync<LogEntry[], { message: string }> {
     const filePath = Logger.getSessionFilePath(sessionId);
-    
-    return ResultAsync.fromPromise(fs.readFile(filePath, 'utf-8'), () => ({ 
-      message: `Failed to read session file: ${sessionId}` 
-    }))
-      .map(content => {
-        const lines = content.trim().split('\n').filter(line => line.length > 0);
-        return lines.map(line => {
-          try {
-            const parsed = JSON.parse(line);
-            
-            // Convert pino numeric levels to string levels
-            let level: LogLevel = 'info';
-            if (typeof parsed.level === 'number') {
-              switch (parsed.level) {
-                case 10: level = 'debug'; break;
-                case 20: level = 'debug'; break;
-                case 30: level = 'info'; break;
-                case 40: level = 'warn'; break;
-                case 50: level = 'error'; break;
-                case 60: level = 'error'; break;
-                default: level = 'info';
-              }
-            } else if (typeof parsed.level === 'string') {
-              level = parsed.level as LogLevel;
+
+    return ResultAsync.fromPromise(fs.readFile(filePath, "utf-8"), () => ({
+      message: `Failed to read session file: ${sessionId}`,
+    })).map((content) => {
+      const lines = content
+        .trim()
+        .split("\n")
+        .filter((line) => line.length > 0);
+      return lines.map((line) => {
+        try {
+          const parsed = JSON.parse(line);
+
+          // Convert pino numeric levels to string levels
+          let level: LogLevel = "info";
+          if (typeof parsed.level === "number") {
+            switch (parsed.level) {
+              case 10:
+                level = "debug";
+                break;
+              case 20:
+                level = "debug";
+                break;
+              case 30:
+                level = "info";
+                break;
+              case 40:
+                level = "warn";
+                break;
+              case 50:
+                level = "error";
+                break;
+              case 60:
+                level = "error";
+                break;
+              default:
+                level = "info";
             }
-            
-            return {
-              timestamp: parsed.time || parsed.timestamp || new Date().toISOString(),
-              level,
-              message: parsed.msg || parsed.message || 'Unknown message',
-              context: parsed.context,
-              data: parsed.data,
-            } as LogEntry;
-          } catch {
-            // Fallback for malformed log lines
-            return {
-              timestamp: new Date().toISOString(),
-              level: 'info' as LogLevel,
-              message: line,
-            } as LogEntry;
+          } else if (typeof parsed.level === "string") {
+            level = parsed.level as LogLevel;
           }
-        });
+
+          return {
+            timestamp:
+              parsed.time || parsed.timestamp || new Date().toISOString(),
+            level,
+            message: parsed.msg || parsed.message || "Unknown message",
+            context: parsed.context,
+            data: parsed.data,
+          } as LogEntry;
+        } catch {
+          // Fallback for malformed log lines
+          return {
+            timestamp: new Date().toISOString(),
+            level: "info" as LogLevel,
+            message: line,
+          } as LogEntry;
+        }
       });
+    });
   }
 
   // Flush any pending writes and close the logger
@@ -188,7 +208,7 @@ class Logger {
           else resolve();
         });
       }),
-      (error: any) => ({ message: error?.message || 'Failed to flush logger' })
+      (error: any) => ({ message: error?.message || "Failed to flush logger" }),
     );
   }
 }
@@ -200,21 +220,27 @@ let globalLogger: Logger | null = null;
 let globalViewContext: string | null = null;
 
 // Initialize the global logger with a session ID based on current timestamp
-export function initializeLogger(sessionId?: string): ResultAsync<Logger, { message: string }> {
-  const id = sessionId || new Date().toISOString().replace(/[:.]/g, '-').replace('T', '-').split('Z')[0];
-  
-  return ResultAsync.fromPromise(
-    Promise.resolve(),
-    () => ({ message: 'Logger initialization failed' })
-  ).map(() => {
+export function initializeLogger(
+  sessionId?: string,
+): ResultAsync<Logger, { message: string }> {
+  const id =
+    sessionId ||
+    new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .replace("T", "-")
+      .split("Z")[0];
+
+  return ResultAsync.fromPromise(Promise.resolve(), () => ({
+    message: "Logger initialization failed",
+  })).map(() => {
     globalLogger = new Logger({ sessionId: id });
-    
+
     // Clean up old sessions in the background
-    globalLogger.cleanupOldSessions()
-      .mapErr(error => {
-        console.warn('Failed to cleanup old log sessions:', error.message);
-      });
-    
+    globalLogger.cleanupOldSessions().mapErr((error) => {
+      console.warn("Failed to cleanup old log sessions:", error.message);
+    });
+
     return globalLogger;
   });
 }
@@ -237,24 +263,28 @@ export function getCurrentView(): string | null {
 // Helper function to combine context with view
 function combineContext(context?: string): string | undefined {
   const parts: string[] = [];
-  
+
   if (globalViewContext) {
     parts.push(`view:${globalViewContext}`);
   }
-  
+
   if (context) {
     parts.push(context);
   }
-  
-  return parts.length > 0 ? parts.join('|') : undefined;
+
+  return parts.length > 0 ? parts.join("|") : undefined;
 }
 
 // Convenience functions for logging
 export const log = {
-  debug: (message: string, context?: string, data?: any) => globalLogger?.debug(message, combineContext(context), data),
-  info: (message: string, context?: string, data?: any) => globalLogger?.info(message, combineContext(context), data),
-  warn: (message: string, context?: string, data?: any) => globalLogger?.warn(message, combineContext(context), data),
-  error: (message: string, context?: string, data?: any) => globalLogger?.error(message, combineContext(context), data),
+  debug: (message: string, context?: string, data?: any) =>
+    globalLogger?.debug(message, combineContext(context), data),
+  info: (message: string, context?: string, data?: any) =>
+    globalLogger?.info(message, combineContext(context), data),
+  warn: (message: string, context?: string, data?: any) =>
+    globalLogger?.warn(message, combineContext(context), data),
+  error: (message: string, context?: string, data?: any) =>
+    globalLogger?.error(message, combineContext(context), data),
 };
 
 export { Logger };

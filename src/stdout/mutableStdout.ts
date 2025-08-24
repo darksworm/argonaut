@@ -19,18 +19,28 @@ export class MutableStdout extends Writable {
     this.sink = target;
 
     // Forward resize events from the real TTY to this wrapper so Ink can react
-    if (typeof target?.on === 'function') {
+    if (typeof target?.on === "function") {
       this.onResizeBound = () => {
-        try { this.emit('resize'); } catch {}
+        try {
+          this.emit("resize");
+        } catch {}
       };
-      try { target.on('resize', this.onResizeBound); } catch {}
+      try {
+        target.on("resize", this.onResizeBound);
+      } catch {}
     }
   }
 
   // Ensure Ink can read current terminal width/height
-  get columns(): number { return Number(this.target?.columns ?? 80); }
-  get rows(): number { return Number(this.target?.rows ?? 24); }
-  get isTTY(): boolean { return Boolean(this.target?.isTTY ?? true); }
+  get columns(): number {
+    return Number(this.target?.columns ?? 80);
+  }
+  get rows(): number {
+    return Number(this.target?.rows ?? 24);
+  }
+  get isTTY(): boolean {
+    return Boolean(this.target?.isTTY ?? true);
+  }
 
   // Optional: expose getColorDepth to satisfy libraries that probe it
   getColorDepth?(env?: any): number;
@@ -46,8 +56,8 @@ export class MutableStdout extends Writable {
   // Clean up listener if needed
   dispose() {
     try {
-      if (this.onResizeBound && typeof this.target?.off === 'function') {
-        this.target.off('resize', this.onResizeBound);
+      if (this.onResizeBound && typeof this.target?.off === "function") {
+        this.target.off("resize", this.onResizeBound);
       }
     } catch {}
     this.onResizeBound = null;

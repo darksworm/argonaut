@@ -14,10 +14,14 @@ export class MutableStdin extends PassThrough {
 
   // Provide ref/unref that Ink expects on TTY streams
   public ref() {
-    try { (this.real as any)?.ref?.(); } catch {}
+    try {
+      (this.real as any)?.ref?.();
+    } catch {}
   }
   public unref() {
-    try { (this.real as any)?.unref?.(); } catch {}
+    try {
+      (this.real as any)?.unref?.();
+    } catch {}
   }
 
   attach(real: NodeJS.ReadStream) {
@@ -25,13 +29,23 @@ export class MutableStdin extends PassThrough {
     this.attached = true;
     this.real = real;
     this.onData = (buf: Buffer) => {
-      try { this.write(buf); } catch {}
+      try {
+        this.write(buf);
+      } catch {}
     };
-    try { real.on("data", this.onData); } catch {}
+    try {
+      real.on("data", this.onData);
+    } catch {}
     // Ensure real stdin is in raw mode for immediate key events and resumed
-    try { (real as any).setRawMode?.(true); } catch {}
-    try { (real as any).resume?.(); } catch {}
-    try { this.resume(); } catch {}
+    try {
+      (real as any).setRawMode?.(true);
+    } catch {}
+    try {
+      (real as any).resume?.();
+    } catch {}
+    try {
+      this.resume();
+    } catch {}
   }
 
   detach(real: NodeJS.ReadStream) {
@@ -42,10 +56,16 @@ export class MutableStdin extends PassThrough {
     } catch {}
     this.onData = undefined;
     // Do NOT end the stream; keep it alive for later re-attachment
-    try { this.pause(); } catch {}
+    try {
+      this.pause();
+    } catch {}
     // Restore cooked mode and pause the real stdin; PTY will take ownership afterwards
-    try { (real as any).setRawMode?.(false); } catch {}
-    try { (real as any).pause?.(); } catch {}
+    try {
+      (real as any).setRawMode?.(false);
+    } catch {}
+    try {
+      (real as any).pause?.();
+    } catch {}
     this.real = null;
   }
 }
