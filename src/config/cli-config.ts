@@ -3,6 +3,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import {CONFIG_PATH, ensureHttps} from './paths';
 import type {ServerConfig} from '../types/server';
+import { err, ok, Result } from 'neverthrow';
 
 export type ArgoContext = {name: string; server: string; user: string};
 export type ArgoServer  = {server: string; ['grpc-web']?: boolean; ['grpc-web-root-path']?: string; insecure?: boolean; ['plain-text']?: boolean};
@@ -15,50 +16,86 @@ export type ArgoCLIConfig = {
   ['prompts-enabled']?: boolean;
 };
 
-export async function readCLIConfig(): Promise<ArgoCLIConfig | null> {
+export async function readCLIConfig(): Promise<Result<ArgoCLIConfig, {message: string}>> {
   try {
     const txt = await fs.readFile(CONFIG_PATH, 'utf8');
-    return YAML.parse(txt) as ArgoCLIConfig;
-  } catch {
-    return null;
+    return ok(YAML.parse(txt) as ArgoCLIConfig);
+  } catch (e: unknown) {
+    return err({ message: (e as Error).message ?? `Couldn't parse config at ${CONFIG_PATH}` });
   }
 }
 
-export async function writeCLIConfig(cfg: ArgoCLIConfig): Promise<void> {
-  await fs.mkdir(path.dirname(CONFIG_PATH), {recursive: true});
-  await fs.writeFile(CONFIG_PATH, YAML.stringify(cfg), {mode: 0o600});
-}
-
-export function getCurrentServer(cfg: ArgoCLIConfig | null): string | null {
-  if (!cfg) return null;
+export function getCurrentServer(cfg: ArgoCLIConfig): Result<string, { message: string }> {
   const name = cfg['current-context'];
   const ctx = (cfg.contexts ?? []).find(c => c.name === (name ?? ''));
-  return ctx?.server ?? null;
+
+  if(ctx?.server) {
+    return ok(ctx?.server)
+  } else {
+    return err({ message: `Could not find server details for current context ${name}`});
+  }
 }
 
-export function getCurrentServerConfig(cfg: ArgoCLIConfig | null): ArgoServer | null {
-  if (!cfg) return null;
-  const serverUrl = getCurrentServer(cfg);
-  if (!serverUrl) return null;
-  return (cfg.servers ?? []).find(s => s.server === serverUrl) ?? null;
+export function getCurrentServerConfig(cfg: ArgoCLIConfig, serverUrl: string): Result<ArgoServer, { message: string }> {
+  const found = (cfg.servers ?? []).find(s => s.server === serverUrl);
+  if (found) {
+    return ok(found);
+  } else {
+    return err({ message: `Could not find server with url ${serverUrl}` });
+  }
 }
 
-export function getCurrentServerUrl(cfg: ArgoCLIConfig | null): string | null {
-  if (!cfg) return null;
+export function getCurrentServerConfigObj(cfg: ArgoCLIConfig): Result<ServerConfig, { message: string }> {
   const serverUrl = getCurrentServer(cfg);
-  if (!serverUrl) return null;
-  const serverConfig = getCurrentServerConfig(cfg);
-  return ensureHttps(serverUrl, serverConfig?.['plain-text']);
-}
+  if (serverUrl.isErr()) {
+    return err(serverUrl.error);
+  }
 
-export function getCurrentServerConfigObj(cfg: ArgoCLIConfig | null): ServerConfig | null {
-  if (!cfg) return null;
-  const serverUrl = getCurrentServer(cfg);
-  if (!serverUrl) return null;
-  const serverConfig = getCurrentServerConfig(cfg);
+  const serverConfig = getCurrentServerConfig(cfg, serverUrl.value);
+
+  if (serverConfig.isErr()) {
+    return err(serverConfig.error);
+  }
   
-  return {
-    baseUrl: ensureHttps(serverUrl, serverConfig?.['plain-text']),
-    insecure: serverConfig?.insecure
-  };
+  return ok({
+    baseUrl: ensureHttps(serverUrl.value, serverConfig.value['plain-text']),
+    insecure: serverConfig.value.insecure
+  });
+}
+
+export function tokenFromConfig(cfg: ArgoCLIConfig): Result<string, { message: string }> {
+  const current = cfg['current-context'];
+
+  if (!current) {
+    return err({ message: 'No current context set in ArgoCD config' });
+  }
+
+  if (!cfg.contexts?.length) {
+    return err({ message: 'No contexts found in ArgoCD config' });
+  }
+
+  const ctx = cfg.contexts.find(c => c.name === current);
+  if (!ctx) {
+    return err({ message: `Context '${current}' not found in ArgoCD config` });
+  }
+
+  if (!ctx.user) {
+    return err({ message: `No user specified for context '${current}'` });
+  }
+
+  if (!cfg.users?.length) {
+    return err({ message: 'No users found in ArgoCD config' });
+  }
+
+  const user = cfg.users.find(u => u.name === ctx.user);
+  if (!user) {
+    return err({ message: `User '${ctx.user}' not found in ArgoCD config` });
+  }
+
+  const token = user['auth-token'];
+  if (!token) {
+    return err({ message: `No auth token found for user '${ctx.user}'. Please run 'argocd login' to authenticate.` });
+  }
+
+  return ok(token);
 }

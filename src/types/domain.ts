@@ -13,4 +13,4 @@ export type AppItem = {
 };
 
 export type View = 'clusters' | 'namespaces' | 'projects' | 'apps';
-export type Mode = 'normal' | 'loading' | 'search' | 'command' | 'help' | 'license' | 'confirm-sync' | 'rollback' | 'external' | 'resources' | 'auth-required' | 'rulerline';
+export type Mode = 'normal' | 'loading' | 'search' | 'command' | 'help' | 'license' | 'confirm-sync' | 'rollback' | 'external' | 'resources' | 'auth-required' | 'rulerline' | 'error' | 'logs';

@@ -1,6 +1,7 @@
 import {promises as fs} from 'fs';
 import {join} from 'path';
 import {tmpdir} from 'os';
+import { err, ok, ResultAsync } from 'neverthrow';
 
 interface NpmRegistryResponse {
   version: string;
@@ -11,7 +12,6 @@ interface VersionCheckResult {
   latestVersion?: string;
   isOutdated: boolean;
   lastChecked?: number;
-  error?: string;
 }
 
 const CACHE_DURATION = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
@@ -59,36 +59,42 @@ function compareVersions(current: string, latest: string): boolean {
   return false;
 }
 
-async function fetchLatestVersion(): Promise<string> {
-  const response = await fetch('https://registry.npmjs.org/argonaut-cli/latest');
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  
-  const data: NpmRegistryResponse = await response.json();
-  return data.version;
+function fetchLatestVersion(): ResultAsync<string, { message: string }> {
+  return ResultAsync.fromPromise(
+    fetch('https://registry.npmjs.org/argonaut-cli/latest'),
+    (error: any) => ({ message: error?.message || 'Network error while checking for updates' })
+  )
+    .andThen(response => {
+      if (!response.ok) {
+        return err({ message: `Failed to fetch from npm registry: HTTP ${response.status}` });
+      }
+      return ResultAsync.fromPromise(
+        response.json() as Promise<NpmRegistryResponse>,
+        (error: any) => ({ message: error?.message || 'Failed to parse registry response' })
+      );
+    })
+    .map(data => data.version);
 }
 
-export async function checkVersion(currentVersion: string): Promise<VersionCheckResult> {
-  // Check cache first
-  const cached = await getCachedResult();
-  if (cached && cached.currentVersion === currentVersion) {
-    return cached;
-  }
-  
-  const result: VersionCheckResult = {
-    currentVersion,
-    isOutdated: false,
-  };
-  
-  try {
-    const latestVersion = await fetchLatestVersion();
-    result.latestVersion = latestVersion;
-    result.isOutdated = compareVersions(currentVersion, latestVersion);
-  } catch (error) {
-    result.error = error instanceof Error ? error.message : 'Unknown error';
-  }
-  
-  await setCachedResult(result);
-  return result;
+export function checkVersion(currentVersion: string): ResultAsync<VersionCheckResult, { message: string }> {
+  return ResultAsync.fromPromise(getCachedResult(), () => ({ message: 'Cache read error' }))
+    .andThen(cached => {
+      if (cached && cached.currentVersion === currentVersion) {
+        return ResultAsync.fromSafePromise(Promise.resolve(cached));
+      }
+      
+      return fetchLatestVersion()
+        .map(latestVersion => {
+          const result: VersionCheckResult = {
+            currentVersion,
+            latestVersion,
+            isOutdated: compareVersions(currentVersion, latestVersion),
+          };
+          
+          // Cache the result (fire and forget)
+          setCachedResult(result).catch(() => {});
+          
+          return result;
+        });
+    });
 }
