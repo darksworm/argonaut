@@ -1,4 +1,5 @@
 import { Result, err, ok } from 'neverthrow';
+import {log} from "./logger";
 
 // ArgoCD API error structure from swagger
 export interface ArgoApiError {
@@ -117,6 +118,7 @@ export async function wrapApiCall<T>(apiCall: () => Promise<T>): Promise<Result<
     return ok(result);
   } catch (error) {
     const apiError = translateApiError(error);
+    log.error(apiError.message);
     return err(apiError);
   }
 }
