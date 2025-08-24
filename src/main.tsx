@@ -5,6 +5,7 @@ import { initializeLogger, log } from './services/logger';
 import { setupGlobalErrorHandlers } from './services/error-handler';
 import { mutableStdout } from './ink-control';
 import { MutableStdin } from './stdin/mutableStdin';
+import {ReadStream, WriteStream} from "node:tty";
 
 // Export a shared MutableStdin so other modules (ink-control) can manage input handoff
 export const mutableStdin = new MutableStdin();
@@ -84,9 +85,9 @@ async function main() {
                 <App/>
             </ErrorBoundary>,
             {
-                stdout: mutableStdout,
+                stdout: mutableStdout as any as WriteStream,
                 stderr: process.stderr,
-                stdin: mutableStdin,
+                stdin: mutableStdin as any as ReadStream,
                 patchConsole: false,
                 exitOnCtrlC: false
             }
