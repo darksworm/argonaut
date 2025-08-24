@@ -63,7 +63,9 @@ function ErrorDisplay({
     };
     
     process.stdout.on('resize', onResize);
-    return () => process.stdout.off('resize', onResize);
+    return () => {
+      process.stdout.off('resize', onResize);
+    };
   }, []);
   useInput((input, key) => {
     if (input === 'l' || input === 'L') {

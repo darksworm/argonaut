@@ -68,5 +68,5 @@ function resolveSessionFile(session: string): ResultAsync<{ sessionId: string, f
 
   // Treat as specific session ID
   const filePath = Logger.getSessionFilePath(session);
-  return ok({ sessionId: session, filePath });
+  return ResultAsync.fromSafePromise(Promise.resolve({ sessionId: session, filePath }));
 }
