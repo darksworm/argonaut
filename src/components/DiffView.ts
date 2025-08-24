@@ -7,6 +7,8 @@ import {getManagedResourceDiffs} from '../api/applications.query';
 import {getManifests as getManifestsApi} from '../api/rollback';
 import type {Server} from '../types/server';
 import {getPty} from "./pty";
+
+const TTY_MODE = process.env.ARGONAUT_TTY_MODE || (process.versions?.bun ? "inherit" : "pty");
 import { rawStdoutWrite, beginExclusiveInput, endExclusiveInput } from "../ink-control";
 
 function enterAltScreen() {
@@ -53,7 +55,7 @@ export type DiffSessionOptions = {
 // Spawns a PTY to show diff between two files using delta if available, otherwise git+less.
 // fileLeft/right: order matters for delta/git presentation; pass according to your desired semantics.
 export async function runExternalDiffSession(fileLeft: string, fileRight: string, opts: DiffSessionOptions = {}): Promise<void> {
-  const shell = 'bash';
+  const shell = process.platform === "win32" ? "powershell.exe" : "bash";
   const cols = opts.cols || (process.stdout as any)?.columns || 80;
   const rows = opts.rows || (process.stdout as any)?.rows || 24;
   const width = opts.width || cols; // intentionally unused by delta; tools will use $COLUMNS
@@ -89,83 +91,111 @@ fi
     ? ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', cmdFile]
     : [cmdFile];
 
+  // common env
+  const env = {
+    ...process.env,
+    TERM: "xterm-256color",
+    COLORTERM: "truecolor",
+    LANG: process.env.LANG || "en_US.UTF-8",
+    LC_ALL: process.env.LC_ALL || "en_US.UTF-8",
+    COLUMNS: String(cols),
+    LINES: String(rows),
+    LESS: "R", // no -X/-K
+  } as Record<string, string>;
+
   opts.onEnterExternal?.();
+  try { beginExclusiveInput(); } catch {}
 
-  // Enter alternate screen to isolate PTY rendering
-  enterAltScreen();
+  if (TTY_MODE === "inherit") {
+    // ---- Bun: give the real TTY to the child, no PTY layer ----
+    // (works in Node too, but we keep node-pty as default there)
+    if ((globalThis as any).Bun?.spawn) {
+      // Use Bun.spawn
+      const child = (globalThis as any).Bun.spawn({
+        cmd: [shell, ...args],
+        cwd: process.cwd(),
+        env,
+        stdio: ["inherit", "inherit", "inherit"],
+      });
+      await child.exited;
+    } else {
+      // Use Node.js child_process.spawn
+      const spawn = require("node:child_process").spawn;
+      const child = spawn(shell, args, {
+        cwd: process.cwd(),
+        env,
+        stdio: ["inherit", "inherit", "inherit"],
+      });
+      await new Promise<void>((res, rej) => {
+        child.on("exit", () => res());
+        child.on("error", rej);
+      });
+    }
+  } else if (TTY_MODE === "script" && process.platform !== "win32") {
+    // ---- Force OS-level PTY via `script` ----
+    // macOS/BSD: script [-q] [-F] command log
+    // util-linux: script -qfec "cmd" /dev/null
+    const cmdline = os.platform() === "darwin"
+      ? ["script","-q","-F", shell, ...args, "/dev/null"]
+      : ["script","-qfec", [shell, ...args].map(a => a.includes(" ") ? `"${a}"` : a).join(" "), "/dev/null"];
 
-  // Hand exclusive input to the PTY (disconnect Ink from real stdin)
-  beginExclusiveInput();
+    if ((globalThis as any).Bun?.spawn) {
+      // Use Bun.spawn
+      const child = (globalThis as any).Bun.spawn({
+        cmd: cmdline,
+        cwd: process.cwd(),
+        env,
+        stdio: ["inherit", "inherit", "inherit"],
+      });
+      await child.exited;
+    } else {
+      // Use Node.js child_process.spawn
+      const spawn = require("node:child_process").spawn;
+      const child = spawn(cmdline[0], cmdline.slice(1), {
+        cwd: process.cwd(),
+        env,
+        stdio: ["inherit", "inherit", "inherit"],
+      });
+      await new Promise<void>((res, rej) => {
+        child.on("exit", () => res());
+        child.on("error", rej);
+      });
+    }
+  } else {
+    // ---- Existing PTY path (node-pty on Node, bun-pty on Bun) ----
+    // Enter alternate screen to isolate PTY rendering
+    enterAltScreen();
 
-  const spawnPty = await getPty();
-  const pty = spawnPty(shell, args as any, {
-    name: 'xterm-256color',
-    cols,
-    rows,
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      COLORTERM: 'truecolor',
-      LANG: process.env.LANG || 'en_US.UTF-8',
-      LC_ALL: process.env.LC_ALL || 'en_US.UTF-8',
-      COLUMNS: String(cols),
-      LINES: String(rows),
-      LESS: 'R',   // simple & safe: enable raw control codes; no -X/-K
-    } as any,
-  });
+    const spawnPty = await getPty();
+    const pty = spawnPty(shell, args, {
+      name: 'xterm-256color',
+      cols, rows,
+      cwd: process.cwd(),
+      env: env as any,
+    });
 
-  // Workaround bun-pty initial resize timing: apply size multiple times
-  const applyResize = () => {
-    const c = (process.stdout as any)?.columns || 80;
-    const r = (process.stdout as any)?.rows || 24;
-    try { pty.resize(c, r); } catch {}
-  };
+    const applyResize = () => { try { pty.resize((process.stdout as any)?.columns || 80, (process.stdout as any)?.rows || 24); } catch {} };
+    applyResize(); setTimeout(applyResize, 0); setTimeout(applyResize, 30);
+    const onResize = () => applyResize();
+    process.stdout.on("resize", onResize);
 
-  const onResize = () => applyResize();
-  process.stdout.on('resize', onResize);
+    const sub = pty.onData((d: string) => { try { rawStdoutWrite(d); } catch {} });
 
-  // Raw data passthrough from PTY to stdout
-  const onPtyData = (data: string) => {
-    try { rawStdoutWrite(data); } catch {}
-  };
-  const ptyDataDisposable = pty.onData(onPtyData);
+    const stdinAny = process.stdin as any;
+    const onStdin = (b: Buffer) => { try { pty.write(b.toString("utf8")); } catch {} };
+    try { stdinAny.setRawMode?.(true); stdinAny.resume?.(); } catch {}
+    if (opts.forwardInput !== false) process.stdin.on("data", onStdin);
 
-  // Configure stdin raw mode and forward to PTY
-  const stdinAny = process.stdin as any;
-  let onStdin: ((chunk: Buffer) => void) | null = null;
-  try {
-    stdinAny.resume?.();
-    stdinAny.setRawMode?.(true);
-  } catch {}
+    await new Promise<void>((resolve) => pty.onExit(() => resolve()));
 
-  if (opts.forwardInput !== false) {
-    onStdin = (chunk: Buffer) => {
-      try { pty.write(chunk.toString('utf8')); } catch {}
-    };
-    process.stdin.on('data', onStdin);
+    try { process.stdin.off("data", onStdin); process.stdout.off("resize", onResize); sub?.dispose?.(); } catch {}
+    try { stdinAny.setRawMode?.(false); stdinAny.pause?.(); } catch {}
+    
+    // Leave alternate screen and restore UI
+    leaveAltScreen();
   }
 
-  await new Promise<void>((resolve) => { pty.onExit(() => resolve()); });
-
-  // cleanup
-  try {
-    if (onStdin) process.stdin.off('data', onStdin);
-    process.stdout.off('resize', onResize);
-  } catch {}
-  try {
-    stdinAny.setRawMode?.(false);
-    stdinAny.pause?.();
-  } catch {}
-  try { clearTimeout(t0 as any); } catch {}
-  try { clearTimeout(t1 as any); } catch {}
-  try { ptyDataDisposable?.dispose?.(); } catch {}
-
-  // Give input back to Ink AFTER PTY is fully done
-  endExclusiveInput();
-
-  // Leave alternate screen and restore UI
-  leaveAltScreen();
+  try { endExclusiveInput(); } catch {}
 
   // Clean up temporary command file
   try {
