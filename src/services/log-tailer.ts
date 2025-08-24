@@ -197,9 +197,9 @@ export class LogTailer {
             this.tailProcess = null; // Clear the reference immediately
           }
 
-          // Start tailing the new session
+          // Start tailing 'latest' again to keep watching for newer sessions
           setTimeout(() => {
-            this.start({ session: latestSessionId, follow: true })
+            this.start({ session: 'latest', follow: true })
               .mapErr(error => {
                 console.error(`❌ Failed to switch to new session: ${error.message}`);
               });

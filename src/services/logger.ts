@@ -90,16 +90,28 @@ class Logger {
       });
   }
 
-  // Get all available session files, sorted by timestamp (newest first)
+  // Get all available session files, sorted by modification time (newest first)
   static getAvailableSessions(): ResultAsync<string[], { message: string }> {
     return ResultAsync.fromPromise(fs.readdir(tmpdir()), () => ({ 
       message: 'Failed to read temp directory' 
     }))
-      .map(files => 
-        files
-          .filter(f => f.startsWith('argonaut-session-') && f.endsWith('.log'))
-          .map(f => f.replace('argonaut-session-', '').replace('.log', ''))
-          .sort((a, b) => b.localeCompare(a)) // Sort by timestamp descending
+      .andThen(files => {
+        const sessionFiles = files
+          .filter(f => f.startsWith('argonaut-session-') && f.endsWith('.log'));
+        
+        return ResultAsync.combine(
+          sessionFiles.map(f => 
+            ResultAsync.fromPromise(
+              fs.stat(join(tmpdir(), f)),
+              () => ({ message: `Failed to stat ${f}` })
+            ).map(stats => ({ file: f, mtime: stats.mtime }))
+          )
+        );
+      })
+      .map(fileStats => 
+        fileStats
+          .sort((a, b) => b.mtime.getTime() - a.mtime.getTime()) // Sort by modification time descending
+          .map(fs => fs.file.replace('argonaut-session-', '').replace('.log', ''))
       );
   }
 
