@@ -73,7 +73,7 @@ const Help: React.FC<HelpProps> = ({version, isOutdated, latestVersion}) => (
       </Box>
       <Box>
         <Text>
-          :login • :clear • :all • :licenses • :q
+          :login • :clear • :all • :licenses • :logs • :q
         </Text>
       </Box>
     </Box>
