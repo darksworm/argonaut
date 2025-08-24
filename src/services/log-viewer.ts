@@ -82,7 +82,7 @@ fi
     process.stdout.off('resize', onResize);
   } catch { /* noop */ }
   try {
-    stdinAny.setRawMode?.(false);
+    stdinAny.setRawMode?.(true);  // React/Ink needs raw mode enabled
     stdinAny.resume?.();
   } catch { /* noop */ }
 

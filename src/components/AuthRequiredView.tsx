@@ -62,7 +62,10 @@ const AuthRequiredView: React.FC<Props> = ({
           ))}
           <Box height={1} />
           <Text dimColor>
-            Tip: Current context: {server ? chalk.cyan(server) : 'unknown'}. Press q to quit.
+            Current context: {server ? chalk.cyan(server) : 'unknown'}
+          </Text>
+          <Text dimColor>
+            Press {chalk.yellow('l')} to view logs, {chalk.yellow('q')} to quit.
           </Text>
         </Box>
       </Box>
