@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { tailLogs } from './services/log-tailer';
+import { tailLogs } from '../src/services/log-tailer';
 
 async function main() {
   const args = process.argv.slice(2);
