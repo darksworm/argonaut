@@ -447,11 +447,12 @@ export const App: React.FC = () => {
                 statusLog.info('Opening licenses…', 'license');
 
                 await runLicenseSession({
-                    forwardInput: true,
-                    onEnterExternal: () => setMode('external'),
-                    onExitExternal: () => {
-                    },
+                    title: 'Third Party Licenses'
                 });
+                
+                // Small delay and force Ink re-render
+                await new Promise(resolve => setTimeout(resolve, 50));
+                rerender();
                 setMode('normal');
                 statusLog.info('License viewer closed.', 'license');
             } catch (e: any) {
@@ -554,15 +555,14 @@ export const App: React.FC = () => {
                 statusLog.info(`Preparing diff for ${target}…`, 'diff');
 
                 const opened = await runAppDiffSession(server, target, {
-                    forwardInput: true,
-                    onEnterExternal: () => {
-                        try { require('../ink-control').enterExternal(); } catch {}
-                        setMode('external');
-                    },
-                    onExitExternal: () => {
-                        try { require('../ink-control').exitExternal(); } catch {}
-                    },
+                    title: `${target} - Live vs Desired`
                 });
+                
+                if (opened) {
+                    // Small delay and force Ink re-render
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    rerender();
+                }
                 setMode('normal');
                 statusLog.info(opened ? `Diff closed for ${target}.` : 'No differences.', 'diff');
             } catch (e: any) {

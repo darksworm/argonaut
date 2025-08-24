@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useApp } from 'ink';
 import { logReactError } from '../services/error-handler';
-import LogViewer from './LogViewer';
+import { runLogViewerSession } from '../services/log-viewer';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -56,6 +56,7 @@ function ErrorDisplay({
 }) {
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
   const [termCols, setTermCols] = useState(process.stdout.columns || 80);
+  const { rerender } = useApp();
 
   useEffect(() => {
     const onResize = () => {
@@ -68,27 +69,43 @@ function ErrorDisplay({
       process.stdout.off('resize', onResize);
     };
   }, []);
+  // Handle log viewer when showLogs changes
+  useEffect(() => {
+    const openLogs = async () => {
+      if (showLogs) {
+        try {
+          await runLogViewerSession({
+            title: 'Error Logs'
+          });
+          
+          // Small delay and force Ink re-render
+          await new Promise(resolve => setTimeout(resolve, 50));
+          rerender();
+          onToggleLogs(false);
+        } catch (e: any) {
+          try {
+            const stdinAny = process.stdin as any;
+            stdinAny.setRawMode?.(true);
+            stdinAny.resume?.();
+          } catch {}
+          onToggleLogs(false);
+        }
+      }
+    };
+    
+    openLogs();
+  }, [showLogs, rerender, onToggleLogs]);
+
   useInput((input, key) => {
     if (input === 'l' || input === 'L') {
       if (!showLogs) {
-          onToggleLogs(!showLogs);
+          onToggleLogs(true);
       }
     } else if (key.escape || input === 'q') {
       process.exit(1);
     }
   });
 
-  if (showLogs) {
-    return (
-      <Box flexDirection="column" height={termRows}>
-        <Box flexGrow={1}>
-          <LogViewer 
-            onClose={() => onToggleLogs(false)}
-          />
-        </Box>
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="column" height={termRows - 1}>
