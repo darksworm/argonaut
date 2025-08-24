@@ -10,7 +10,11 @@
     "build:node": "bun run generate:licenses && rollup -c rollup.config.js --configPlugin typescript2",
     "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap src/main.tsx",
     "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
-    "tsx": "tsx src/main.tsx"
+    "tsx": "tsx src/main.tsx",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write",
+    "test": "bun run lint"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
@@ -36,7 +40,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "tsx": "^4.20.5",
+    "@biomejs/biome": "2.2.2",
     "@rollup/plugin-json": "^6.1.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
@@ -44,7 +48,8 @@
     "pino-pretty": "^13.1.1",
     "react-devtools-core": "^6.1.5",
     "rollup": "^4.46.4",
-    "rollup-plugin-typescript2": "^0.36.0"
+    "rollup-plugin-typescript2": "^0.36.0",
+    "tsx": "^4.20.5"
   },
   "bin": {
     "argonaut": "./dist/cli.js"
