@@ -539,8 +539,12 @@ export const App: React.FC = () => {
 
                 const opened = await runAppDiffSession(server, target, {
                     forwardInput: true,
-                    onEnterExternal: () => setMode('external'),
+                    onEnterExternal: () => {
+                        try { require('../ink-control').enterExternal(); } catch {}
+                        setMode('external');
+                    },
                     onExitExternal: () => {
+                        try { require('../ink-control').exitExternal(); } catch {}
                     },
                 });
                 setMode('normal');
@@ -887,7 +891,7 @@ export const App: React.FC = () => {
     if (mode === 'logs') {
         return (
             <LogViewer 
-                onClose={() => setMode(previousMode)} 
+                onClose={() => setMode(previousMode)}
             />
         );
     }

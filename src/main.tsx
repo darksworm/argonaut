@@ -3,6 +3,7 @@ import {App} from "./components/App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initializeLogger, log } from './services/logger';
 import { setupGlobalErrorHandlers } from './services/error-handler';
+import { mutableStdout, setInkInstance } from './ink-control';
 
 function setupAlternateScreen() {
     if (typeof process === 'undefined') return;
@@ -74,11 +75,14 @@ async function main() {
     setupAlternateScreen();
     
     try {
-        render(
+        const mount = () => render(
             <ErrorBoundary>
                 <App/>
-            </ErrorBoundary>
+            </ErrorBoundary>,
+            { stdout: mutableStdout, stderr: process.stderr, patchConsole: false }
         );
+        const inkInstance = mount();
+        setInkInstance(inkInstance, mount);
     } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         log.error('Failed to render React application', 'main', {

@@ -204,7 +204,11 @@ export default function Rollback(props: RollbackProps) {
             return;
         }
         try {
-            const opened = await runRollbackDiffSession(server, app, row.revision, {forwardInput: true}, appNamespace);
+            const opened = await runRollbackDiffSession(server, app, row.revision, {
+                            forwardInput: true,
+                            onEnterExternal: () => { try { require('../ink-control').enterExternal(); } catch {} },
+                            onExitExternal: () => { try { require('../ink-control').exitExternal(); } catch {} },
+                        }, appNamespace);
             if (!opened) setError('No differences.');
         } catch (e: any) {
             setError(`Diff failed: ${e?.message || String(e)}`);
