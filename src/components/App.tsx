@@ -26,7 +26,7 @@ import {colorFor, fmtScope,  uniqueSorted} from "../utils";
 import { useAsyncEffect } from '../hooks/useAsyncEffect';
 import { useStatus } from '../hooks/useStatus';
 import LogViewer from './LogViewer';
-import { log } from '../services/logger';
+import { log, setCurrentView } from '../services/logger';
 
 const COL = {
     mark: 2,
@@ -56,6 +56,11 @@ export const App: React.FC = () => {
     // Modes & view
     const [mode, setMode] = useState<Mode>('loading');
     const [view, setView] = useState<View>('clusters');
+    
+    // Track view changes in logger
+    useEffect(() => {
+        setCurrentView(`${mode}:${view}`);
+    }, [mode, view]);
 
     // Auth
     const [server, setServer] = useState<Server | null>(null);
