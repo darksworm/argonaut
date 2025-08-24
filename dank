@@ -1,0 +1,2018 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ View: LOADING • Context: —                                                   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                    ⠋ Connecting & fetching applications…                     │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ Starting…                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│ View: LOADING • Context: —                                                   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                    ⠋ Connecting & fetching applications…                     │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ Starting…                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│ View: LOADING • Context: —                                                   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                    ⠋ Connecting & fetching applications…                     │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ Starting…                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[GLog file path: /var/folders/4r/2pzrqw6d72vdtf9nzb8c14040000gn/T/argonaut-session-2025-08-24-04-23-48-232.log
+
+
+
+
+
+
+
+
+
+
+
+📋 Starting log viewer...
+     Loading logs...
+
+
+
+
+
+
+
+
+
+
+
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│                             💥 Application Error                             │
+│                                                                              │
+│  DANK is not definedg in the React application:                              │
+│                                                                              │
+│  ReferenceError: DANK is not defined                                         │
+│      at App (/Users/ilmars/Dev/private/a9s/src/components/App.tsx:1069:33)   │
+│      at react-stack-bottom-frame (/Users/ilmars/Dev/private/a9s/node_module  │
+│  s/react-reconciler/cjs/react-reconciler.development.js:15859:20)            │
+│      at renderWithHooks (/Users/ilmars/Dev/private/a9s/node_modules/react-r  │
+│  econciler/cjs/react-reconciler.development.js:3221:22)                      │
+│      at updateFunctionComponent (/Users/ilmars/Dev/private/a9s/node_modules  │
+│  /react-reconciler/cjs/react-reconciler.development.js:6475:19)              │
+│      at runWithFiberInDEV (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:1738:13)                    │
+│      at performUnitOfWork (/Users/ilmars/Dev/private/a9s/node_modules/react  │
+│  -reconciler/cjs/react-reconciler.development.js:12834:22)                   │
+│      at workLoopSync (/Users/ilmars/Dev/private/a9s/node_modules/react-reco  │
+│  This error has been logged to the session logs.4:41)                        │
+╰──    at renderRootSync (/Users/ilmars/Dev/private/a9s/node_modules/react-re──╯
+   conciler/cjs/react-reconciler.development.js:12624:11)
+ Press L to view logs • Q/Esc to exitlmars/Dev/private/a9s/node_modules/react
