@@ -136,7 +136,8 @@ fi
 // High-level helpers that prepare data and run the session
 export async function runAppDiffSession(server: Server, app: string, opts: DiffSessionOptions = {}): Promise<boolean> {
   // Load diffs from API
-  const diffs = await getManagedResourceDiffs(server, app).catch(() => [] as any[]);
+  const diffsResult = await getManagedResourceDiffs(server, app);
+  const diffs = diffsResult.isOk() ? diffsResult.value : [] as any[];
   const desiredDocs: string[] = [];
   const liveDocs: string[] = [];
   for (const d of diffs as any[]) {

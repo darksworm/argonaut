@@ -2,6 +2,8 @@ import {api} from './transport';
 import {getHttpClient} from '../services/http-client';
 import type {Server} from '../types/server';
 import type {ApplicationWatchEvent, ArgoApplication} from '../types/argo';
+import { Result } from 'neverthrow';
+import { wrapApiCall, type ApiError } from '../services/api-errors';
 
 export type ResourceDiff = {
   liveState?: string;
@@ -10,17 +12,21 @@ export type ResourceDiff = {
   namespace?: string;
 };
 
-export async function listApps(server: Server, signal?: AbortSignal): Promise<ArgoApplication[]> {
-  const data: any = await api(server, '/api/v1/applications', { signal } as RequestInit).catch(() => null as any);
-  const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-  return items as ArgoApplication[];
+export function listApps(server: Server, signal?: AbortSignal): Promise<Result<ArgoApplication[], ApiError>> {
+  return wrapApiCall(async () => {
+    const data: any = await api(server, '/api/v1/applications', { signal } as RequestInit);
+    const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+    return items as ArgoApplication[];
+  });
 }
 
-export async function getManagedResourceDiffs(server: Server, appName: string, signal?: AbortSignal): Promise<ResourceDiff[]> {
-  const path = `/api/v1/applications/${encodeURIComponent(appName)}/managed-resources`;
-  const data: any = await api(server, path, { signal } as RequestInit).catch(() => null as any);
-  const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-  return items as ResourceDiff[];
+export function getManagedResourceDiffs(server: Server, appName: string, signal?: AbortSignal): Promise<Result<ResourceDiff[], ApiError>> {
+  return wrapApiCall(async () => {
+    const path = `/api/v1/applications/${encodeURIComponent(appName)}/managed-resources`;
+    const data: any = await api(server, path, { signal } as RequestInit);
+    const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+    return items as ResourceDiff[];
+  });
 }
 
 // Async generator: yields {type, application}
