@@ -56,6 +56,13 @@ export const App: React.FC = () => {
     // Modes & view
     const [mode, setMode] = useState<Mode>('loading');
     const [view, setView] = useState<View>('clusters');
+    const [previousMode, setPreviousMode] = useState<Mode>('normal');
+    
+    // Function to switch to logs mode while tracking previous mode
+    const switchToLogs = () => {
+        setPreviousMode(mode);
+        setMode('logs');
+    };
     
     // Track view changes in logger
     useEffect(() => {
@@ -197,6 +204,10 @@ export const App: React.FC = () => {
         if (mode === 'auth-required') {
             if (input.toLowerCase() === 'q') {
                 exit();
+                return;
+            }
+            if (input.toLowerCase() === 'l') {
+                switchToLogs();
                 return;
             }
             // All other input ignored in auth-required mode
@@ -606,7 +617,7 @@ export const App: React.FC = () => {
 
         if (is('logs', 'log')) {
             statusLog.info('Opening log viewer', 'command');
-            setMode('logs');
+            switchToLogs();
             return;
         }
 
@@ -876,7 +887,7 @@ export const App: React.FC = () => {
     if (mode === 'logs') {
         return (
             <LogViewer 
-                onClose={() => setMode('normal')} 
+                onClose={() => setMode(previousMode)} 
             />
         );
     }
