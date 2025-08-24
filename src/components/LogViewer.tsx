@@ -22,6 +22,8 @@ export default function LogViewer({ onClose }: LogViewerProps) {
           }
         });
 
+        // Small delay to ensure Ink has time to reattach stdin before React state changes
+        await new Promise(resolve => setTimeout(resolve, 50));
         onClose();
 
       } catch (err) {
