@@ -1,11 +1,7 @@
 import React from 'react';
 import {Box, Text, useStdout} from 'ink';
 
-export type HelpProps = {
-  version: string;
-  isOutdated?: boolean;
-  latestVersion?: string;
-};
+export type HelpProps = {};
 
 const HelpSection: React.FC<{
   title: string;
@@ -24,22 +20,13 @@ const HelpSection: React.FC<{
   </Box>
 );
 
-const Help: React.FC<HelpProps> = ({version, isOutdated, latestVersion}) => {
+const Help: React.FC<HelpProps> = () => {
   const {stdout} = useStdout();
   const terminalWidth = stdout?.columns || 80;
   const isWide = terminalWidth >= 60;
   
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Box justifyContent="center" marginBottom={1}>
-        <Text color="magentaBright" bold>
-          Argonaut {version}
-          {isOutdated && latestVersion && (
-            <Text color="yellow"> (latest: {latestVersion})</Text>
-          )}
-        </Text>
-      </Box>
-      
       <HelpSection title="GENERAL" isWide={isWide}>
         <Text>
           <Text color="cyan">:</Text> command • <Text color="cyan">/</Text> search • <Text color="cyan">?</Text> help

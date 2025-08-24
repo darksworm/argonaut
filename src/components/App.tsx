@@ -979,7 +979,7 @@ export const App: React.FC = () => {
             <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1}
                  flexWrap="nowrap">
                 {mode === 'help' ? (
-                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help version={packageJson.version} isOutdated={isVersionOutdated} latestVersion={latestVersion}/></Box>
+                    <Box flexDirection="column" marginTop={1} flexGrow={1}><Help/></Box>
                 ) : mode === 'resources' && server && syncViewApp ? (
                     <Box flexDirection="column" flexGrow={1}>
                         <ResourceStream serverConfig={server.config} token={server.token} appName={syncViewApp}
