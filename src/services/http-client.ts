@@ -58,7 +58,24 @@ class ArgoHttpClient implements HttpClient {
         
         res.on('end', () => {
           if (res.statusCode && res.statusCode >= 400) {
-            reject(new Error(`${method} ${path} → ${res.statusCode} ${res.statusMessage}`));
+            // Parse error response body for structured error information
+            let errorData: any = null;
+            try {
+              const contentType = res.headers['content-type'];
+              if (contentType?.includes('json') && data) {
+                errorData = JSON.parse(data);
+              }
+            } catch (e) {
+              // If parsing fails, use raw data
+              errorData = data;
+            }
+            
+            // Create error with status code and parsed response data
+            const error = new Error(`${method} ${path} → ${res.statusCode} ${res.statusMessage}`);
+            (error as any).status = res.statusCode;
+            (error as any).statusText = res.statusMessage;
+            (error as any).data = errorData;
+            reject(error);
             return;
           }
           
@@ -127,7 +144,26 @@ class ArgoHttpClient implements HttpClient {
 
       const req = requestModule.request(requestOptions, (res) => {
         if (res.statusCode && res.statusCode >= 400) {
-          reject(new Error(`GET ${path} → ${res.statusCode} ${res.statusMessage}`));
+          // For streams, we'll collect the error body and reject with structured error
+          let errorData = '';
+          res.on('data', (chunk) => { errorData += chunk; });
+          res.on('end', () => {
+            let parsedError: any = null;
+            try {
+              const contentType = res.headers['content-type'];
+              if (contentType?.includes('json') && errorData) {
+                parsedError = JSON.parse(errorData);
+              }
+            } catch (e) {
+              parsedError = errorData;
+            }
+            
+            const error = new Error(`GET ${path} → ${res.statusCode} ${res.statusMessage}`);
+            (error as any).status = res.statusCode;
+            (error as any).statusText = res.statusMessage;
+            (error as any).data = parsedError;
+            reject(error);
+          });
           return;
         }
         
