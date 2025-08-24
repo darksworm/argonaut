@@ -9,10 +9,9 @@ import ArgoNautBanner from "./Banner";
 import packageJson from '../../package.json';
 import type {AppItem, Mode, View} from '../types/domain';
 import OfficeSupplyManager, {rulerLineMode} from './OfficeSupplyManager';
-import {getCurrentServerConfigObj, readCLIConfig} from '../config/cli-config';
+import {getCurrentServerConfigObj, readCLIConfig, tokenFromConfig} from '../config/cli-config';
 import {hostFromUrl} from '../config/paths';
 import type {Server} from '../types/server';
-import {tokenFromConfig} from '../auth/token';
 import {getApiVersion as getApiVersionApi} from '../api/version';
 import {getUserInfo} from '../api/session';
 import {syncApp} from '../api/applications.command';
@@ -24,6 +23,10 @@ import {ResourceStream} from './ResourceStream';
 import ConfirmationBox from './ConfirmationBox';
 import {checkVersion} from '../utils/version-check';
 import {colorFor, fmtScope,  uniqueSorted} from "../utils";
+import { useAsyncEffect } from '../hooks/useAsyncEffect';
+import { useStatus } from '../hooks/useStatus';
+import LogViewer from './LogViewer';
+import { log } from '../services/logger';
 
 const COL = {
     mark: 2,
@@ -66,7 +69,7 @@ export const App: React.FC = () => {
     const [activeFilter, setActiveFilter] = useState('');
     const [command, setCommand] = useState(':');
     const [selectedIdx, setSelectedIdx] = useState(0);
-    const [status, setStatus] = useState<string>('Starting…');
+    const [status, statusLog] = useStatus('Starting…');
     const [isVersionOutdated, setIsVersionOutdated] = useState<boolean>(false);
     const [latestVersion, setLatestVersion] = useState<string | undefined>(undefined);
 
@@ -86,74 +89,84 @@ export const App: React.FC = () => {
     const [lastGPressed, setLastGPressed] = useState<number>(0);
 
     // Boot & auth
-    useEffect(() => {
-        (async () => {
-            setMode('loading');
-            setStatus('Loading ArgoCD config…');
-            const cfg = await readCLIConfig();
+    useAsyncEffect(async () => {
+        setMode('loading');
+        statusLog.info('Loading ArgoCD config…', 'boot');
+        log.debug("Begin loading Argo CD cli config");
+        const cfg = await readCLIConfig();
 
-            const serverConfig = getCurrentServerConfigObj(cfg);
-            if (!serverConfig) {
-                // If config can't be loaded or has no current context, require authentication
-                setServer(null);
-                setStatus('No ArgoCD context configured. Please run `argocd login` to configure and authenticate.');
-                setMode('auth-required');
-                return;
+        if(cfg.isErr()) {
+            setServer(null);
+            statusLog.error(`Could not load Argo CD config. Please run 'argocd login' to configure and authenticate. ${cfg.error.message}`, 'auth');
+            setMode('auth-required');
+            return;
+       }
+
+        const serverConfig = getCurrentServerConfigObj(cfg.value);
+        if (serverConfig.isErr()) {
+            setServer(null);
+            statusLog.error(`Could not load Argo CD config. Please run 'argocd login' to configure and authenticate. ${serverConfig.error.message}`, 'auth');
+            setMode('auth-required');
+            return;
+        }
+
+        const tokenResult = tokenFromConfig(cfg.value);
+        if (tokenResult.isErr()) {
+            setServer(null);
+            statusLog.error(tokenResult.error.message, 'auth');
+            setMode('auth-required');
+            return;
+        }
+        
+        const serverObj: Server = {
+            config: serverConfig.value,
+            token: tokenResult.value
+        };
+
+        try {
+            const version = await getApiVersionApi(serverObj);
+            setApiVersion(version);
+        } catch {
+            setServer(null);
+            statusLog.error("Could not connect to Argo CD! Is it dead?", 'connection');
+            setMode('error');
+            return;
+        }
+            
+        const userInfoResult = await getUserInfo(serverObj);
+        
+        if (userInfoResult.isErr()){
+            setServer(null);
+            statusLog.error(userInfoResult.error.message, 'auth');
+            setMode('auth-required');
+            return;
+        }
+
+        setServer(serverObj);
+        if (serverConfig.value.insecure) {
+            statusLog.warn('Ready • WARNING: Insecure TLS connection (certificate validation disabled)', 'connection');
+        } else {
+            statusLog.info('Ready', 'connection');
+        }
+        
+        checkVersion(packageJson.version).map(result => {
+            setIsVersionOutdated(result.isOutdated);
+            if (result.latestVersion) {
+                setLatestVersion(result.latestVersion);
             }
-
-            try {
-                const tokMaybe = await tokenFromConfig();
-                if (!tokMaybe) throw new Error('No token in config');
-                
-                // Create server object with token
-                const serverObj: Server = {
-                    config: serverConfig,
-                    token: tokMaybe
-                };
-                
-                // Verify token by calling userinfo
-                await getUserInfo(serverObj);
-                const version = await getApiVersionApi(serverObj);
-                setApiVersion(version);
-                setServer(serverObj);
-                setStatus('Ready');
-                
-                // Show warning for insecure connections
-                if (serverConfig.insecure) {
-                    setStatus('Ready • WARNING: Insecure TLS connection (certificate validation disabled)');
-                }
-                
-                // Check for version updates
-                checkVersion(packageJson.version).then(result => {
-                    setIsVersionOutdated(result.isOutdated);
-                    if (result.latestVersion) {
-                        setLatestVersion(result.latestVersion);
-                    }
-                    if (result.error && !result.latestVersion) {
-                        setStatus(prevStatus => prevStatus === 'Ready' ? 'Ready • Could not check for updates' : prevStatus);
-                    }
-                }).catch(() => {
-                    // Silently ignore version check errors
-                });
-            } catch {
-                setServer(null);
-                setStatus('please use argocd login to authenticate before running argonaut');
-                setMode('auth-required');
-                return;
-            }
-
-            setMode('normal');
-        })().catch(e => {
-            setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
-            setMode('normal');
+        }).mapErr((err) => {
+            statusLog.warn(`Ready • Could not check for updates ${err.message}`, 'version-check');
         });
+
+        setMode('normal');
+        statusLog.debug("Boot finish");
     }, []);
 
     // Live data via useApps hook
     const {apps: liveApps, status: appsStatus} = useApps(server, mode === 'external', (err) => {
         // On auth error from background data flow, clear server and show auth-required message
         setServer(null);
-        setStatus('please use argocd login to authenticate before running argonaut');
+        statusLog.error('please use argocd login to authenticate before running argonaut', 'auth');
         setMode('auth-required');
     });
 
@@ -161,7 +174,7 @@ export const App: React.FC = () => {
         if (!server) return;
         if (mode === 'external' || mode === 'auth-required') return; // pause syncing state while in external/diff mode or auth required
         setApps(liveApps);
-        setStatus(appsStatus);
+        statusLog.set(appsStatus);
     }, [server, liveApps, appsStatus, mode]);
 
     useEffect(() => {
@@ -186,6 +199,10 @@ export const App: React.FC = () => {
         }
         if (mode === 'help') {
             if (input === 'q' || key.escape) setMode('normal');
+            return;
+        }
+        if (mode === 'logs') {
+            // LogViewer component handles its own input
             return;
         }
         if (mode === 'rulerline') {
@@ -326,7 +343,7 @@ export const App: React.FC = () => {
                         await getUserInfo(server);
                     } catch {
                         setServer(null);
-                        setStatus('please use argocd login to authenticate before running argonaut');
+                        statusLog.error('please use argocd login to authenticate before running argonaut', 'auth');
                         setMode('auth-required');
                     }
                 })();
@@ -395,7 +412,7 @@ export const App: React.FC = () => {
         if (is('license', 'licenses')) {
             try {
                 setMode('normal');
-                setStatus('Opening licenses…');
+                statusLog.info('Opening licenses…', 'license');
 
                 await runLicenseSession({
                     forwardInput: true,
@@ -404,7 +421,7 @@ export const App: React.FC = () => {
                     },
                 });
                 setMode('normal');
-                setStatus('License viewer closed.');
+                statusLog.info('License viewer closed.', 'license');
             } catch (e: any) {
                 try {
                     const stdinAny = process.stdin as any;
@@ -413,7 +430,7 @@ export const App: React.FC = () => {
                 } catch {
                 }
                 setMode('normal');
-                setStatus(`License viewer failed: ${e?.message || String(e)}`);
+                statusLog.error(`License viewer failed: ${e?.message || String(e)}`, 'license');
             }
             return;
         }
@@ -463,13 +480,13 @@ export const App: React.FC = () => {
             else if (view === 'namespaces') setScopeNamespaces(new Set());
             else if (view === 'projects') setScopeProjects(new Set());
             else if (view === 'apps') setSelectedApps(new Set());
-            setStatus('Selection cleared.');
+            statusLog.info('Selection cleared.', 'user-action');
             return;
         }
 
 
         if (is('login')) {
-            setStatus('please use argocd login to authenticate before running argonaut');
+            statusLog.error('please use argocd login to authenticate before running argonaut', 'auth');
             setMode('auth-required');
             return;
         }
@@ -477,11 +494,11 @@ export const App: React.FC = () => {
         if (is('resources', 'resource', 'res')) {
             const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || (selectedApps.size === 1 ? Array.from(selectedApps)[0] : undefined);
             if (!target) {
-                setStatus('No app selected to open resources view.');
+                statusLog.warn('No app selected to open resources view.', 'user-action');
                 return;
             }
             if (!server) {
-                setStatus('Not authenticated.');
+                statusLog.error('Not authenticated.', 'auth');
                 return;
             }
             setResourcesApp(target);
@@ -492,17 +509,17 @@ export const App: React.FC = () => {
         if (is('diff')) {
             const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
             if (!target) {
-                setStatus('No app selected to diff.');
+                statusLog.warn('No app selected to diff.', 'user-action');
                 return;
             }
             if (!server) {
-                setStatus('Not authenticated.');
+                statusLog.error('Not authenticated.', 'auth');
                 return;
             }
 
             try {
                 setMode('normal');
-                setStatus(`Preparing diff for ${target}…`);
+                statusLog.info(`Preparing diff for ${target}…`, 'diff');
 
                 const opened = await runAppDiffSession(server, target, {
                     forwardInput: true,
@@ -511,7 +528,7 @@ export const App: React.FC = () => {
                     },
                 });
                 setMode('normal');
-                setStatus(opened ? `Diff closed for ${target}.` : 'No differences.');
+                statusLog.info(opened ? `Diff closed for ${target}.` : 'No differences.', 'diff');
             } catch (e: any) {
                 try {
                     const stdinAny = process.stdin as any;
@@ -520,7 +537,7 @@ export const App: React.FC = () => {
                 } catch {
                 }
                 setMode('normal');
-                setStatus(`Diff failed: ${e?.message || String(e)}`);
+                statusLog.error(`Diff failed: ${e?.message || String(e)}`, 'diff');
             }
             return;
         }
@@ -528,11 +545,11 @@ export const App: React.FC = () => {
         if (is('rollback')) {
             const target = arg || (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined) || Array.from(selectedApps)[0];
             if (!target) {
-                setStatus('No app selected to rollback.');
+                statusLog.warn('No app selected to rollback.', 'user-action');
                 return;
             }
             if (!server) {
-                setStatus('Not authenticated.');
+                statusLog.error('Not authenticated.', 'auth');
                 return;
             }
             await openRollbackFlow(target);
@@ -559,7 +576,7 @@ export const App: React.FC = () => {
             const target = (view === 'apps' ? (visibleItems[selectedIdx] as any)?.name : undefined)
                 || (selectedApps.size === 1 ? Array.from(selectedApps)[0] : undefined);
             if (!target) {
-                setStatus('No app selected to sync.');
+                statusLog.warn('No app selected to sync.', 'user-action');
                 return;
             }
             setConfirmTarget(target);
@@ -578,7 +595,13 @@ export const App: React.FC = () => {
             // Clear filters
             setActiveFilter('');
             setSearchQuery('');
-            setStatus('All filtering cleared.');
+            statusLog.info('All filtering cleared.', 'user-action');
+            return;
+        }
+
+        if (is('logs', 'log')) {
+            statusLog.info('Opening log viewer', 'command');
+            setMode('logs');
             return;
         }
 
@@ -587,7 +610,7 @@ export const App: React.FC = () => {
             return;
         }
 
-        setStatus(`Unknown command: ${cmd}`);
+        statusLog.warn(`Unknown command: ${cmd}`, 'command');
     }
 
     async function confirmSync(yes: boolean) {
@@ -596,20 +619,20 @@ export const App: React.FC = () => {
         const names = isMulti ? Array.from(selectedApps) : [confirmTarget!];
         setConfirmTarget(null);
         if (!yes) {
-            setStatus('Sync cancelled.');
+            statusLog.info('Sync cancelled.', 'sync');
             return;
         }
         if (!server) {
-            setStatus('Not authenticated.');
+            statusLog.error('Not authenticated.', 'auth');
             return;
         }
         try {
-            setStatus(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`);
+            statusLog.info(`Syncing ${isMulti ? `${names.length} app(s)` : names[0]}…`, 'sync');
             for (const n of names) {
                 const app = apps.find(a => a.name === n);
                 syncApp(server, n, { prune: confirmSyncPrune, appNamespace: app?.appNamespace });
             }
-            setStatus(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`);
+            statusLog.info(`Sync initiated for ${isMulti ? `${names.length} app(s)` : names[0]}.`, 'sync');
             // Show resource stream only for single-app syncs and when watch is enabled
             if (!isMulti && confirmSyncWatch) {
                 setResourcesApp(names[0]);
@@ -619,12 +642,12 @@ export const App: React.FC = () => {
                 if (isMulti) setSelectedApps(new Set());
             }
         } catch (e: any) {
-            setStatus(`Sync failed: ${e.message}`);
+            statusLog.error(`Sync failed: ${e.message}`, 'sync');
         }
     }
 
     async function openRollbackFlow(appName: string) {
-        setStatus(`Opening rollback for ${appName}…`);
+        statusLog.info(`Opening rollback for ${appName}…`, 'rollback');
         setRollbackAppName(appName);
         setMode('rollback');
     }
@@ -844,6 +867,17 @@ export const App: React.FC = () => {
     const getSyncIcon = (s: string) => SYNC_ICON_ASCII[s];
     const getHealthIcon = (h: string) => HEALTH_ICON_ASCII[h] ?? ASCII_ICONS.quest;
 
+    // If in logs mode, render LogViewer fullscreen
+    if (mode === 'logs') {
+        return (
+            <LogViewer 
+                onClose={() => setMode('normal')} 
+                termRows={termRows} 
+                termCols={termCols} 
+            />
+        );
+    }
+
     return (
         <Box flexDirection="column" paddingX={1} height={termRows - 1}>
             <ArgoNautBanner
@@ -920,7 +954,6 @@ export const App: React.FC = () => {
                     onConfirm={confirmSync}
                 />
             )}
-
             {/* Content area (fills space) */}
             <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="magenta" paddingX={1}
                  flexWrap="nowrap">
