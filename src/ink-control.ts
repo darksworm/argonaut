@@ -1,8 +1,11 @@
 import { MutableStdout } from './stdout/mutableStdout';
-import { mutableStdin } from './main';
+import { MutableStdin } from './stdin/mutableStdin';
 
 // A mutable stdout that Ink will write to (so we can mute/unmute without unmounting)
 export const mutableStdout = new MutableStdout(process.stdout as any);
+
+// A shared MutableStdin so this module and main can manage input handoff
+export const mutableStdin = new MutableStdin();
 
 // Mute Ink/logs (those writing via Ink's stdout) while PTY owns the terminal
 export function enterExternal() {

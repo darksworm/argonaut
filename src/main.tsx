@@ -3,12 +3,8 @@ import {App} from "./components/App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initializeLogger, log } from './services/logger';
 import { setupGlobalErrorHandlers } from './services/error-handler';
-import { mutableStdout } from './ink-control';
-import { MutableStdin } from './stdin/mutableStdin';
+import { mutableStdout, mutableStdin } from './ink-control';
 import {ReadStream, WriteStream} from "node:tty";
-
-// Export a shared MutableStdin so other modules (ink-control) can manage input handoff
-export const mutableStdin = new MutableStdin();
 
 function setupAlternateScreen() {
     if (typeof process === 'undefined') return;
