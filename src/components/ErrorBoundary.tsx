@@ -67,7 +67,9 @@ function ErrorDisplay({
   }, []);
   useInput((input, key) => {
     if (input === 'l' || input === 'L') {
-      onToggleLogs(!showLogs);
+      if (!showLogs) {
+          onToggleLogs(!showLogs);
+      }
     } else if (key.escape || input === 'q') {
       process.exit(1);
     }
@@ -76,15 +78,6 @@ function ErrorDisplay({
   if (showLogs) {
     return (
       <Box flexDirection="column" height={termRows}>
-        <Box paddingX={1} marginBottom={1}>
-          <Text color="red" bold>💥 Crash detected - showing logs</Text>
-          <Text> • Press </Text>
-          <Text color="cyan">L</Text>
-          <Text> to toggle error details • </Text>
-          <Text color="cyan">Q/Esc</Text>
-          <Text> to exit</Text>
-        </Box>
-        
         <Box flexGrow={1}>
           <LogViewer 
             onClose={() => onToggleLogs(false)}
