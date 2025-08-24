@@ -99,7 +99,7 @@ export function toYamlDoc(input?: string | any): string | null {
 
 export async function writeTmp(docs: string[], label: string): Promise<string> {
   const file = path.join(os.tmpdir(), `${label}-${Date.now()}.yaml`);
-  const content = docs.filter(Boolean).join("\\n---\\n");
+  const content = docs.filter(Boolean).join("\n---\n");
   await fs.writeFile(file, content, 'utf8');
   return file;
 }
