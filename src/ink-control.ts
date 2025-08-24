@@ -1,18 +1,8 @@
-import type {Instance as InkInstance} from 'ink';
 import { MutableStdout } from './stdout/mutableStdout';
 import { mutableStdin } from './main';
 
-// Keeps a reference to the current Ink instance and a function to re-render the App
-let inkInstance: InkInstance | null = null;
-let renderApp: (() => void) | null = null;
-
 // A mutable stdout that Ink will write to (so we can mute/unmute without unmounting)
 export const mutableStdout = new MutableStdout(process.stdout as any);
-
-export function setInkInstance(instance: InkInstance, renderFn: () => void) {
-  inkInstance = instance;
-  renderApp = renderFn;
-}
 
 // Mute Ink/logs (those writing via Ink's stdout) while PTY owns the terminal
 export function enterExternal() {

@@ -3,7 +3,7 @@ import {App} from "./components/App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initializeLogger, log } from './services/logger';
 import { setupGlobalErrorHandlers } from './services/error-handler';
-import { mutableStdout, setInkInstance } from './ink-control';
+import { mutableStdout } from './ink-control';
 import { MutableStdin } from './stdin/mutableStdin';
 
 // Export a shared MutableStdin so other modules (ink-control) can manage input handoff
@@ -79,15 +79,18 @@ async function main() {
     setupAlternateScreen();
     
     try {
-        const mount = () => render(
+        render(
             <ErrorBoundary>
                 <App/>
             </ErrorBoundary>,
-            { stdout: mutableStdout, stderr: process.stderr, stdin: mutableStdin, patchConsole: false, exitOnCtrlC: false }
+            {
+                stdout: mutableStdout,
+                stderr: process.stderr,
+                stdin: mutableStdin,
+                patchConsole: false,
+                exitOnCtrlC: false
+            }
         );
-        const inkInstance = mount();
-        setInkInstance(inkInstance, mount);
-        // Initially attach process.stdin to feed Ink
         try { mutableStdin.attach(process.stdin as any); } catch {}
     } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
