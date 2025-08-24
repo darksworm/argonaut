@@ -201,6 +201,15 @@ function removeCommonDefaults(obj: any): void {
         if (obj.spec.sessionAffinity === 'None') {
             delete obj.spec.sessionAffinity;
         }
+        
+        // Remove default protocol from service ports
+        if (obj.spec.ports && Array.isArray(obj.spec.ports)) {
+            obj.spec.ports.forEach((port: any) => {
+                if (port.protocol === 'TCP') {
+                    delete port.protocol;
+                }
+            });
+        }
     }
 
     // Deployment defaults
@@ -237,22 +246,46 @@ function removeCommonDefaults(obj: any): void {
             delete podSpec.securityContext;
         }
 
-        // Container defaults
+        // Helper function to clean container defaults
+        const cleanContainerDefaults = (container: any) => {
+            // Remove default imagePullPolicy values
+            if (container.imagePullPolicy === 'IfNotPresent' || 
+                container.imagePullPolicy === 'Always') {
+                delete container.imagePullPolicy;
+            }
+            if (container.terminationMessagePath === '/dev/termination-log') {
+                delete container.terminationMessagePath;
+            }
+            if (container.terminationMessagePolicy === 'File') {
+                delete container.terminationMessagePolicy;
+            }
+            if (container.resources && Object.keys(container.resources).length === 0) {
+                delete container.resources;
+            }
+            
+            // Remove default protocol from container ports
+            if (container.ports && Array.isArray(container.ports)) {
+                container.ports.forEach((port: any) => {
+                    if (port.protocol === 'TCP') {
+                        delete port.protocol;
+                    }
+                });
+            }
+        };
+
+        // Clean regular containers
         if (podSpec.containers && Array.isArray(podSpec.containers)) {
-            podSpec.containers.forEach((container: any) => {
-                if (container.imagePullPolicy === 'IfNotPresent') {
-                    delete container.imagePullPolicy;
-                }
-                if (container.terminationMessagePath === '/dev/termination-log') {
-                    delete container.terminationMessagePath;
-                }
-                if (container.terminationMessagePolicy === 'File') {
-                    delete container.terminationMessagePolicy;
-                }
-                if (container.resources && Object.keys(container.resources).length === 0) {
-                    delete container.resources;
-                }
-            });
+            podSpec.containers.forEach(cleanContainerDefaults);
+        }
+        
+        // Clean init containers
+        if (podSpec.initContainers && Array.isArray(podSpec.initContainers)) {
+            podSpec.initContainers.forEach(cleanContainerDefaults);
+        }
+        
+        // Clean ephemeral containers
+        if (podSpec.ephemeralContainers && Array.isArray(podSpec.ephemeralContainers)) {
+            podSpec.ephemeralContainers.forEach(cleanContainerDefaults);
         }
     }
 }
