@@ -31,56 +31,52 @@ const checkDelta = (): boolean => {
 
 // Strip the temp file header from diff output
 function stripDiffHeader(diffOutput: string): string {
-  const lines = diffOutput.split('\\n');
+  const lines = diffOutput.split('\n');
   let startIndex = -1;
 
   // Look for the first line that contains actual diff content
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const line = lines[i];
 
     // Skip empty lines
-    if (line === '') {
+    if (line.trim() === '') {
       continue;
     }
 
-    // Skip temp file paths (contain /T/, /tmp/, /var/folders/, etc.)
-    if (line.includes('/T/') || line.includes('/tmp/') || line.includes('/var/folders/') || line.includes('/TemporaryItems/')) {
+    // Skip any line that contains temp file patterns (be very aggressive)
+    if (line.includes('/var/folders/') ||
+        line.includes('/tmp/') ||
+        line.includes('/T/') ||
+        line.includes('/TemporaryItems/') ||
+        line.includes('.yaml') ||
+        line.includes('⟶') ||
+        line.includes('-->') ||
+        line.includes('→') ||
+        line.includes('differ')) {
       continue;
     }
 
-    // Skip separator lines (any line that's mostly dashes/unicode box chars)
-    if (line.match(/^[─━═—\\-]{10,}$/) || line.match(/^─+$/)) {
+    // Skip separator lines and box drawing characters
+    if (line.match(/^[─━═—\-_=┌┐┘└│├┤┬┴┼]{5,}$/) || 
+        line.match(/^\s*[─━═—\-_=┌┐┘└│├┤┬┴┼\s]{10,}\s*$/) ||
+        line.match(/^\d+:\s*\w+:\s*│$/) || // Lines like "39: spec: │"
+        line.match(/^──────────┘$/) || // Box drawing end markers
+        line.match(/^.*│\s*$/) && !line.includes('apiVersion') && !line.includes('kind')) { // Single │ without content
       continue;
     }
 
-    // Skip arrows and file transitions
-    if (line.includes('⟶') || line.includes('-->') || line.includes('→')) {
-      continue;
-    }
-
-    // Look for actual diff content markers:
-    // - Lines that look like "kind: Service" sections
-    // - Lines with line numbers and pipes │
-    // - Lines that start with actual YAML/content
-    if (line.match(/^[─┐┌┘└│├┤┬┴┼]+$/) || // box drawing characters for section headers
-        line.includes('│') || // side-by-side diff separator
-        line.match(/^\\s*\\d+\\s*│/) || // line numbers
-        line.match(/^[a-zA-Z].*:/) || // YAML keys
-        line.match(/^\\s*-\\s+/) || // YAML lists
-        line.startsWith('apiVersion:') || // common YAML start
-        line.startsWith('kind:') || // common YAML start
-        line.startsWith('metadata:')) { // common YAML start
+    // Look for actual diff content - first line that has meaningful YAML or diff content
+    if (line.match(/^\s*│\s*\d+\s*│/) || // line numbers with content
+        (line.includes('│') && (line.includes('apiVersion') || line.includes('kind') || line.includes('metadata') || line.includes('image:') || line.includes('name:'))) || // side-by-side diff with meaningful YAML
+        line.match(/^[+-]\s*(apiVersion|kind|metadata|spec|data):/) || // git diff style changes with YAML
+        line.startsWith('@@') || // git diff hunk headers
+        (line.match(/^\s*(apiVersion|kind|metadata|spec|data):/) && !line.includes('│'))) { // Direct YAML keys
       startIndex = i;
       break;
     }
   }
 
-  // If we couldn't find a good starting point, just return original (safety)
-  if (startIndex === -1) {
-    return diffOutput;
-  }
-
-  return lines.slice(startIndex).join('\\n');
+  return lines.slice(startIndex).join('\n');
 }
 
 export function toYamlDoc(input?: string | any): string | null {
