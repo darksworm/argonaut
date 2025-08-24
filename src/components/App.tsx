@@ -56,8 +56,7 @@ export const App: React.FC = () => {
     // Modes & view
     const [mode, setMode] = useState<Mode>('loading');
     const [view, setView] = useState<View>('clusters');
-    const [previousMode, setPreviousMode] = useState<Mode>('normal');
-    
+
     // Function to switch to logs mode while tracking previous mode
     const switchToLogs = async () => {
         try {
