@@ -4,6 +4,7 @@ import type {Server} from '../types/server';
 import type {ApplicationWatchEvent, ArgoApplication} from '../types/argo';
 import { Result } from 'neverthrow';
 import { wrapApiCall, type ApiError } from '../services/api-errors';
+import { log } from '../services/logger';
 
 export type ResourceDiff = {
   liveState?: string;
@@ -25,6 +26,8 @@ export function getManagedResourceDiffs(server: Server, appName: string, signal?
     const path = `/api/v1/applications/${encodeURIComponent(appName)}/managed-resources`;
     const data: any = await api(server, path, { signal } as RequestInit);
     const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+
+    log.debug(JSON.stringify(items));
     return items as ResourceDiff[];
   });
 }
