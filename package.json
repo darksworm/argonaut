@@ -26,13 +26,11 @@
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "bun-pty": "^0.3.2",
     "chalk": "^5.6.0",
     "execa": "^9.6.0",
     "ink": "^6.2.1",
     "ink-text-input": "^6.0.0",
     "neverthrow": "^8.2.0",
-    "node-pty": "^1.0.0",
     "pino": "^9.9.0",
     "react": "^19.1.1",
     "yaml": "^2.8.1"
