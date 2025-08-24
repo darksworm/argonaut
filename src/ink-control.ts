@@ -1,5 +1,6 @@
 import type {Instance as InkInstance} from 'ink';
 import { MutableStdout } from './stdout/mutableStdout';
+import { mutableStdin } from './main';
 
 // Keeps a reference to the current Ink instance and a function to re-render the App
 let inkInstance: InkInstance | null = null;
@@ -21,12 +22,14 @@ export function enterExternal() {
 // Restore stdout for Ink/logs
 export function exitExternal() {
   try { mutableStdout.unmute(); } catch {}
-  // Ensure Ink can receive input again after PTY restored stdin to cooked/paused
-  try {
-    const stdinAny = process.stdin as any;
-    stdinAny.setRawMode?.(true);
-    stdinAny.resume?.();
-  } catch {}
+}
+
+// Exclusive stdin handoff helpers
+export function beginExclusiveInput() {
+  try { mutableStdin.detach(process.stdin as any); } catch {}
+}
+export function endExclusiveInput() {
+  try { mutableStdin.attach(process.stdin as any); } catch {}
 }
 
 // Write directly to the real stdout even when muted
