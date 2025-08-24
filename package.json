@@ -9,7 +9,8 @@
     "logs": "bun tools/logs.ts --session=latest",
     "build:node": "bun run generate:licenses && rollup -c rollup.config.js --configPlugin typescript2",
     "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap src/main.tsx",
-    "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs"
+    "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
+    "tsx": "tsx src/main.tsx"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
@@ -37,6 +38,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "tsx": "^4.20.5",
     "@rollup/plugin-json": "^6.1.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
