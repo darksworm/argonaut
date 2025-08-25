@@ -6,7 +6,7 @@ import { type DependencyList, useEffect } from "react";
  * calling any returned cleanup function.
  */
 export function useAsyncEffect(
-  effect: () => Promise<undefined | (() => void)>,
+  effect: () => Promise<undefined | (() => void) | void>,
   deps?: DependencyList,
 ) {
   useEffect(() => {

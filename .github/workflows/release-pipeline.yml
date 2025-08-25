@@ -104,7 +104,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: nightly
           args: release --config .goreleaser.release.yml --clean
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}          # must have repo:status, repo:write
