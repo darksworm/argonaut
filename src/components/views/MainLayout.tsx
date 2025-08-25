@@ -15,7 +15,7 @@ interface MainLayoutProps {
   visibleItems: any[];
   onDrillDown: () => void;
   commandRegistry: any;
-  onExecuteCommand: (command: string, args: string[]) => void;
+  onExecuteCommand: (command: string, ...args: string[]) => void;
   status: string;
   modal?: React.ReactNode;
 }
@@ -121,8 +121,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </Box>
 
       {/* Status line outside the main box */}
-      {mode !== "rulerline" && mode !== "external" && (
-        <Box justifyContent="space-between">
+      <Box justifyContent="space-between">
           <Box>
             <Text dimColor>
               {ui.activeFilter && state.navigation.view === "apps"
@@ -142,7 +141,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             </Text>
           </Box>
         </Box>
-      )}
     </Box>
   );
 };
