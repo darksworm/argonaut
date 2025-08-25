@@ -881,7 +881,6 @@ export const App: React.FC = () => {
   // Loading screen fills the viewport
   if (mode === "loading") {
     const spinChar = "⠋";
-    // @ts-expect-error
     const loadingHeader: string = `${chalk.bold("View:")} ${chalk.yellow("LOADING")} • ${chalk.bold("Context:")} ${chalk.cyan(server ? hostFromUrl(server.config.baseUrl) : "—")}`;
     return (
       <Box
