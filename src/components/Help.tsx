@@ -57,6 +57,7 @@ const Help: React.FC = () => {
 
       <HelpSection title="ACTIONS" isWide={isWide}>
         <Text>
+          <Text color="cyan">:diff</Text> [app] •{" "}
           <Text color="cyan">:sync</Text> [app] •{" "}
           <Text color="cyan">:rollback</Text> [app]
         </Text>
