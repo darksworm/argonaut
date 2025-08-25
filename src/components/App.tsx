@@ -68,44 +68,19 @@ const AppContent: React.FC = () => {
       if (state.mode === "help") {
         return <HelpModal />;
       }
-      
-      if (state.mode === "confirm-sync") {
-        return (
-          <>
-            <MainLayout 
-              visibleItems={visibleItems} 
-              onDrillDown={drillDown}
-              commandRegistry={commandRegistry}
-              onExecuteCommand={executeCommand}
-              status={status}
-            />
-            <ConfirmSyncModal />
-          </>
-        );
-      }
-      
-      if (state.mode === "rollback") {
-        return (
-          <>
-            <MainLayout 
-              visibleItems={visibleItems} 
-              onDrillDown={drillDown}
-              commandRegistry={commandRegistry}
-              onExecuteCommand={executeCommand}
-              status={status}
-            />
-            <RollbackModal />
-          </>
-        );
-      }
-      
+
       return (
-        <MainLayout 
-          visibleItems={visibleItems} 
+        <MainLayout
+          visibleItems={visibleItems}
           onDrillDown={drillDown}
           commandRegistry={commandRegistry}
           onExecuteCommand={executeCommand}
           status={status}
+          modal={
+            state.mode === "confirm-sync" ? <ConfirmSyncModal /> :
+            state.mode === "rollback" ? <RollbackModal /> :
+            null
+          }
         />
       );
   }

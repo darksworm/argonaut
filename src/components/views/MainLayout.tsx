@@ -17,6 +17,7 @@ interface MainLayoutProps {
   commandRegistry: any;
   onExecuteCommand: (command: string, args: string[]) => void;
   status: string;
+  modal?: React.ReactNode;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -24,7 +25,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onDrillDown, 
   commandRegistry, 
   onExecuteCommand,
-  status
+  status,
+  modal
 }) => {
   const { state, dispatch } = useAppState();
   const { mode, terminal, server, apiVersion, selections, modals, ui } = state;
@@ -86,6 +88,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         commandRegistry={commandRegistry}
         onExecuteCommand={onExecuteCommand}
       />
+
+      {/* Modal appears here if present */}
+      {modal}
 
       <Box
         flexDirection="column"
