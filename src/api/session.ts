@@ -2,14 +2,6 @@ import { ResultAsync } from "neverthrow";
 import type { Server } from "../types/server";
 import { api } from "./transport";
 
-export type UserInfo = {
-  iss?: string;
-  sub?: string;
-  email?: string;
-  groups?: string[];
-  loggedIn?: boolean;
-};
-
 export function getUserInfo(
   server: Server,
 ): ResultAsync<void, { message: string }> {
