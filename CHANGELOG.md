@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/darksworm/argonaut/compare/v1.12.0...v1.12.1) (2025-08-25)
+
+
+### Bug Fixes
+
+* remove unused directive ([943cdba](https://github.com/darksworm/argonaut/commit/943cdbaa29f13f171b73d3eb82bc456167b3dd14))
+
 ## [1.12.0](https://github.com/darksworm/argonaut/compare/v1.11.0...v1.12.0) (2025-08-24)
 
 
