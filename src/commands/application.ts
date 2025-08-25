@@ -218,7 +218,10 @@ export class LogsCommand implements Command {
         title: "Session Logs",
       });
 
-      // Small delay and trigger re-render with status message
+      // Force re-render by triggering a state change immediately
+      statusLog.set("Log viewer closed.");
+      
+      // Small delay and final status
       await new Promise((resolve) => setTimeout(resolve, 50));
       statusLog.info("Log viewer closed.", "logs");
     } catch (e: any) {
@@ -247,7 +250,10 @@ export class LicenseCommand implements Command {
         title: "Licenses",
       });
 
-      // Small delay and trigger re-render with status message
+      // Force re-render by triggering a state change immediately
+      statusLog.set("License viewer closed.");
+      
+      // Small delay and final status
       await new Promise((resolve) => setTimeout(resolve, 50));
       dispatch({ type: "SET_MODE", payload: "normal" });
       statusLog.info("License viewer closed.", "license");
