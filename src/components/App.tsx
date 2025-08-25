@@ -353,10 +353,7 @@ export const App: React.FC = () => {
 
   // Input
   useInput((input, key) => {
-    if (
-      (key.ctrl && input === "c") ||
-      input === "\u0003"
-    ) {
+    if ((key.ctrl && input === "c") || input === "\u0003") {
       cleanupAndExit();
     }
 
