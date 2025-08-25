@@ -6,7 +6,7 @@ import { useAppState } from "../../contexts/AppStateContext";
 
 interface CommandBarProps {
   commandRegistry: CommandRegistry;
-  onExecuteCommand: (command: string, args: string[]) => void;
+  onExecuteCommand: (command: string, ...args: string[]) => void;
 }
 
 export const CommandBar: React.FC<CommandBarProps> = ({
@@ -24,7 +24,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
 
     const { command, args } = commandRegistry.parseCommandLine(val);
     if (command) {
-      onExecuteCommand(command, args);
+      onExecuteCommand(command, ...args);
     }
 
     dispatch({ type: "SET_COMMAND", payload: ":" });
