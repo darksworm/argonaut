@@ -14,14 +14,27 @@ export const useInputSystem = (
 ) => {
   const { state, dispatch } = useAppState();
 
-  // Create command context
+  // Create a mutable command context that can be passed to handlers
   const context: CommandContext = {
     state,
     dispatch,
     statusLog,
     cleanupAndExit,
     navigationActions,
+    // This will be overwritten below to avoid circular dependency issues
+    executeCommand: async () => {},
   };
+
+  // Command execution helper
+  const executeCommand = async (command: string, ...args: string[]) => {
+    const success = await registry.executeCommand(command, context, ...args);
+    if (!success) {
+      statusLog.warn(`Unknown command: ${command}`, "command");
+    }
+  };
+
+  // Now that executeCommand is defined, attach it to the context
+  context.executeCommand = executeCommand;
 
   // Handle keyboard input
   useInput((input, key) => {
@@ -33,14 +46,6 @@ export const useInputSystem = (
       // For now, we just ignore unhandled input
     }
   });
-
-  // Command execution helper
-  const executeCommand = async (command: string, args: string[] = []) => {
-    const success = await registry.executeCommand(command, context, ...args);
-    if (!success) {
-      statusLog.warn(`Unknown command: ${command}`, "command");
-    }
-  };
 
   return {
     executeCommand,
