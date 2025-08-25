@@ -18,10 +18,11 @@ Refactoring the monolithic 1400-line App.tsx component into a clean, maintainabl
 - [x] Extract state interfaces and action types
 - [x] Create initial state structure
 
-### Phase 2: Component Extraction ✅ CURRENT
+### Phase 2: Component Extraction ✅ COMPLETED
 - [x] Extract modal components (ConfirmSyncModal, RollbackModal, HelpModal)
-- [ ] Create view components (ClusterView, NamespaceView, ProjectView, AppListView)
-- [ ] Create layout components (Header, SearchBar, CommandBar, StatusBar)
+- [x] Create view components (LoadingView, ListView, MainLayout)
+- [x] Create input components (SearchBar, CommandBar)
+- [x] Extract data processing logic (useVisibleItems hook)
 
 ### Phase 3: Input System Refactoring ✅ COMPLETED
 - [x] Implement command pattern for input handling
