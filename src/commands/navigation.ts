@@ -4,7 +4,7 @@ import type { Command, CommandContext } from "./types";
 export class NavigationCommand implements Command {
   constructor(
     private targetView: View,
-    private commandName: string,
+    _commandName: string,
     public aliases: string[] = [],
   ) {}
 

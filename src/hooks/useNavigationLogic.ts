@@ -9,13 +9,18 @@ export const useNavigationLogic = () => {
 
   // Keep selectedIdx within bounds when visibleItems change
   useEffect(() => {
-    dispatch({
-      type: "SET_SELECTED_IDX",
-      payload: Math.min(
-        navigation.selectedIdx,
-        Math.max(0, visibleItems.length - 1),
-      ),
-    });
+    const newIdx = Math.min(
+      navigation.selectedIdx,
+      Math.max(0, visibleItems.length - 1),
+    );
+
+    // Only update if the index actually needs to change
+    if (newIdx !== navigation.selectedIdx) {
+      dispatch({
+        type: "SET_SELECTED_IDX",
+        payload: newIdx,
+      });
+    }
   }, [visibleItems.length, navigation.selectedIdx, dispatch]);
 
   // Drill down navigation logic

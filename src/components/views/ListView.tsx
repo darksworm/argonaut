@@ -216,24 +216,6 @@ export const ListView: React.FC<ListViewProps> = ({
         </Box>
       )}
 
-      {/* Bottom status */}
-      <Box flexGrow={1} />
-      <Box justifyContent="space-between">
-        <Box>
-          <Text dimColor>{tag}</Text>
-        </Box>
-        <Box>
-          <Text dimColor>
-            Ready •{" "}
-            {visibleItems.length
-              ? `${selectedIdx + 1}/${visibleItems.length}`
-              : "0/0"}
-            {state.ui.isVersionOutdated && (
-              <Text color="yellow"> • Update available!</Text>
-            )}
-          </Text>
-        </Box>
-      </Box>
     </Box>
   );
 };

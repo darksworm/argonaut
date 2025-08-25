@@ -1,26 +1,31 @@
-import { Box } from "ink";
+import { Box, Text } from "ink";
 import type React from "react";
 import packageJson from "../../../package.json";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
-import { fmtScope, uniqueSorted } from "../../utils";
+import { fmtScope } from "../../utils";
 import ArgoNautBanner from "../Banner";
-import Help from "../Help";
 import OfficeSupplyManager from "../OfficeSupplyManager";
 import { ResourceStream } from "../ResourceStream";
+import { CommandBar } from "./CommandBar";
 import { ListView } from "./ListView";
+import { SearchBar } from "./SearchBar";
 
 interface MainLayoutProps {
   visibleItems: any[];
   onDrillDown: () => void;
+  commandRegistry: any;
+  onExecuteCommand: (command: string, args: string[]) => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({
-  visibleItems,
-  onDrillDown,
+export const MainLayout: React.FC<MainLayoutProps> = ({ 
+  visibleItems, 
+  onDrillDown, 
+  commandRegistry, 
+  onExecuteCommand 
 }) => {
   const { state, dispatch } = useAppState();
-  const { mode, terminal, server, apiVersion, selections, modals } = state;
+  const { mode, terminal, server, apiVersion, selections, modals, ui } = state;
 
   const { scopeClusters, scopeNamespaces, scopeProjects } = selections;
   const { syncViewApp } = modals;
@@ -73,6 +78,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         argonautVersion={packageJson.version}
       />
 
+      {/* Input bars between header and main content */}
+      <SearchBar onSubmit={onDrillDown} />
+      <CommandBar
+        commandRegistry={commandRegistry}
+        onExecuteCommand={onExecuteCommand}
+      />
+
       <Box
         flexDirection="column"
         flexGrow={1}
@@ -81,11 +93,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         paddingX={1}
         flexWrap="nowrap"
       >
-        {mode === "help" ? (
-          <Box flexDirection="column" marginTop={1} flexGrow={1}>
-            <Help />
-          </Box>
-        ) : mode === "resources" && server && syncViewApp ? (
+        {mode === "resources" && server && syncViewApp ? (
           <Box flexDirection="column" flexGrow={1}>
             <ResourceStream
               serverConfig={server.config}
@@ -104,6 +112,30 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <ListView visibleItems={visibleItems} availableRows={listRows} />
         )}
       </Box>
+
+      {/* Status line outside the main box */}
+      {mode !== "rulerline" && mode !== "external" && (
+        <Box justifyContent="space-between">
+          <Box>
+            <Text dimColor>
+              {ui.activeFilter && state.navigation.view === "apps"
+                ? `<${state.navigation.view}:${ui.activeFilter}>`
+                : `<${state.navigation.view}>`}
+            </Text>
+          </Box>
+          <Box>
+            <Text dimColor>
+              Ready •{" "}
+              {visibleItems.length
+                ? `${state.navigation.selectedIdx + 1}/${visibleItems.length}`
+                : "0/0"}
+              {state.ui.isVersionOutdated && (
+                <Text color="yellow"> • Update available!</Text>
+              )}
+            </Text>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 };

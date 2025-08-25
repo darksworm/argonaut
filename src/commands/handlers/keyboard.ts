@@ -55,13 +55,21 @@ export class NavigationInputHandler implements InputHandler {
 
     // Enter to drill down
     if (key.return) {
-      this.drillDown(context);
+      if (context.navigationActions?.drillDown) {
+        context.navigationActions.drillDown();
+      } else {
+        this.drillDown(context);
+      }
       return true;
     }
 
     // Space to toggle selection
     if (input === " ") {
-      this.toggleSelection(context);
+      if (context.navigationActions?.toggleSelection) {
+        context.navigationActions.toggleSelection();
+      } else {
+        this.toggleSelection(context);
+      }
       return true;
     }
 
@@ -121,7 +129,7 @@ export class NavigationInputHandler implements InputHandler {
 
   private toggleSelection(context: CommandContext): void {
     const { state, dispatch } = context;
-    const { navigation, selections } = state;
+    const { navigation } = state;
     const { view } = navigation;
 
     // Simplified - would need actual visible items and selected item
@@ -139,7 +147,7 @@ export class ModeInputHandler implements InputHandler {
     return context.state.mode === "normal";
   }
 
-  handleInput(input: string, key: any, context: CommandContext): boolean {
+  handleInput(input: string, _key: any, context: CommandContext): boolean {
     const { dispatch } = context;
 
     if (input === "?") {
@@ -169,7 +177,7 @@ export class SearchInputHandler implements InputHandler {
     return context.state.mode === "search";
   }
 
-  handleInput(input: string, key: any, context: CommandContext): boolean {
+  handleInput(_input: string, key: any, context: CommandContext): boolean {
     const { dispatch } = context;
 
     if (key.escape) {
@@ -217,7 +225,7 @@ export class CommandInputHandler implements InputHandler {
     return context.state.mode === "command";
   }
 
-  handleInput(input: string, key: any, context: CommandContext): boolean {
+  handleInput(_input: string, key: any, context: CommandContext): boolean {
     const { dispatch } = context;
 
     if (key.escape) {
@@ -234,7 +242,7 @@ export class CommandInputHandler implements InputHandler {
 export class GlobalInputHandler implements InputHandler {
   priority = 0; // Lowest priority - catches global inputs
 
-  canHandle(context: CommandContext): boolean {
+  canHandle(_context: CommandContext): boolean {
     return true; // Always available
   }
 
