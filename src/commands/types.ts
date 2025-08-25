@@ -13,6 +13,10 @@ export interface CommandContext {
   dispatch: React.Dispatch<AppAction>;
   statusLog: StatusLogger;
   cleanupAndExit: () => void;
+  navigationActions?: {
+    drillDown: () => void;
+    toggleSelection: () => void;
+  };
 }
 
 export interface Command {

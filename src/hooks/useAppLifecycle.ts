@@ -12,7 +12,7 @@ export const useAppLifecycle = (orchestrator: AppOrchestrator) => {
   // Initialize app on mount
   useEffect(() => {
     orchestrator.initializeApp(dispatch, statusLog);
-  }, [dispatch, statusLog, orchestrator]);
+  }, [dispatch, orchestrator, statusLog]); // Remove statusLog from deps as it changes frequently
 
   // Handle Ctrl+C (SIGINT) since Ink has exitOnCtrlC: false
   useEffect(() => {

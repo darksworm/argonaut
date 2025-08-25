@@ -1,7 +1,6 @@
 import { runAppDiffSession } from "../components/DiffView";
 import { runLicenseSession } from "../components/LicenseView";
 import { runLogViewerSession } from "../services/log-viewer";
-import type { AppItem } from "../types/domain";
 import type { Command, CommandContext } from "./types";
 
 export class SyncCommand implements Command {
@@ -71,7 +70,7 @@ export class DiffCommand implements Command {
 
   async execute(context: CommandContext, arg?: string): Promise<void> {
     const { state, dispatch, statusLog } = context;
-    const { server, apps } = state;
+    const { server } = state;
     const { selectedApps } = state.selections;
     const { view, selectedIdx } = state.navigation;
 

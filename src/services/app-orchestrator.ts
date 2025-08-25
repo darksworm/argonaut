@@ -6,7 +6,7 @@ import {
   readCLIConfig,
   tokenFromConfig,
 } from "../config/cli-config";
-import type { AppAction, AppState } from "../contexts/AppStateContext";
+import type { AppAction } from "../contexts/AppStateContext";
 import { httpClientManager } from "../services/http-client";
 import { log, setCurrentView } from "../services/logger";
 import type { Server } from "../types/server";
@@ -182,7 +182,9 @@ export class DefaultAppOrchestrator implements AppOrchestrator {
     signal: AbortSignal,
   ): Promise<void> {
     try {
-      const versionResult = await checkVersion("1.0.0"); // This should come from packageJson
+      // Import here to avoid circular dependencies
+      const packageJson = await import("../../package.json");
+      const versionResult = await checkVersion(packageJson.version);
       if (signal.aborted) return;
 
       if (versionResult.isOk()) {

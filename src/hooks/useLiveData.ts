@@ -27,7 +27,7 @@ export const useLiveData = (orchestrator: AppOrchestrator) => {
 
     dispatch({ type: "SET_APPS", payload: liveApps });
     statusLog.set(appsStatus);
-  }, [server, liveApps, appsStatus, mode, dispatch, statusLog]);
+  }, [server, liveApps, appsStatus, mode, dispatch, statusLog.set]); // Remove statusLog from deps
 
   // Periodically refresh API version
   useEffect(() => {

@@ -1,13 +1,16 @@
 import { useInput } from "ink";
-import { useEffect, useState } from "react";
 import type { CommandRegistry } from "../commands/registry";
-import type { CommandContext, StatusLogger } from "../commands/types";
+import type { CommandContext } from "../commands/types";
 import { useAppState } from "../contexts/AppStateContext";
 import { useStatus } from "./useStatus";
 
 export const useInputSystem = (
   registry: CommandRegistry,
   cleanupAndExit: () => void,
+  navigationActions?: {
+    drillDown: () => void;
+    toggleSelection: () => void;
+  },
 ) => {
   const { state, dispatch } = useAppState();
   const [, statusLog] = useStatus("Ready");
@@ -18,6 +21,7 @@ export const useInputSystem = (
     dispatch,
     statusLog,
     cleanupAndExit,
+    navigationActions,
   };
 
   // Handle keyboard input

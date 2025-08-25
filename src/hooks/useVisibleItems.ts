@@ -67,7 +67,6 @@ export const useVisibleItems = () => {
       case "projects":
         base = allProjects;
         break;
-      case "apps":
       default:
         base = finalApps;
         break;
