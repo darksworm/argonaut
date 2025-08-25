@@ -39,7 +39,7 @@ const AppContent: React.FC = () => {
   });
 
   // Manage live data synchronization
-  useLiveData(orchestrator);
+  useLiveData(orchestrator, statusLog);
 
   // Render based on current mode
   switch (state.mode) {
@@ -60,6 +60,7 @@ const AppContent: React.FC = () => {
           projectScope={fmtScope(state.selections.scopeProjects)}
           argonautVersion={packageJson.version}
           message="Authentication required"
+          status={status}
         />
       );
 

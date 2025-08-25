@@ -266,6 +266,12 @@ export class GlobalInputHandler implements InputHandler {
       return true;
     }
 
+    // Global log viewer
+    if (input.toLowerCase() === "l" && context.state.mode === "auth-required") {
+      void context.executeCommand("logs");
+      return true;
+    }
+
     return false;
   }
 }

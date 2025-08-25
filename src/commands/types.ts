@@ -17,6 +17,7 @@ export interface CommandContext {
     drillDown: () => void;
     toggleSelection: () => void;
   };
+  executeCommand: (command: string, ...args: string[]) => Promise<void>;
 }
 
 export interface Command {

@@ -15,6 +15,7 @@ interface Props {
   projectScope: string;
   argonautVersion: string;
   message?: string;
+  status: string;
 }
 
 const AuthRequiredView: React.FC<Props> = ({
@@ -27,6 +28,7 @@ const AuthRequiredView: React.FC<Props> = ({
   projectScope,
   argonautVersion,
   message,
+  status,
 }) => {
   const headerMsg = `${chalk.bold("View:")} ${chalk.red("AUTH REQUIRED")} • ${chalk.bold("Context:")} ${chalk.cyan(server || "—")}`;
   const instructions = [
@@ -83,8 +85,13 @@ const AuthRequiredView: React.FC<Props> = ({
         </Box>
       </Box>
 
-      <Box>
-        <Text dimColor>{headerMsg}</Text>
+      <Box justifyContent="space-between">
+        <Box>
+          <Text dimColor>{headerMsg}</Text>
+        </Box>
+        <Box>
+          <Text dimColor>{status}</Text>
+        </Box>
       </Box>
     </Box>
   );
