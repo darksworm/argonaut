@@ -1,19 +1,18 @@
 import { useInput } from "ink";
 import type { CommandRegistry } from "../commands/registry";
-import type { CommandContext } from "../commands/types";
+import type { CommandContext, StatusLogger } from "../commands/types";
 import { useAppState } from "../contexts/AppStateContext";
-import { useStatus } from "./useStatus";
 
 export const useInputSystem = (
   registry: CommandRegistry,
   cleanupAndExit: () => void,
+  statusLog: StatusLogger,
   navigationActions?: {
     drillDown: () => void;
     toggleSelection: () => void;
   },
 ) => {
   const { state, dispatch } = useAppState();
-  const [, statusLog] = useStatus("Ready");
 
   // Create command context
   const context: CommandContext = {

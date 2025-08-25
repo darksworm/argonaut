@@ -16,13 +16,15 @@ interface MainLayoutProps {
   onDrillDown: () => void;
   commandRegistry: any;
   onExecuteCommand: (command: string, args: string[]) => void;
+  status: string;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
   visibleItems, 
   onDrillDown, 
   commandRegistry, 
-  onExecuteCommand 
+  onExecuteCommand,
+  status
 }) => {
   const { state, dispatch } = useAppState();
   const { mode, terminal, server, apiVersion, selections, modals, ui } = state;
@@ -125,7 +127,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           </Box>
           <Box>
             <Text dimColor>
-              Ready •{" "}
+              {status} •{" "}
               {visibleItems.length
                 ? `${state.navigation.selectedIdx + 1}/${visibleItems.length}`
                 : "0/0"}

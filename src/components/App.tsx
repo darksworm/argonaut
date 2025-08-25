@@ -8,6 +8,7 @@ import { useAppLifecycle } from "../hooks/useAppLifecycle";
 import { useInputSystem } from "../hooks/useInputSystem";
 import { useLiveData } from "../hooks/useLiveData";
 import { useNavigationLogic } from "../hooks/useNavigationLogic";
+import { useStatus } from "../hooks/useStatus";
 import { DefaultAppOrchestrator } from "../services/app-orchestrator";
 import { fmtScope } from "../utils";
 import AuthRequiredView from "./AuthRequiredView";
@@ -25,11 +26,14 @@ const AppContent: React.FC = () => {
   // Initialize lifecycle management
   const { cleanupAndExit } = useAppLifecycle(orchestrator);
 
+  // Global status management (like legacy app)
+  const [status, statusLog] = useStatus("Starting…");
+
   // Handle navigation logic
   const { drillDown, toggleSelection, visibleItems } = useNavigationLogic();
 
   // Set up input system with command registry
-  const { executeCommand } = useInputSystem(commandRegistry, cleanupAndExit, {
+  const { executeCommand } = useInputSystem(commandRegistry, cleanupAndExit, statusLog, {
     drillDown,
     toggleSelection,
   });
@@ -73,6 +77,7 @@ const AppContent: React.FC = () => {
               onDrillDown={drillDown}
               commandRegistry={commandRegistry}
               onExecuteCommand={executeCommand}
+              status={status}
             />
             <ConfirmSyncModal />
           </>
@@ -87,6 +92,7 @@ const AppContent: React.FC = () => {
               onDrillDown={drillDown}
               commandRegistry={commandRegistry}
               onExecuteCommand={executeCommand}
+              status={status}
             />
             <RollbackModal />
           </>
@@ -99,6 +105,7 @@ const AppContent: React.FC = () => {
           onDrillDown={drillDown}
           commandRegistry={commandRegistry}
           onExecuteCommand={executeCommand}
+          status={status}
         />
       );
   }
