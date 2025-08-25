@@ -1,11 +1,18 @@
 import { getHttpClient } from "../services/http-client";
 import type { Server } from "../types/server";
 
-export async function api(server: Server, path: string, init?: RequestInit) {
+export async function api(
+  server: Server,
+  path: string,
+  init?: RequestInit & { timeout?: number },
+) {
   const client = getHttpClient(server.config, server.token);
 
   const method = init?.method?.toUpperCase() || "GET";
-  const options = { signal: init?.signal || undefined };
+  const options = {
+    signal: init?.signal || undefined,
+    timeout: init?.timeout || undefined,
+  };
 
   switch (method) {
     case "GET":

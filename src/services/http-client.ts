@@ -4,22 +4,29 @@ import { URL } from "node:url";
 import type { ServerConfig } from "../types/server";
 
 export interface HttpClient {
-  get(path: string, options?: { signal?: AbortSignal }): Promise<any>;
+  get(
+    path: string,
+    options?: { signal?: AbortSignal; timeout?: number },
+  ): Promise<any>;
   post(
     path: string,
     body?: any,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<any>;
   put(
     path: string,
     body?: any,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<any>;
-  delete(path: string, options?: { signal?: AbortSignal }): Promise<any>;
+  delete(
+    path: string,
+    options?: { signal?: AbortSignal; timeout?: number },
+  ): Promise<any>;
   stream(
     path: string,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<NodeJS.ReadableStream>;
+  destroy(): void;
 }
 
 class ArgoHttpClient implements HttpClient {
@@ -46,7 +53,7 @@ class ArgoHttpClient implements HttpClient {
     path: string,
     method: string = "GET",
     body?: any,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<any> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.baseUrl + path);
@@ -65,6 +72,7 @@ class ArgoHttpClient implements HttpClient {
           }),
         },
         agent: this.agent,
+        timeout: options?.timeout || 10000, // 10 second default timeout
       };
 
       const req = requestModule.request(requestOptions, (res) => {
@@ -114,6 +122,11 @@ class ArgoHttpClient implements HttpClient {
 
       req.on("error", reject);
 
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+
       if (options?.signal) {
         options.signal.addEventListener("abort", () => {
           req.destroy();
@@ -129,14 +142,17 @@ class ArgoHttpClient implements HttpClient {
     });
   }
 
-  async get(path: string, options?: { signal?: AbortSignal }): Promise<any> {
+  async get(
+    path: string,
+    options?: { signal?: AbortSignal; timeout?: number },
+  ): Promise<any> {
     return this.request(path, "GET", undefined, options);
   }
 
   async post(
     path: string,
     body?: any,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<any> {
     return this.request(path, "POST", body, options);
   }
@@ -144,18 +160,21 @@ class ArgoHttpClient implements HttpClient {
   async put(
     path: string,
     body?: any,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<any> {
     return this.request(path, "PUT", body, options);
   }
 
-  async delete(path: string, options?: { signal?: AbortSignal }): Promise<any> {
+  async delete(
+    path: string,
+    options?: { signal?: AbortSignal; timeout?: number },
+  ): Promise<any> {
     return this.request(path, "DELETE", undefined, options);
   }
 
   async stream(
     path: string,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; timeout?: number },
   ): Promise<NodeJS.ReadableStream> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.baseUrl + path);
@@ -170,6 +189,7 @@ class ArgoHttpClient implements HttpClient {
           Authorization: `Bearer ${this.token}`,
         },
         agent: this.agent,
+        timeout: options?.timeout || 10000, // 10 second default timeout
       };
 
       const req = requestModule.request(requestOptions, (res) => {
@@ -206,6 +226,11 @@ class ArgoHttpClient implements HttpClient {
 
       req.on("error", reject);
 
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+
       if (options?.signal) {
         options.signal.addEventListener("abort", () => {
           req.destroy();
@@ -215,6 +240,12 @@ class ArgoHttpClient implements HttpClient {
 
       req.end();
     });
+  }
+
+  destroy(): void {
+    if (this.agent) {
+      this.agent.destroy();
+    }
   }
 }
 
@@ -248,13 +279,21 @@ class HttpClientManager {
 
   // Clear all clients (useful for logout/config changes)
   clearClients(): void {
+    // Destroy all clients before clearing
+    for (const client of this.clients.values()) {
+      client.destroy();
+    }
     this.clients.clear();
   }
 
   // Remove specific client (useful when token expires)
   removeClient(serverConfig: ServerConfig, token: string): void {
     const key = `${serverConfig.baseUrl}:${token}:${serverConfig.insecure || false}`;
-    this.clients.delete(key);
+    const client = this.clients.get(key);
+    if (client) {
+      client.destroy();
+      this.clients.delete(key);
+    }
   }
 }
 

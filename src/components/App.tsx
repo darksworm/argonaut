@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { Box, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import stringWidth from "string-width";
 import packageJson from "../../package.json";
 import { syncApp } from "../api/applications.command";
@@ -17,6 +17,7 @@ import { hostFromUrl } from "../config/paths";
 import { useApps } from "../hooks/useApps";
 import { useAsyncEffect } from "../hooks/useAsyncEffect";
 import { useStatus } from "../hooks/useStatus";
+import { httpClientManager } from "../services/http-client";
 import { runLogViewerSession } from "../services/log-viewer";
 import { log, setCurrentView } from "../services/logger";
 import type { AppItem, Mode, View } from "../types/domain";
@@ -68,7 +69,6 @@ export const App: React.FC = () => {
   // Function to switch to logs mode while tracking previous mode
   const switchToLogs = async () => {
     try {
-      setMode("normal");
       statusLog.info("Opening logs…", "logs");
 
       await runLogViewerSession({
@@ -129,14 +129,62 @@ export const App: React.FC = () => {
   // Vim-style navigation state for gg
   const [lastGPressed, setLastGPressed] = useState<number>(0);
 
+  // Ref to store the abort controller for cancelling loading operations
+  const loadingAbortControllerRef = useRef<AbortController | null>(null);
+
+  // Helper function to clean up resources and exit
+  const cleanupAndExit = useCallback(() => {
+    log.debug("Cleaning up resources before exit", "cleanup");
+    // Cancel any ongoing loading operations
+    if (loadingAbortControllerRef.current) {
+      loadingAbortControllerRef.current.abort();
+    }
+    // Clean up HTTP clients to prevent hanging
+    httpClientManager.clearClients();
+    log.debug("Calling exit()", "cleanup");
+    exit();
+
+    // Force exit after a short delay if the app doesn't exit gracefully
+    setTimeout(() => {
+      log.debug("Force exiting due to hanging handles", "cleanup");
+      process.exit(0);
+    }, 100);
+  }, [exit]);
+
+  // Handle Ctrl+C (SIGINT) since Ink has exitOnCtrlC: false
+  useEffect(() => {
+    const handleSigInt = () => {
+      log.debug("SIGINT received (Ctrl+C)", "signal");
+      cleanupAndExit();
+    };
+
+    process.on("SIGINT", handleSigInt);
+
+    return () => {
+      process.off("SIGINT", handleSigInt);
+    };
+  }, [cleanupAndExit]);
+
   // Boot & auth
   useAsyncEffect(async () => {
+    // Clean up any previous abort controller
+    if (loadingAbortControllerRef.current) {
+      loadingAbortControllerRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    loadingAbortControllerRef.current = abortController;
+    const signal = abortController.signal;
+
     setMode("loading");
     statusLog.info("Loading ArgoCD config…", "boot");
     log.debug("Begin loading Argo CD cli config");
     const cfg = await readCLIConfig();
 
+    if (signal.aborted) return;
+
     if (cfg.isErr()) {
+      loadingAbortControllerRef.current = null;
       setServer(null);
       statusLog.error(
         `Could not load Argo CD config. Please run 'argocd login' to configure and authenticate. ${cfg.error.message}`,
@@ -147,7 +195,10 @@ export const App: React.FC = () => {
     }
 
     const serverConfig = getCurrentServerConfigObj(cfg.value);
+    if (signal.aborted) return;
+
     if (serverConfig.isErr()) {
+      loadingAbortControllerRef.current = null;
       setServer(null);
       statusLog.error(
         `Could not load Argo CD config. Please run 'argocd login' to configure and authenticate. ${serverConfig.error.message}`,
@@ -158,7 +209,10 @@ export const App: React.FC = () => {
     }
 
     const tokenResult = tokenFromConfig(cfg.value);
+    if (signal.aborted) return;
+
     if (tokenResult.isErr()) {
+      loadingAbortControllerRef.current = null;
       setServer(null);
       statusLog.error(tokenResult.error.message, "auth");
       setMode("auth-required");
@@ -170,29 +224,54 @@ export const App: React.FC = () => {
       token: tokenResult.value,
     };
 
+    setServer(serverObj);
+
+    log.debug("Fetching API version");
     try {
-      const version = await getApiVersionApi(serverObj);
+      const version = await getApiVersionApi(serverObj, {
+        signal,
+        timeout: 1000,
+      });
       setApiVersion(version);
-    } catch {
+    } catch (error: any) {
+      if (signal.aborted) return;
+      loadingAbortControllerRef.current = null;
       setServer(null);
-      statusLog.error(
-        "Could not connect to Argo CD! Is it dead?",
-        "connection",
-      );
+      const message = error?.message?.includes("timeout")
+        ? "Could not connect to Argo CD! Connection timed out."
+        : "Could not connect to Argo CD! Is it dead?";
+      statusLog.error(message, "connection");
       setMode("error");
       return;
     }
+    log.debug("Fetched API version");
 
-    const userInfoResult = await getUserInfo(serverObj);
+    const userInfoResult = await getUserInfo(serverObj, {
+      signal,
+      timeout: 1000,
+    });
 
-    if (userInfoResult.isErr()) {
-      setServer(null);
-      statusLog.error(userInfoResult.error.message, "auth");
-      setMode("auth-required");
+    if (signal.aborted) {
+      log.debug("Signal aborted after getUserInfo, exiting useAsyncEffect");
       return;
     }
 
-    setServer(serverObj);
+    if (userInfoResult.isErr()) {
+      // Check if this was an abort error - if so, exit silently
+      if (userInfoResult.error.message.includes("Request aborted")) {
+        return;
+      }
+      loadingAbortControllerRef.current = null;
+      setServer(null);
+      statusLog.error(
+        `user info fetch fail: ${userInfoResult.error.message}`,
+        "auth",
+      );
+      setMode("auth-required");
+      return;
+    }
+    log.debug("Fetched user info");
+
     if (serverConfig.value.insecure) {
       statusLog.warn(
         "Ready • WARNING: Insecure TLS connection (certificate validation disabled)",
@@ -204,6 +283,7 @@ export const App: React.FC = () => {
 
     checkVersion(packageJson.version)
       .map((result) => {
+        if (signal.aborted) return result;
         setIsVersionOutdated(result.isOutdated);
         if (result.latestVersion) {
           setLatestVersion(result.latestVersion);
@@ -211,6 +291,7 @@ export const App: React.FC = () => {
         return result;
       })
       .mapErr((err) => {
+        if (signal.aborted) return err;
         statusLog.warn(
           `Ready • Could not check for updates ${err.message}`,
           "version-check",
@@ -218,8 +299,14 @@ export const App: React.FC = () => {
         return err;
       });
 
+    loadingAbortControllerRef.current = null;
     setMode("normal");
     statusLog.debug("Boot finish");
+
+    return () => {
+      abortController.abort();
+      loadingAbortControllerRef.current = null;
+    };
   }, []);
 
   // Live data via useApps hook
@@ -246,7 +333,19 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (!server) return;
-    getApiVersionApi(server).then(setApiVersion);
+
+    const abortController = new AbortController();
+    getApiVersionApi(server, { signal: abortController.signal, timeout: 5000 })
+      .then(setApiVersion)
+      .catch((error) => {
+        if (!abortController.signal.aborted) {
+          console.warn("Failed to get API version:", error.message);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
   }, [server]);
 
   const [confirmSyncPrune, setConfirmSyncPrune] = useState(false);
@@ -254,11 +353,20 @@ export const App: React.FC = () => {
 
   // Input
   useInput((input, key) => {
+    if (
+      (key.ctrl && input === "c") ||
+      input === "\u0003"
+    ) {
+      cleanupAndExit();
+    }
+
     if (mode === "external") return;
     if (mode === "resources") return; // handled by ResourceStream
-    if (mode === "auth-required") {
+    if (mode === "rulerline") return;
+
+    if (mode === "auth-required" || mode === "loading") {
       if (input.toLowerCase() === "q") {
-        exit();
+        cleanupAndExit();
         return;
       }
       if (input.toLowerCase() === "l") {
@@ -270,9 +378,6 @@ export const App: React.FC = () => {
     }
     if (mode === "help") {
       if (input === "q" || input === "?" || key.escape) setMode("normal");
-      return;
-    }
-    if (mode === "rulerline") {
       return;
     }
     if (mode === "search") {
@@ -336,7 +441,7 @@ export const App: React.FC = () => {
 
     // normal
     if (input.toLowerCase() === "q") {
-      exit();
+      cleanupAndExit();
       return;
     }
     if (input === "?") {
@@ -483,7 +588,7 @@ export const App: React.FC = () => {
       [c, ...as].map(alias).includes(cmd);
 
     if (is("q", "quit", "exit")) {
-      exit();
+      cleanupAndExit();
       return;
     }
     if (is("help", "?")) {

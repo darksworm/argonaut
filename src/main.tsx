@@ -29,10 +29,7 @@ function setupAlternateScreen() {
   enable();
 
   process.on("exit", disable);
-  process.on("SIGINT", () => {
-    disable();
-    process.exit(130);
-  });
+  // Don't handle SIGINT here - let the App component handle it for proper cleanup
   process.on("SIGTERM", () => {
     disable();
     process.exit(143);
