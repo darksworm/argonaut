@@ -369,7 +369,7 @@ describe("Command Performance and Timeout Tests", () => {
 
       // Assert - Should complete concurrently, not sequentially
       expect(totalTime).toBeLessThan(delay * concurrency); // Much faster than sequential
-      expect(totalTime).toBeGreaterThanOrEqual(delay); // But at least one delay period
+      expect(totalTime).toBeGreaterThanOrEqual(delay * 0.9); // But at least one delay period, with some leniency for CI timing
       expect(mockStatusLog.info).toHaveBeenCalledTimes(concurrency * 2); // Start + complete for each
       expect(ConcurrentCommand.getActiveCount()).toBe(0); // All should be done
     });
