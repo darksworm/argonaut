@@ -563,7 +563,7 @@ describe("Command Error Handling and Recovery", () => {
   });
 
   describe("error recovery and resilience", () => {
-    it("should maintain system stability after command failures", () => {
+    it("should maintain system stability after command failures", async () => {
       // Arrange
       const failingCommand = new AsyncErrorCommand();
       const workingCommand = new (class implements Command {
@@ -576,9 +576,9 @@ describe("Command Error Handling and Recovery", () => {
       })();
 
       // Act - Execute failing command first
-      expect(async () => {
-        await failingCommand.execute(context, "permission");
-      }).rejects.toThrow();
+      await expect(
+        failingCommand.execute(context, "permission"),
+      ).rejects.toThrow();
 
       // Then execute working command
       expect(() => workingCommand.execute(context)).not.toThrow();

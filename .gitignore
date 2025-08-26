@@ -10,6 +10,23 @@ argonaut-cli
 ./main
 
 
+
+# Test coverage reports
+coverage/
+*.lcov
+coverage-final.json
+clover.xml
+
+# Claude Code configurations (user-specific)
+.claude/
+.roo/
+.roomodes
+CLAUDE.md
+TODO-tests.md
+
+# Claude Flow runtime data
+.claude-flow/
+
 # Claude Flow generated files
 .claude/settings.local.json
 .mcp.json
@@ -34,19 +51,3 @@ claude-flow
 claude-flow.bat
 claude-flow.ps1
 hive-mind-prompt-*.txt
-
-# Test coverage reports
-coverage/
-*.lcov
-coverage-final.json
-clover.xml
-
-# Claude Code configurations (user-specific)
-.claude/
-.roo/
-.roomodes
-CLAUDE.md
-TODO-tests.md
-
-# Claude Flow runtime data
-.claude-flow/
