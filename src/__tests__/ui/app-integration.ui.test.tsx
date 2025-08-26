@@ -10,10 +10,14 @@ import { AppStateProvider } from "../../contexts/AppStateContext";
 describe("App Integration UI Tests", () => {
   describe("App State Rendering", () => {
     it("renders loading view correctly", () => {
-      const { lastFrame } = render(<LoadingView />);
+      const { lastFrame } = render(
+        <AppStateProvider>
+          <LoadingView />
+        </AppStateProvider>,
+      );
 
       const frame = lastFrame();
-      expect(frame).toContain("Loading");
+      expect(frame.toLowerCase()).toContain("loading");
     });
 
     it("renders auth required view with app state context", () => {
