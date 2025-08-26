@@ -1,7 +1,7 @@
 on:
   pull_request:
 
-name: test build
+name: test
 
 jobs:
   test:
@@ -12,7 +12,8 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - run: npm run test:ci
+      - run: bun run generate:licenses
+      - run: bun run test:ci
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -22,7 +23,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -33,7 +33,6 @@ jobs:
 
   build-binaries:
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
