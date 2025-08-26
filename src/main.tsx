@@ -2,7 +2,14 @@ import type { ReadStream, WriteStream } from "node:tty";
 import { render } from "ink";
 import { App } from "./components/App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { exitExternal, mutableStdin, mutableStdout } from "./ink-control";
+import {
+  beginExclusiveInput,
+  endExclusiveInput,
+  enterExternal,
+  exitExternal,
+  mutableStdin,
+  mutableStdout
+} from "./ink-control";
 import { setupGlobalErrorHandlers } from "./services/error-handler";
 import { initializeLogger, log } from "./services/logger";
 
@@ -72,13 +79,23 @@ async function main() {
 
   setupAlternateScreen();
 
-  process.on('external-exit', () => {
+  process.on("external-enter", () => {
+    beginExclusiveInput();
+    enterExternal();
+  });
+
+  process.on("external-exit", async () => {
+    endExclusiveInput();
     exitExternal();
+
     const oldCols = process.stdout.columns;
     process.stdout.columns = oldCols - 1;
-    process.stdout.emit('resize');
+    process.stdout.emit("resize");
+
+    await new Promise(resolve => setTimeout(resolve, 0))
+
     process.stdout.columns = oldCols;
-    process.stdout.emit('resize');
+    process.stdout.emit("resize");
   });
 
   try {
