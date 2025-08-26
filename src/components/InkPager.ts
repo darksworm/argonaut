@@ -100,9 +100,9 @@ export async function showInkPager(
     );
   };
 
-  process.emit('external-enter');
+  process.emit("external-enter");
   // hack - wait a tick to let Ink unmount and clear the screen
-  await new Promise(resolve => setTimeout(resolve, 0))
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   return new Promise<void>((resolve, reject) => {
     const stdin = process.stdin;

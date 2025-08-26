@@ -8,7 +8,7 @@ import {
   enterExternal,
   exitExternal,
   mutableStdin,
-  mutableStdout
+  mutableStdout,
 } from "./ink-control";
 import { setupGlobalErrorHandlers } from "./services/error-handler";
 import { initializeLogger, log } from "./services/logger";
@@ -92,7 +92,7 @@ async function main() {
     process.stdout.columns = oldCols - 1;
     process.stdout.emit("resize");
 
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     process.stdout.columns = oldCols;
     process.stdout.emit("resize");
