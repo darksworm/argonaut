@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import { MainLayout } from "../../components/views/MainLayout";
 import type { AppItem } from "../../types/domain";
+import { stripAnsi } from "../test-utils";
 
 // Test the successful authentication flow with clusters and apps displayed
 describe("Main App Success UI Tests", () => {

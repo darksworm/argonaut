@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
+import { stripAnsi } from "../test-utils";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {

@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import { ListView } from "../../components/views/ListView";
 import type { AppItem } from "../../types/domain";
+import { stripAnsi } from "../test-utils";
 
 // Test the ListView component directly with successful data
 describe("ListView Success UI Tests", () => {
