@@ -25,7 +25,7 @@ export const ListView: React.FC<ListViewProps> = ({
   availableRows,
 }) => {
   const { state } = useAppState();
-  const { navigation, selections, terminal, ui } = state;
+  const { navigation, selections, terminal } = state;
   const { view, selectedIdx } = navigation;
   const { scopeClusters, scopeNamespaces, scopeProjects, selectedApps } =
     selections;
@@ -100,11 +100,6 @@ export const ListView: React.FC<ListViewProps> = ({
   const getSyncIcon = (s: string) => SYNC_ICON_ASCII[s];
   const getHealthIcon = (h: string) =>
     HEALTH_ICON_ASCII[h] ?? ASCII_ICONS.quest;
-
-  const tag =
-    ui.activeFilter && view === "apps"
-      ? `<${view}:${ui.activeFilter}>`
-      : `<${view}>`;
 
   return (
     <Box flexDirection="column">
@@ -215,7 +210,6 @@ export const ListView: React.FC<ListViewProps> = ({
           <Text dimColor>No items.</Text>
         </Box>
       )}
-
     </Box>
   );
 };

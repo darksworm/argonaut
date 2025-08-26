@@ -129,7 +129,7 @@ export async function showInkPager(
 
       // Hand stdin back to Ink
       endExclusiveInput();
-      exitExternal();
+      process.emit('external-exit');
     };
 
     try {
