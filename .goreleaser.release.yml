@@ -2,16 +2,18 @@ version: 2
 
 project_name: argonaut
 
+# Global hooks (run once before all builds)
+before:
+  hooks:
+    - bun install --frozen-lockfile 
+    - bun run generate:licenses
+
 # Build with Bun (bun build --compile)
 builds:
   - id: bun-standard
     builder: bun
     binary: argonaut
     main: src/main.tsx
-    hooks:
-      pre: 
-        - bun install --frozen-lockfile 
-        - bun run generate:licenses
     targets:
       - linux-x64-modern
       - linux-arm64
@@ -22,10 +24,6 @@ builds:
     builder: bun
     binary: argonaut
     main: src/main.tsx
-    hooks:
-      pre: 
-        - bun install --frozen-lockfile 
-        - bun run generate:licenses
     targets:
       - linux-x64-musl-modern
       - linux-arm64-musl
