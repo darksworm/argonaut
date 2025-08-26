@@ -1,10 +1,4 @@
-import {
-  beginExclusiveInput,
-  endExclusiveInput,
-  enterExternal,
-  exitExternal,
-  rawStdoutWrite,
-} from "../ink-control";
+import { rawStdoutWrite } from "../ink-control";
 
 export interface InkPagerOptions {
   title?: string;
@@ -106,9 +100,9 @@ export async function showInkPager(
     );
   };
 
-  // Properly hand over stdin control from Ink
-  enterExternal();
-  beginExclusiveInput();
+  process.emit('external-enter');
+  // hack - wait a tick to let Ink unmount and clear the screen
+  await new Promise(resolve => setTimeout(resolve, 0))
 
   return new Promise<void>((resolve, reject) => {
     const stdin = process.stdin;
@@ -128,8 +122,7 @@ export async function showInkPager(
       // Don't clear screen - let Ink handle the redraw
 
       // Hand stdin back to Ink
-      endExclusiveInput();
-      process.emit('external-exit');
+      process.emit("external-exit");
     };
 
     try {
