@@ -169,3 +169,14 @@ export const mockApiResponses = {
     value: ["in-cluster", "staging", "production"],
   },
 };
+
+// UI Test utilities
+/**
+ * Strips ANSI escape codes from terminal output for easier testing
+ * @param text The text containing ANSI codes
+ * @returns Clean text without ANSI codes
+ */
+export function stripAnsi(text: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence is intentional
+  return text.replace(/\u001b\[[0-9;]*m/g, "");
+}

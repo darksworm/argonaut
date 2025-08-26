@@ -111,6 +111,11 @@ Prefer descriptive assertion helpers over direct string matching:
 expectToContainText(frame, 'App Name');
 expect(isElementSelected(frame, 'App Name')).toBe(true);
 
+// For text with ANSI codes, strip them first
+import { stripAnsi } from '../test-utils';
+const cleanFrame = stripAnsi(frame);
+expect(cleanFrame).toContain('Expected text without colors');
+
 // Avoid
 expect(frame.includes('App Name')).toBe(true);
 ```
@@ -168,6 +173,10 @@ bun test --updateSnapshot ui/Snapshots.ui.test.tsx
 ```typescript
 // Log current frame content for debugging
 console.log('Current frame:', lastFrame());
+
+// Strip ANSI codes for cleaner debugging
+import { stripAnsi } from '../test-utils';
+console.log('Clean frame:', stripAnsi(lastFrame()));
 
 // Check visible lines
 console.log('Visible lines:', getVisibleLines(lastFrame()));

@@ -3,6 +3,7 @@ import { ConfirmSyncModal } from "../../components/modals/ConfirmSyncModal";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";
 import type { Server } from "../../types/server";
+import { stripAnsi } from "../test-utils";
 
 describe("ConfirmSyncModal UI Tests", () => {
   const mockApps: AppItem[] = [
@@ -291,8 +292,8 @@ describe("ConfirmSyncModal UI Tests", () => {
       expect(frame).toContain("Watch [w]");
 
       // Check for the specific mixed states - prune on, watch off
-      expect(frame).toContain("Prune [p]: on");
-      expect(frame).toContain("Watch [w]: off");
+      const cleanFrame = stripAnsi(frame);
+      expect(cleanFrame).toContain("Prune [p]: on • Watch [w]: off");
     });
   });
 
