@@ -91,7 +91,7 @@ export type AppAction =
   | { type: "CLEAR_FILTERS" };
 
 // Initial state
-const initialState: AppState = {
+export const initialState: AppState = {
   mode: "loading",
   terminal: {
     rows: process.stdout.rows || 24,
@@ -129,7 +129,7 @@ const initialState: AppState = {
 };
 
 // Reducer
-function appStateReducer(state: AppState, action: AppAction): AppState {
+export function appStateReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "SET_MODE":
       return { ...state, mode: action.payload };
