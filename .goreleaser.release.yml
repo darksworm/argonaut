@@ -145,8 +145,8 @@ nix:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
 
 nfpms:
-  - id: linux-packages
-    ids: [bun-standard, bun-musl]
+  - id: linux-packages-standard
+    ids: [bun-standard]
     formats: [deb, rpm, apk]
     bindir: /usr/bin
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -157,4 +157,19 @@ nfpms:
     section: utils
     priority: optional
     provides: [argonaut]
-    conflicts: [argonaut]
+    conflicts: [argonaut, argonaut-musl]
+
+  - id: linux-packages-musl
+    ids: [bun-musl]
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    file_name_template: "{{ .ProjectName }}-musl_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    package_name: "argonaut-musl"
+    maintainer: "darksworm <bot@goreleaser.com>"
+    homepage: "https://github.com/darksworm/argonaut"
+    description: "A CLI tool for managing Argo CD applications (musl build)"
+    license: GPL-3.0-or-later
+    section: utils
+    priority: optional
+    provides: [argonaut]
+    conflicts: [argonaut, argonaut-standard]
