@@ -33,6 +33,7 @@
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
+    "@codecov/rollup-plugin": "^1.9.1",
     "chalk": "^5.6.0",
     "execa": "^9.6.0",
     "ink": "^6.2.1",
