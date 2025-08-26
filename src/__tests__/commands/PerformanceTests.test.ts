@@ -92,7 +92,7 @@ class ConcurrentCommand implements Command {
   async execute(context: CommandContext, delay?: string): Promise<void> {
     ConcurrentCommand.activeInstances++;
     const instanceId = ConcurrentCommand.activeInstances;
-    const delayMs = parseInt(delay || "50", 10);
+          const delay = 49; // milliseconds
 
     try {
       context.statusLog.info(
