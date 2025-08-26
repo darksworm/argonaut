@@ -96,17 +96,14 @@ export class DiffCommand implements Command {
       dispatch({ type: "SET_MODE", payload: "normal" });
       statusLog.info(`Preparing diff for ${target}…`, "diff");
 
-      const opened = await runAppDiffSession(server, target, {
+      await runAppDiffSession(server, target, {
         title: `${target} - Live vs Desired`,
       });
 
       // Small delay and trigger re-render with status message
       await new Promise((resolve) => setTimeout(resolve, 50));
       dispatch({ type: "SET_MODE", payload: "normal" });
-      statusLog.info(
-        opened ? `Diff closed for ${target}.` : "No differences.",
-        "diff",
-      );
+      statusLog.info("No differences.", "diff");
     } catch (e: any) {
       try {
         const stdinAny = process.stdin as any;
@@ -211,27 +208,11 @@ export class LogsCommand implements Command {
   async execute(context: CommandContext): Promise<void> {
     const { statusLog } = context;
 
-    try {
-      statusLog.info("Opening logs…", "logs");
+    statusLog.info("Opening logs…", "logs");
 
-      await runLogViewerSession({
-        title: "Session Logs",
-      });
-
-      // Force re-render by triggering a state change immediately
-      statusLog.set("Log viewer closed.");
-      
-      // Small delay and final status
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      statusLog.info("Log viewer closed.", "logs");
-    } catch (e: any) {
-      try {
-        const stdinAny = process.stdin as any;
-        stdinAny.setRawMode?.(true);
-        stdinAny.resume?.();
-      } catch {}
-      statusLog.error(`Log viewer failed: ${e?.message || String(e)}`, "logs");
-    }
+    await runLogViewerSession({
+      title: "Session Logs",
+    });
   }
 }
 
@@ -249,25 +230,14 @@ export class LicenseCommand implements Command {
       await runLicenseSession({
         title: "Licenses",
       });
-
-      // Force re-render by triggering a state change immediately
-      statusLog.set("License viewer closed.");
-      
-      // Small delay and final status
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      dispatch({ type: "SET_MODE", payload: "normal" });
-      statusLog.info("License viewer closed.", "license");
-    } catch (e: any) {
+    } finally {
+      // Ensure we always try to restore the UI
       try {
         const stdinAny = process.stdin as any;
         stdinAny.setRawMode?.(true);
         stdinAny.resume?.();
       } catch {}
-      dispatch({ type: "SET_MODE", payload: "normal" });
-      statusLog.error(
-        `License viewer failed: ${e?.message || String(e)}`,
-        "license",
-      );
+      process.emit("external-exit");
     }
   }
 }

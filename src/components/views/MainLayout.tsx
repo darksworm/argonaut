@@ -20,13 +20,13 @@ interface MainLayoutProps {
   modal?: React.ReactNode;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ 
-  visibleItems, 
-  onDrillDown, 
-  commandRegistry, 
+export const MainLayout: React.FC<MainLayoutProps> = ({
+  visibleItems,
+  onDrillDown,
+  commandRegistry,
   onExecuteCommand,
   status,
-  modal
+  modal,
 }) => {
   const { state, dispatch } = useAppState();
   const { mode, terminal, server, apiVersion, selections, modals, ui } = state;
@@ -122,25 +122,25 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
       {/* Status line outside the main box */}
       <Box justifyContent="space-between">
-          <Box>
-            <Text dimColor>
-              {ui.activeFilter && state.navigation.view === "apps"
-                ? `<${state.navigation.view}:${ui.activeFilter}>`
-                : `<${state.navigation.view}>`}
-            </Text>
-          </Box>
-          <Box>
-            <Text dimColor>
-              {status} •{" "}
-              {visibleItems.length
-                ? `${state.navigation.selectedIdx + 1}/${visibleItems.length}`
-                : "0/0"}
-              {state.ui.isVersionOutdated && (
-                <Text color="yellow"> • Update available!</Text>
-              )}
-            </Text>
-          </Box>
+        <Box>
+          <Text dimColor>
+            {ui.activeFilter && state.navigation.view === "apps"
+              ? `<${state.navigation.view}:${ui.activeFilter}>`
+              : `<${state.navigation.view}>`}
+          </Text>
         </Box>
+        <Box>
+          <Text dimColor>
+            {status} •{" "}
+            {visibleItems.length
+              ? `${state.navigation.selectedIdx + 1}/${visibleItems.length}`
+              : "0/0"}
+            {state.ui.isVersionOutdated && (
+              <Text color="yellow"> • Update available!</Text>
+            )}
+          </Text>
+        </Box>
+      </Box>
     </Box>
   );
 };

@@ -1,11 +1,14 @@
 import { useEffect } from "react";
 import { getApiVersion } from "../api/version";
+import type { StatusLogger } from "../commands";
 import { useAppState } from "../contexts/AppStateContext";
 import type { AppOrchestrator } from "../services/app-orchestrator";
-import type { StatusLogger } from "../commands/types";
 import { useApps } from "./useApps";
 
-export const useLiveData = (orchestrator: AppOrchestrator, statusLog: StatusLogger) => {
+export const useLiveData = (
+  orchestrator: AppOrchestrator,
+  statusLog: StatusLogger,
+) => {
   const { state, dispatch } = useAppState();
   const { server, mode } = state;
 

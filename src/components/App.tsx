@@ -1,4 +1,3 @@
-import { Box } from "ink";
 import type React from "react";
 import packageJson from "../../package.json";
 import { createDefaultCommandRegistry } from "../commands";
@@ -33,10 +32,15 @@ const AppContent: React.FC = () => {
   const { drillDown, toggleSelection, visibleItems } = useNavigationLogic();
 
   // Set up input system with command registry
-  const { executeCommand } = useInputSystem(commandRegistry, cleanupAndExit, statusLog, {
-    drillDown,
-    toggleSelection,
-  });
+  const { executeCommand } = useInputSystem(
+    commandRegistry,
+    cleanupAndExit,
+    statusLog,
+    {
+      drillDown,
+      toggleSelection,
+    },
+  );
 
   // Manage live data synchronization
   useLiveData(orchestrator, statusLog);
@@ -78,9 +82,11 @@ const AppContent: React.FC = () => {
           onExecuteCommand={executeCommand}
           status={status}
           modal={
-            state.mode === "confirm-sync" ? <ConfirmSyncModal /> :
-            state.mode === "rollback" ? <RollbackModal /> :
-            null
+            state.mode === "confirm-sync" ? (
+              <ConfirmSyncModal />
+            ) : state.mode === "rollback" ? (
+              <RollbackModal />
+            ) : null
           }
         />
       );
