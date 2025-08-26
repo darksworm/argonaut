@@ -1,5 +1,8 @@
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 name: test
 
@@ -22,6 +25,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build:
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +36,7 @@ jobs:
       - run: bun run build:node
 
   build-binaries:
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
