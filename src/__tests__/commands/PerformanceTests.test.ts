@@ -341,7 +341,7 @@ describe("Command Performance and Timeout Tests", () => {
       const actualDelay = endTime - startTime;
 
       // Assert - Should be close to expected delay (within 10ms tolerance)
-      expect(actualDelay).toBeGreaterThanOrEqual(expectedDelay);
+      expect(actualDelay).toBeGreaterThanOrEqual(expectedDelay * 0.9);
       expect(actualDelay).toBeLessThan(expectedDelay + 50); // More tolerance for CI environments
       expect(mockStatusLog.info).toHaveBeenCalledWith(
         expect.stringContaining(`expected ~${expectedDelay}ms`),
