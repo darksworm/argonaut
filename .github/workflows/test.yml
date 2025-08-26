@@ -25,7 +25,6 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build:
-    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +33,8 @@ jobs:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
       - run: bun run build:node
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   build-binaries:
     if: ${{ github.event_name == 'pull_request' }}
