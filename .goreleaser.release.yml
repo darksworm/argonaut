@@ -6,8 +6,8 @@ project_name: argonaut
 before:
   hooks:
     - bun install --frozen-lockfile 
-    - rm -rf dist/bun-*  # Clean only build artifacts, preserve licenses
     - bun run generate:licenses
+    - rm -rf dist
 
 # Build with Bun (bun build --compile)
 builds:
