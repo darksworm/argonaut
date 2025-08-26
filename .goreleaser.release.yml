@@ -5,8 +5,8 @@ project_name: argonaut
 # Global hooks (run once before all builds)
 before:
   hooks:
-    - rm -rf dist
     - bun install --frozen-lockfile 
+    - rm -rf dist/bun-*  # Clean only build artifacts, preserve licenses
     - bun run generate:licenses
 
 # Build with Bun (bun build --compile)
