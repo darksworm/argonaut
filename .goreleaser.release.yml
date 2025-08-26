@@ -4,7 +4,7 @@ project_name: argonaut
 
 # Build with Bun (bun build --compile)
 builds:
-  - id: bun
+  - id: bun-standard
     builder: bun
     binary: argonaut
     main: src/main.tsx
@@ -17,15 +17,34 @@ builds:
       - linux-arm64
       - darwin-x64
       - darwin-arm64
+
+  - id: bun-musl
+    builder: bun
+    binary: argonaut
+    main: src/main.tsx
+    hooks:
+      pre: 
+        - bun install --frozen-lockfile 
+        - bun run generate:licenses
+    targets:
       - linux-x64-musl-modern
       - linux-arm64-musl
 
 # Package artifacts (use tar.gz, no deprecation warnings)
 archives:
-  - id: bun-archives
-    ids: [bun]  # which build(s) to package
-    formats: ["tar.gz"]  # use plural 'formats' (no deprecation)
+  - id: bun-archives-standard
+    ids: [bun-standard]  # standard builds
+    formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+
+  - id: bun-archives-musl
+    ids: [bun-musl]  # musl builds
+    formats: ["tar.gz"]
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-musl"
     files:
       - LICENSE*
       - README*
@@ -36,7 +55,7 @@ homebrew_casks:
   - name: argonaut
     description: A GitOps CLI tool for managing ArgoCD applications
     homepage: https://github.com/darksworm/argonaut
-    ids: [bun-archives]    # use the archives above
+    ids: [bun-archives-standard]    # use the standard archives (macOS is not musl)
     binary: argonaut       # the binary name inside the archive
     repository:
       owner: darksworm
@@ -117,7 +136,7 @@ aurs:
 
 nix:
   - name: argonaut
-    ids: [ bun-archives ]
+    ids: [ bun-archives-standard ]
     goamd64: v1
     repository:
       owner: darksworm
@@ -127,7 +146,7 @@ nix:
 
 nfpms:
   - id: linux-packages
-    ids: [bun]
+    ids: [bun-standard, bun-musl]
     formats: [deb, rpm, apk]
     bindir: /usr/bin
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
