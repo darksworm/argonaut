@@ -14,7 +14,10 @@
     "lint": "biome check",
     "lint:fix": "biome check --write",
     "format": "biome format --write",
-    "test": "bun run lint"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
@@ -42,13 +45,22 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
     "@rollup/plugin-json": "^6.1.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "generate-license-file": "^4.0.0",
+    "ink-testing-library": "^4.0.0",
+    "jest": "^30.0.0",
     "pino-pretty": "^13.1.1",
     "react-devtools-core": "^6.1.5",
+    "react-test-renderer": "^19.1.1",
     "rollup": "^4.46.4",
     "rollup-plugin-typescript2": "^0.36.0",
+    "ts-jest": "^29.4.1",
     "tsx": "^4.20.5"
   },
   "bin": {
