@@ -4,19 +4,9 @@
  * This file contains only utilities and does not have its own tests
  */
 
-// Dummy test to prevent Jest "no tests found" error
-describe('test-utils', () => {
-  it('should export utility functions', () => {
-    expect(typeof createMockContext).toBe('function');
-    expect(typeof createMockState).toBe('function');
-    expect(typeof createMockApps).toBe('function');
-  });
-});
-import type { Mode, View, AppItem } from '../types/domain';
-import type { Server } from '../types/server';
-
 // Import the actual AppState type instead of creating our own
-import type { AppState } from '../contexts/AppStateContext';
+import type { AppState } from "../contexts/AppStateContext";
+import type { AppItem, Mode, View } from "../types/domain";
 
 export interface MockCommandContext {
   state: AppState;
@@ -31,7 +21,9 @@ export interface MockCommandContext {
 }
 
 // Mock creation helpers
-export function createMockContext(overrides: Partial<MockCommandContext> = {}): MockCommandContext {
+export function createMockContext(
+  overrides: Partial<MockCommandContext> = {},
+): MockCommandContext {
   return {
     state: createMockState(),
     dispatch: jest.fn(),
@@ -39,55 +31,55 @@ export function createMockContext(overrides: Partial<MockCommandContext> = {}): 
     cleanupAndExit: jest.fn(),
     navigationActions: {
       drillDown: jest.fn(),
-      toggleSelection: jest.fn()
+      toggleSelection: jest.fn(),
     },
     executeCommand: jest.fn(),
-    ...overrides
+    ...overrides,
   };
 }
 
 export function createMockState(overrides: Partial<AppState> = {}): AppState {
   return {
-    mode: 'normal' as Mode,
+    mode: "normal" as Mode,
     terminal: {
       rows: 24,
-      cols: 80
+      cols: 80,
     },
     navigation: {
-      view: 'apps' as View,
+      view: "apps" as View,
       selectedIdx: 0,
-      lastGPressed: 0
+      lastGPressed: 0,
     },
     selections: {
       scopeClusters: new Set(),
       scopeNamespaces: new Set(),
       scopeProjects: new Set(),
-      selectedApps: new Set()
+      selectedApps: new Set(),
     },
     ui: {
-      searchQuery: '',
-      activeFilter: '',
-      command: ':',
+      searchQuery: "",
+      activeFilter: "",
+      command: ":",
       isVersionOutdated: false,
-      latestVersion: undefined
+      latestVersion: undefined,
     },
     modals: {
       confirmTarget: null,
       confirmSyncPrune: false,
       confirmSyncWatch: true,
       rollbackAppName: null,
-      syncViewApp: null
+      syncViewApp: null,
     },
     server: {
       config: {
-        baseUrl: 'https://test-server.com'
+        baseUrl: "https://test-server.com",
       },
-      token: 'test-token'
+      token: "test-token",
     },
     apps: [],
-    apiVersion: 'v2.9.0',
+    apiVersion: "v2.9.0",
     loadingAbortController: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -98,34 +90,34 @@ export function createMockStatusLog() {
     error: jest.fn(),
     debug: jest.fn(),
     set: jest.fn(),
-    clear: jest.fn()
+    clear: jest.fn(),
   };
 }
 
 export function createMockApps(): AppItem[] {
   return [
     {
-      name: 'app1',
-      sync: 'Synced',
-      health: 'Healthy',
-      clusterId: 'in-cluster',
-      clusterLabel: 'in-cluster',
-      namespace: 'default',
-      appNamespace: 'argocd',
-      project: 'default',
-      lastSyncAt: '2023-12-01T10:00:00Z'
+      name: "app1",
+      sync: "Synced",
+      health: "Healthy",
+      clusterId: "in-cluster",
+      clusterLabel: "in-cluster",
+      namespace: "default",
+      appNamespace: "argocd",
+      project: "default",
+      lastSyncAt: "2023-12-01T10:00:00Z",
     },
     {
-      name: 'app2', 
-      sync: 'OutOfSync',
-      health: 'Progressing',
-      clusterId: 'staging',
-      clusterLabel: 'staging',
-      namespace: 'app-namespace',
-      appNamespace: 'argocd',
-      project: 'team-a',
-      lastSyncAt: '2023-12-01T09:30:00Z'
-    }
+      name: "app2",
+      sync: "OutOfSync",
+      health: "Progressing",
+      clusterId: "staging",
+      clusterLabel: "staging",
+      namespace: "app-namespace",
+      appNamespace: "argocd",
+      project: "team-a",
+      lastSyncAt: "2023-12-01T09:30:00Z",
+    },
   ];
 }
 
@@ -133,43 +125,47 @@ export function createMockCommand(overrides: Partial<any> = {}) {
   return {
     execute: jest.fn(),
     canExecute: jest.fn().mockReturnValue(true),
-    description: 'Test command',
+    description: "Test command",
     aliases: [],
-    ...overrides
+    ...overrides,
   };
 }
 
 // Test data factories
 export const mockCliConfig = {
-  currentContext: 'test-context',
-  contexts: [{
-    name: 'test-context',
-    server: 'https://test-server.com',
-    user: 'test-user'
-  }],
-  users: [{
-    name: 'test-user',
-    'auth-token': 'test-token'
-  }]
+  currentContext: "test-context",
+  contexts: [
+    {
+      name: "test-context",
+      server: "https://test-server.com",
+      user: "test-user",
+    },
+  ],
+  users: [
+    {
+      name: "test-user",
+      "auth-token": "test-token",
+    },
+  ],
 };
 
 export const mockServerConfig = {
-  server: 'https://test-server.com',
-  username: 'test-user'
+  server: "https://test-server.com",
+  username: "test-user",
 };
 
 // Mock API responses
 export const mockApiResponses = {
   listApps: {
     isOk: () => true,
-    value: createMockApps()
+    value: createMockApps(),
   },
   syncApp: {
     isOk: () => true,
-    value: { operationState: { phase: 'Running' } }
+    value: { operationState: { phase: "Running" } },
   },
   listClusters: {
     isOk: () => true,
-    value: ['in-cluster', 'staging', 'production']
-  }
+    value: ["in-cluster", "staging", "production"],
+  },
 };

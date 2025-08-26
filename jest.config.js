@@ -5,8 +5,10 @@ export default {
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.js'],
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.{js,ts,tsx}',
-    '<rootDir>/src/**/*.{test,spec}.{js,ts,tsx}',
-    '!<rootDir>/src/**/__tests__/test-utils.{ts,tsx}' // Exclude utilities file
+    '<rootDir>/src/**/*.{test,spec}.{js,ts,tsx}'
+  ],
+  testPathIgnorePatterns: [
+    '<rootDir>/src/__tests__/test-utils\\.ts$'
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'

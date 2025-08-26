@@ -1,6 +1,7 @@
 // src/__tests__/commands/SystemCommands.test.ts
-import { createMockContext, createMockState } from '../test-utils';
-import type { Command, CommandContext } from '../../commands/types';
+
+import type { Command, CommandContext } from "../../commands/types";
+import { createMockContext, createMockState } from "../test-utils";
 
 // Test implementations of system command classes without external dependencies
 class TestQuitCommand implements Command {
@@ -45,19 +46,19 @@ class TestRulerCommand implements Command {
   }
 }
 
-describe('QuitCommand', () => {
+describe("QuitCommand", () => {
   let quitCommand: TestQuitCommand;
 
   beforeEach(() => {
     quitCommand = new TestQuitCommand();
   });
 
-  describe('execute', () => {
-    it('should call cleanupAndExit', () => {
+  describe("execute", () => {
+    it("should call cleanupAndExit", () => {
       // Arrange
       const mockCleanupAndExit = jest.fn();
       const context = createMockContext({
-        cleanupAndExit: mockCleanupAndExit
+        cleanupAndExit: mockCleanupAndExit,
       });
 
       // Act
@@ -67,11 +68,11 @@ describe('QuitCommand', () => {
       expect(mockCleanupAndExit).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle cleanup gracefully even if context is incomplete', () => {
+    it("should handle cleanup gracefully even if context is incomplete", () => {
       // Arrange
       const mockCleanupAndExit = jest.fn();
       const context = createMockContext({
-        cleanupAndExit: mockCleanupAndExit
+        cleanupAndExit: mockCleanupAndExit,
       });
 
       // Act & Assert - should not throw
@@ -80,23 +81,23 @@ describe('QuitCommand', () => {
     });
   });
 
-  describe('properties', () => {
-    it('should have correct aliases', () => {
+  describe("properties", () => {
+    it("should have correct aliases", () => {
       expect(quitCommand.aliases).toEqual(["quit", "exit"]);
     });
 
-    it('should have correct description', () => {
-      expect(quitCommand.description).toBe('Exit the application');
+    it("should have correct description", () => {
+      expect(quitCommand.description).toBe("Exit the application");
     });
   });
 
-  describe('edge cases', () => {
-    it('should work with minimal context', () => {
+  describe("edge cases", () => {
+    it("should work with minimal context", () => {
       // Arrange
       const mockCleanupAndExit = jest.fn();
       const minimalContext = {
         ...createMockContext(),
-        cleanupAndExit: mockCleanupAndExit
+        cleanupAndExit: mockCleanupAndExit,
       };
 
       // Act & Assert
@@ -106,19 +107,19 @@ describe('QuitCommand', () => {
   });
 });
 
-describe('HelpCommand', () => {
+describe("HelpCommand", () => {
   let helpCommand: TestHelpCommand;
 
   beforeEach(() => {
     helpCommand = new TestHelpCommand();
   });
 
-  describe('execute', () => {
-    it('should set mode to help', () => {
+  describe("execute", () => {
+    it("should set mode to help", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -127,17 +128,17 @@ describe('HelpCommand', () => {
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "help"
+        payload: "help",
       });
       expect(mockDispatch).toHaveBeenCalledTimes(1);
     });
 
-    it('should work regardless of current mode', () => {
+    it("should work regardless of current mode", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        state: createMockState({ mode: 'confirm-sync' }),
-        dispatch: mockDispatch
+        state: createMockState({ mode: "confirm-sync" }),
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -146,16 +147,16 @@ describe('HelpCommand', () => {
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "help"
+        payload: "help",
       });
     });
 
-    it('should work regardless of authentication state', () => {
+    it("should work regardless of authentication state", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({ server: null }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -164,36 +165,36 @@ describe('HelpCommand', () => {
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "help"
+        payload: "help",
       });
     });
   });
 
-  describe('properties', () => {
-    it('should have correct aliases', () => {
+  describe("properties", () => {
+    it("should have correct aliases", () => {
       expect(helpCommand.aliases).toEqual(["?"]);
     });
 
-    it('should have correct description', () => {
-      expect(helpCommand.description).toBe('Show help');
+    it("should have correct description", () => {
+      expect(helpCommand.description).toBe("Show help");
     });
   });
 
-  describe('integration scenarios', () => {
-    it('should work when called from different views', () => {
+  describe("integration scenarios", () => {
+    it("should work when called from different views", () => {
       // Test from apps view
       const mockDispatch = jest.fn();
       const appsContext = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 }
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       helpCommand.execute(appsContext);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "help"
+        payload: "help",
       });
 
       // Reset mock
@@ -202,29 +203,29 @@ describe('HelpCommand', () => {
       // Test from clusters view
       const clustersContext = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 }
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       helpCommand.execute(clustersContext);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "help"
+        payload: "help",
       });
     });
   });
 });
 
-describe('LoginCommand', () => {
+describe("LoginCommand", () => {
   let loginCommand: TestLoginCommand;
 
   beforeEach(() => {
     loginCommand = new TestLoginCommand();
   });
 
-  describe('execute', () => {
-    it('should show error message and set auth-required mode', () => {
+  describe("execute", () => {
+    it("should show error message and set auth-required mode", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const mockStatusLog = {
@@ -233,11 +234,11 @@ describe('LoginCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
@@ -246,15 +247,15 @@ describe('LoginCommand', () => {
       // Assert
       expect(mockStatusLog.error).toHaveBeenCalledWith(
         "please use argocd login to authenticate before running argonaut",
-        "auth"
+        "auth",
       );
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "auth-required"
+        payload: "auth-required",
       });
     });
 
-    it('should work when called from any authentication state', () => {
+    it("should work when called from any authentication state", () => {
       // Arrange - Test with authenticated state
       const mockDispatch = jest.fn();
       const mockStatusLog = {
@@ -263,17 +264,17 @@ describe('LoginCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const authenticatedContext = createMockContext({
-        state: createMockState({ 
+        state: createMockState({
           server: {
-            config: { baseUrl: 'https://test.com' },
-            token: 'test-token'
-          }
+            config: { baseUrl: "https://test.com" },
+            token: "test-token",
+          },
         }),
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
@@ -282,15 +283,15 @@ describe('LoginCommand', () => {
       // Assert - Should still show login message
       expect(mockStatusLog.error).toHaveBeenCalledWith(
         "please use argocd login to authenticate before running argonaut",
-        "auth"
+        "auth",
       );
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "auth-required"
+        payload: "auth-required",
       });
     });
 
-    it('should work when called with minimal context', () => {
+    it("should work when called with minimal context", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const mockStatusLog = {
@@ -299,11 +300,11 @@ describe('LoginCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const minimalContext = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act & Assert
@@ -313,21 +314,21 @@ describe('LoginCommand', () => {
     });
   });
 
-  describe('properties', () => {
-    it('should have empty aliases array', () => {
+  describe("properties", () => {
+    it("should have empty aliases array", () => {
       expect(loginCommand.aliases).toEqual([]);
     });
 
-    it('should have correct description', () => {
-      expect(loginCommand.description).toBe('Show login instructions');
+    it("should have correct description", () => {
+      expect(loginCommand.description).toBe("Show login instructions");
     });
   });
 
-  describe('error handling', () => {
-    it('should handle dispatch failure gracefully', () => {
+  describe("error handling", () => {
+    it("should handle dispatch failure gracefully", () => {
       // Arrange
       const mockDispatch = jest.fn().mockImplementation(() => {
-        throw new Error('Dispatch failed');
+        throw new Error("Dispatch failed");
       });
       const mockStatusLog = {
         info: jest.fn(),
@@ -335,55 +336,55 @@ describe('LoginCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act & Assert
-      expect(() => loginCommand.execute(context)).toThrow('Dispatch failed');
+      expect(() => loginCommand.execute(context)).toThrow("Dispatch failed");
       expect(mockStatusLog.error).toHaveBeenCalled();
     });
 
-    it('should handle statusLog failure gracefully', () => {
+    it("should handle statusLog failure gracefully", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn().mockImplementation(() => {
-          throw new Error('StatusLog failed');
+          throw new Error("StatusLog failed");
         }),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act & Assert
-      expect(() => loginCommand.execute(context)).toThrow('StatusLog failed');
+      expect(() => loginCommand.execute(context)).toThrow("StatusLog failed");
     });
   });
 });
 
-describe('RulerCommand', () => {
+describe("RulerCommand", () => {
   let rulerCommand: TestRulerCommand;
 
   beforeEach(() => {
     rulerCommand = new TestRulerCommand();
   });
 
-  describe('execute', () => {
-    it('should set mode to rulerline', () => {
+  describe("execute", () => {
+    it("should set mode to rulerline", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -392,17 +393,17 @@ describe('RulerCommand', () => {
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "rulerline"
+        payload: "rulerline",
       });
       expect(mockDispatch).toHaveBeenCalledTimes(1);
     });
 
-    it('should work regardless of current mode', () => {
+    it("should work regardless of current mode", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        state: createMockState({ mode: 'confirm-sync' }),
-        dispatch: mockDispatch
+        state: createMockState({ mode: "confirm-sync" }),
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -411,16 +412,16 @@ describe('RulerCommand', () => {
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "rulerline"
+        payload: "rulerline",
       });
     });
 
-    it('should work regardless of authentication state', () => {
+    it("should work regardless of authentication state", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({ server: null }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -429,110 +430,110 @@ describe('RulerCommand', () => {
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "rulerline"
+        payload: "rulerline",
       });
     });
 
-    it('should work from any view', () => {
+    it("should work from any view", () => {
       // Test from different views
-      const views = ['apps', 'clusters', 'namespaces', 'projects'] as const;
-      
-      views.forEach(view => {
+      const views = ["apps", "clusters", "namespaces", "projects"] as const;
+
+      views.forEach((view) => {
         const mockDispatch = jest.fn();
         const context = createMockContext({
           state: createMockState({
-            navigation: { view, selectedIdx: 0, lastGPressed: 0 }
+            navigation: { view, selectedIdx: 0, lastGPressed: 0 },
           }),
-          dispatch: mockDispatch
+          dispatch: mockDispatch,
         });
 
         rulerCommand.execute(context);
-        
+
         expect(mockDispatch).toHaveBeenCalledWith({
           type: "SET_MODE",
-          payload: "rulerline"
+          payload: "rulerline",
         });
       });
     });
   });
 
-  describe('properties', () => {
-    it('should have empty aliases array', () => {
+  describe("properties", () => {
+    it("should have empty aliases array", () => {
       expect(rulerCommand.aliases).toEqual([]);
     });
 
-    it('should have correct description', () => {
-      expect(rulerCommand.description).toBe('Open ruler line mode');
+    it("should have correct description", () => {
+      expect(rulerCommand.description).toBe("Open ruler line mode");
     });
   });
 
-  describe('edge cases', () => {
-    it('should work with minimal context', () => {
+  describe("edge cases", () => {
+    it("should work with minimal context", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const minimalContext = {
         ...createMockContext(),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       };
 
       // Act & Assert
       expect(() => rulerCommand.execute(minimalContext)).not.toThrow();
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "rulerline"
+        payload: "rulerline",
       });
     });
   });
 
-  describe('error handling', () => {
-    it('should handle dispatch failure', () => {
+  describe("error handling", () => {
+    it("should handle dispatch failure", () => {
       // Arrange
       const mockDispatch = jest.fn().mockImplementation(() => {
-        throw new Error('Dispatch failed');
+        throw new Error("Dispatch failed");
       });
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act & Assert
-      expect(() => rulerCommand.execute(context)).toThrow('Dispatch failed');
+      expect(() => rulerCommand.execute(context)).toThrow("Dispatch failed");
     });
   });
 });
 
-describe('System Commands Integration', () => {
-  describe('command interaction patterns', () => {
-    it('should allow transitioning between system modes', () => {
+describe("System Commands Integration", () => {
+  describe("command interaction patterns", () => {
+    it("should allow transitioning between system modes", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act - Simulate user workflow
       const helpCommand = new TestHelpCommand();
       const rulerCommand = new TestRulerCommand();
-      
+
       // User opens help
       helpCommand.execute(context);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "help"
+        payload: "help",
       });
 
       // User switches to ruler mode
       rulerCommand.execute(context);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
-        payload: "rulerline"
+        payload: "rulerline",
       });
     });
 
-    it('should handle rapid command execution', () => {
+    it("should handle rapid command execution", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act - Rapid command execution
@@ -546,21 +547,35 @@ describe('System Commands Integration', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledTimes(3);
-      expect(mockDispatch).toHaveBeenNthCalledWith(1, { type: "SET_MODE", payload: "help" });
-      expect(mockDispatch).toHaveBeenNthCalledWith(2, { type: "SET_MODE", payload: "rulerline" });
-      expect(mockDispatch).toHaveBeenNthCalledWith(3, { type: "SET_MODE", payload: "auth-required" });
+      expect(mockDispatch).toHaveBeenNthCalledWith(1, {
+        type: "SET_MODE",
+        payload: "help",
+      });
+      expect(mockDispatch).toHaveBeenNthCalledWith(2, {
+        type: "SET_MODE",
+        payload: "rulerline",
+      });
+      expect(mockDispatch).toHaveBeenNthCalledWith(3, {
+        type: "SET_MODE",
+        payload: "auth-required",
+      });
     });
   });
 
-  describe('error resilience', () => {
-    it('should continue working after individual command failures', () => {
+  describe("error resilience", () => {
+    it("should continue working after individual command failures", () => {
       // Arrange
-      const mockDispatch = jest.fn()
-        .mockImplementationOnce(() => { throw new Error('First call failed'); })
-        .mockImplementationOnce(() => { /* Second call succeeds */ });
-      
+      const mockDispatch = jest
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error("First call failed");
+        })
+        .mockImplementationOnce(() => {
+          /* Second call succeeds */
+        });
+
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act & Assert
@@ -568,8 +583,8 @@ describe('System Commands Integration', () => {
       const rulerCommand = new TestRulerCommand();
 
       // First command fails
-      expect(() => helpCommand.execute(context)).toThrow('First call failed');
-      
+      expect(() => helpCommand.execute(context)).toThrow("First call failed");
+
       // Second command should still work
       expect(() => rulerCommand.execute(context)).not.toThrow();
       expect(mockDispatch).toHaveBeenCalledTimes(2);

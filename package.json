@@ -53,7 +53,6 @@
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "generate-license-file": "^4.0.0",
-    "ink-testing-library": "^4.0.0",
     "jest": "^30.0.0",
     "pino-pretty": "^13.1.1",
     "react-devtools-core": "^6.1.5",

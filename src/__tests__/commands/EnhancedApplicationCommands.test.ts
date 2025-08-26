@@ -1,6 +1,11 @@
 // src/__tests__/commands/EnhancedApplicationCommands.test.ts
-import { createMockContext, createMockState, createMockApps } from '../test-utils';
-import type { CommandContext } from '../../commands/types';
+
+import type { CommandContext } from "../../commands/types";
+import {
+  createMockApps,
+  createMockContext,
+  createMockState,
+} from "../test-utils";
 
 // Enhanced test implementations with more realistic error scenarios
 class EnhancedSyncCommand {
@@ -88,10 +93,10 @@ class EnhancedDiffCommand {
     try {
       dispatch({ type: "SET_MODE", payload: "normal" });
       statusLog.info(`Preparing diff for ${target}…`, "diff");
-      
+
       // Simulate diff process with potential timeout
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       statusLog.info("No differences.", "diff");
     } catch (e: any) {
       dispatch({ type: "SET_MODE", payload: "normal" });
@@ -100,15 +105,15 @@ class EnhancedDiffCommand {
   }
 }
 
-describe('Enhanced SyncCommand Edge Cases', () => {
+describe("Enhanced SyncCommand Edge Cases", () => {
   let syncCommand: EnhancedSyncCommand;
 
   beforeEach(() => {
     syncCommand = new EnhancedSyncCommand();
   });
 
-  describe('boundary conditions', () => {
-    it('should handle empty app name argument', () => {
+  describe("boundary conditions", () => {
+    it("should handle empty app name argument", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const mockStatusLog = {
@@ -117,26 +122,29 @@ describe('Enhanced SyncCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
-      syncCommand.execute(context, '');
+      syncCommand.execute(context, "");
 
       // Assert - empty string should be treated as falsy and go to fallback logic
-      expect(mockStatusLog.warn).toHaveBeenCalledWith("No app selected to sync.", "user-action");
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to sync.",
+        "user-action",
+      );
     });
 
-    it('should handle very long app name argument', () => {
+    it("should handle very long app name argument", () => {
       // Arrange
       const mockDispatch = jest.fn();
-      const longAppName = 'a'.repeat(1000); // Very long app name
+      const longAppName = "a".repeat(1000); // Very long app name
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -144,17 +152,17 @@ describe('Enhanced SyncCommand Edge Cases', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: longAppName
+        type: "SET_CONFIRM_TARGET",
+        payload: longAppName,
       });
     });
 
-    it('should handle special characters in app name', () => {
+    it("should handle special characters in app name", () => {
       // Arrange
       const mockDispatch = jest.fn();
-      const specialAppName = 'app-with-special-chars.@#$%^&*()';
+      const specialAppName = "app-with-special-chars.@#$%^&*()";
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -162,24 +170,24 @@ describe('Enhanced SyncCommand Edge Cases', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: specialAppName
+        type: "SET_CONFIRM_TARGET",
+        payload: specialAppName,
       });
     });
 
-    it('should handle exactly one selected app', () => {
+    it("should handle exactly one selected app", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({
           selections: {
-            selectedApps: new Set(['single-app']),
+            selectedApps: new Set(["single-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -187,24 +195,24 @@ describe('Enhanced SyncCommand Edge Cases', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'single-app'
+        type: "SET_CONFIRM_TARGET",
+        payload: "single-app",
       });
     });
 
-    it('should handle exactly two selected apps (multi-sync)', () => {
+    it("should handle exactly two selected apps (multi-sync)", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({
           selections: {
-            selectedApps: new Set(['app1', 'app2']),
+            selectedApps: new Set(["app1", "app2"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -212,16 +220,16 @@ describe('Enhanced SyncCommand Edge Cases', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: '__MULTI__'
+        type: "SET_CONFIRM_TARGET",
+        payload: "__MULTI__",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_SYNC_WATCH',
-        payload: false // disabled for multi
+        type: "SET_CONFIRM_SYNC_WATCH",
+        payload: false, // disabled for multi
       });
     });
 
-    it('should handle large number of selected apps', () => {
+    it("should handle large number of selected apps", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const manyApps = Array.from({ length: 100 }, (_, i) => `app-${i}`);
@@ -231,10 +239,10 @@ describe('Enhanced SyncCommand Edge Cases', () => {
             selectedApps: new Set(manyApps),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -242,23 +250,27 @@ describe('Enhanced SyncCommand Edge Cases', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: '__MULTI__'
+        type: "SET_CONFIRM_TARGET",
+        payload: "__MULTI__",
       });
     });
   });
 
-  describe('state consistency edge cases', () => {
-    it('should handle cursor at last index in apps array', () => {
+  describe("state consistency edge cases", () => {
+    it("should handle cursor at last index in apps array", () => {
       // Arrange
       const mockDispatch = jest.fn();
       const apps = createMockApps();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: apps.length - 1, lastGPressed: 0 },
-          apps
+          navigation: {
+            view: "apps",
+            selectedIdx: apps.length - 1,
+            lastGPressed: 0,
+          },
+          apps,
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act
@@ -266,12 +278,12 @@ describe('Enhanced SyncCommand Edge Cases', () => {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: apps[apps.length - 1].name
+        type: "SET_CONFIRM_TARGET",
+        payload: apps[apps.length - 1].name,
       });
     });
 
-    it('should handle cursor beyond apps array bounds gracefully', () => {
+    it("should handle cursor beyond apps array bounds gracefully", () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -279,25 +291,32 @@ describe('Enhanced SyncCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const apps = createMockApps();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: apps.length + 5, lastGPressed: 0 },
-          apps
+          navigation: {
+            view: "apps",
+            selectedIdx: apps.length + 5,
+            lastGPressed: 0,
+          },
+          apps,
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
       syncCommand.execute(context);
 
       // Assert - Should warn about no app selected (because cursor is out of bounds)
-      expect(mockStatusLog.warn).toHaveBeenCalledWith("No app selected to sync.", "user-action");
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to sync.",
+        "user-action",
+      );
     });
 
-    it('should handle empty apps array with cursor position', () => {
+    it("should handle empty apps array with cursor position", () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -305,92 +324,105 @@ describe('Enhanced SyncCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 },
-          apps: []
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
+          apps: [],
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
       syncCommand.execute(context);
 
       // Assert
-      expect(mockStatusLog.warn).toHaveBeenCalledWith("No app selected to sync.", "user-action");
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to sync.",
+        "user-action",
+      );
     });
   });
 
-  describe('race condition scenarios', () => {
-    it('should handle concurrent selections modifications', () => {
+  describe("race condition scenarios", () => {
+    it("should handle concurrent selections modifications", () => {
       // Arrange
       const mockDispatch = jest.fn();
-      const selectedApps = new Set(['app1', 'app2']);
+      const selectedApps = new Set(["app1", "app2"]);
       const context = createMockContext({
         state: createMockState({
           selections: {
             selectedApps,
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act - Simulate modification of selectedApps during execution
-      selectedApps.add('app3');
+      selectedApps.add("app3");
       syncCommand.execute(context);
 
       // Assert - Should still treat as multi-sync based on initial state
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: '__MULTI__'
+        type: "SET_CONFIRM_TARGET",
+        payload: "__MULTI__",
       });
     });
   });
 
-  describe('error recovery scenarios', () => {
-    it('should handle dispatch failure on first action', () => {
+  describe("error recovery scenarios", () => {
+    it("should handle dispatch failure on first action", () => {
       // Arrange
-      const mockDispatch = jest.fn()
-        .mockImplementationOnce(() => { throw new Error('First dispatch failed'); });
-      
+      const mockDispatch = jest.fn().mockImplementationOnce(() => {
+        throw new Error("First dispatch failed");
+      });
+
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act & Assert
-      expect(() => syncCommand.execute(context, 'test-app')).toThrow('First dispatch failed');
+      expect(() => syncCommand.execute(context, "test-app")).toThrow(
+        "First dispatch failed",
+      );
     });
 
-    it('should handle dispatch failure on subsequent actions', () => {
+    it("should handle dispatch failure on subsequent actions", () => {
       // Arrange
-      const mockDispatch = jest.fn()
-        .mockImplementationOnce(() => { /* Success */ })
-        .mockImplementationOnce(() => { throw new Error('Second dispatch failed'); });
-      
+      const mockDispatch = jest
+        .fn()
+        .mockImplementationOnce(() => {
+          /* Success */
+        })
+        .mockImplementationOnce(() => {
+          throw new Error("Second dispatch failed");
+        });
+
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act & Assert
-      expect(() => syncCommand.execute(context, 'test-app')).toThrow('Second dispatch failed');
+      expect(() => syncCommand.execute(context, "test-app")).toThrow(
+        "Second dispatch failed",
+      );
     });
   });
 });
 
-describe('Enhanced DiffCommand Edge Cases', () => {
+describe("Enhanced DiffCommand Edge Cases", () => {
   let diffCommand: EnhancedDiffCommand;
 
   beforeEach(() => {
     diffCommand = new EnhancedDiffCommand();
   });
 
-  describe('timeout and performance scenarios', () => {
-    it('should handle diff operation timeout', async () => {
+  describe("timeout and performance scenarios", () => {
+    it("should handle diff operation timeout", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -398,12 +430,12 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const mockDispatch = jest.fn();
-      
+
       // Mock a slow diff operation by overriding the internal timeout
-      const slowDiffCommand = new class extends EnhancedDiffCommand {
+      const slowDiffCommand = new (class extends EnhancedDiffCommand {
         async execute(context: CommandContext, arg?: string): Promise<void> {
           const { state, dispatch, statusLog } = context;
           const { server } = state;
@@ -413,38 +445,43 @@ describe('Enhanced DiffCommand Edge Cases', () => {
             return;
           }
 
-          const target = arg || 'test-app';
+          const target = arg || "test-app";
 
           try {
             dispatch({ type: "SET_MODE", payload: "normal" });
             statusLog.info(`Preparing diff for ${target}…`, "diff");
-            
+
             // Simulate timeout
             await new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Operation timed out')), 50);
+              setTimeout(() => reject(new Error("Operation timed out")), 50);
             });
-            
           } catch (e: any) {
             dispatch({ type: "SET_MODE", payload: "normal" });
             statusLog.error(`Diff failed: ${e?.message || String(e)}`, "diff");
           }
         }
-      };
+      })();
 
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
-      await slowDiffCommand.execute(context, 'timeout-app');
+      await slowDiffCommand.execute(context, "timeout-app");
 
       // Assert
-      expect(mockStatusLog.error).toHaveBeenCalledWith('Diff failed: Operation timed out', 'diff');
-      expect(mockDispatch).toHaveBeenCalledWith({ type: "SET_MODE", payload: "normal" });
+      expect(mockStatusLog.error).toHaveBeenCalledWith(
+        "Diff failed: Operation timed out",
+        "diff",
+      );
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "normal",
+      });
     });
 
-    it('should handle memory pressure during diff', async () => {
+    it("should handle memory pressure during diff", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -452,42 +489,47 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const mockDispatch = jest.fn();
 
       // Mock memory pressure scenario
-      const memoryPressureDiffCommand = new class extends EnhancedDiffCommand {
+      const memoryPressureDiffCommand = new (class extends EnhancedDiffCommand {
         async execute(context: CommandContext, arg?: string): Promise<void> {
           try {
-            const { statusLog, dispatch } = context;
+            const { statusLog } = context;
             statusLog.info(`Preparing diff for ${arg}…`, "diff");
-            
+
             // Simulate memory pressure error
-            throw new Error('Cannot allocate memory for diff operation');
-            
+            throw new Error("Cannot allocate memory for diff operation");
           } catch (e: any) {
             context.dispatch({ type: "SET_MODE", payload: "normal" });
-            context.statusLog.error(`Diff failed: ${e?.message || String(e)}`, "diff");
+            context.statusLog.error(
+              `Diff failed: ${e?.message || String(e)}`,
+              "diff",
+            );
           }
         }
-      };
+      })();
 
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
-      await memoryPressureDiffCommand.execute(context, 'memory-test-app');
+      await memoryPressureDiffCommand.execute(context, "memory-test-app");
 
       // Assert
-      expect(mockStatusLog.error).toHaveBeenCalledWith('Diff failed: Cannot allocate memory for diff operation', 'diff');
+      expect(mockStatusLog.error).toHaveBeenCalledWith(
+        "Diff failed: Cannot allocate memory for diff operation",
+        "diff",
+      );
     });
   });
 
-  describe('authentication edge cases', () => {
-    it('should handle server object with missing properties', async () => {
+  describe("authentication edge cases", () => {
+    it("should handle server object with missing properties", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -495,23 +537,26 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          server: {} as any // Empty server object
+          server: {} as any, // Empty server object
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
-      await diffCommand.execute(context, 'test-app');
+      await diffCommand.execute(context, "test-app");
 
       // Assert - Should still proceed since server is truthy
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for test-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for test-app…",
+        "diff",
+      );
     });
 
-    it('should handle server authentication state changes during execution', async () => {
+    it("should handle server authentication state changes during execution", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -519,29 +564,35 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
-      const serverState = { config: { baseUrl: 'https://test.com' }, token: 'token' };
+      const serverState = {
+        config: { baseUrl: "https://test.com" },
+        token: "token",
+      };
       const context = createMockContext({
         state: createMockState({ server: serverState }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act - Simulate server state changing to null during execution
-      const executePromise = diffCommand.execute(context, 'test-app');
-      
+      const executePromise = diffCommand.execute(context, "test-app");
+
       // Modify server state (simulating concurrent state change)
       (context.state as any).server = null;
-      
+
       await executePromise;
 
       // Assert - Should complete based on initial state check
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for test-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for test-app…",
+        "diff",
+      );
     });
   });
 
-  describe('app selection edge cases', () => {
-    it('should handle null/undefined app names gracefully', async () => {
+  describe("app selection edge cases", () => {
+    it("should handle null/undefined app names gracefully", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -549,29 +600,32 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const apps = [
-        { name: null, sync: 'Synced', health: 'Healthy' }, // Invalid app
-        { name: 'valid-app', sync: 'Synced', health: 'Healthy' }
+        { name: null, sync: "Synced", health: "Healthy" }, // Invalid app
+        { name: "valid-app", sync: "Synced", health: "Healthy" },
       ] as any;
-      
+
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 },
-          apps
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
+          apps,
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
       await diffCommand.execute(context);
 
       // Assert - Should warn about no app selected due to null name
-      expect(mockStatusLog.warn).toHaveBeenCalledWith('No app selected to diff.', 'user-action');
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to diff.",
+        "user-action",
+      );
     });
 
-    it('should prioritize argument over cursor and selections', async () => {
+    it("should prioritize argument over cursor and selections", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -579,31 +633,34 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const apps = createMockApps();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
           selections: {
-            selectedApps: new Set(['selected-app']),
+            selectedApps: new Set(["selected-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
+            scopeProjects: new Set(),
           },
-          apps
+          apps,
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act - Explicit argument should win
-      await diffCommand.execute(context, 'explicit-arg-app');
+      await diffCommand.execute(context, "explicit-arg-app");
 
       // Assert
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for explicit-arg-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for explicit-arg-app…",
+        "diff",
+      );
     });
 
-    it('should fallback from cursor to selection when not in apps view', async () => {
+    it("should fallback from cursor to selection when not in apps view", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn(),
@@ -611,124 +668,140 @@ describe('Enhanced DiffCommand Edge Cases', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
           selections: {
-            selectedApps: new Set(['fallback-app']),
+            selectedApps: new Set(["fallback-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act
       await diffCommand.execute(context);
 
       // Assert
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for fallback-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for fallback-app…",
+        "diff",
+      );
     });
   });
 
-  describe('error handling resilience', () => {
-    it('should handle statusLog errors during execution', async () => {
+  describe("error handling resilience", () => {
+    it("should handle statusLog errors during execution", async () => {
       // Arrange
       const mockStatusLog = {
         info: jest.fn().mockImplementation(() => {
-          throw new Error('StatusLog info failed');
+          throw new Error("StatusLog info failed");
         }),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const mockDispatch = jest.fn();
       const context = createMockContext({
         statusLog: mockStatusLog,
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act & Assert
-      await diffCommand.execute(context, 'test-app');
-      
+      await diffCommand.execute(context, "test-app");
+
       // The error should be caught and handled gracefully
-      expect(mockStatusLog.error).toHaveBeenCalledWith('Diff failed: StatusLog info failed', 'diff');
-      expect(mockDispatch).toHaveBeenCalledWith({ type: "SET_MODE", payload: "normal" });
+      expect(mockStatusLog.error).toHaveBeenCalledWith(
+        "Diff failed: StatusLog info failed",
+        "diff",
+      );
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "normal",
+      });
     });
 
-    it('should handle dispatch errors in catch block', async () => {
+    it("should handle dispatch errors in catch block", async () => {
       // Arrange
-      const mockDispatch = jest.fn()
-        .mockImplementationOnce(() => { /* Success */ })
-        .mockImplementationOnce(() => { throw new Error('Cleanup dispatch failed'); });
-      
+      const mockDispatch = jest
+        .fn()
+        .mockImplementationOnce(() => {
+          /* Success */
+        })
+        .mockImplementationOnce(() => {
+          throw new Error("Cleanup dispatch failed");
+        });
+
       const mockStatusLog = {
         info: jest.fn().mockImplementation(() => {
-          throw new Error('Original error');
+          throw new Error("Original error");
         }),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
-      
+
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act & Assert - Should throw the cleanup error, not the original
-      await expect(diffCommand.execute(context, 'test-app')).rejects.toThrow('Cleanup dispatch failed');
+      await expect(diffCommand.execute(context, "test-app")).rejects.toThrow(
+        "Cleanup dispatch failed",
+      );
     });
 
-    it('should handle multiple concurrent errors gracefully', async () => {
+    it("should handle multiple concurrent errors gracefully", async () => {
       // Arrange
       const errors: Error[] = [];
       const mockDispatch = jest.fn().mockImplementation(() => {
-        const error = new Error('Dispatch error');
+        const error = new Error("Dispatch error");
         errors.push(error);
         throw error;
       });
-      
+
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn().mockImplementation(() => {
-          const error = new Error('StatusLog error');
+          const error = new Error("StatusLog error");
           errors.push(error);
           throw error;
         }),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
-      
+
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act & Assert
-      await expect(diffCommand.execute(context, 'test-app')).rejects.toThrow();
+      await expect(diffCommand.execute(context, "test-app")).rejects.toThrow();
       expect(errors.length).toBeGreaterThan(0);
     });
   });
 });
 
-describe('Application Commands Performance Tests', () => {
-  describe('memory efficiency', () => {
-    it('should not leak memory with repeated sync operations', () => {
+describe("Application Commands Performance Tests", () => {
+  describe("memory efficiency", () => {
+    it("should not leak memory with repeated sync operations", () => {
       // Arrange
       const syncCommand = new EnhancedSyncCommand();
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       // Act - Simulate many rapid operations
@@ -740,28 +813,28 @@ describe('Application Commands Performance Tests', () => {
       expect(mockDispatch).toHaveBeenCalledTimes(4000); // 1000 calls × 4 dispatches each
     });
 
-    it('should handle large app arrays efficiently', () => {
+    it("should handle large app arrays efficiently", () => {
       // Arrange
       const syncCommand = new EnhancedSyncCommand();
       const mockDispatch = jest.fn();
       const largeAppsArray = Array.from({ length: 10000 }, (_, i) => ({
         name: `app-${i}`,
-        sync: 'Synced',
-        health: 'Healthy',
-        clusterId: 'cluster1',
-        clusterLabel: 'cluster1',
-        namespace: 'default',
-        appNamespace: 'argocd',
-        project: 'default',
-        lastSyncAt: '2023-12-01T10:00:00Z'
+        sync: "Synced",
+        health: "Healthy",
+        clusterId: "cluster1",
+        clusterLabel: "cluster1",
+        namespace: "default",
+        appNamespace: "argocd",
+        project: "default",
+        lastSyncAt: "2023-12-01T10:00:00Z",
       }));
 
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 9999, lastGPressed: 0 },
-          apps: largeAppsArray
+          navigation: { view: "apps", selectedIdx: 9999, lastGPressed: 0 },
+          apps: largeAppsArray,
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       const startTime = performance.now();
@@ -774,18 +847,18 @@ describe('Application Commands Performance Tests', () => {
       // Assert - Should complete quickly even with large array
       expect(endTime - startTime).toBeLessThan(10); // Less than 10ms
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'app-9999'
+        type: "SET_CONFIRM_TARGET",
+        payload: "app-9999",
       });
     });
   });
 
-  describe('concurrent operations', () => {
-    it('should handle concurrent sync and diff operations', async () => {
+  describe("concurrent operations", () => {
+    it("should handle concurrent sync and diff operations", async () => {
       // Arrange
       const syncCommand = new EnhancedSyncCommand();
       const diffCommand = new EnhancedDiffCommand();
-      
+
       const mockDispatch = jest.fn();
       const mockStatusLog = {
         info: jest.fn(),
@@ -793,26 +866,31 @@ describe('Application Commands Performance Tests', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
-      
+
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       // Act - Execute both operations concurrently
-      const syncPromise = Promise.resolve(syncCommand.execute(context, 'sync-app'));
-      const diffPromise = diffCommand.execute(context, 'diff-app');
+      const syncPromise = Promise.resolve(
+        syncCommand.execute(context, "sync-app"),
+      );
+      const diffPromise = diffCommand.execute(context, "diff-app");
 
       await Promise.all([syncPromise, diffPromise]);
 
       // Assert - Both operations should complete
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'sync-app'
+        type: "SET_CONFIRM_TARGET",
+        payload: "sync-app",
       });
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for diff-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for diff-app…",
+        "diff",
+      );
     });
   });
 });

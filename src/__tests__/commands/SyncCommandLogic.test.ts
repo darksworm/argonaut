@@ -1,6 +1,7 @@
 // src/__tests__/commands/SyncCommandLogic.test.ts
-import { createMockContext, createMockState } from '../test-utils';
-import type { Command, CommandContext } from '../../commands/types';
+
+import type { Command, CommandContext } from "../../commands/types";
+import { createMockContext, createMockState } from "../test-utils";
 
 // Create a test implementation of SyncCommand without external dependencies
 class TestSyncCommand implements Command {
@@ -57,196 +58,213 @@ class TestSyncCommand implements Command {
   }
 }
 
-describe('SyncCommand Logic', () => {
+describe("SyncCommand Logic", () => {
   let syncCommand: TestSyncCommand;
 
   beforeEach(() => {
     syncCommand = new TestSyncCommand();
   });
 
-  describe('canExecute', () => {
-    it('should require authentication', () => {
+  describe("canExecute", () => {
+    it("should require authentication", () => {
       const context = createMockContext({
-        state: createMockState({ server: null })
+        state: createMockState({ server: null }),
       });
 
       expect(syncCommand.canExecute(context)).toBe(false);
     });
 
-    it('should allow execution when authenticated', () => {
+    it("should allow execution when authenticated", () => {
       const context = createMockContext();
 
       expect(syncCommand.canExecute(context)).toBe(true);
     });
   });
 
-  describe('execute', () => {
-    it('should handle explicit app argument', () => {
+  describe("execute", () => {
+    it("should handle explicit app argument", () => {
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
-      syncCommand.execute(context, 'my-app');
+      syncCommand.execute(context, "my-app");
 
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'my-app'
+        type: "SET_CONFIRM_TARGET",
+        payload: "my-app",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_SYNC_PRUNE',
-        payload: false
+        type: "SET_CONFIRM_SYNC_PRUNE",
+        payload: false,
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_SYNC_WATCH',
-        payload: true
+        type: "SET_CONFIRM_SYNC_WATCH",
+        payload: true,
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_MODE',
-        payload: 'confirm-sync'
+        type: "SET_MODE",
+        payload: "confirm-sync",
       });
     });
 
-    it('should handle multi-app selection (>1 apps)', () => {
+    it("should handle multi-app selection (>1 apps)", () => {
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({
           selections: {
-            selectedApps: new Set(['app1', 'app2']),
+            selectedApps: new Set(["app1", "app2"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       syncCommand.execute(context);
 
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: '__MULTI__'
+        type: "SET_CONFIRM_TARGET",
+        payload: "__MULTI__",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_SYNC_WATCH',
-        payload: false // disabled for multi-sync
+        type: "SET_CONFIRM_SYNC_WATCH",
+        payload: false, // disabled for multi-sync
       });
     });
 
-    it('should handle single app from cursor position', () => {
+    it("should handle single app from cursor position", () => {
       const mockDispatch = jest.fn();
       const apps = [
-        { name: 'cursor-app', sync: 'Synced', health: 'Healthy', clusterId: 'cluster1', clusterLabel: 'cluster1', namespace: 'default', appNamespace: 'argocd', project: 'default' }
+        {
+          name: "cursor-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "cluster1",
+          clusterLabel: "cluster1",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "default",
+        },
       ];
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 },
-          selections: { selectedApps: new Set(), scopeClusters: new Set(), scopeNamespaces: new Set(), scopeProjects: new Set() },
-          apps
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
+          selections: {
+            selectedApps: new Set(),
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+          },
+          apps,
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       syncCommand.execute(context);
 
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'cursor-app'
+        type: "SET_CONFIRM_TARGET",
+        payload: "cursor-app",
       });
     });
 
-    it('should handle single app from selection', () => {
+    it("should handle single app from selection", () => {
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
           selections: {
-            selectedApps: new Set(['selected-app']),
+            selectedApps: new Set(["selected-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       syncCommand.execute(context);
 
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'selected-app'
+        type: "SET_CONFIRM_TARGET",
+        payload: "selected-app",
       });
     });
 
-    it('should warn when no app selected', () => {
+    it("should warn when no app selected", () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
           selections: {
             selectedApps: new Set(),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
+            scopeProjects: new Set(),
           },
-          apps: []
+          apps: [],
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       syncCommand.execute(context);
 
-      expect(mockStatusLog.warn).toHaveBeenCalledWith('No app selected to sync.', 'user-action');
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to sync.",
+        "user-action",
+      );
     });
 
-    it('should set correct confirmation state for single app', () => {
+    it("should set correct confirmation state for single app", () => {
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({
           selections: {
-            selectedApps: new Set(['single-app']),
+            selectedApps: new Set(["single-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       syncCommand.execute(context);
 
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_TARGET',
-        payload: 'single-app'
+        type: "SET_CONFIRM_TARGET",
+        payload: "single-app",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_SYNC_PRUNE',
-        payload: false
+        type: "SET_CONFIRM_SYNC_PRUNE",
+        payload: false,
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_CONFIRM_SYNC_WATCH',
-        payload: true
+        type: "SET_CONFIRM_SYNC_WATCH",
+        payload: true,
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: 'SET_MODE',
-        payload: 'confirm-sync'
+        type: "SET_MODE",
+        payload: "confirm-sync",
       });
     });
   });
 
-  describe('properties', () => {
-    it('should have correct description', () => {
-      expect(syncCommand.description).toBe('Sync application(s)');
+  describe("properties", () => {
+    it("should have correct description", () => {
+      expect(syncCommand.description).toBe("Sync application(s)");
     });
 
-    it('should have empty aliases array', () => {
+    it("should have empty aliases array", () => {
       expect(syncCommand.aliases).toEqual([]);
     });
   });

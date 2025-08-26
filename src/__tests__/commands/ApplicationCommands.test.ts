@@ -1,6 +1,7 @@
 // src/__tests__/commands/ApplicationCommands.test.ts
-import { createMockContext, createMockState } from '../test-utils';
-import type { CommandContext } from '../../commands/types';
+
+import type { CommandContext } from "../../commands/types";
+import { createMockContext, createMockState } from "../test-utils";
 
 // Test implementations of command classes without external dependencies
 class TestDiffCommand {
@@ -142,56 +143,59 @@ class TestLicenseCommand {
       dispatch({ type: "SET_MODE", payload: "normal" });
       statusLog.info("Opening licenses…", "license");
       // Mock license session
-    } catch (e) {
+    } catch (_e) {
       // Handle cleanup
     }
   }
 }
 
-describe('DiffCommand', () => {
+describe("DiffCommand", () => {
   let diffCommand: TestDiffCommand;
 
   beforeEach(() => {
     diffCommand = new TestDiffCommand();
   });
 
-  describe('canExecute', () => {
-    it('should require authentication', () => {
+  describe("canExecute", () => {
+    it("should require authentication", () => {
       const context = createMockContext({
-        state: createMockState({ server: null })
+        state: createMockState({ server: null }),
       });
 
       expect(diffCommand.canExecute(context)).toBe(false);
     });
 
-    it('should allow execution when authenticated', () => {
+    it("should allow execution when authenticated", () => {
       const context = createMockContext();
 
       expect(diffCommand.canExecute(context)).toBe(true);
     });
   });
 
-  describe('execute', () => {
-    it('should require authentication', async () => {
+  describe("execute", () => {
+    it("should require authentication", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({ server: null }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await diffCommand.execute(context);
 
-      expect(mockStatusLog.error).toHaveBeenCalledWith('Not authenticated.', 'auth');
+      expect(mockStatusLog.error).toHaveBeenCalledWith(
+        "Not authenticated.",
+        "auth",
+      );
     });
 
-    it('should find target app correctly with explicit argument', async () => {
+    it("should find target app correctly with explicit argument", async () => {
       const mockDispatch = jest.fn();
       const mockStatusLog = {
         info: jest.fn(),
@@ -199,181 +203,207 @@ describe('DiffCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
-      await diffCommand.execute(context, 'test-app');
+      await diffCommand.execute(context, "test-app");
 
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for test-app…', 'diff');
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_MODE', payload: 'normal' });
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for test-app…",
+        "diff",
+      );
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "normal",
+      });
     });
 
-    it('should find target from cursor position in apps view', async () => {
+    it("should find target from cursor position in apps view", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
-      const apps = [{
-        name: 'cursor-app',
-        sync: 'Synced',
-        health: 'Healthy',
-        clusterId: 'cluster1',
-        clusterLabel: 'cluster1',
-        namespace: 'default',
-        appNamespace: 'argocd',
-        project: 'default',
-        lastSyncAt: '2023-12-01T10:00:00Z'
-      }];
+      const apps = [
+        {
+          name: "cursor-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "cluster1",
+          clusterLabel: "cluster1",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "default",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+      ];
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 },
-          apps
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
+          apps,
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await diffCommand.execute(context);
 
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for cursor-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for cursor-app…",
+        "diff",
+      );
     });
 
-    it('should find target from selected apps', async () => {
+    it("should find target from selected apps", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
           selections: {
-            selectedApps: new Set(['selected-app']),
+            selectedApps: new Set(["selected-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await diffCommand.execute(context);
 
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for selected-app…', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for selected-app…",
+        "diff",
+      );
     });
 
-    it('should warn when no app selected', async () => {
+    it("should warn when no app selected", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
           selections: {
             selectedApps: new Set(),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
+            scopeProjects: new Set(),
           },
-          apps: []
+          apps: [],
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await diffCommand.execute(context);
 
-      expect(mockStatusLog.warn).toHaveBeenCalledWith('No app selected to diff.', 'user-action');
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to diff.",
+        "user-action",
+      );
     });
 
-    it('should handle diff session success', async () => {
+    it("should handle diff session success", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
-      await diffCommand.execute(context, 'test-app');
+      await diffCommand.execute(context, "test-app");
 
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Preparing diff for test-app…', 'diff');
-      expect(mockStatusLog.info).toHaveBeenCalledWith('No differences.', 'diff');
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for test-app…",
+        "diff",
+      );
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "No differences.",
+        "diff",
+      );
     });
   });
 
-  describe('properties', () => {
-    it('should have correct description', () => {
-      expect(diffCommand.description).toBe('View diff for application');
+  describe("properties", () => {
+    it("should have correct description", () => {
+      expect(diffCommand.description).toBe("View diff for application");
     });
 
-    it('should have empty aliases array', () => {
+    it("should have empty aliases array", () => {
       expect(diffCommand.aliases).toEqual([]);
     });
   });
 });
 
-describe('RollbackCommand', () => {
+describe("RollbackCommand", () => {
   let rollbackCommand: TestRollbackCommand;
 
   beforeEach(() => {
     rollbackCommand = new TestRollbackCommand();
   });
 
-  describe('canExecute', () => {
-    it('should require authentication', () => {
+  describe("canExecute", () => {
+    it("should require authentication", () => {
       const context = createMockContext({
-        state: createMockState({ server: null })
+        state: createMockState({ server: null }),
       });
 
       expect(rollbackCommand.canExecute(context)).toBe(false);
     });
 
-    it('should allow execution when authenticated', () => {
+    it("should allow execution when authenticated", () => {
       const context = createMockContext();
 
       expect(rollbackCommand.canExecute(context)).toBe(true);
     });
   });
 
-  describe('execute', () => {
-    it('should require authentication', async () => {
+  describe("execute", () => {
+    it("should require authentication", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({ server: null }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await rollbackCommand.execute(context);
 
-      expect(mockStatusLog.error).toHaveBeenCalledWith('Not authenticated.', 'auth');
+      expect(mockStatusLog.error).toHaveBeenCalledWith(
+        "Not authenticated.",
+        "auth",
+      );
     });
 
-    it('should set rollback target and mode', async () => {
+    it("should set rollback target and mode", async () => {
       const mockDispatch = jest.fn();
       const mockStatusLog = {
         info: jest.fn(),
@@ -381,21 +411,30 @@ describe('RollbackCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
-      await rollbackCommand.execute(context, 'rollback-app');
+      await rollbackCommand.execute(context, "rollback-app");
 
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Opening rollback for rollback-app…', 'rollback');
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_ROLLBACK_APP_NAME', payload: 'rollback-app' });
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_MODE', payload: 'rollback' });
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Opening rollback for rollback-app…",
+        "rollback",
+      );
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_ROLLBACK_APP_NAME",
+        payload: "rollback-app",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "rollback",
+      });
     });
 
-    it('should handle app selection logic from cursor', async () => {
+    it("should handle app selection logic from cursor", async () => {
       const mockDispatch = jest.fn();
       const mockStatusLog = {
         info: jest.fn(),
@@ -403,216 +442,239 @@ describe('RollbackCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
-      const apps = [{
-        name: 'cursor-app',
-        sync: 'Synced',
-        health: 'Healthy',
-        clusterId: 'cluster1',
-        clusterLabel: 'cluster1',
-        namespace: 'default',
-        appNamespace: 'argocd',
-        project: 'default',
-        lastSyncAt: '2023-12-01T10:00:00Z'
-      }];
+      const apps = [
+        {
+          name: "cursor-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "cluster1",
+          clusterLabel: "cluster1",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "default",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+      ];
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'apps', selectedIdx: 0, lastGPressed: 0 },
-          apps
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
+          apps,
         }),
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await rollbackCommand.execute(context);
 
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_ROLLBACK_APP_NAME', payload: 'cursor-app' });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_ROLLBACK_APP_NAME",
+        payload: "cursor-app",
+      });
     });
 
-    it('should warn when no app selected', async () => {
+    it("should warn when no app selected", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
           selections: {
             selectedApps: new Set(),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
+            scopeProjects: new Set(),
           },
-          apps: []
+          apps: [],
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await rollbackCommand.execute(context);
 
-      expect(mockStatusLog.warn).toHaveBeenCalledWith('No app selected to rollback.', 'user-action');
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to rollback.",
+        "user-action",
+      );
     });
   });
 });
 
-describe('ResourcesCommand', () => {
+describe("ResourcesCommand", () => {
   let resourcesCommand: TestResourcesCommand;
 
   beforeEach(() => {
     resourcesCommand = new TestResourcesCommand();
   });
 
-  describe('canExecute', () => {
-    it('should require authentication', () => {
+  describe("canExecute", () => {
+    it("should require authentication", () => {
       const context = createMockContext({
-        state: createMockState({ server: null })
+        state: createMockState({ server: null }),
       });
 
       expect(resourcesCommand.canExecute(context)).toBe(false);
     });
 
-    it('should allow execution when authenticated', () => {
+    it("should allow execution when authenticated", () => {
       const context = createMockContext();
 
       expect(resourcesCommand.canExecute(context)).toBe(true);
     });
   });
 
-  describe('execute', () => {
-    it('should require authentication', () => {
+  describe("execute", () => {
+    it("should require authentication", () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({ server: null }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       resourcesCommand.execute(context);
 
-      expect(mockStatusLog.error).toHaveBeenCalledWith('Not authenticated.', 'auth');
+      expect(mockStatusLog.error).toHaveBeenCalledWith(
+        "Not authenticated.",
+        "auth",
+      );
     });
 
-    it('should set resource view app and mode', () => {
+    it("should set resource view app and mode", () => {
       const mockDispatch = jest.fn();
       const context = createMockContext({
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
-      resourcesCommand.execute(context, 'resource-app');
+      resourcesCommand.execute(context, "resource-app");
 
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_SYNC_VIEW_APP', payload: 'resource-app' });
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_MODE', payload: 'resources' });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SYNC_VIEW_APP",
+        payload: "resource-app",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "resources",
+      });
     });
 
-    it('should handle aliases (resource, res)', () => {
-      expect(resourcesCommand.aliases).toEqual(['resource', 'res']);
+    it("should handle aliases (resource, res)", () => {
+      expect(resourcesCommand.aliases).toEqual(["resource", "res"]);
     });
 
-    it('should find target from single selected app', () => {
+    it("should find target from single selected app", () => {
       const mockDispatch = jest.fn();
       const context = createMockContext({
         state: createMockState({
           selections: {
-            selectedApps: new Set(['single-selected-app']),
+            selectedApps: new Set(["single-selected-app"]),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
-          }
+            scopeProjects: new Set(),
+          },
         }),
-        dispatch: mockDispatch
+        dispatch: mockDispatch,
       });
 
       resourcesCommand.execute(context);
 
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_SYNC_VIEW_APP', payload: 'single-selected-app' });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SYNC_VIEW_APP",
+        payload: "single-selected-app",
+      });
     });
 
-    it('should warn when no app selected', () => {
+    it("should warn when no app selected", () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: 'clusters', selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
           selections: {
             selectedApps: new Set(),
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
-            scopeProjects: new Set()
+            scopeProjects: new Set(),
           },
-          apps: []
+          apps: [],
         }),
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       resourcesCommand.execute(context);
 
-      expect(mockStatusLog.warn).toHaveBeenCalledWith('No app selected to open resources view.', 'user-action');
+      expect(mockStatusLog.warn).toHaveBeenCalledWith(
+        "No app selected to open resources view.",
+        "user-action",
+      );
     });
   });
 });
 
-describe('LogsCommand', () => {
+describe("LogsCommand", () => {
   let logsCommand: TestLogsCommand;
 
   beforeEach(() => {
     logsCommand = new TestLogsCommand();
   });
 
-  describe('execute', () => {
-    it('should open logs session', async () => {
+  describe("execute", () => {
+    it("should open logs session", async () => {
       const mockStatusLog = {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await logsCommand.execute(context);
 
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Opening logs…', 'logs');
+      expect(mockStatusLog.info).toHaveBeenCalledWith("Opening logs…", "logs");
     });
 
-    it('should have log alias', () => {
-      expect(logsCommand.aliases).toEqual(['log']);
+    it("should have log alias", () => {
+      expect(logsCommand.aliases).toEqual(["log"]);
     });
 
-    it('should have correct description', () => {
-      expect(logsCommand.description).toBe('Open log viewer');
+    it("should have correct description", () => {
+      expect(logsCommand.description).toBe("Open log viewer");
     });
   });
 });
 
-describe('LicenseCommand', () => {
+describe("LicenseCommand", () => {
   let licenseCommand: TestLicenseCommand;
 
   beforeEach(() => {
     licenseCommand = new TestLicenseCommand();
   });
 
-  describe('execute', () => {
-    it('should open licenses session', async () => {
+  describe("execute", () => {
+    it("should open licenses session", async () => {
       const mockDispatch = jest.fn();
       const mockStatusLog = {
         info: jest.fn(),
@@ -620,25 +682,31 @@ describe('LicenseCommand', () => {
         error: jest.fn(),
         debug: jest.fn(),
         set: jest.fn(),
-        clear: jest.fn()
+        clear: jest.fn(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
-        statusLog: mockStatusLog
+        statusLog: mockStatusLog,
       });
 
       await licenseCommand.execute(context);
 
-      expect(mockDispatch).toHaveBeenCalledWith({ type: 'SET_MODE', payload: 'normal' });
-      expect(mockStatusLog.info).toHaveBeenCalledWith('Opening licenses…', 'license');
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "normal",
+      });
+      expect(mockStatusLog.info).toHaveBeenCalledWith(
+        "Opening licenses…",
+        "license",
+      );
     });
 
-    it('should have licenses alias', () => {
-      expect(licenseCommand.aliases).toEqual(['licenses']);
+    it("should have licenses alias", () => {
+      expect(licenseCommand.aliases).toEqual(["licenses"]);
     });
 
-    it('should have correct description', () => {
-      expect(licenseCommand.description).toBe('View licenses');
+    it("should have correct description", () => {
+      expect(licenseCommand.description).toBe("View licenses");
     });
   });
 });
