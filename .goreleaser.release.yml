@@ -17,9 +17,7 @@ builds:
       - linux-arm64
       - darwin-x64
       - darwin-arm64
-      - linux-x64-musl
       - linux-x64-musl-modern
-      - linux-x64-musl-baseline
       - linux-arm64-musl
 
 # Package artifacts (use tar.gz, no deprecation warnings)
