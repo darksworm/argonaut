@@ -1,4 +1,6 @@
 // src/__tests__/handlers/InputHandlers.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import {
   CommandInputHandler,
   GlobalInputHandler,
@@ -34,7 +36,7 @@ describe("ModeInputHandler", () => {
 
   describe("mode switching", () => {
     it("should handle ? (help mode)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "normal" }),
         dispatch: mockDispatch,
@@ -50,7 +52,7 @@ describe("ModeInputHandler", () => {
     });
 
     it("should handle / (search mode)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "normal" }),
         dispatch: mockDispatch,
@@ -66,7 +68,7 @@ describe("ModeInputHandler", () => {
     });
 
     it("should handle : (command mode)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "normal" }),
         dispatch: mockDispatch,
@@ -130,7 +132,7 @@ describe("SearchInputHandler", () => {
 
   describe("search mode navigation", () => {
     it("should handle Escape (exit search mode)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "search" }),
         dispatch: mockDispatch,
@@ -150,7 +152,7 @@ describe("SearchInputHandler", () => {
     });
 
     it("should handle down arrow navigation", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           mode: "search",
@@ -169,7 +171,7 @@ describe("SearchInputHandler", () => {
     });
 
     it("should handle up arrow navigation", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           mode: "search",
@@ -234,7 +236,7 @@ describe("CommandInputHandler", () => {
 
   describe("command mode handling", () => {
     it("should handle Escape (exit command mode)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "command" }),
         dispatch: mockDispatch,
@@ -290,7 +292,7 @@ describe("GlobalInputHandler", () => {
 
   describe("global actions", () => {
     it("should handle Ctrl+C (exit)", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         cleanupAndExit: mockCleanupAndExit,
       });
@@ -302,7 +304,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle escape sequence (exit)", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         cleanupAndExit: mockCleanupAndExit,
       });
@@ -314,7 +316,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle q (quit) in normal mode", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         state: createMockState({ mode: "normal" }),
         cleanupAndExit: mockCleanupAndExit,
@@ -327,7 +329,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle Q (quit) in normal mode (case insensitive)", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         state: createMockState({ mode: "normal" }),
         cleanupAndExit: mockCleanupAndExit,
@@ -340,7 +342,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle q (quit) in auth-required mode", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         state: createMockState({ mode: "auth-required" }),
         cleanupAndExit: mockCleanupAndExit,
@@ -353,7 +355,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle q (quit) in loading mode", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         state: createMockState({ mode: "loading" }),
         cleanupAndExit: mockCleanupAndExit,
@@ -366,7 +368,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should not handle q in command mode", () => {
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         state: createMockState({ mode: "command" }),
         cleanupAndExit: mockCleanupAndExit,
@@ -379,7 +381,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle l (logs) in auth-required mode", () => {
-      const mockExecuteCommand = jest.fn();
+      const mockExecuteCommand = mock();
       const context = createMockContext({
         state: createMockState({ mode: "auth-required" }),
         executeCommand: mockExecuteCommand,
@@ -392,7 +394,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should handle L (logs) in auth-required mode (case insensitive)", () => {
-      const mockExecuteCommand = jest.fn();
+      const mockExecuteCommand = mock();
       const context = createMockContext({
         state: createMockState({ mode: "auth-required" }),
         executeCommand: mockExecuteCommand,
@@ -405,7 +407,7 @@ describe("GlobalInputHandler", () => {
     });
 
     it("should not handle l in normal mode", () => {
-      const mockExecuteCommand = jest.fn();
+      const mockExecuteCommand = mock();
       const context = createMockContext({
         state: createMockState({ mode: "normal" }),
         executeCommand: mockExecuteCommand,

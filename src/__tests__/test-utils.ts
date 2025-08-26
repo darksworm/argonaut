@@ -1,4 +1,6 @@
 // src/__tests__/test-utils.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 /**
  * Test utilities and mock factories for unit testing
  * This file contains only utilities and does not have its own tests
@@ -10,14 +12,14 @@ import type { AppItem, Mode, View } from "../types/domain";
 
 export interface MockCommandContext {
   state: AppState;
-  dispatch: jest.Mock;
+  dispatch: mock.Mock;
   statusLog: ReturnType<typeof createMockStatusLog>;
-  cleanupAndExit: jest.Mock;
+  cleanupAndExit: mock.Mock;
   navigationActions?: {
-    drillDown: jest.Mock;
-    toggleSelection: jest.Mock;
+    drillDown: mock.Mock;
+    toggleSelection: mock.Mock;
   };
-  executeCommand: jest.Mock;
+  executeCommand: mock.Mock;
 }
 
 // Mock creation helpers
@@ -26,14 +28,14 @@ export function createMockContext(
 ): MockCommandContext {
   return {
     state: createMockState(),
-    dispatch: jest.fn(),
+    dispatch: mock(),
     statusLog: createMockStatusLog(),
-    cleanupAndExit: jest.fn(),
+    cleanupAndExit: mock(),
     navigationActions: {
-      drillDown: jest.fn(),
-      toggleSelection: jest.fn(),
+      drillDown: mock(),
+      toggleSelection: mock(),
     },
-    executeCommand: jest.fn(),
+    executeCommand: mock(),
     ...overrides,
   };
 }
@@ -85,12 +87,12 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
 
 export function createMockStatusLog() {
   return {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    set: jest.fn(),
-    clear: jest.fn(),
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+    set: mock(),
+    clear: mock(),
   };
 }
 
@@ -123,8 +125,8 @@ export function createMockApps(): AppItem[] {
 
 export function createMockCommand(overrides: Partial<any> = {}) {
   return {
-    execute: jest.fn(),
-    canExecute: jest.fn().mockReturnValue(true),
+    execute: mock(),
+    canExecute: mock().mockReturnValue(true),
     description: "Test command",
     aliases: [],
     ...overrides,

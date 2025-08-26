@@ -3,23 +3,25 @@ import { AppStateProvider } from "../../contexts/AppStateContext";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
 import { stripAnsi } from "../test-utils";
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {
   // Mock command registry
   const mockCommandRegistry = {
-    parseCommandLine: jest.fn(),
-    getCommands: jest.fn().mockReturnValue([]),
-    executeCommand: jest.fn(),
-    registerCommand: jest.fn(),
-    registerInputHandler: jest.fn(),
+    parseCommandLine: mock(),
+    getCommands: mock().mockReturnValue([]),
+    executeCommand: mock(),
+    registerCommand: mock(),
+    registerInputHandler: mock(),
   };
 
-  const mockOnExecuteCommand = jest.fn();
-  const mockOnSubmit = jest.fn();
+  const mockOnExecuteCommand = mock();
+  const mockOnSubmit = mock();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   describe("CommandBar Component", () => {

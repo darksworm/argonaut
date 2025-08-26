@@ -1,4 +1,6 @@
 // src/__tests__/commands/PerformanceTests.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { Command, CommandContext } from "../../commands/types";
 import { createMockContext, createMockState } from "../test-utils";
@@ -213,18 +215,18 @@ class CPUIntensiveCommand implements Command {
 
 describe("Command Performance and Timeout Tests", () => {
   let context: CommandContext;
-  let mockDispatch: jest.Mock;
+  let mockDispatch: mock.Mock;
   let mockStatusLog: any;
 
   beforeEach(() => {
-    mockDispatch = jest.fn();
+    mockDispatch = mock();
     mockStatusLog = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      set: jest.fn(),
-      clear: jest.fn(),
+      info: mock(),
+      warn: mock(),
+      error: mock(),
+      debug: mock(),
+      set: mock(),
+      clear: mock(),
     };
 
     context = createMockContext({
@@ -237,11 +239,11 @@ describe("Command Performance and Timeout Tests", () => {
     ResourceLeakCommand.cleanup();
 
     // Increase timeout for performance tests
-    jest.setTimeout(10000);
+    
   });
 
   afterEach(() => {
-    jest.setTimeout(5000); // Reset to default
+    
   });
 
   describe("synchronous performance tests", () => {

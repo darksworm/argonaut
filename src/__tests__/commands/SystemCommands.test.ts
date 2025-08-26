@@ -1,4 +1,6 @@
 // src/__tests__/commands/SystemCommands.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { Command, CommandContext } from "../../commands/types";
 import { createMockContext, createMockState } from "../test-utils";
@@ -56,7 +58,7 @@ describe("QuitCommand", () => {
   describe("execute", () => {
     it("should call cleanupAndExit", () => {
       // Arrange
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         cleanupAndExit: mockCleanupAndExit,
       });
@@ -70,7 +72,7 @@ describe("QuitCommand", () => {
 
     it("should handle cleanup gracefully even if context is incomplete", () => {
       // Arrange
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const context = createMockContext({
         cleanupAndExit: mockCleanupAndExit,
       });
@@ -94,7 +96,7 @@ describe("QuitCommand", () => {
   describe("edge cases", () => {
     it("should work with minimal context", () => {
       // Arrange
-      const mockCleanupAndExit = jest.fn();
+      const mockCleanupAndExit = mock();
       const minimalContext = {
         ...createMockContext(),
         cleanupAndExit: mockCleanupAndExit,
@@ -117,7 +119,7 @@ describe("HelpCommand", () => {
   describe("execute", () => {
     it("should set mode to help", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -135,7 +137,7 @@ describe("HelpCommand", () => {
 
     it("should work regardless of current mode", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "confirm-sync" }),
         dispatch: mockDispatch,
@@ -153,7 +155,7 @@ describe("HelpCommand", () => {
 
     it("should work regardless of authentication state", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ server: null }),
         dispatch: mockDispatch,
@@ -183,7 +185,7 @@ describe("HelpCommand", () => {
   describe("integration scenarios", () => {
     it("should work when called from different views", () => {
       // Test from apps view
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const appsContext = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
@@ -227,14 +229,14 @@ describe("LoginCommand", () => {
   describe("execute", () => {
     it("should show error message and set auth-required mode", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -257,14 +259,14 @@ describe("LoginCommand", () => {
 
     it("should work when called from any authentication state", () => {
       // Arrange - Test with authenticated state
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const authenticatedContext = createMockContext({
         state: createMockState({
@@ -293,14 +295,14 @@ describe("LoginCommand", () => {
 
     it("should work when called with minimal context", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const minimalContext = createMockContext({
         dispatch: mockDispatch,
@@ -327,16 +329,16 @@ describe("LoginCommand", () => {
   describe("error handling", () => {
     it("should handle dispatch failure gracefully", () => {
       // Arrange
-      const mockDispatch = jest.fn().mockImplementation(() => {
+      const mockDispatch = mock().mockImplementation(() => {
         throw new Error("Dispatch failed");
       });
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -350,16 +352,16 @@ describe("LoginCommand", () => {
 
     it("should handle statusLog failure gracefully", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn().mockImplementation(() => {
+        info: mock(),
+        warn: mock(),
+        error: mock().mockImplementation(() => {
           throw new Error("StatusLog failed");
         }),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -382,7 +384,7 @@ describe("RulerCommand", () => {
   describe("execute", () => {
     it("should set mode to rulerline", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -400,7 +402,7 @@ describe("RulerCommand", () => {
 
     it("should work regardless of current mode", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ mode: "confirm-sync" }),
         dispatch: mockDispatch,
@@ -418,7 +420,7 @@ describe("RulerCommand", () => {
 
     it("should work regardless of authentication state", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({ server: null }),
         dispatch: mockDispatch,
@@ -439,7 +441,7 @@ describe("RulerCommand", () => {
       const views = ["apps", "clusters", "namespaces", "projects"] as const;
 
       views.forEach((view) => {
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const context = createMockContext({
           state: createMockState({
             navigation: { view, selectedIdx: 0, lastGPressed: 0 },
@@ -470,7 +472,7 @@ describe("RulerCommand", () => {
   describe("edge cases", () => {
     it("should work with minimal context", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const minimalContext = {
         ...createMockContext(),
         dispatch: mockDispatch,
@@ -488,7 +490,7 @@ describe("RulerCommand", () => {
   describe("error handling", () => {
     it("should handle dispatch failure", () => {
       // Arrange
-      const mockDispatch = jest.fn().mockImplementation(() => {
+      const mockDispatch = mock().mockImplementation(() => {
         throw new Error("Dispatch failed");
       });
       const context = createMockContext({
@@ -505,7 +507,7 @@ describe("System Commands Integration", () => {
   describe("command interaction patterns", () => {
     it("should allow transitioning between system modes", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -531,7 +533,7 @@ describe("System Commands Integration", () => {
 
     it("should handle rapid command execution", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -565,8 +567,7 @@ describe("System Commands Integration", () => {
   describe("error resilience", () => {
     it("should continue working after individual command failures", () => {
       // Arrange
-      const mockDispatch = jest
-        .fn()
+      const mockDispatch = mock()
         .mockImplementationOnce(() => {
           throw new Error("First call failed");
         })

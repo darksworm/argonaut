@@ -1,4 +1,6 @@
 // src/__tests__/commands/SyncCommandLogic.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { Command, CommandContext } from "../../commands/types";
 import { createMockContext, createMockState } from "../test-utils";
@@ -83,7 +85,7 @@ describe("SyncCommand Logic", () => {
 
   describe("execute", () => {
     it("should handle explicit app argument", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -109,7 +111,7 @@ describe("SyncCommand Logic", () => {
     });
 
     it("should handle multi-app selection (>1 apps)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           selections: {
@@ -135,7 +137,7 @@ describe("SyncCommand Logic", () => {
     });
 
     it("should handle single app from cursor position", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const apps = [
         {
           name: "cursor-app",
@@ -171,7 +173,7 @@ describe("SyncCommand Logic", () => {
     });
 
     it("should handle single app from selection", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
@@ -195,12 +197,12 @@ describe("SyncCommand Logic", () => {
 
     it("should warn when no app selected", () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -225,7 +227,7 @@ describe("SyncCommand Logic", () => {
     });
 
     it("should set correct confirmation state for single app", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           selections: {

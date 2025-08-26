@@ -1,4 +1,6 @@
 // src/__tests__/commands/EnhancedApplicationCommands.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { CommandContext } from "../../commands/types";
 import {
@@ -115,14 +117,14 @@ describe("Enhanced SyncCommand Edge Cases", () => {
   describe("boundary conditions", () => {
     it("should handle empty app name argument", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -141,7 +143,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
 
     it("should handle very long app name argument", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const longAppName = "a".repeat(1000); // Very long app name
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -159,7 +161,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
 
     it("should handle special characters in app name", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const specialAppName = "app-with-special-chars.@#$%^&*()";
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -177,7 +179,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
 
     it("should handle exactly one selected app", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           selections: {
@@ -202,7 +204,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
 
     it("should handle exactly two selected apps (multi-sync)", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           selections: {
@@ -231,7 +233,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
 
     it("should handle large number of selected apps", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const manyApps = Array.from({ length: 100 }, (_, i) => `app-${i}`);
       const context = createMockContext({
         state: createMockState({
@@ -259,7 +261,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
   describe("state consistency edge cases", () => {
     it("should handle cursor at last index in apps array", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const apps = createMockApps();
       const context = createMockContext({
         state: createMockState({
@@ -286,12 +288,12 @@ describe("Enhanced SyncCommand Edge Cases", () => {
     it("should handle cursor beyond apps array bounds gracefully", () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const apps = createMockApps();
       const context = createMockContext({
@@ -319,12 +321,12 @@ describe("Enhanced SyncCommand Edge Cases", () => {
     it("should handle empty apps array with cursor position", () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -348,7 +350,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
   describe("race condition scenarios", () => {
     it("should handle concurrent selections modifications", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const selectedApps = new Set(["app1", "app2"]);
       const context = createMockContext({
         state: createMockState({
@@ -377,7 +379,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
   describe("error recovery scenarios", () => {
     it("should handle dispatch failure on first action", () => {
       // Arrange
-      const mockDispatch = jest.fn().mockImplementationOnce(() => {
+      const mockDispatch = mock().mockImplementationOnce(() => {
         throw new Error("First dispatch failed");
       });
 
@@ -393,8 +395,7 @@ describe("Enhanced SyncCommand Edge Cases", () => {
 
     it("should handle dispatch failure on subsequent actions", () => {
       // Arrange
-      const mockDispatch = jest
-        .fn()
+      const mockDispatch = mock()
         .mockImplementationOnce(() => {
           /* Success */
         })
@@ -425,14 +426,14 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle diff operation timeout", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
 
       // Mock a slow diff operation by overriding the internal timeout
       const slowDiffCommand = new (class extends EnhancedDiffCommand {
@@ -484,14 +485,14 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle memory pressure during diff", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
 
       // Mock memory pressure scenario
       const memoryPressureDiffCommand = new (class extends EnhancedDiffCommand {
@@ -532,12 +533,12 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle server object with missing properties", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -559,12 +560,12 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle server authentication state changes during execution", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const serverState = {
         config: { baseUrl: "https://test.com" },
@@ -595,12 +596,12 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle null/undefined app names gracefully", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const apps = [
         { name: null, sync: "Synced", health: "Healthy" }, // Invalid app
@@ -628,12 +629,12 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should prioritize argument over cursor and selections", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const apps = createMockApps();
       const context = createMockContext({
@@ -663,12 +664,12 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should fallback from cursor to selection when not in apps view", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -698,16 +699,16 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle statusLog errors during execution", async () => {
       // Arrange
       const mockStatusLog = {
-        info: jest.fn().mockImplementation(() => {
+        info: mock().mockImplementation(() => {
           throw new Error("StatusLog info failed");
         }),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         statusLog: mockStatusLog,
         dispatch: mockDispatch,
@@ -729,8 +730,7 @@ describe("Enhanced DiffCommand Edge Cases", () => {
 
     it("should handle dispatch errors in catch block", async () => {
       // Arrange
-      const mockDispatch = jest
-        .fn()
+      const mockDispatch = mock()
         .mockImplementationOnce(() => {
           /* Success */
         })
@@ -739,14 +739,14 @@ describe("Enhanced DiffCommand Edge Cases", () => {
         });
 
       const mockStatusLog = {
-        info: jest.fn().mockImplementation(() => {
+        info: mock().mockImplementation(() => {
           throw new Error("Original error");
         }),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
 
       const context = createMockContext({
@@ -763,23 +763,23 @@ describe("Enhanced DiffCommand Edge Cases", () => {
     it("should handle multiple concurrent errors gracefully", async () => {
       // Arrange
       const errors: Error[] = [];
-      const mockDispatch = jest.fn().mockImplementation(() => {
+      const mockDispatch = mock().mockImplementation(() => {
         const error = new Error("Dispatch error");
         errors.push(error);
         throw error;
       });
 
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn().mockImplementation(() => {
+        info: mock(),
+        warn: mock(),
+        error: mock().mockImplementation(() => {
           const error = new Error("StatusLog error");
           errors.push(error);
           throw error;
         }),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
 
       const context = createMockContext({
@@ -799,7 +799,7 @@ describe("Application Commands Performance Tests", () => {
     it("should not leak memory with repeated sync operations", () => {
       // Arrange
       const syncCommand = new EnhancedSyncCommand();
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -816,7 +816,7 @@ describe("Application Commands Performance Tests", () => {
     it("should handle large app arrays efficiently", () => {
       // Arrange
       const syncCommand = new EnhancedSyncCommand();
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const largeAppsArray = Array.from({ length: 10000 }, (_, i) => ({
         name: `app-${i}`,
         sync: "Synced",
@@ -859,14 +859,14 @@ describe("Application Commands Performance Tests", () => {
       const syncCommand = new EnhancedSyncCommand();
       const diffCommand = new EnhancedDiffCommand();
 
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
 
       const context = createMockContext({

@@ -1,4 +1,6 @@
 // src/__tests__/commands/CommandRegistry.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { CommandRegistry } from "../../commands/registry";
 import type { InputHandler } from "../../commands/types";
 import { createMockCommand, createMockContext } from "../test-utils";
@@ -78,7 +80,7 @@ describe("CommandRegistry", () => {
 
     it("should respect canExecute checks", async () => {
       const mockCommand = createMockCommand({
-        canExecute: jest.fn().mockReturnValue(false),
+        canExecute: mock().mockReturnValue(false),
       });
       registry.registerCommand("test", mockCommand);
 
@@ -93,7 +95,7 @@ describe("CommandRegistry", () => {
     it("should handle command execution errors", async () => {
       const error = new Error("Command failed");
       const mockCommand = createMockCommand({
-        execute: jest.fn().mockRejectedValue(error),
+        execute: mock().mockRejectedValue(error),
       });
       registry.registerCommand("failing", mockCommand);
 
@@ -109,7 +111,7 @@ describe("CommandRegistry", () => {
 
     it("should handle non-Error exceptions", async () => {
       const mockCommand = createMockCommand({
-        execute: jest.fn().mockRejectedValue("String error"),
+        execute: mock().mockRejectedValue("String error"),
       });
       registry.registerCommand("failing", mockCommand);
 
@@ -127,8 +129,8 @@ describe("CommandRegistry", () => {
   describe("registerInputHandler", () => {
     it("should register input handlers", () => {
       const mockHandler: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true),
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(true),
+        canHandle: mock().mockReturnValue(true),
         priority: 5,
       };
 
@@ -143,14 +145,14 @@ describe("CommandRegistry", () => {
 
     it("should prioritize input handlers correctly", () => {
       const lowPriorityHandler: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true),
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(true),
+        canHandle: mock().mockReturnValue(true),
         priority: 1,
       };
 
       const highPriorityHandler: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true),
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(true),
+        canHandle: mock().mockReturnValue(true),
         priority: 10,
       };
 
@@ -168,14 +170,14 @@ describe("CommandRegistry", () => {
 
     it("should fall through to lower priority handlers", () => {
       const firstHandler: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(false), // doesn't handle
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(false), // doesn't handle
+        canHandle: mock().mockReturnValue(true),
         priority: 10,
       };
 
       const secondHandler: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true), // handles it
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(true), // handles it
+        canHandle: mock().mockReturnValue(true),
         priority: 5,
       };
 
@@ -192,8 +194,8 @@ describe("CommandRegistry", () => {
 
     it("should respect canHandle checks", () => {
       const mockHandler: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true),
-        canHandle: jest.fn().mockReturnValue(false), // can't handle
+        handleInput: mock().mockReturnValue(true),
+        canHandle: mock().mockReturnValue(false), // can't handle
         priority: 5,
       };
 
@@ -209,14 +211,14 @@ describe("CommandRegistry", () => {
 
     it("should handle handlers without priority (default to 0)", () => {
       const handlerWithoutPriority: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true),
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(true),
+        canHandle: mock().mockReturnValue(true),
         // no priority specified
       };
 
       const handlerWithPriority: InputHandler = {
-        handleInput: jest.fn().mockReturnValue(true),
-        canHandle: jest.fn().mockReturnValue(true),
+        handleInput: mock().mockReturnValue(true),
+        canHandle: mock().mockReturnValue(true),
         priority: 1,
       };
 

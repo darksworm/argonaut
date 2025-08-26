@@ -1,4 +1,6 @@
 // src/__tests__/commands/ErrorHandlingTests.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { Command, CommandContext } from "../../commands/types";
 import { createMockContext, createMockState } from "../test-utils";
@@ -170,21 +172,21 @@ class StateCorruptionCommand implements Command {
 
 describe("Command Error Handling and Recovery", () => {
   let context: CommandContext;
-  let mockDispatch: jest.Mock;
+  let mockDispatch: mock.Mock;
   let mockStatusLog: any;
-  let mockCleanupAndExit: jest.Mock;
+  let mockCleanupAndExit: mock.Mock;
 
   beforeEach(() => {
-    mockDispatch = jest.fn();
+    mockDispatch = mock();
     mockStatusLog = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      set: jest.fn(),
-      clear: jest.fn(),
+      info: mock(),
+      warn: mock(),
+      error: mock(),
+      debug: mock(),
+      set: mock(),
+      clear: mock(),
     };
-    mockCleanupAndExit = jest.fn();
+    mockCleanupAndExit = mock();
 
     context = createMockContext({
       dispatch: mockDispatch,

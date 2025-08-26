@@ -1,4 +1,6 @@
 // src/__tests__/commands/ApplicationCommands.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { CommandContext } from "../../commands/types";
 import { createMockContext, createMockState } from "../test-utils";
@@ -175,12 +177,12 @@ describe("DiffCommand", () => {
   describe("execute", () => {
     it("should require authentication", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({ server: null }),
@@ -196,14 +198,14 @@ describe("DiffCommand", () => {
     });
 
     it("should find target app correctly with explicit argument", async () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -224,12 +226,12 @@ describe("DiffCommand", () => {
 
     it("should find target from cursor position in apps view", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const apps = [
         {
@@ -262,12 +264,12 @@ describe("DiffCommand", () => {
 
     it("should find target from selected apps", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -291,12 +293,12 @@ describe("DiffCommand", () => {
 
     it("should warn when no app selected", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -322,12 +324,12 @@ describe("DiffCommand", () => {
 
     it("should handle diff session success", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         statusLog: mockStatusLog,
@@ -383,12 +385,12 @@ describe("RollbackCommand", () => {
   describe("execute", () => {
     it("should require authentication", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({ server: null }),
@@ -404,14 +406,14 @@ describe("RollbackCommand", () => {
     });
 
     it("should set rollback target and mode", async () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -435,14 +437,14 @@ describe("RollbackCommand", () => {
     });
 
     it("should handle app selection logic from cursor", async () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const apps = [
         {
@@ -476,12 +478,12 @@ describe("RollbackCommand", () => {
 
     it("should warn when no app selected", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -533,12 +535,12 @@ describe("ResourcesCommand", () => {
   describe("execute", () => {
     it("should require authentication", () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({ server: null }),
@@ -554,7 +556,7 @@ describe("ResourcesCommand", () => {
     });
 
     it("should set resource view app and mode", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
@@ -576,7 +578,7 @@ describe("ResourcesCommand", () => {
     });
 
     it("should find target from single selected app", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           selections: {
@@ -599,12 +601,12 @@ describe("ResourcesCommand", () => {
 
     it("should warn when no app selected", () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -640,12 +642,12 @@ describe("LogsCommand", () => {
   describe("execute", () => {
     it("should open logs session", async () => {
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         statusLog: mockStatusLog,
@@ -675,14 +677,14 @@ describe("LicenseCommand", () => {
 
   describe("execute", () => {
     it("should open licenses session", async () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,

@@ -1,4 +1,6 @@
 // src/__tests__/handlers/NavigationInputHandler.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { NavigationInputHandler } from "../../commands/handlers/keyboard";
 import { createMockContext, createMockState } from "../test-utils";
 
@@ -45,7 +47,7 @@ describe("NavigationInputHandler", () => {
 
   describe("navigation keys", () => {
     it("should handle j key (down) navigation", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
@@ -63,7 +65,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle k key (up) navigation", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 2, lastGPressed: 0 },
@@ -81,7 +83,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle down arrow navigation", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
@@ -99,7 +101,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle up arrow navigation", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 2, lastGPressed: 0 },
@@ -117,7 +119,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should respect lower bounds (not go below 0)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
@@ -134,7 +136,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle gg (go to top) with timing", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const now = Date.now();
       const context = createMockContext({
         state: createMockState({
@@ -145,7 +147,7 @@ describe("NavigationInputHandler", () => {
 
       // Mock Date.now to return consistent value
       const originalDateNow = Date.now;
-      Date.now = jest.fn().mockReturnValue(now);
+      Date.now = mock().mockReturnValue(now);
 
       const result = handler.handleInput("g", {}, context);
 
@@ -164,7 +166,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle single g without double-g effect", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const now = Date.now();
       const context = createMockContext({
         state: createMockState({
@@ -179,7 +181,7 @@ describe("NavigationInputHandler", () => {
 
       // Mock Date.now to return consistent value
       const originalDateNow = Date.now;
-      Date.now = jest.fn().mockReturnValue(now);
+      Date.now = mock().mockReturnValue(now);
 
       const result = handler.handleInput("g", {}, context);
 
@@ -198,7 +200,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle G (go to bottom)", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
@@ -219,8 +221,8 @@ describe("NavigationInputHandler", () => {
   describe("action keys", () => {
     it("should handle Enter (drill down)", () => {
       const mockNavigationActions = {
-        drillDown: jest.fn(),
-        toggleSelection: jest.fn(),
+        drillDown: mock(),
+        toggleSelection: mock(),
       };
       const context = createMockContext({
         navigationActions: mockNavigationActions,
@@ -234,8 +236,8 @@ describe("NavigationInputHandler", () => {
 
     it("should handle Space (toggle selection)", () => {
       const mockNavigationActions = {
-        drillDown: jest.fn(),
-        toggleSelection: jest.fn(),
+        drillDown: mock(),
+        toggleSelection: mock(),
       };
       const context = createMockContext({
         navigationActions: mockNavigationActions,
@@ -248,7 +250,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle Escape (clear current view selections) - clusters", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0 },
@@ -266,7 +268,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle Escape (clear current view selections) - namespaces", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "namespaces", selectedIdx: 0, lastGPressed: 0 },
@@ -284,7 +286,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle Escape (clear current view selections) - projects", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "projects", selectedIdx: 0, lastGPressed: 0 },
@@ -302,7 +304,7 @@ describe("NavigationInputHandler", () => {
     });
 
     it("should handle Escape (clear current view selections) - apps", () => {
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
           navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },

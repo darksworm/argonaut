@@ -3,6 +3,8 @@ import { AppStateProvider } from "../../contexts/AppStateContext";
 import { MainLayout } from "../../components/views/MainLayout";
 import type { AppItem } from "../../types/domain";
 import { stripAnsi } from "../test-utils";
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 // Test the successful authentication flow with clusters and apps displayed
 describe("Main App Success UI Tests", () => {
@@ -70,9 +72,9 @@ describe("Main App Success UI Tests", () => {
   // Mock props for MainLayout
   const defaultMainLayoutProps = {
     visibleItems: [],
-    onDrillDown: jest.fn(),
+    onDrillDown: mock(),
     commandRegistry: { getCommands: () => [] },
-    onExecuteCommand: jest.fn(),
+    onExecuteCommand: mock(),
     status: "Ready",
     modal: null,
   };

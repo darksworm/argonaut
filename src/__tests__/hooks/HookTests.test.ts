@@ -1,4 +1,6 @@
 // src/__tests__/hooks/HookTests.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 // Simplified hook tests focusing on business logic rather than React integration
 
 describe("Hook Business Logic Tests", () => {
@@ -356,19 +358,19 @@ describe("Hook Business Logic Tests", () => {
     describe("command context creation", () => {
       it("should create proper command context structure", () => {
         const mockState = { mode: "normal", apps: [] };
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const mockStatusLog = {
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-          debug: jest.fn(),
-          set: jest.fn(),
-          clear: jest.fn(),
+          info: mock(),
+          warn: mock(),
+          error: mock(),
+          debug: mock(),
+          set: mock(),
+          clear: mock(),
         };
-        const mockCleanupAndExit = jest.fn();
+        const mockCleanupAndExit = mock();
         const mockNavigationActions = {
-          drillDown: jest.fn(),
-          toggleSelection: jest.fn(),
+          drillDown: mock(),
+          toggleSelection: mock(),
         };
 
         const context = {
@@ -377,7 +379,7 @@ describe("Hook Business Logic Tests", () => {
           statusLog: mockStatusLog,
           cleanupAndExit: mockCleanupAndExit,
           navigationActions: mockNavigationActions,
-          executeCommand: jest.fn(),
+          executeCommand: mock(),
         };
 
         expect(context.state).toBe(mockState);
@@ -392,10 +394,10 @@ describe("Hook Business Logic Tests", () => {
     describe("command execution logic", () => {
       it("should handle successful command execution", async () => {
         const mockRegistry = {
-          executeCommand: jest.fn().mockResolvedValue(true),
+          executeCommand: mock().mockResolvedValue(true),
         };
-        const mockContext = { state: {}, dispatch: jest.fn() };
-        const mockStatusLog = { warn: jest.fn() };
+        const mockContext = { state: {}, dispatch: mock() };
+        const mockStatusLog = { warn: mock() };
 
         const executeCommand = async (command: string, ...args: string[]) => {
           const success = await mockRegistry.executeCommand(
@@ -422,10 +424,10 @@ describe("Hook Business Logic Tests", () => {
 
       it("should handle failed command execution", async () => {
         const mockRegistry = {
-          executeCommand: jest.fn().mockResolvedValue(false),
+          executeCommand: mock().mockResolvedValue(false),
         };
-        const mockContext = { state: {}, dispatch: jest.fn() };
-        const mockStatusLog = { warn: jest.fn() };
+        const mockContext = { state: {}, dispatch: mock() };
+        const mockStatusLog = { warn: mock() };
 
         const executeCommand = async (command: string, ...args: string[]) => {
           const success = await mockRegistry.executeCommand(
@@ -452,9 +454,9 @@ describe("Hook Business Logic Tests", () => {
     describe("input handling delegation", () => {
       it("should delegate input to registry", () => {
         const mockRegistry = {
-          handleInput: jest.fn().mockReturnValue(true),
+          handleInput: mock().mockReturnValue(true),
         };
-        const mockContext = { state: {}, dispatch: jest.fn() };
+        const mockContext = { state: {}, dispatch: mock() };
 
         const input = "j";
         const key = { downArrow: false };
@@ -471,9 +473,9 @@ describe("Hook Business Logic Tests", () => {
 
       it("should handle unhandled input gracefully", () => {
         const mockRegistry = {
-          handleInput: jest.fn().mockReturnValue(false),
+          handleInput: mock().mockReturnValue(false),
         };
-        const mockContext = { state: {}, dispatch: jest.fn() };
+        const mockContext = { state: {}, dispatch: mock() };
 
         const input = "x";
         const key = {};

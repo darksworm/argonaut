@@ -1,4 +1,6 @@
 // src/__tests__/commands/NavigationCommands.test.ts
+import { mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 import type { Command, CommandContext } from "../../commands/types";
 import type { View } from "../../types/domain";
@@ -177,7 +179,7 @@ describe("NavigationCommand", () => {
     describe("basic navigation", () => {
       it("should switch to target view without argument", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("clusters", "clusters");
         const context = createMockContext({
           dispatch: mockDispatch,
@@ -206,7 +208,7 @@ describe("NavigationCommand", () => {
         const views: View[] = ["apps", "clusters", "namespaces", "projects"];
 
         views.forEach((view) => {
-          const mockDispatch = jest.fn();
+          const mockDispatch = mock();
           const command = new TestNavigationCommand(view, view);
           const context = createMockContext({
             dispatch: mockDispatch,
@@ -227,7 +229,7 @@ describe("NavigationCommand", () => {
     describe("navigation with arguments", () => {
       it("should handle cluster navigation with argument", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("clusters", "clusters");
         const context = createMockContext({
           dispatch: mockDispatch,
@@ -245,7 +247,7 @@ describe("NavigationCommand", () => {
 
       it("should handle namespace navigation with argument", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("namespaces", "namespaces");
         const context = createMockContext({
           dispatch: mockDispatch,
@@ -263,7 +265,7 @@ describe("NavigationCommand", () => {
 
       it("should handle project navigation with argument", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("projects", "projects");
         const context = createMockContext({
           dispatch: mockDispatch,
@@ -281,7 +283,7 @@ describe("NavigationCommand", () => {
 
       it("should handle app navigation with argument", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("apps", "apps");
         const context = createMockContext({
           dispatch: mockDispatch,
@@ -310,7 +312,7 @@ describe("NavigationCommand", () => {
         ];
 
         views.forEach((view, index) => {
-          const mockDispatch = jest.fn();
+          const mockDispatch = mock();
           const command = new TestNavigationCommand(view, view);
           const context = createMockContext({
             dispatch: mockDispatch,
@@ -331,7 +333,7 @@ describe("NavigationCommand", () => {
     describe("complex navigation scenarios", () => {
       it("should handle switching between views with existing selections", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("apps", "apps");
         const context = createMockContext({
           state: createMockState({
@@ -361,7 +363,7 @@ describe("NavigationCommand", () => {
 
       it("should work when called multiple times rapidly", () => {
         // Arrange
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const command = new TestNavigationCommand("clusters", "clusters");
         const context = createMockContext({
           dispatch: mockDispatch,
@@ -381,7 +383,7 @@ describe("NavigationCommand", () => {
   describe("error handling", () => {
     it("should handle dispatch failures gracefully", () => {
       // Arrange
-      const mockDispatch = jest.fn().mockImplementation(() => {
+      const mockDispatch = mock().mockImplementation(() => {
         throw new Error("Dispatch failed");
       });
       const command = new TestNavigationCommand("apps", "apps");
@@ -431,14 +433,14 @@ describe("ClearCommand", () => {
   describe("execute", () => {
     it("should clear cluster selections when in clusters view", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -464,14 +466,14 @@ describe("ClearCommand", () => {
 
     it("should clear namespace selections when in namespaces view", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -497,14 +499,14 @@ describe("ClearCommand", () => {
 
     it("should clear project selections when in projects view", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -530,14 +532,14 @@ describe("ClearCommand", () => {
 
     it("should clear app selections when in apps view", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -563,14 +565,14 @@ describe("ClearCommand", () => {
 
     it("should work with existing selections", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -614,16 +616,16 @@ describe("ClearCommand", () => {
   describe("error handling", () => {
     it("should handle dispatch failures", () => {
       // Arrange
-      const mockDispatch = jest.fn().mockImplementation(() => {
+      const mockDispatch = mock().mockImplementation(() => {
         throw new Error("Dispatch failed");
       });
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -649,14 +651,14 @@ describe("ClearAllCommand", () => {
   describe("execute", () => {
     it("should clear all selections and filters", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -684,14 +686,14 @@ describe("ClearAllCommand", () => {
       const modes = ["normal", "confirm-sync", "help"] as const;
 
       modes.forEach((mode) => {
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const mockStatusLog = {
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-          debug: jest.fn(),
-          set: jest.fn(),
-          clear: jest.fn(),
+          info: mock(),
+          warn: mock(),
+          error: mock(),
+          debug: mock(),
+          set: mock(),
+          clear: mock(),
         };
         const context = createMockContext({
           state: createMockState({ mode }),
@@ -719,14 +721,14 @@ describe("ClearAllCommand", () => {
       const views: View[] = ["apps", "clusters", "namespaces", "projects"];
 
       views.forEach((view) => {
-        const mockDispatch = jest.fn();
+        const mockDispatch = mock();
         const mockStatusLog = {
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-          debug: jest.fn(),
-          set: jest.fn(),
-          clear: jest.fn(),
+          info: mock(),
+          warn: mock(),
+          error: mock(),
+          debug: mock(),
+          set: mock(),
+          clear: mock(),
         };
         const context = createMockContext({
           state: createMockState({
@@ -749,14 +751,14 @@ describe("ClearAllCommand", () => {
 
     it("should work with extensive existing selections", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         state: createMockState({
@@ -808,8 +810,7 @@ describe("ClearAllCommand", () => {
   describe("error handling", () => {
     it("should handle dispatch failures gracefully", () => {
       // Arrange
-      const mockDispatch = jest
-        .fn()
+      const mockDispatch = mock()
         .mockImplementationOnce(() => {
           /* First call succeeds */
         })
@@ -818,12 +819,12 @@ describe("ClearAllCommand", () => {
         });
 
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -839,16 +840,16 @@ describe("ClearAllCommand", () => {
 
     it("should handle statusLog failures", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn().mockImplementation(() => {
+        info: mock().mockImplementation(() => {
           throw new Error("StatusLog failed");
         }),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -868,14 +869,14 @@ describe("Navigation Commands Integration", () => {
   describe("workflow scenarios", () => {
     it("should support typical navigation workflow", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const mockStatusLog = {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-        set: jest.fn(),
-        clear: jest.fn(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+        debug: mock(),
+        set: mock(),
+        clear: mock(),
       };
       const context = createMockContext({
         dispatch: mockDispatch,
@@ -915,7 +916,7 @@ describe("Navigation Commands Integration", () => {
   describe("performance scenarios", () => {
     it("should handle rapid navigation changes efficiently", () => {
       // Arrange
-      const mockDispatch = jest.fn();
+      const mockDispatch = mock();
       const context = createMockContext({
         dispatch: mockDispatch,
       });
