@@ -17,16 +17,30 @@ Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + I
 ## 🚀 Installation methods
 
 <details>
-  <summary><strong>npm (recommended)</strong></summary>
+  <summary><strong>Install Script (Linux/macOS)</strong></summary>
+
+```bash
+curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh
+```
+
+The install script automatically detects your system (including musl vs glibc on Linux) and downloads the appropriate binary from the latest release.
+
+You can also install a specific version:
+```bash
+curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh -s -- v1.13.0
+```
+</details>
+
+<details>
+  <summary><strong>npm (Linux/macOS)</strong></summary>
 
 ```bash
 npm i --global argonaut-cli
 ```
 </details>
 
-The methods below use pre-built binaries and are currently still experimental. If you encounter issues, please use the npm method above.
 <details>
-  <summary><strong>Homebrew</strong></summary>
+  <summary><strong>Homebrew (Linux/MacOS)</strong></summary>
 
 ```bash
 brew tap darksworm/homebrew-tap
@@ -57,7 +71,7 @@ yay -S argonaut-bin
 [//]: # (</details>)
 
 <details>
-  <summary><strong>Linux - manual</strong></summary>
+  <summary><strong>Download a binary</strong></summary>
 
 You can download binaries and packages in from the [**latest release**](https://github.com/darksworm/argonaut/releases/latest).
 
