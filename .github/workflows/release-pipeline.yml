@@ -121,18 +121,12 @@ jobs:
       fail-fast: false
       matrix:
         distro:
-          - ubuntu:20.04
-          - ubuntu:22.04
-          - ubuntu:24.04
-          - debian:bullseye
-          - debian:bookworm
-          - alpine:3.18
-          - alpine:3.19
+          - ubuntu:latest
+          - debian:latest
           - alpine:latest
-          - fedora:38
-          - fedora:39
-          - centos:stream9
+          - fedora:latest
           - archlinux:latest
+          - manjarolinux/base:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
