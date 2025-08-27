@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.13.0](https://github.com/darksworm/argonaut/compare/v1.12.0...v1.13.0) (2025-08-27)
+
+
+### Features
+
+* add centralized AppStateContext for state management ([0b58e89](https://github.com/darksworm/argonaut/commit/0b58e89f7b6363adcae0b3defeff69e6f6fa8571))
+* add comprehensive integration tests with reusable action ([6ce4f07](https://github.com/darksworm/argonaut/commit/6ce4f073734c62c10c87f31fcbd03ce845a40c8e))
+* add comprehensive npm installation testing ([2dd6b38](https://github.com/darksworm/argonaut/commit/2dd6b388b99982539bc1e9b39cecc548b66a9067))
+* add comprehensive UI tests for CommandBar and SearchBar components ([ef2b90d](https://github.com/darksworm/argonaut/commit/ef2b90d78cf11a4b7394499f27572ec7183aa61a))
+* add comprehensive UI tests for ConfirmSyncModal with ANSI handling ([1376173](https://github.com/darksworm/argonaut/commit/1376173034ea98d91aaca4896e58f7e1cd191997))
+* add comprehensive UI tests for successful authentication and cluster display ([87618dc](https://github.com/darksworm/argonaut/commit/87618dc26ba9b2517ded1defc5768df76f7e8442))
+* add retry logic and version-specific npm testing ([3db633c](https://github.com/darksworm/argonaut/commit/3db633c5fbb25f515c98e5904fc5a6b555ae6d5d))
+* complete App.tsx refactoring with bug fixes ([a585d83](https://github.com/darksworm/argonaut/commit/a585d83789efc5d8de3bebc3d9ed5d196f8e275b))
+* create business logic orchestrator and specialized hooks ([e4fdd0b](https://github.com/darksworm/argonaut/commit/e4fdd0bb17928455bb775dd480d270e4ec553bbf))
+* enhance install.sh with musl detection and POSIX compatibility ([8d432c3](https://github.com/darksworm/argonaut/commit/8d432c3b48853ef46e2e1b2bba7e16eec6c02d81))
+* esc and :up to go up ([8666ab8](https://github.com/darksworm/argonaut/commit/8666ab8128211052929cb7c22b90333fa09caa8e))
+* extract modal components from monolithic App.tsx ([b8da818](https://github.com/darksworm/argonaut/commit/b8da8183222ffd6ee6acd8894777d78d181660bb))
+* extract view components and data processing logic ([e8a6ac3](https://github.com/darksworm/argonaut/commit/e8a6ac3098989f5cb7e6f9622dd8d5d35f7928c8))
+* **help:** document :diff command ([b278878](https://github.com/darksworm/argonaut/commit/b27887819ab4c8fd6b6f435e95c3e71852f3e07c))
+* implement comprehensive command pattern system ([14c3ef7](https://github.com/darksworm/argonaut/commit/14c3ef767055ce4e3b3dda54a8514bd2eb266537))
+* implement comprehensive real UI testing with ink-testing-library ([9b5ae20](https://github.com/darksworm/argonaut/commit/9b5ae208797d0b806d9b28e1a9fa77f6d680ec23))
+
+
+### Bug Fixes
+
+* **build:** resolve TypeScript type errors ([9bf1e84](https://github.com/darksworm/argonaut/commit/9bf1e84722c50ffdda3ce832ad504bcf78459a37))
+* clean dist directory before builds ([9dbbf1c](https://github.com/darksworm/argonaut/commit/9dbbf1c9199a91ce6d7aa5d240199696cbde8883))
+* correct auth-required view and input handling ([657a115](https://github.com/darksworm/argonaut/commit/657a11513df57632901a32e61b34f60ec12d3f9b))
+* correct modal positioning in Ink layout system ([b9c9a8a](https://github.com/darksworm/argonaut/commit/b9c9a8acd4580c3c280978172c3aab97e671109d))
+* correct npm package and binary naming ([ffcafe7](https://github.com/darksworm/argonaut/commit/ffcafe732d82282ab44e41fcc4c230e231398938))
+* ctrl-c and q exits app always ([693a35f](https://github.com/darksworm/argonaut/commit/693a35f6ea6ca865d7d82f5ddfa303dbcded91fd))
+* disable space in all views except apps ([65cb291](https://github.com/darksworm/argonaut/commit/65cb2918d42975425215197775ccb15ab17fd52f))
+* move bun install hooks to global before section ([943e5ee](https://github.com/darksworm/argonaut/commit/943e5eec4a02493f887978aa5866392f91f50081))
+* preserve license files when cleaning dist directory ([c9356b8](https://github.com/darksworm/argonaut/commit/c9356b8b489ecb6379f113ec164acf1228fc7044))
+* remove npm testing from test workflow ([6585c43](https://github.com/darksworm/argonaut/commit/6585c431cfc45f1a70446627d95eb264f5febf81))
+* remove unused directive ([943cdba](https://github.com/darksworm/argonaut/commit/943cdbaa29f13f171b73d3eb82bc456167b3dd14))
+* resolve terminal refresh issue after external viewers ([83e3689](https://github.com/darksworm/argonaut/commit/83e36896fb802da31bee1d3ab7bf2e5fa4cdd79f))
+* resovled compilation error ([7f46a8e](https://github.com/darksworm/argonaut/commit/7f46a8e56fabebd677035f5f79f2425b483f94c9))
+* separate Linux packages for standard and musl builds ([2b032d6](https://github.com/darksworm/argonaut/commit/2b032d65d98b452e1256a63d78a49f5a2699ec6d))
+* separate musl and standard builds to fix GoReleaser archive error ([96b2d4f](https://github.com/darksworm/argonaut/commit/96b2d4fe567106a75055387e86a5f26236157f69))
+
 ## [1.12.0](https://github.com/darksworm/argonaut/compare/v1.11.0...v1.12.0) (2025-08-24)
 
 
