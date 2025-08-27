@@ -143,3 +143,25 @@ jobs:
           distro: ${{ matrix.distro }}
           install-source: ${{ needs.release-please.outputs.tag_name }}
           test-mode: release
+
+  npm-integration-tests:
+    needs: [release-please, publish]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 18
+          - 20
+          - 22
+          - latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test npm installation on Node.js ${{ matrix.node-version }}
+        uses: ./.github/actions/test-npm-install
+        with:
+          node-version: ${{ matrix.node-version }}
+          test-mode: release
