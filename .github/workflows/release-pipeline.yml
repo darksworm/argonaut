@@ -123,7 +123,6 @@ jobs:
         distro:
           - ubuntu:latest
           - debian:latest
-          - alpine:latest
           - fedora:latest
           - archlinux:latest
           - manjarolinux/base:latest
