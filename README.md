@@ -1,9 +1,14 @@
 # 🐙 Argonaut — Argo CD TUI
 
+[![NPM Downloads](https://img.shields.io/npm/dm/argonaut-cli?style=flat-square&label=npm+downloads)](https://www.npmjs.com/package/argonaut-cli)
+[![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)
+[![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
+[![codecov](https://img.shields.io/codecov/c/github/darksworm/argonaut?token=4MYA3DR30R&style=flat-square)](https://codecov.io/github/darksworm/argonaut)
+
 Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + Ink**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
 
-> ❤️🐶
-> Inspired by the great UX of [k9s](https://k9scli.io) — but for Argo CD.
+> ❤️ 🐶
+> &nbsp;Inspired by the great UX of [k9s](https://k9scli.io) — but for Argo CD.
 
 ---
 
