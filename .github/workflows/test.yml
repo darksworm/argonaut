@@ -62,6 +62,7 @@ jobs:
           TAG: test
 
   install-script-test:
+    if: ${{ contains(github.event.head_commit.modified, 'install.sh') || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
