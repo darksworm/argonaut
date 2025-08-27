@@ -73,6 +73,8 @@ jobs:
           - alpine:3.19
           - alpine:latest
           - fedora:39
+          - archlinux:latest
+          - manjarolinux/base:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
