@@ -53,51 +53,29 @@ export const useNavigationLogic = () => {
     }
   }, [visibleItems, navigation, dispatch]);
 
-  // Toggle selection logic
+  // Toggle selection logic - only works in apps view
   const toggleSelection = useCallback(() => {
+    // Only allow toggle selection in apps view
+    if (navigation.view !== "apps") {
+      return;
+    }
+
     const item = visibleItems[navigation.selectedIdx];
     if (!item) return;
 
-    const val = String(item);
     dispatch({
       type: "CLEAR_LOWER_LEVEL_SELECTIONS",
       payload: navigation.view,
     });
 
-    switch (navigation.view) {
-      case "clusters": {
-        const next = state.selections.scopeClusters.has(val)
-          ? new Set<string>()
-          : new Set([val]);
-        dispatch({ type: "SET_SCOPE_CLUSTERS", payload: next });
-        break;
-      }
-      case "namespaces": {
-        const next = state.selections.scopeNamespaces.has(val)
-          ? new Set<string>()
-          : new Set([val]);
-        dispatch({ type: "SET_SCOPE_NAMESPACES", payload: next });
-        break;
-      }
-      case "projects": {
-        const next = state.selections.scopeProjects.has(val)
-          ? new Set<string>()
-          : new Set([val]);
-        dispatch({ type: "SET_SCOPE_PROJECTS", payload: next });
-        break;
-      }
-      case "apps": {
-        const appName = (item as any).name;
-        const next = new Set(state.selections.selectedApps);
-        if (next.has(appName)) {
-          next.delete(appName);
-        } else {
-          next.add(appName);
-        }
-        dispatch({ type: "SET_SELECTED_APPS", payload: next });
-        break;
-      }
+    const appName = (item as any).name;
+    const next = new Set(state.selections.selectedApps);
+    if (next.has(appName)) {
+      next.delete(appName);
+    } else {
+      next.add(appName);
     }
+    dispatch({ type: "SET_SELECTED_APPS", payload: next });
   }, [visibleItems, navigation, state.selections, dispatch]);
 
   return {

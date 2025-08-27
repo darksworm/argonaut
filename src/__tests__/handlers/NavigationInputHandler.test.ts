@@ -234,12 +234,15 @@ describe("NavigationInputHandler", () => {
       expect(mockNavigationActions.drillDown).toHaveBeenCalled();
     });
 
-    it("should handle Space (toggle selection)", () => {
+    it("should handle Space (toggle selection) in apps view", () => {
       const mockNavigationActions = {
         drillDown: mock(),
         toggleSelection: mock(),
       };
       const context = createMockContext({
+        state: createMockState({
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+        }),
         navigationActions: mockNavigationActions,
       });
 
@@ -247,6 +250,24 @@ describe("NavigationInputHandler", () => {
 
       expect(result).toBe(true);
       expect(mockNavigationActions.toggleSelection).toHaveBeenCalled();
+    });
+
+    it("should not handle Space in non-apps views", () => {
+      const mockNavigationActions = {
+        drillDown: mock(),
+        toggleSelection: mock(),
+      };
+      const context = createMockContext({
+        state: createMockState({
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+        }),
+        navigationActions: mockNavigationActions,
+      });
+
+      const result = handler.handleInput(" ", {}, context);
+
+      expect(result).toBe(false);
+      expect(mockNavigationActions.toggleSelection).not.toHaveBeenCalled();
     });
 
     it("should handle Escape (clear current view selections) - clusters", () => {

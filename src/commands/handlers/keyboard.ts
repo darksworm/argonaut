@@ -64,8 +64,13 @@ export class NavigationInputHandler implements InputHandler {
       return true;
     }
 
-    // Space to toggle selection
+    // Space to toggle selection - only in apps view
     if (input === " ") {
+      // Only allow space in apps view
+      if (navigation.view !== "apps") {
+        return false;
+      }
+      
       if (context.navigationActions?.toggleSelection) {
         context.navigationActions.toggleSelection();
       } else {
@@ -133,6 +138,11 @@ export class NavigationInputHandler implements InputHandler {
     const { state, dispatch } = context;
     const { navigation } = state;
     const { view } = navigation;
+
+    // Only allow toggle selection in apps view
+    if (view !== "apps") {
+      return;
+    }
 
     // Simplified - would need actual visible items and selected item
     dispatch({ type: "CLEAR_LOWER_LEVEL_SELECTIONS", payload: view });
