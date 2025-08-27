@@ -83,3 +83,24 @@ jobs:
           distro: ${{ matrix.distro }}
           install-source: latest-release
           test-mode: script
+
+  npm-integration-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 18
+          - 20
+          - 22
+          - latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test npm installation on Node.js 1.11.0
+        uses: ./.github/actions/test-npm-install
+        with:
+          node-version: ${{ matrix.node-version }}
+          test-mode: release
+          package-version: "1.11.0"
