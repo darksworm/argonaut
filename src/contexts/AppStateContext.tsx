@@ -17,6 +17,7 @@ export interface NavigationState {
   view: View;
   selectedIdx: number;
   lastGPressed: number;
+  lastEscPressed: number;
 }
 
 export interface SelectionState {
@@ -84,6 +85,7 @@ export type AppAction =
   | { type: "SET_VERSION_OUTDATED"; payload: boolean }
   | { type: "SET_LATEST_VERSION"; payload: string | undefined }
   | { type: "SET_LAST_G_PRESSED"; payload: number }
+  | { type: "SET_LAST_ESC_PRESSED"; payload: number }
   | { type: "SET_LOADING_ABORT_CONTROLLER"; payload: AbortController | null }
   | { type: "CLEAR_LOWER_LEVEL_SELECTIONS"; payload: View }
   | { type: "RESET_NAVIGATION"; payload?: { view?: View } }
@@ -101,6 +103,7 @@ export const initialState: AppState = {
     view: "clusters",
     selectedIdx: 0,
     lastGPressed: 0,
+    lastEscPressed: 0,
   },
   selections: {
     scopeClusters: new Set(),
@@ -249,6 +252,12 @@ export function appStateReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         navigation: { ...state.navigation, lastGPressed: action.payload },
+      };
+
+    case "SET_LAST_ESC_PRESSED":
+      return {
+        ...state,
+        navigation: { ...state.navigation, lastEscPressed: action.payload },
       };
 
     case "SET_LOADING_ABORT_CONTROLLER":

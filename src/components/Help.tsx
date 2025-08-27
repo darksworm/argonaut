@@ -36,7 +36,8 @@ const Help: React.FC = () => {
         <Text>
           <Text color="cyan">j/k</Text> up/down •{" "}
           <Text color="cyan">Space</Text> select •{" "}
-          <Text color="cyan">Enter</Text> drill down
+          <Text color="cyan">Enter</Text> drill down •{" "}
+          <Text color="cyan">Esc</Text> clear/up
         </Text>
       </HelpSection>
 
@@ -56,11 +57,16 @@ const Help: React.FC = () => {
       </HelpSection>
 
       <HelpSection title="ACTIONS" isWide={isWide}>
-        <Text>
-          <Text color="cyan">:diff</Text> [app] •{" "}
-          <Text color="cyan">:sync</Text> [app] •{" "}
-          <Text color="cyan">:rollback</Text> [app]
-        </Text>
+        <Box flexDirection="column">
+          <Text>
+            <Text color="cyan">:diff</Text> [app] •{" "}
+            <Text color="cyan">:sync</Text> [app] •{" "}
+            <Text color="cyan">:rollback</Text> [app]
+          </Text>
+          <Text>
+            <Text color="cyan">:up</Text> go up level
+          </Text>
+        </Box>
       </HelpSection>
 
       <HelpSection title="MISC" isWide={isWide}>

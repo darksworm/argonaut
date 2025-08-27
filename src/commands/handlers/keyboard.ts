@@ -1,4 +1,5 @@
 import type { CommandContext, InputHandler } from "../types";
+import { UpCommand } from "../navigation";
 
 export class NavigationInputHandler implements InputHandler {
   priority = 10; // High priority for navigation
@@ -73,17 +74,18 @@ export class NavigationInputHandler implements InputHandler {
       return true;
     }
 
-    // Escape clears current view selection
     if (key.escape) {
-      const { view } = navigation;
-      if (view === "clusters") {
-        dispatch({ type: "SET_SCOPE_CLUSTERS", payload: new Set() });
-      } else if (view === "namespaces") {
-        dispatch({ type: "SET_SCOPE_NAMESPACES", payload: new Set() });
-      } else if (view === "projects") {
-        dispatch({ type: "SET_SCOPE_PROJECTS", payload: new Set() });
-      } else {
+      const now = Date.now();
+      // Debounce escape key to prevent rapid firing
+      if (now - navigation.lastEscPressed < 200) {
+        return true;
+      }
+      dispatch({ type: "SET_LAST_ESC_PRESSED", payload: now });
+      
+      if (context.state.selections.selectedApps.size > 1) {
         dispatch({ type: "SET_SELECTED_APPS", payload: new Set() });
+      } else {
+        new UpCommand().execute(context);
       }
       return true;
     }

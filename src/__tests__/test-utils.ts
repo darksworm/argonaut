@@ -51,6 +51,7 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
       view: "apps" as View,
       selectedIdx: 0,
       lastGPressed: 0,
+      lastEscPressed: 0,
     },
     selections: {
       scopeClusters: new Set(),

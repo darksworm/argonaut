@@ -140,7 +140,7 @@ describe("NavigationInputHandler", () => {
       const now = Date.now();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "apps", selectedIdx: 5, lastGPressed: now - 100 }, // Recent g press
+          navigation: { view: "apps", selectedIdx: 5, lastGPressed: now - 100, lastEscPressed: 0 }, // Recent g press
         }),
         dispatch: mockDispatch,
       });
@@ -267,47 +267,17 @@ describe("NavigationInputHandler", () => {
       });
     });
 
-    it("should handle Escape (clear current view selections) - namespaces", () => {
-      const mockDispatch = mock();
-      const context = createMockContext({
-        state: createMockState({
-          navigation: { view: "namespaces", selectedIdx: 0, lastGPressed: 0 },
-        }),
-        dispatch: mockDispatch,
-      });
-
-      const result = handler.handleInput("", { escape: true }, context);
-
-      expect(result).toBe(true);
-      expect(mockDispatch).toHaveBeenCalledWith({
-        type: "SET_SCOPE_NAMESPACES",
-        payload: new Set(),
-      });
-    });
-
-    it("should handle Escape (clear current view selections) - projects", () => {
-      const mockDispatch = mock();
-      const context = createMockContext({
-        state: createMockState({
-          navigation: { view: "projects", selectedIdx: 0, lastGPressed: 0 },
-        }),
-        dispatch: mockDispatch,
-      });
-
-      const result = handler.handleInput("", { escape: true }, context);
-
-      expect(result).toBe(true);
-      expect(mockDispatch).toHaveBeenCalledWith({
-        type: "SET_SCOPE_PROJECTS",
-        payload: new Set(),
-      });
-    });
-
     it("should handle Escape (clear current view selections) - apps", () => {
       const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0 },
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(["test-app", "test-app-2"]), // Has selections
+          },
         }),
         dispatch: mockDispatch,
       });
@@ -318,6 +288,51 @@ describe("NavigationInputHandler", () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_SELECTED_APPS",
         payload: new Set(),
+      });
+
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "projects",
+      });
+    });
+
+    it("should handle Escape (navigate up) when no selections exist", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(["app"]),
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { escape: true }, context);
+
+      expect(result).toBe(true);
+      // Should navigate up with all UpCommand actions: set index, clear filters, clear apps, and set view
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_IDX",
+        payload: 0,
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "CLEAR_FILTERS",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_APPS",
+        payload: new Set(),
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_PROJECTS",
+        payload: new Set(),
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "projects",
       });
     });
   });
