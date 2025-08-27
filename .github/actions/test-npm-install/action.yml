@@ -105,7 +105,7 @@ runs:
         echo "✅ NPM installation completed successfully"
         
         echo "=== Verifying Installation ==="
-        # Check if argonaut is available in PATH
+        # Check if argonaut is available in PATH (binary name from package.json bin field)
         if ! command -v argonaut >/dev/null 2>&1; then
           echo "❌ ERROR: argonaut command not found after npm installation"
           echo "📍 PATH: $PATH"
@@ -115,7 +115,7 @@ runs:
           exit 1
         fi
         
-        echo "✅ Argonaut binary is available in PATH"
+        echo "✅ argonaut binary is available in PATH"
         echo "📍 Binary location: $(which argonaut)"
         echo "📊 Binary size: $(ls -lh $(which argonaut) | awk '{print $5}')"
         
