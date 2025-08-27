@@ -8,6 +8,9 @@ inputs:
     description: 'Test mode: "release" (test published package) or "local" (test local package)'
     required: false
     default: 'release'
+  package-version:
+    description: 'Specific package version to test (e.g., 1.12.0). If not provided, installs latest'
+    required: false
 
 runs:
   using: 'composite'
@@ -30,10 +33,10 @@ runs:
         echo "NPM version: $(npm --version)"
         echo "Platform: $(uname -s -m)"
         
-        # Test npm installation
+        # Test npm installation with retry logic for newly published packages
         echo "=== Installing Argonaut via NPM ==="
         if [[ "${{ inputs.test-mode }}" == "local" ]]; then
-          # For local testing, we'd need to pack and install local package
+          # For local testing, pack and install local package
           echo "📦 Testing local package installation"
           npm pack
           PACKAGE_FILE=$(ls argonaut-cli-*.tgz | head -1)
@@ -43,14 +46,60 @@ runs:
             exit 1
           }
         else
-          # For release testing, install published package
+          # For release testing, install published package with retry logic
           echo "📦 Installing published package from npm registry"
-          npm install -g argonaut-cli || {
-            echo "❌ ERROR: Failed to install argonaut via npm"
-            echo "📄 NPM error details:"
-            npm install -g argonaut-cli --loglevel=verbose || true
+          
+          PACKAGE_NAME="argonaut-cli"
+          if [[ -n "${{ inputs.package-version }}" ]]; then
+            PACKAGE_NAME="argonaut-cli@${{ inputs.package-version }}"
+            echo "🎯 Target version: ${{ inputs.package-version }}"
+          fi
+          
+          echo "📦 Package to install: $PACKAGE_NAME"
+          
+          # Retry logic for newly published packages
+          MAX_RETRIES=6
+          RETRY_DELAY=30
+          SUCCESS=false
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "🔄 Installation attempt $i/$MAX_RETRIES..."
+            
+            if npm install -g "$PACKAGE_NAME"; then
+              echo "✅ Successfully installed $PACKAGE_NAME on attempt $i"
+              SUCCESS=true
+              break
+            else
+              echo "⚠️  Installation attempt $i failed"
+              
+              if [[ $i -lt $MAX_RETRIES ]]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s for package to propagate on npm registry..."
+                sleep $RETRY_DELAY
+                
+                # Check if the version is available
+                if [[ -n "${{ inputs.package-version }}" ]]; then
+                  echo "🔍 Checking if version ${{ inputs.package-version }} is available..."
+                  if npm view argonaut-cli@${{ inputs.package-version }} version 2>/dev/null; then
+                    echo "✅ Version ${{ inputs.package-version }} is now available"
+                  else
+                    echo "⏳ Version ${{ inputs.package-version }} not yet available"
+                  fi
+                fi
+              else
+                echo "❌ ERROR: Failed to install $PACKAGE_NAME after $MAX_RETRIES attempts"
+                echo "📄 Final npm error details:"
+                npm install -g "$PACKAGE_NAME" --loglevel=verbose || true
+                echo "📄 Available versions:"
+                npm view argonaut-cli versions --json || true
+                exit 1
+              fi
+            fi
+          done
+          
+          if [[ "$SUCCESS" != "true" ]]; then
+            echo "❌ ERROR: Installation failed after all retry attempts"
             exit 1
-          }
+          fi
         fi
         
         echo "✅ NPM installation completed successfully"

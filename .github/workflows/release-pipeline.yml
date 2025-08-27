@@ -165,3 +165,4 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           test-mode: release
+          package-version: ${{ needs.release-please.outputs.tag_name }}
