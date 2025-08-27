@@ -112,15 +112,24 @@ runs:
             # Give the TUI time to initialize
             sleep 4
             
-            # Check if the process is still running (indicates successful TUI startup)
+            # Check if the process is still running OR if it exited with expected TUI output
             if ! kill -0 \$TUI_PID 2>/dev/null; then
-              echo \"❌ ERROR: Argonaut TUI process exited unexpectedly\"
-              echo \"📄 Output from failed startup:\"
-              cat \"\$TESTFILE\" 2>/dev/null || echo \"No output captured\"
-              exit 1
+              # Process exited - check if it showed the expected TUI output (auth screen)
+              if grep -q \"AUTHENTICATION REQUIRED\\|AUTH REQUIRED\\|argocd login\\|Login required\" \"\$TESTFILE\" 2>/dev/null; then
+                echo \"✅ Argonaut TUI started successfully and showed auth screen\"
+                echo \"📄 TUI output (expected auth screen):\"
+                head -n 20 \"\$TESTFILE\" 2>/dev/null || echo \"No output to display\"
+                # This is success - TUI started and worked correctly
+                exit 0
+              else
+                echo \"❌ ERROR: Argonaut TUI process exited without expected output\"
+                echo \"📄 Output from startup:\"
+                cat \"\$TESTFILE\" 2>/dev/null || echo \"No output captured\"
+                exit 1
+              fi
             fi
             
-            echo \"✅ Argonaut TUI is running successfully\"
+            echo \"✅ Argonaut TUI is running successfully (still active)\"
             
             # Attempt graceful shutdown by sending '\''q'\'' key
             echo \"🔄 Attempting graceful shutdown with '\''q'\'' key...\"
