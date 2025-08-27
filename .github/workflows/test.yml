@@ -67,12 +67,10 @@ jobs:
       fail-fast: false
       matrix:
         distro:
-          - ubuntu:22.04
-          - ubuntu:24.04
-          - debian:bookworm
-          - alpine:3.19
+          - ubuntu:latest
+          - debian:latest
           - alpine:latest
-          - fedora:39
+          - fedora:latest
           - archlinux:latest
           - manjarolinux/base:latest
     steps:
