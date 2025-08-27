@@ -60,3 +60,28 @@ jobs:
         env:
           GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
           TAG: test
+
+  install-script-test:
+    if: ${{ contains(github.event.head_commit.modified, 'install.sh') || github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - debian:bookworm
+          - alpine:3.19
+          - alpine:latest
+          - fedora:39
+          - archlinux:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test install script on ${{ matrix.distro }}
+        uses: ./.github/actions/test-argonaut-install
+        with:
+          distro: ${{ matrix.distro }}
+          install-source: latest-release
+          test-mode: script
