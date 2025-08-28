@@ -1,10 +1,8 @@
+import { describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
-import { AppStateProvider } from "../../contexts/AppStateContext";
 import { MainLayout } from "../../components/views/MainLayout";
+import { AppStateProvider } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";
-import { stripAnsi } from "../test-utils";
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 
 // Test the successful authentication flow with clusters and apps displayed
 describe("Main App Success UI Tests", () => {
@@ -22,9 +20,9 @@ describe("Main App Success UI Tests", () => {
     },
     {
       name: "backend-api",
-      sync: "OutOfSync", 
+      sync: "OutOfSync",
       health: "Degraded",
-      project: "web-platform", 
+      project: "web-platform",
       clusterLabel: "production-cluster",
       namespace: "backend",
       appNamespace: "argocd",
@@ -35,7 +33,7 @@ describe("Main App Success UI Tests", () => {
       sync: "Synced",
       health: "Healthy",
       project: "infrastructure",
-      clusterLabel: "production-cluster", 
+      clusterLabel: "production-cluster",
       namespace: "database",
       appNamespace: "argocd",
       lastSyncAt: "2024-01-15T10:15:00Z",
@@ -83,31 +81,35 @@ describe("Main App Success UI Tests", () => {
     it("displays available clusters from app data", () => {
       const clustersState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const { lastFrame } = render(
         <AppStateProvider initialState={clustersState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
+          <MainLayout
+            {...defaultMainLayoutProps}
             visibleItems={["production-cluster", "staging-cluster"]}
           />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show header with server info
       expect(frame).toContain("argocd.production.com");
       expect(frame).toContain("v2.8.0");
-      
+
       // Should show clusters view header
       expect(frame).toContain("NAME");
-      
+
       // Should show available clusters
       expect(frame).toContain("production-cluster");
       expect(frame).toContain("staging-cluster");
-      
+
       // Should show status and navigation
       expect(frame).toContain("Ready");
       expect(frame).toContain("<clusters>");
@@ -116,7 +118,11 @@ describe("Main App Success UI Tests", () => {
     it("handles cluster selection and highlighting", () => {
       const clustersState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 1, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 1,
+          lastGPressed: 0,
+        },
         selections: {
           scopeClusters: new Set(["staging-cluster"]),
           scopeNamespaces: new Set(),
@@ -127,19 +133,19 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={clustersState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
+          <MainLayout
+            {...defaultMainLayoutProps}
             visibleItems={["production-cluster", "staging-cluster"]}
           />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show both clusters
       expect(frame).toContain("production-cluster");
       expect(frame).toContain("staging-cluster");
-      
+
       // Should show navigation position (2/2 means second item selected)
       expect(frame).toContain("2/2");
     });
@@ -154,35 +160,32 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={appsState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={mockApps}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={mockApps} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show apps view headers
       expect(frame).toContain("NAME");
       expect(frame).toContain("SYNC");
       expect(frame).toContain("HEALTH");
-      
+
       // Should show application names
       expect(frame).toContain("frontend-app");
       expect(frame).toContain("backend-api");
       expect(frame).toContain("database");
       expect(frame).toContain("staging-app");
-      
+
       // Should show sync status (could be with ANSI codes)
       expect(frame).toContain("Synced");
       expect(frame).toContain("OutOfSync");
-      
+
       // Should show health status
       expect(frame).toContain("Healthy");
       expect(frame).toContain("Degraded");
       expect(frame).toContain("Progressing");
-      
+
       // Should show navigation info
       expect(frame).toContain("<apps>");
       expect(frame).toContain("1/4"); // First of 4 apps selected
@@ -194,7 +197,7 @@ describe("Main App Success UI Tests", () => {
         navigation: { view: "apps" as const, selectedIdx: 1, lastGPressed: 0 },
         selections: {
           scopeClusters: new Set(),
-          scopeNamespaces: new Set(), 
+          scopeNamespaces: new Set(),
           scopeProjects: new Set(),
           selectedApps: new Set(["backend-api"]),
         },
@@ -202,20 +205,17 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={appsState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={mockApps}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={mockApps} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show all apps
       expect(frame).toContain("frontend-app");
       expect(frame).toContain("backend-api");
       expect(frame).toContain("database");
-      
+
       // Should show correct position
       expect(frame).toContain("2/4"); // Second of 4 apps selected
     });
@@ -227,33 +227,32 @@ describe("Main App Success UI Tests", () => {
         selections: {
           scopeClusters: new Set(["staging-cluster"]),
           scopeNamespaces: new Set(),
-          scopeProjects: new Set(), 
+          scopeProjects: new Set(),
           selectedApps: new Set(),
         },
       };
 
       // Only staging cluster apps
-      const stagingApps = mockApps.filter(app => app.clusterLabel === "staging-cluster");
+      const stagingApps = mockApps.filter(
+        (app) => app.clusterLabel === "staging-cluster",
+      );
 
       const { lastFrame } = render(
         <AppStateProvider initialState={filteredAppsState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={stagingApps}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={stagingApps} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show staging app
       expect(frame).toContain("staging-app");
-      
+
       // Should NOT show production apps
       expect(frame).not.toContain("frontend-app");
-      expect(frame).not.toContain("backend-api"); 
+      expect(frame).not.toContain("backend-api");
       expect(frame).not.toContain("database");
-      
+
       // Should show correct count
       expect(frame).toContain("1/1");
     });
@@ -263,26 +262,27 @@ describe("Main App Success UI Tests", () => {
     it("displays projects from app data", () => {
       const projectsState = {
         ...successfulAppState,
-        navigation: { view: "projects" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "projects" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const projects = ["web-platform", "infrastructure"];
 
       const { lastFrame } = render(
         <AppStateProvider initialState={projectsState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={projects}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={projects} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show projects
       expect(frame).toContain("web-platform");
       expect(frame).toContain("infrastructure");
-      
+
       // Should show projects view
       expect(frame).toContain("<projects>");
       expect(frame).toContain("1/2");
@@ -291,28 +291,29 @@ describe("Main App Success UI Tests", () => {
     it("displays namespaces from app data", () => {
       const namespacesState = {
         ...successfulAppState,
-        navigation: { view: "namespaces" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "namespaces" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const namespaces = ["frontend", "backend", "database", "staging"];
 
       const { lastFrame } = render(
         <AppStateProvider initialState={namespacesState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={namespaces}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={namespaces} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show namespaces
       expect(frame).toContain("frontend");
       expect(frame).toContain("backend");
       expect(frame).toContain("database");
       expect(frame).toContain("staging");
-      
+
       // Should show namespaces view
       expect(frame).toContain("<namespaces>");
       expect(frame).toContain("1/4");
@@ -323,15 +324,15 @@ describe("Main App Success UI Tests", () => {
     it("displays server connection information", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={successfulAppState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
+          <MainLayout
+            {...defaultMainLayoutProps}
             visibleItems={["production-cluster"]}
           />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show server information
       expect(frame).toContain("argocd.production.com");
       expect(frame).toContain("v2.8.0");
@@ -343,7 +344,7 @@ describe("Main App Success UI Tests", () => {
         ...successfulAppState,
         selections: {
           scopeClusters: new Set(["production-cluster"]),
-          scopeNamespaces: new Set(["frontend"]), 
+          scopeNamespaces: new Set(["frontend"]),
           scopeProjects: new Set(["web-platform"]),
           selectedApps: new Set(),
         },
@@ -351,15 +352,12 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={scopedState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={[]}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={[]} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show context information (might be in banner)
       expect(frame).toContain("production-cluster");
       expect(frame).toContain("frontend");
@@ -377,19 +375,16 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={wideTerminalState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={mockApps}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={mockApps} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should render without crashing
       expect(frame).toBeDefined();
       expect(frame.length).toBeGreaterThan(0);
-      
+
       // Should show app data
       expect(frame).toContain("frontend-app");
       expect(frame).toContain("Healthy");
@@ -404,19 +399,16 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={narrowTerminalState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={mockApps}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={mockApps} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
-      // Should render without crashing  
+
+      // Should render without crashing
       expect(frame).toBeDefined();
       expect(frame.length).toBeGreaterThan(0);
-      
+
       // Content might be truncated but should be present
       expect(frame).toContain("frontend-app");
     });
@@ -432,23 +424,20 @@ describe("Main App Success UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={emptyAppsState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={[]}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={[]} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show headers
       expect(frame).toContain("NAME");
       expect(frame).toContain("SYNC");
       expect(frame).toContain("HEALTH");
-      
+
       // Should show empty state message
       expect(frame).toContain("No items");
-      
+
       // Should show 0/0 navigation
       expect(frame).toContain("0/0");
     });
@@ -456,23 +445,24 @@ describe("Main App Success UI Tests", () => {
     it("handles no clusters available", () => {
       const noClustersState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const { lastFrame } = render(
         <AppStateProvider initialState={noClustersState}>
-          <MainLayout 
-            {...defaultMainLayoutProps} 
-            visibleItems={[]}
-          />
-        </AppStateProvider>
+          <MainLayout {...defaultMainLayoutProps} visibleItems={[]} />
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
-      
+
       // Should show header
       expect(frame).toContain("NAME");
-      
+
       // Should show empty state
       expect(frame).toContain("No items");
       expect(frame).toContain("0/0");

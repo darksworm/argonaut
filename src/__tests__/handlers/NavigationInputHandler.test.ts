@@ -1,6 +1,5 @@
 // src/__tests__/handlers/NavigationInputHandler.test.ts
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { NavigationInputHandler } from "../../commands/handlers/keyboard";
 import { createMockContext, createMockState } from "../test-utils";
 
@@ -140,7 +139,12 @@ describe("NavigationInputHandler", () => {
       const now = Date.now();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "apps", selectedIdx: 5, lastGPressed: now - 100, lastEscPressed: 0 }, // Recent g press
+          navigation: {
+            view: "apps",
+            selectedIdx: 5,
+            lastGPressed: now - 100,
+            lastEscPressed: 0,
+          }, // Recent g press
         }),
         dispatch: mockDispatch,
       });
@@ -241,7 +245,12 @@ describe("NavigationInputHandler", () => {
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
         }),
         navigationActions: mockNavigationActions,
       });
@@ -259,7 +268,12 @@ describe("NavigationInputHandler", () => {
       };
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "clusters",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
         }),
         navigationActions: mockNavigationActions,
       });
@@ -292,7 +306,12 @@ describe("NavigationInputHandler", () => {
       const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
@@ -321,7 +340,12 @@ describe("NavigationInputHandler", () => {
       const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),

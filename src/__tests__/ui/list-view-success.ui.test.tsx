@@ -1,8 +1,7 @@
 import { render } from "ink-testing-library";
-import { AppStateProvider } from "../../contexts/AppStateContext";
 import { ListView } from "../../components/views/ListView";
+import { AppStateProvider } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";
-import { stripAnsi } from "../test-utils";
 
 // Test the ListView component directly with successful data
 describe("ListView Success UI Tests", () => {
@@ -11,7 +10,7 @@ describe("ListView Success UI Tests", () => {
     {
       name: "frontend-web",
       sync: "Synced",
-      health: "Healthy", 
+      health: "Healthy",
       project: "web-services",
       clusterLabel: "prod-east",
       namespace: "frontend",
@@ -23,14 +22,14 @@ describe("ListView Success UI Tests", () => {
       sync: "OutOfSync",
       health: "Degraded",
       project: "web-services",
-      clusterLabel: "prod-east", 
+      clusterLabel: "prod-east",
       namespace: "api",
       appNamespace: "argocd",
       lastSyncAt: "2024-01-15T09:45:00Z",
     },
     {
       name: "postgres-db",
-      sync: "Synced", 
+      sync: "Synced",
       health: "Healthy",
       project: "infrastructure",
       clusterLabel: "prod-east",
@@ -42,7 +41,7 @@ describe("ListView Success UI Tests", () => {
       name: "redis-cache",
       sync: "Unknown",
       health: "Progressing",
-      project: "infrastructure", 
+      project: "infrastructure",
       clusterLabel: "prod-west",
       namespace: "cache",
       appNamespace: "argocd",
@@ -79,7 +78,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={appsState}>
           <ListView visibleItems={mockApps} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -115,7 +114,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={appsState}>
           <ListView visibleItems={mockApps} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -140,7 +139,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={appsState}>
           <ListView visibleItems={mockApps} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -161,14 +160,14 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={wideTerminalState}>
           <ListView visibleItems={mockApps} availableRows={20} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
 
       // With wide terminal, should show full labels
       expect(frame).toContain("Synced");
-      expect(frame).toContain("OutOfSync"); 
+      expect(frame).toContain("OutOfSync");
       expect(frame).toContain("Healthy");
       expect(frame).toContain("Degraded");
       expect(frame).toContain("Progressing");
@@ -183,7 +182,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={narrowTerminalState}>
           <ListView visibleItems={mockApps} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -202,7 +201,11 @@ describe("ListView Success UI Tests", () => {
     it("renders cluster list", () => {
       const clustersState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const clusters = ["prod-east", "prod-west", "staging", "dev"];
@@ -210,7 +213,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={clustersState}>
           <ListView visibleItems={clusters} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -232,7 +235,11 @@ describe("ListView Success UI Tests", () => {
     it("highlights selected cluster", () => {
       const clustersState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 2, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 2,
+          lastGPressed: 0,
+        },
         selections: {
           ...successfulAppState.selections,
           scopeClusters: new Set(["staging"]),
@@ -244,7 +251,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={clustersState}>
           <ListView visibleItems={clusters} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -261,7 +268,11 @@ describe("ListView Success UI Tests", () => {
     it("renders namespace list", () => {
       const namespacesState = {
         ...successfulAppState,
-        navigation: { view: "namespaces" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "namespaces" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const namespaces = ["frontend", "api", "database", "cache", "monitoring"];
@@ -269,7 +280,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={namespacesState}>
           <ListView visibleItems={namespaces} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -288,7 +299,11 @@ describe("ListView Success UI Tests", () => {
     it("handles selected namespaces", () => {
       const namespacesState = {
         ...successfulAppState,
-        navigation: { view: "namespaces" as const, selectedIdx: 1, lastGPressed: 0 },
+        navigation: {
+          view: "namespaces" as const,
+          selectedIdx: 1,
+          lastGPressed: 0,
+        },
         selections: {
           ...successfulAppState.selections,
           scopeNamespaces: new Set(["api", "database"]),
@@ -300,7 +315,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={namespacesState}>
           <ListView visibleItems={namespaces} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -308,7 +323,7 @@ describe("ListView Success UI Tests", () => {
       // Should show all namespaces
       expect(frame).toContain("frontend");
       expect(frame).toContain("api"); // Should be highlighted (in selection)
-      expect(frame).toContain("database"); // Should be highlighted (in selection)  
+      expect(frame).toContain("database"); // Should be highlighted (in selection)
       expect(frame).toContain("cache");
     });
   });
@@ -317,15 +332,24 @@ describe("ListView Success UI Tests", () => {
     it("renders project list", () => {
       const projectsState = {
         ...successfulAppState,
-        navigation: { view: "projects" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "projects" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
-      const projects = ["web-services", "infrastructure", "monitoring", "security"];
+      const projects = [
+        "web-services",
+        "infrastructure",
+        "monitoring",
+        "security",
+      ];
 
       const { lastFrame } = render(
         <AppStateProvider initialState={projectsState}>
           <ListView visibleItems={projects} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -351,7 +375,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={emptyAppsState}>
           <ListView visibleItems={[]} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -368,13 +392,17 @@ describe("ListView Success UI Tests", () => {
     it("displays empty state for no clusters", () => {
       const emptyClustersState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const { lastFrame } = render(
         <AppStateProvider initialState={emptyClustersState}>
           <ListView visibleItems={[]} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -391,7 +419,7 @@ describe("ListView Success UI Tests", () => {
     it("handles long list with scrolling", () => {
       // Create many apps to test scrolling
       const manyApps: AppItem[] = Array.from({ length: 20 }, (_, i) => ({
-        name: `app-${i.toString().padStart(2, '0')}`,
+        name: `app-${i.toString().padStart(2, "0")}`,
         sync: i % 3 === 0 ? "Synced" : i % 3 === 1 ? "OutOfSync" : "Unknown",
         health: i % 2 === 0 ? "Healthy" : "Degraded",
         project: "test-project",
@@ -409,7 +437,7 @@ describe("ListView Success UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={scrollState}>
           <ListView visibleItems={manyApps} availableRows={8} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -428,13 +456,17 @@ describe("ListView Success UI Tests", () => {
 
       const boundsState = {
         ...successfulAppState,
-        navigation: { view: "clusters" as const, selectedIdx: 0, lastGPressed: 0 },
+        navigation: {
+          view: "clusters" as const,
+          selectedIdx: 0,
+          lastGPressed: 0,
+        },
       };
 
       const { lastFrame } = render(
         <AppStateProvider initialState={boundsState}>
           <ListView visibleItems={smallList} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -450,16 +482,48 @@ describe("ListView Success UI Tests", () => {
   describe("Status Icons and Colors", () => {
     it("displays sync status icons correctly", () => {
       const iconTestApps: AppItem[] = [
-        { name: "synced-app", sync: "Synced", health: "Healthy", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "outof-sync-app", sync: "OutOfSync", health: "Healthy", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "unknown-sync-app", sync: "Unknown", health: "Healthy", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "degraded-sync-app", sync: "Degraded", health: "Healthy", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
+        {
+          name: "synced-app",
+          sync: "Synced",
+          health: "Healthy",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "outof-sync-app",
+          sync: "OutOfSync",
+          health: "Healthy",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "unknown-sync-app",
+          sync: "Unknown",
+          health: "Healthy",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "degraded-sync-app",
+          sync: "Degraded",
+          health: "Healthy",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
       ];
 
       const { lastFrame } = render(
         <AppStateProvider initialState={successfulAppState}>
           <ListView visibleItems={iconTestApps} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();
@@ -479,17 +543,57 @@ describe("ListView Success UI Tests", () => {
 
     it("displays health status icons correctly", () => {
       const healthTestApps: AppItem[] = [
-        { name: "healthy-app", sync: "Synced", health: "Healthy", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "missing-app", sync: "Synced", health: "Missing", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "degraded-app", sync: "Synced", health: "Degraded", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "progressing-app", sync: "Synced", health: "Progressing", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
-        { name: "unknown-health-app", sync: "Synced", health: "Unknown", project: "test", clusterLabel: "test", namespace: "test", appNamespace: "test" },
+        {
+          name: "healthy-app",
+          sync: "Synced",
+          health: "Healthy",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "missing-app",
+          sync: "Synced",
+          health: "Missing",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "degraded-app",
+          sync: "Synced",
+          health: "Degraded",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "progressing-app",
+          sync: "Synced",
+          health: "Progressing",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
+        {
+          name: "unknown-health-app",
+          sync: "Synced",
+          health: "Unknown",
+          project: "test",
+          clusterLabel: "test",
+          namespace: "test",
+          appNamespace: "test",
+        },
       ];
 
       const { lastFrame } = render(
         <AppStateProvider initialState={successfulAppState}>
           <ListView visibleItems={healthTestApps} availableRows={15} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       const frame = lastFrame();

@@ -1,6 +1,5 @@
 // src/__tests__/handlers/InputHandlers.test.ts
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import {
   CommandInputHandler,
   GlobalInputHandler,

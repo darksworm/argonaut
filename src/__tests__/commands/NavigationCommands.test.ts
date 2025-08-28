@@ -1,6 +1,5 @@
 // src/__tests__/commands/NavigationCommands.test.ts
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import type { Command, CommandContext } from "../../commands/types";
 import type { View } from "../../types/domain";

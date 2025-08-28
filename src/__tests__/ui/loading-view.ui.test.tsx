@@ -1,6 +1,6 @@
 import { render } from "ink-testing-library";
-import { AppStateProvider } from "../../contexts/AppStateContext";
 import { LoadingView } from "../../components/views/LoadingView";
+import { AppStateProvider } from "../../contexts/AppStateContext";
 import { stripAnsi } from "../test-utils";
 
 describe("LoadingView UI Tests", () => {
@@ -50,13 +50,13 @@ describe("LoadingView UI Tests", () => {
       // Should show loading content
       expect(frame).toBeDefined();
       expect(frame.length).toBeGreaterThan(0);
-      
+
       // Should show LOADING text
       expect(cleanFrame).toContain("LOADING");
-      
+
       // Should show View label
       expect(cleanFrame).toContain("View:");
-      
+
       // Should show Context label
       expect(cleanFrame).toContain("Context:");
     });
@@ -174,7 +174,7 @@ describe("LoadingView UI Tests", () => {
       // Should render without crashing
       expect(frame).toBeDefined();
       expect(frame.length).toBeGreaterThan(0);
-      
+
       // Should still show essential content
       const cleanFrame = stripAnsi(frame);
       expect(cleanFrame).toContain("LOADING");
@@ -197,7 +197,7 @@ describe("LoadingView UI Tests", () => {
       // Should render properly with wide terminal
       expect(frame).toBeDefined();
       expect(frame.length).toBeGreaterThan(0);
-      
+
       const cleanFrame = stripAnsi(frame);
       expect(cleanFrame).toContain("LOADING");
       expect(cleanFrame).toContain("argocd.production.com");
@@ -227,9 +227,9 @@ describe("LoadingView UI Tests", () => {
     it("displays different server URLs correctly", () => {
       const servers = [
         "https://argocd.staging.com",
-        "https://argo.local:8080", 
+        "https://argo.local:8080",
         "http://localhost:3000",
-        "https://argocd-server.kube-system.svc.cluster.local"
+        "https://argocd-server.kube-system.svc.cluster.local",
       ];
 
       servers.forEach((url) => {
@@ -285,11 +285,11 @@ describe("LoadingView UI Tests", () => {
       const modes = [
         "normal",
         "search",
-        "command", 
+        "command",
         "help",
         "confirm-sync",
         "resources",
-        "rollback"
+        "rollback",
       ] as const;
 
       modes.forEach((mode) => {
@@ -305,7 +305,7 @@ describe("LoadingView UI Tests", () => {
         );
 
         const frame = lastFrame();
-        
+
         // Should be empty for all non-loading modes
         expect(frame).toBe("");
       });

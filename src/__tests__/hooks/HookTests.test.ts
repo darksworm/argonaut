@@ -1,6 +1,6 @@
 // src/__tests__/hooks/HookTests.test.ts
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
+
 // Simplified hook tests focusing on business logic rather than React integration
 
 describe("Hook Business Logic Tests", () => {
