@@ -106,6 +106,7 @@ function ResourceRow({
   const statusColor = colorFor(status);
   const syncVal = syncByKey[keyFor(r)] ?? "-";
   const syncColor = colorFor(syncVal);
+  const pad = (val: string) => val.padStart(12).slice(-12);
   return (
     <Box width="100%">
       <Box width={13} flexShrink={0}>
@@ -122,7 +123,7 @@ function ResourceRow({
           dimColor={syncColor.dimColor as any}
           wrap="truncate"
         >
-          {syncVal}
+          {pad(syncVal)}
         </Text>
       </Box>
       <Box width={1} flexShrink={0} />
@@ -132,7 +133,7 @@ function ResourceRow({
           dimColor={statusColor.dimColor as any}
           wrap="truncate"
         >
-          {status}
+          {pad(status)}
         </Text>
       </Box>
     </Box>
