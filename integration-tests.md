@@ -40,7 +40,7 @@ Use clear expect() assertions against lastFrame() snippets rather than pixel-per
 Run tests repeatedly to catch flakiness.
 Use snapshots of output frames for complex screens; update when intentionally changing UI.
 6. Incorporate Snapshot Testing for UI
-Capture output frames as snapshots using Jest, e.g., expect(lastFrame()).toMatchInlineSnapshot() or toMatchSnapshot().
+Capture output frames as snapshots, e.g., expect(lastFrame()).toMatchInlineSnapshot() or toMatchSnapshot().
 Example:
 typescript
 expect(lastFrame()).toMatchSnapshot();

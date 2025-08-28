@@ -1,6 +1,5 @@
 // src/__tests__/test-utils.ts
 import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 /**
  * Test utilities and mock factories for unit testing
  * This file contains only utilities and does not have its own tests

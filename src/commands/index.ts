@@ -13,7 +13,12 @@ import {
   NavigationInputHandler,
   SearchInputHandler,
 } from "./handlers/keyboard";
-import { ClearAllCommand, ClearCommand, NavigationCommand, UpCommand } from "./navigation";
+import {
+  ClearAllCommand,
+  ClearCommand,
+  NavigationCommand,
+  UpCommand,
+} from "./navigation";
 import { CommandRegistry } from "./registry";
 import {
   createRulerCommand,
@@ -55,7 +60,7 @@ export function createDefaultCommandRegistry(): CommandRegistry {
   // Clear commands
   registry.registerCommand("clear", new ClearCommand());
   registry.registerCommand("all", new ClearAllCommand());
-  
+
   // Navigation commands
   registry.registerCommand("up", new UpCommand());
 

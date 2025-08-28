@@ -1,27 +1,33 @@
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
-import { AppStateProvider } from "../../contexts/AppStateContext";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
-import { stripAnsi } from "../test-utils";
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { AppStateProvider } from "../../contexts/AppStateContext";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {
-  // Mock command registry
-  const mockCommandRegistry = {
-    parseCommandLine: mock(),
-    getCommands: mock().mockReturnValue([]),
-    executeCommand: mock(),
-    registerCommand: mock(),
-    registerInputHandler: mock(),
+  let mockCommandRegistry: {
+    parseCommandLine: ReturnType<typeof mock>;
+    getCommands: ReturnType<typeof mock>;
+    executeCommand: ReturnType<typeof mock>;
+    registerCommand: ReturnType<typeof mock>;
+    registerInputHandler: ReturnType<typeof mock>;
   };
 
-  const mockOnExecuteCommand = mock();
-  const mockOnSubmit = mock();
+  let mockOnExecuteCommand: ReturnType<typeof mock>;
+  let mockOnSubmit: ReturnType<typeof mock>;
 
   beforeEach(() => {
-    mock.clearAllMocks();
+    mockCommandRegistry = {
+      parseCommandLine: mock(),
+      getCommands: mock().mockReturnValue([]),
+      executeCommand: mock(),
+      registerCommand: mock(),
+      registerInputHandler: mock(),
+    };
+
+    mockOnExecuteCommand = mock();
+    mockOnSubmit = mock();
   });
 
   describe("CommandBar Component", () => {
@@ -39,15 +45,15 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { lastFrame } = render(
           <AppStateProvider initialState={commandModeState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         // Should show command bar elements
         expect(frame).toContain("CMD");
         expect(frame).toContain("Enter to run, Esc to cancel");
@@ -66,15 +72,15 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { lastFrame } = render(
           <AppStateProvider initialState={normalModeState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         // Should be empty/null when not in command mode
         expect(frame).toBe("");
       });
@@ -92,11 +98,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { lastFrame } = render(
           <AppStateProvider initialState={searchModeState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
@@ -118,15 +124,15 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { lastFrame } = render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         // Should show the command text
         expect(frame).toContain("CMD");
         expect(frame).toContain("sync frontend-app");
@@ -145,15 +151,15 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { lastFrame } = render(
           <AppStateProvider initialState={emptyCommandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         expect(frame).toContain("CMD");
         expect(frame).toContain("Enter to run, Esc to cancel");
       });
@@ -163,7 +169,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
       it("executes valid command on submit", () => {
         mockCommandRegistry.parseCommandLine.mockReturnValue({
           command: "sync",
-          args: ["frontend-app"]
+          args: ["frontend-app"],
         });
 
         const commandState = {
@@ -178,27 +184,32 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { stdin } = render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Simulate Enter key press
         stdin.write("\r");
 
         // Should parse the command
-        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(":sync frontend-app");
-        
+        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(
+          ":sync frontend-app",
+        );
+
         // Should execute the command
-        expect(mockOnExecuteCommand).toHaveBeenCalledWith("sync", "frontend-app");
+        expect(mockOnExecuteCommand).toHaveBeenCalledWith(
+          "sync",
+          "frontend-app",
+        );
       });
 
       it("handles empty command submission", () => {
         mockCommandRegistry.parseCommandLine.mockReturnValue({
           command: "",
-          args: []
+          args: [],
         });
 
         const commandState = {
@@ -213,11 +224,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { stdin } = render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Simulate Enter key press
@@ -225,7 +236,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         // Should parse the command
         expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(":");
-        
+
         // Should NOT execute any command
         expect(mockOnExecuteCommand).not.toHaveBeenCalled();
       });
@@ -233,7 +244,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
       it("handles complex commands with multiple arguments", () => {
         mockCommandRegistry.parseCommandLine.mockReturnValue({
           command: "rollback",
-          args: ["myapp", "v1.2.3", "--force"]
+          args: ["myapp", "v1.2.3", "--force"],
         });
 
         const commandState = {
@@ -248,18 +259,25 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { stdin } = render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Simulate Enter key press
         stdin.write("\r");
 
-        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(":rollback myapp v1.2.3 --force");
-        expect(mockOnExecuteCommand).toHaveBeenCalledWith("rollback", "myapp", "v1.2.3", "--force");
+        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(
+          ":rollback myapp v1.2.3 --force",
+        );
+        expect(mockOnExecuteCommand).toHaveBeenCalledWith(
+          "rollback",
+          "myapp",
+          "v1.2.3",
+          "--force",
+        );
       });
     });
 
@@ -277,21 +295,21 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const { lastFrame } = render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         // Should have CMD label
         expect(frame).toContain("CMD");
-        
+
         // Should have help text
         expect(frame).toContain("Enter to run, Esc to cancel");
-        
+
         // Should contain the command
         expect(frame).toContain("help");
       });
@@ -319,11 +337,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={searchModeState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         // Should show search bar elements
         expect(frame).toContain("Search");
         expect(frame).toContain("Enter");
@@ -349,7 +367,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={normalModeState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
@@ -377,11 +395,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={searchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         expect(frame).toContain("Search");
         expect(frame).toContain("frontend-web");
       });
@@ -405,7 +423,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={emptySearchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
@@ -433,11 +451,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={appsSearchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         expect(frame).toContain("Enter keeps filter");
         expect(frame).toContain("Esc cancels");
       });
@@ -461,11 +479,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={clustersSearchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         expect(frame).toContain("Enter opens first result");
         expect(frame).toContain("Esc cancels");
       });
@@ -489,11 +507,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={namespacesSearchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         expect(frame).toContain("Enter opens first result");
         expect(frame).toContain("Esc cancels");
       });
@@ -519,7 +537,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { stdin } = render(
           <AppStateProvider initialState={clustersSearchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Simulate Enter key press
@@ -548,7 +566,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { stdin } = render(
           <AppStateProvider initialState={appsSearchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Simulate Enter key press
@@ -579,18 +597,18 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={searchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         const frame = lastFrame();
-        
+
         // Should have Search label
         expect(frame).toContain("Search");
-        
+
         // Should have help text
         expect(frame).toContain("Enter opens first result");
         expect(frame).toContain("Esc cancels");
-        
+
         // Should contain the search query
         expect(frame).toContain("web-platform");
       });
@@ -610,19 +628,19 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
         };
 
-        const { stdin, lastFrame } = render(
+        const { lastFrame } = render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={mockCommandRegistry}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Should start with just ":"
         expect(lastFrame()).toContain("CMD");
 
-        // Note: TextInput component handles internal state, 
+        // Note: TextInput component handles internal state,
         // but we can test that the component renders properly
         expect(lastFrame()).toBeDefined();
         expect(lastFrame()).toContain("Enter to run");
@@ -649,7 +667,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const { lastFrame } = render(
           <AppStateProvider initialState={searchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
 
         // Should render search bar
@@ -675,11 +693,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
       expect(() => {
         render(
           <AppStateProvider initialState={commandState}>
-            <CommandBar 
+            <CommandBar
               commandRegistry={null as any}
               onExecuteCommand={mockOnExecuteCommand}
             />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
       }).not.toThrow();
     });
@@ -701,13 +719,13 @@ describe("CommandBar and SearchBar UI Tests", () => {
         render(
           <AppStateProvider initialState={searchState}>
             <SearchBar onSubmit={mockOnSubmit} />
-          </AppStateProvider>
+          </AppStateProvider>,
         );
       }).not.toThrow();
     });
 
     it("handles very long command input", () => {
-      const longCommand = ":sync " + "very-long-app-name-".repeat(10);
+      const longCommand = `:sync ${"very-long-app-name-".repeat(10)}`;
       const commandState = {
         mode: "command" as const,
         ui: {
@@ -720,11 +738,11 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
       const { lastFrame } = render(
         <AppStateProvider initialState={commandState}>
-          <CommandBar 
+          <CommandBar
             commandRegistry={mockCommandRegistry}
             onExecuteCommand={mockOnExecuteCommand}
           />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       // Should render without issues (text might be wrapped due to length)
@@ -733,7 +751,9 @@ describe("CommandBar and SearchBar UI Tests", () => {
     });
 
     it("handles very long search query", () => {
-      const longQuery = "frontend-web-application-with-very-long-name-".repeat(5);
+      const longQuery = "frontend-web-application-with-very-long-name-".repeat(
+        5,
+      );
       const searchState = {
         mode: "search" as const,
         navigation: {
@@ -752,7 +772,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={searchState}>
           <SearchBar onSubmit={mockOnSubmit} />
-        </AppStateProvider>
+        </AppStateProvider>,
       );
 
       // Should render without issues (text might be wrapped due to length)

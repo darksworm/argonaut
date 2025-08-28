@@ -1,6 +1,5 @@
 // src/__tests__/commands/CommandRegistry.test.ts
-import { mock } from "bun:test";
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { CommandRegistry } from "../../commands/registry";
 import type { InputHandler } from "../../commands/types";
 import { createMockCommand, createMockContext } from "../test-utils";
