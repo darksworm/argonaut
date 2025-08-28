@@ -8,6 +8,7 @@ export default {
         file: 'dist/cli.js',            // matches package.json "bin"
         format: 'esm',
         sourcemap: true,
+        inlineDynamicImports: true,
         banner: '#!/usr/bin/env node'   // required for CLI
     },
     external: [

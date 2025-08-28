@@ -1,17 +1,10 @@
 import type { ReadStream, WriteStream } from "node:tty";
-import { render } from "ink";
-import { App } from "./components/App";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import {
-  beginExclusiveInput,
-  endExclusiveInput,
-  enterExternal,
-  exitExternal,
-  mutableStdin,
-  mutableStdout,
-} from "./ink-control";
-import { setupGlobalErrorHandlers } from "./services/error-handler";
-import { initializeLogger, log } from "./services/logger";
+import packageJson from "../package.json";
+
+if (process.argv.includes("--version") || process.argv.includes("-v")) {
+  console.log(packageJson.version);
+  process.exit(0);
+}
 
 function setupAlternateScreen() {
   if (typeof process === "undefined") return;
@@ -58,6 +51,20 @@ function setupAlternateScreen() {
 }
 
 async function main() {
+  const { render } = await import("ink");
+  const { App } = await import("./components/App");
+  const { ErrorBoundary } = await import("./components/ErrorBoundary");
+  const {
+    beginExclusiveInput,
+    endExclusiveInput,
+    enterExternal,
+    exitExternal,
+    mutableStdin,
+    mutableStdout,
+  } = await import("./ink-control");
+  const { setupGlobalErrorHandlers } = await import("./services/error-handler");
+  const { initializeLogger, log } = await import("./services/logger");
+
   // Initialize logger for normal app mode
   const loggerResult = await initializeLogger();
   if (loggerResult.isErr()) {
