@@ -13,7 +13,7 @@ export class NavigationCommand implements Command {
   }
 
   canExecute(context: CommandContext): boolean {
-    return context.state.mode === "normal";
+    return context.state.mode === "normal" || context.state.mode === "command";
   }
 
   execute(context: CommandContext, arg?: string): void {
@@ -63,7 +63,7 @@ export class ClearCommand implements Command {
   description = "Clear current view selection";
 
   canExecute(context: CommandContext): boolean {
-    return context.state.mode === "normal";
+    return context.state.mode === "normal" || context.state.mode === "command";
   }
 
   execute(context: CommandContext): void {
