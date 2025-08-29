@@ -1,7 +1,7 @@
 {
   "name": "argonaut-cli",
   "author": "darksworm (Ilmars Janis Bluzmanis)",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": false,
   "type": "module",
   "scripts": {
