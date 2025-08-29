@@ -116,7 +116,87 @@ export class DiffCommand implements Command {
   }
 
   private getVisibleItems(context: CommandContext): any[] {
-    return context.state.apps;
+    const { state } = context;
+    const { apps, navigation, selections, ui } = state;
+    const { view } = navigation;
+    const { scopeClusters, scopeNamespaces, scopeProjects } = selections;
+    const { searchQuery, activeFilter } = ui;
+
+    // Helper function to get unique sorted items
+    const uniqueSorted = <T>(arr: T[]): T[] => {
+      return Array.from(new Set(arr)).sort((a: any, b: any) =>
+        `${a}`.localeCompare(`${b}`),
+      );
+    };
+
+    // Calculate all clusters from apps
+    const allClusters = uniqueSorted(
+      apps.map((a) => a.clusterLabel || "").filter(Boolean)
+    );
+
+    // Filter apps by selected clusters
+    const filteredByClusters = !scopeClusters.size 
+      ? apps 
+      : apps.filter((a) => scopeClusters.has(a.clusterLabel || ""));
+
+    // Calculate all namespaces from filtered apps
+    const allNamespaces = uniqueSorted(
+      filteredByClusters
+        .map((a) => a.namespace || "")
+        .filter(Boolean)
+    );
+
+    // Filter apps by selected namespaces
+    const filteredByNs = !scopeNamespaces.size 
+      ? filteredByClusters 
+      : filteredByClusters.filter((a) => scopeNamespaces.has(a.namespace || ""));
+
+    // Calculate all projects from filtered apps
+    const allProjects = uniqueSorted(
+      filteredByNs.map((a) => a.project || "").filter(Boolean)
+    );
+
+    // Get final filtered apps by projects
+    const finalApps = !scopeProjects.size 
+      ? filteredByNs 
+      : filteredByNs.filter((a) => scopeProjects.has(a.project || ""));
+
+    // Calculate visible items based on current view and filters
+    const filter = (
+      state.mode === "search" ? searchQuery : activeFilter
+    ).toLowerCase();
+    
+    let base: any[];
+
+    switch (view) {
+      case "clusters":
+        base = allClusters;
+        break;
+      case "namespaces":
+        base = allNamespaces;
+        break;
+      case "projects":
+        base = allProjects;
+        break;
+      default:
+        base = finalApps;
+        break;
+    }
+
+    if (!filter) return base;
+
+    if (view === "apps") {
+      return base.filter(
+        (a: any) =>
+          a.name.toLowerCase().includes(filter) ||
+          (a.sync || "").toLowerCase().includes(filter) ||
+          (a.health || "").toLowerCase().includes(filter) ||
+          (a.namespace || "").toLowerCase().includes(filter) ||
+          (a.project || "").toLowerCase().includes(filter),
+      );
+    } else {
+      return base.filter((s) => String(s).toLowerCase().includes(filter));
+    }
   }
 }
 
