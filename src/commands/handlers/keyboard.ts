@@ -114,41 +114,41 @@ export class NavigationInputHandler implements InputHandler {
 
     // Calculate all clusters from apps
     const allClusters = uniqueSorted(
-      apps.map((a) => a.clusterLabel || "").filter(Boolean)
+      apps.map((a) => a.clusterLabel || "").filter(Boolean),
     );
 
     // Filter apps by selected clusters
-    const filteredByClusters = !scopeClusters.size 
-      ? apps 
+    const filteredByClusters = !scopeClusters.size
+      ? apps
       : apps.filter((a) => scopeClusters.has(a.clusterLabel || ""));
 
     // Calculate all namespaces from filtered apps
     const allNamespaces = uniqueSorted(
-      filteredByClusters
-        .map((a) => a.namespace || "")
-        .filter(Boolean)
+      filteredByClusters.map((a) => a.namespace || "").filter(Boolean),
     );
 
     // Filter apps by selected namespaces
-    const filteredByNs = !scopeNamespaces.size 
-      ? filteredByClusters 
-      : filteredByClusters.filter((a) => scopeNamespaces.has(a.namespace || ""));
+    const filteredByNs = !scopeNamespaces.size
+      ? filteredByClusters
+      : filteredByClusters.filter((a) =>
+          scopeNamespaces.has(a.namespace || ""),
+        );
 
     // Calculate all projects from filtered apps
     const allProjects = uniqueSorted(
-      filteredByNs.map((a) => a.project || "").filter(Boolean)
+      filteredByNs.map((a) => a.project || "").filter(Boolean),
     );
 
     // Get final filtered apps by projects
-    const finalApps = !scopeProjects.size 
-      ? filteredByNs 
+    const finalApps = !scopeProjects.size
+      ? filteredByNs
       : filteredByNs.filter((a) => scopeProjects.has(a.project || ""));
 
     // Calculate visible items based on current view and filters
     const filter = (
       state.mode === "search" ? searchQuery : activeFilter
     ).toLowerCase();
-    
+
     let base: any[];
 
     switch (view) {
@@ -178,7 +178,8 @@ export class NavigationInputHandler implements InputHandler {
           (a.project || "").toLowerCase().includes(filter),
       ).length;
     } else {
-      return base.filter((s) => String(s).toLowerCase().includes(filter)).length;
+      return base.filter((s) => String(s).toLowerCase().includes(filter))
+        .length;
     }
   }
 
