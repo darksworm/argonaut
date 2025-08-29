@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.14.0](https://github.com/darksworm/argonaut/compare/v1.13.0...v1.14.0) (2025-08-29)
+
+
+### Features
+
+* add version flag ([#51](https://github.com/darksworm/argonaut/issues/51)) ([4b76a80](https://github.com/darksworm/argonaut/commit/4b76a8046a15788facc1f3e818e965c489c09976))
+
+
+### Bug Fixes
+
+* allow navigation commands to execute in command mode ([df4fd4e](https://github.com/darksworm/argonaut/commit/df4fd4ebd2203c14dc43d3581d06f1f967a0a028))
+* navigation boundary issues and diff command app selection ([291ca03](https://github.com/darksworm/argonaut/commit/291ca03a70ca7bae3a360cbb8996ef10e45b56d0))
+* prevent overlapping statuses in resource view ([#52](https://github.com/darksworm/argonaut/issues/52)) ([9745939](https://github.com/darksworm/argonaut/commit/97459397d253be12bf6a4e078d07b2f1695debd0))
+* sync, rollback, and resources commands app selection in non-apps views ([768f4ae](https://github.com/darksworm/argonaut/commit/768f4ae1d062c00b45831f4c84256f2ff95c09ac))
+
 ## [1.13.0](https://github.com/darksworm/argonaut/compare/v1.12.0...v1.13.0) (2025-08-27)
 
 
