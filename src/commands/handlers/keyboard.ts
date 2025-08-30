@@ -95,6 +95,15 @@ export class NavigationInputHandler implements InputHandler {
       return true;
     }
 
+    // 's' key to open sync modal - only in apps view
+    if (input === "s") {
+      if (navigation.view !== "apps") {
+        return false;
+      }
+      void context.executeCommand("sync");
+      return true;
+    }
+
     if (key.escape) {
       const now = Date.now();
       // Debounce escape key to prevent rapid firing

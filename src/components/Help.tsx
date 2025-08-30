@@ -66,6 +66,9 @@ const Help: React.FC = () => {
           <Text>
             <Text color="cyan">:up</Text> go up level
           </Text>
+          <Text>
+            <Text color="cyan">s</Text> sync modal (apps view)
+          </Text>
         </Box>
       </HelpSection>
 
