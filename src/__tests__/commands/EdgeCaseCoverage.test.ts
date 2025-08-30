@@ -52,7 +52,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           ui: {
             searchQuery: "",
             activeFilter: "healthy",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -84,7 +84,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           ui: {
             searchQuery: "app1",
             activeFilter: "different-filter",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -152,7 +152,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           ui: {
             searchQuery: "",
             activeFilter: "APP1", // uppercase filter
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -183,7 +183,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           ui: {
             searchQuery: "",
             activeFilter: "in-cluster",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -310,7 +310,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           ui: {
             searchQuery: "",
             activeFilter: "", // empty filter
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -341,7 +341,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           ui: {
             searchQuery: "",
             activeFilter: "false", // string "false" should still filter
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },

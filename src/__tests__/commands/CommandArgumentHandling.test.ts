@@ -68,17 +68,34 @@ describe("Command Argument Handling", () => {
       });
     });
 
-    test(":app with app argument should select specific app", () => {
+    test(":app with app argument should navigate and focus on that app", () => {
       const context = createMockContext({
-        state: createMockState({ mode: "command" }),
+        state: createMockState({
+          mode: "command",
+          navigation: {
+            view: "clusters",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          apps: createMockApps(),
+        }),
       });
 
       const appCommand = new NavigationCommand("apps", "app", ["apps"]);
-      appCommand.execute(context, "my-application");
+      appCommand.execute(context, "app2");
 
       expect(context.dispatch).toHaveBeenCalledWith({
+        type: "RESET_NAVIGATION",
+        payload: { view: "apps" },
+      });
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_IDX",
+        payload: 1,
+      });
+      expect(context.dispatch).toHaveBeenCalledWith({
         type: "SET_SELECTED_APPS",
-        payload: new Set(["my-application"]),
+        payload: new Set(["app2"]),
       });
     });
   });

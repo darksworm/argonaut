@@ -42,6 +42,10 @@ export class NavigationCommand implements Command {
           break;
         case "apps":
           dispatch({ type: "SET_SELECTED_APPS", payload: new Set([arg]) });
+          const idx = context.state.apps.findIndex((a) => a.name === arg);
+          if (idx !== -1) {
+            dispatch({ type: "SET_SELECTED_IDX", payload: idx });
+          }
           // Apps is the deepest level, no further navigation
           break;
       }

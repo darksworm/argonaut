@@ -3,6 +3,7 @@ import { render } from "ink-testing-library";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
 import { AppStateProvider } from "../../contexts/AppStateContext";
+import { stripAnsi } from "../test-utils";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {
@@ -36,7 +37,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandModeState = {
           mode: "command" as const,
           ui: {
-            command: ":sync",
+            command: "sync",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -63,7 +64,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const normalModeState = {
           mode: "normal" as const,
           ui: {
-            command: ":sync",
+            command: "sync",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -89,7 +90,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const searchModeState = {
           mode: "search" as const,
           ui: {
-            command: ":sync",
+            command: "sync",
             searchQuery: "test",
             activeFilter: "",
             isVersionOutdated: false,
@@ -115,7 +116,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandState = {
           mode: "command" as const,
           ui: {
-            command: ":sync frontend-app",
+            command: "sync frontend-app",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -142,7 +143,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const emptyCommandState = {
           mode: "command" as const,
           ui: {
-            command: ":",
+            command: "",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -162,6 +163,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         expect(frame).toContain("CMD");
         expect(frame).toContain("Enter to run, Esc to cancel");
+        expect(frame).toContain(":");
       });
     });
 
@@ -175,7 +177,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandState = {
           mode: "command" as const,
           ui: {
-            command: ":sync frontend-app",
+            command: "sync frontend-app",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -215,7 +217,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandState = {
           mode: "command" as const,
           ui: {
-            command: ":",
+            command: "",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -250,7 +252,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandState = {
           mode: "command" as const,
           ui: {
-            command: ":rollback myapp v1.2.3 --force",
+            command: "rollback myapp v1.2.3 --force",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -281,12 +283,122 @@ describe("CommandBar and SearchBar UI Tests", () => {
       });
     });
 
+    describe("Autocomplete", () => {
+      it("shows suggestion for partial input", () => {
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cluster pro",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+          apps: [
+            {
+              name: "app1",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("cluster production");
+      });
+
+      it("applies suggestion on submit", () => {
+        mockCommandRegistry.parseCommandLine.mockReturnValue({
+          command: "cluster",
+          args: ["production"],
+        });
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cluster pro",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+          apps: [
+            {
+              name: "app1",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        };
+
+        const { stdin } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("\r");
+
+        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(
+          ":cluster production",
+        );
+        expect(mockOnExecuteCommand).toHaveBeenCalledWith(
+          "cluster",
+          "production",
+        );
+      });
+
+      it("allows deleting autocompleted text", () => {
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cluster production",
+            commandInputKey: 1,
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("\u0008");
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain(":cluster productio");
+      });
+
+    });
+
     describe("UI Styling and Layout", () => {
       it("displays with proper styling elements", () => {
         const commandState = {
           mode: "command" as const,
           ui: {
-            command: ":help",
+            command: "help",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -328,7 +440,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "frontend",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -358,7 +470,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "frontend",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -386,7 +498,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "frontend-web",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -414,7 +526,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -442,7 +554,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "api",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -470,7 +582,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "prod",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -498,7 +610,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "frontend",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -528,7 +640,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "production",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -557,7 +669,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "frontend",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -588,7 +700,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "web-platform",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -621,7 +733,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandState = {
           mode: "command" as const,
           ui: {
-            command: ":",
+            command: "",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -658,7 +770,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           },
           ui: {
             searchQuery: "",
-            command: ":",
+            command: "",
             activeFilter: "",
             isVersionOutdated: false,
           },
@@ -682,7 +794,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
       const commandState = {
         mode: "command" as const,
         ui: {
-          command: ":help",
+          command: "help",
           searchQuery: "",
           activeFilter: "",
           isVersionOutdated: false,
@@ -708,7 +820,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         // Missing navigation property
         ui: {
           searchQuery: "test",
-          command: ":",
+          command: "",
           activeFilter: "",
           isVersionOutdated: false,
         },
@@ -763,7 +875,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         },
         ui: {
           searchQuery: longQuery,
-          command: ":",
+          command: "",
           activeFilter: "",
           isVersionOutdated: false,
         },
