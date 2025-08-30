@@ -1,0 +1,41 @@
+name: Mutation Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  mutation-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Run unit tests first
+      run: bun test
+
+    - name: Run mutation tests
+      env:
+        STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_API_KEY }}
+      run: bun run test:mutation:ci
+
+    - name: Upload mutation report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: mutation-report
+        path: reports/mutation/html/
+        retention-days: 30
