@@ -580,4 +580,250 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       );
     });
   });
+
+  describe("Comprehensive edge cases for mutation testing", () => {
+    test("DiffCommand should handle server authentication correctly", () => {
+      const mockApps = createMockApps();
+
+      // Test with no server
+      const noServerContext = createMockContext({
+        state: createMockState({
+          server: null,
+          apps: mockApps,
+        }),
+      });
+
+      const diffCommand = new DiffCommand();
+      diffCommand.execute(noServerContext, "test-app");
+
+      expect(noServerContext.statusLog.error).toHaveBeenCalledWith(
+        "Not authenticated.",
+        "auth",
+      );
+
+      // Test with server
+      const withServerContext = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps: mockApps,
+        }),
+      });
+
+      const diffCommand2 = new DiffCommand();
+      diffCommand2.execute(withServerContext, "test-app");
+
+      expect(withServerContext.dispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "normal",
+      });
+    });
+
+    test("All commands should handle server authentication states", () => {
+      const commands = [
+        new DiffCommand(),
+        new SyncCommand(),
+        new RollbackCommand(),
+        new ResourcesCommand(),
+      ];
+
+      for (const command of commands) {
+        // With server (canExecute only checks server !== null, not token)
+        const authenticatedContext = createMockContext({
+          state: createMockState({
+            server: { config: { baseUrl: "test" }, token: "token" },
+          }),
+        });
+        expect(command.canExecute(authenticatedContext)).toBe(true);
+
+        // Without server
+        const noServerContext = createMockContext({
+          state: createMockState({ server: null }),
+        });
+        expect(command.canExecute(noServerContext)).toBe(false);
+
+        // With server but no token (still passes canExecute)
+        const noTokenContext = createMockContext({
+          state: createMockState({
+            server: { config: { baseUrl: "test" }, token: null },
+          }),
+        });
+        expect(command.canExecute(noTokenContext)).toBe(true);
+      }
+    });
+
+    test("SyncCommand should handle empty vs non-empty selected apps", () => {
+      const mockApps = createMockApps();
+
+      // Test with no selected apps and not in apps view
+      const emptySelectionContext = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "test" }, token: "token" },
+          apps: mockApps,
+          navigation: {
+            view: "projects",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          selections: {
+            selectedApps: new Set(),
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+          },
+        }),
+      });
+
+      const syncCommandEmpty = new SyncCommand();
+      syncCommandEmpty.execute(emptySelectionContext);
+
+      expect(emptySelectionContext.statusLog.warn).toHaveBeenCalledWith(
+        "No app selected to sync.",
+        "user-action",
+      );
+
+      // Test with multiple selected apps
+      const multiSelectionContext = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "test" }, token: "token" },
+          apps: mockApps,
+          selections: {
+            selectedApps: new Set(["app1", "app2"]),
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+          },
+        }),
+      });
+
+      const syncCommandMulti = new SyncCommand();
+      syncCommandMulti.execute(multiSelectionContext);
+
+      expect(multiSelectionContext.dispatch).toHaveBeenCalledWith({
+        type: "SET_CONFIRM_TARGET",
+        payload: "__MULTI__",
+      });
+    });
+
+    test("Commands should validate boolean conditions correctly", () => {
+      const mockApps = createMockApps();
+
+      // Test selectedApps.size > 1 condition exactly
+      const exactlyTwoAppsContext = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "test" }, token: "token" },
+          apps: mockApps,
+          selections: {
+            selectedApps: new Set(["app1", "app2"]),
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+          },
+        }),
+      });
+
+      const syncCommand = new SyncCommand();
+      syncCommand.execute(exactlyTwoAppsContext);
+
+      expect(exactlyTwoAppsContext.dispatch).toHaveBeenCalledWith({
+        type: "SET_CONFIRM_SYNC_WATCH",
+        payload: false, // disabled for multi
+      });
+
+      // Test exactly one selected app
+      const exactlyOneAppContext = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "test" }, token: "token" },
+          apps: mockApps,
+          selections: {
+            selectedApps: new Set(["app1"]),
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+          },
+        }),
+      });
+
+      const syncCommand2 = new SyncCommand();
+      syncCommand2.execute(exactlyOneAppContext);
+
+      expect(exactlyOneAppContext.dispatch).toHaveBeenCalledWith({
+        type: "SET_CONFIRM_SYNC_WATCH",
+        payload: true, // enabled for single
+      });
+    });
+
+    test("Commands should handle array bounds correctly", () => {
+      const mockApps = createMockApps();
+
+      // Test selectedIdx boundary conditions for DiffCommand
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "test" }, token: "token" },
+          apps: mockApps,
+          navigation: {
+            view: "apps",
+            selectedIdx: 999,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+        }),
+      });
+
+      const diffCommand = new DiffCommand();
+      diffCommand.execute(context);
+
+      expect(context.statusLog.warn).toHaveBeenCalledWith(
+        "No app selected to diff.",
+        "user-action",
+      );
+    });
+
+    test("Commands should handle Set operations correctly", () => {
+      const mockApps = createMockApps();
+
+      // Test Set.values() iteration - RollbackCommand with single selected app
+      const singleSelectedApp = new Set(["app1"]);
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "test" }, token: "token" },
+          apps: mockApps,
+          selections: {
+            selectedApps: singleSelectedApp,
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+          },
+        }),
+      });
+
+      const rollbackCommand = new RollbackCommand();
+      rollbackCommand.execute(context);
+
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_ROLLBACK_APP_NAME",
+        payload: "app1",
+      });
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_MODE",
+        payload: "rollback",
+      });
+    });
+
+    test("Commands should handle property access patterns", () => {
+      // Test different command property configurations (based on actual aliases)
+      const commands = [
+        { cmd: new DiffCommand(), aliases: [] },
+        { cmd: new SyncCommand(), aliases: [] },
+        { cmd: new RollbackCommand(), aliases: [] },
+        { cmd: new ResourcesCommand(), aliases: ["resource", "res"] },
+      ];
+
+      for (const { cmd, aliases } of commands) {
+        expect(cmd.aliases).toEqual(aliases);
+        expect(typeof cmd.description).toBe("string");
+        expect(cmd.description.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });
