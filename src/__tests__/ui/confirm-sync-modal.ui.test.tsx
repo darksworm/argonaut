@@ -53,7 +53,7 @@ describe("ConfirmSyncModal UI Tests", () => {
     ui: {
       searchQuery: "",
       activeFilter: "",
-      command: ":",
+      command: "",
       isVersionOutdated: false,
     },
     modals: {

@@ -33,6 +33,7 @@ export interface UIState {
   command: string;
   isVersionOutdated: boolean;
   latestVersion?: string;
+  commandInputKey: number;
 }
 
 export interface ModalState {
@@ -73,6 +74,7 @@ export type AppAction =
   | { type: "SET_SEARCH_QUERY"; payload: string }
   | { type: "SET_ACTIVE_FILTER"; payload: string }
   | { type: "SET_COMMAND"; payload: string }
+  | { type: "BUMP_COMMAND_INPUT_KEY" }
   | { type: "SET_SCOPE_CLUSTERS"; payload: Set<string> }
   | { type: "SET_SCOPE_NAMESPACES"; payload: Set<string> }
   | { type: "SET_SCOPE_PROJECTS"; payload: Set<string> }
@@ -114,9 +116,10 @@ export const initialState: AppState = {
   ui: {
     searchQuery: "",
     activeFilter: "",
-    command: ":",
+    command: "",
     isVersionOutdated: false,
     latestVersion: undefined,
+    commandInputKey: 0,
   },
   modals: {
     confirmTarget: null,
@@ -180,6 +183,12 @@ export function appStateReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         ui: { ...state.ui, command: action.payload },
+      };
+
+    case "BUMP_COMMAND_INPUT_KEY":
+      return {
+        ...state,
+        ui: { ...state.ui, commandInputKey: state.ui.commandInputKey + 1 },
       };
 
     case "SET_SCOPE_CLUSTERS":
@@ -344,7 +353,20 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
   initialState: providedInitialState,
 }) => {
   const finalInitialState = providedInitialState
-    ? { ...initialState, ...providedInitialState }
+    ? {
+        ...initialState,
+        ...providedInitialState,
+        ui: { ...initialState.ui, ...(providedInitialState.ui ?? {}) },
+        navigation: {
+          ...initialState.navigation,
+          ...(providedInitialState.navigation ?? {}),
+        },
+        selections: {
+          ...initialState.selections,
+          ...(providedInitialState.selections ?? {}),
+        },
+        modals: { ...initialState.modals, ...(providedInitialState.modals ?? {}) },
+      }
     : initialState;
 
   const [state, dispatch] = useReducer(appStateReducer, finalInitialState);

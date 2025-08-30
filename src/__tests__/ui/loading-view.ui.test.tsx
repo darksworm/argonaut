@@ -23,7 +23,7 @@ describe("LoadingView UI Tests", () => {
     ui: {
       searchQuery: "",
       activeFilter: "",
-      command: ":",
+      command: "",
       isVersionOutdated: false,
     },
     modals: {

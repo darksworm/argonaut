@@ -82,7 +82,7 @@ describe("ModeInputHandler", () => {
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: ":",
+        payload: "",
       });
     });
   });
@@ -250,8 +250,154 @@ describe("CommandInputHandler", () => {
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: ":",
+        payload: "",
       });
+    });
+  });
+
+  describe("autocomplete", () => {
+    it("should complete command names on Tab", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "cl",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND",
+        payload: "cluster ",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "BUMP_COMMAND_INPUT_KEY",
+      });
+    });
+
+    it("should complete cluster names on Tab", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "cluster pro",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND",
+        payload: "cluster production",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "BUMP_COMMAND_INPUT_KEY",
+      });
+    });
+
+    it("should complete namespace names on Tab", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "ns ku",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "prod",
+              namespace: "kube-system",
+              project: "proj1",
+            },
+            {
+              name: "b",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "prod",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND",
+        payload: "ns kube-system",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "BUMP_COMMAND_INPUT_KEY",
+      });
+    });
+
+    it("should swallow Tab when no completion available", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "cluster xyz",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).not.toHaveBeenCalled();
     });
   });
 

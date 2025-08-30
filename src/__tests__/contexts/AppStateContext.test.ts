@@ -222,10 +222,10 @@ describe("appStateReducer", () => {
     });
 
     it("should handle command input state", () => {
-      const action: AppAction = { type: "SET_COMMAND", payload: ":sync myapp" };
+      const action: AppAction = { type: "SET_COMMAND", payload: "sync myapp" };
       const newState = appStateReducer(initialState, action);
 
-      expect(newState.ui.command).toBe(":sync myapp");
+      expect(newState.ui.command).toBe("sync myapp");
     });
 
     it("should handle terminal resize events", () => {

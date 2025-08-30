@@ -294,7 +294,7 @@ describe("Command Execution with Different App States", () => {
           ui: {
             searchQuery: "search-term",
             activeFilter: "filter-term",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -330,7 +330,7 @@ describe("Command Execution with Different App States", () => {
           ui: {
             searchQuery: "active-search",
             activeFilter: "active-filter",
-            command: ":some-command",
+            command: "some-command",
             isVersionOutdated: false,
             latestVersion: undefined,
           },

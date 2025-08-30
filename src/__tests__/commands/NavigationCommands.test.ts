@@ -770,7 +770,7 @@ describe("ClearAllCommand", () => {
           ui: {
             searchQuery: "test-search",
             activeFilter: "health=Healthy",
-            command: ":test",
+            command: "test",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
