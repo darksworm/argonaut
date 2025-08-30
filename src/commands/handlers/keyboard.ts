@@ -345,6 +345,7 @@ export class CommandInputHandler implements InputHandler {
     }
 
     if (key.backspace && state.ui.command === ":") {
+      dispatch({ type: "BUMP_COMMAND_INPUT_KEY" });
       return true;
     }
 

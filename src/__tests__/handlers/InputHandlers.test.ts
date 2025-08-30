@@ -254,7 +254,7 @@ describe("CommandInputHandler", () => {
       });
     });
 
-    it("should prevent deleting the leading colon", () => {
+    it("should reset cursor when backspacing at the leading colon", () => {
       const mockDispatch = mock();
       const context = createMockContext({
         state: createMockState({
@@ -273,7 +273,9 @@ describe("CommandInputHandler", () => {
       const result = handler.handleInput("", { backspace: true }, context);
 
       expect(result).toBe(true);
-      expect(mockDispatch).not.toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "BUMP_COMMAND_INPUT_KEY",
+      });
     });
 
     it("should allow deleting characters after the colon", () => {
