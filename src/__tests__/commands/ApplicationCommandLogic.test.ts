@@ -1,20 +1,22 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
-  DiffCommand,
-  ResourcesCommand,
-  RollbackCommand,
-  SyncCommand,
-} from "../../commands/application";
-import {
   createMockApps,
   createMockContext,
   createMockState,
 } from "../test-utils";
 
-// Mock the external dependencies
+// Mock the external dependencies BEFORE importing the commands
 mock.module("../../components/DiffView", () => ({
   runAppDiffSession: mock(() => Promise.resolve()),
 }));
+
+// Import commands AFTER mocks are set up
+import {
+  DiffCommand,
+  ResourcesCommand,
+  RollbackCommand,
+  SyncCommand,
+} from "../../commands/application";
 
 describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
   describe("DiffCommand (:diff)", () => {
