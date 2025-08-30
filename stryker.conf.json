@@ -6,8 +6,9 @@
     "command": "bun test"
   },
   "mutate": [
-    "src/commands/navigation.ts",
-    "src/commands/application.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "!src/__tests__/**"
   ],
   "coverageAnalysis": "off",
   "reporters": ["html", "clear-text", "progress", "dashboard"],
@@ -16,7 +17,7 @@
   },
   "dashboard": {
     "project": "github.com/darksworm/argonaut",
-    "version": "branch",
+    "version": "main",
     "module": "command-testing"
   },
   "timeoutMS": 60000,
