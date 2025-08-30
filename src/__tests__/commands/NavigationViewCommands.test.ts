@@ -335,4 +335,158 @@ describe("NavigationCommand (:ns, :cls, :proj, :app)", () => {
       expect(appCommand.description).toBe("Switch to apps view");
     });
   });
+
+  describe("Boundary conditions and edge cases", () => {
+    test("should handle empty string argument (falsy value)", () => {
+      const context = createMockContext({
+        state: createMockState({ mode: "command" }),
+      });
+      const nsCommand = new NavigationCommand("namespaces", "namespace", [
+        "ns",
+      ]);
+
+      nsCommand.execute(context, "");
+
+      // Empty string is falsy, should clear selections
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_NAMESPACES",
+        payload: new Set(),
+      });
+    });
+
+    test("should handle whitespace-only argument (truthy value)", () => {
+      const context = createMockContext({
+        state: createMockState({ mode: "command" }),
+      });
+      const nsCommand = new NavigationCommand("namespaces", "namespace", [
+        "ns",
+      ]);
+
+      nsCommand.execute(context, "   ");
+
+      // Whitespace is truthy, should set selection
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_NAMESPACES",
+        payload: new Set(["   "]),
+      });
+    });
+
+    test("canExecute should return false for invalid modes", () => {
+      const context = createMockContext({
+        state: createMockState({ mode: "search" as any }),
+      });
+      const nsCommand = new NavigationCommand("namespaces", "namespace", [
+        "ns",
+      ]);
+
+      expect(nsCommand.canExecute(context)).toBe(false);
+    });
+
+    test("should handle boolean true as argument (truthy)", () => {
+      const context = createMockContext({
+        state: createMockState({ mode: "command" }),
+      });
+      const nsCommand = new NavigationCommand("namespaces", "namespace", [
+        "ns",
+      ]);
+
+      nsCommand.execute(context, true as any);
+
+      // true is truthy, should set selection (will be converted to string)
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_NAMESPACES",
+        payload: new Set([true as any]),
+      });
+    });
+
+    test("should handle zero as argument (falsy)", () => {
+      const context = createMockContext({
+        state: createMockState({ mode: "command" }),
+      });
+      const nsCommand = new NavigationCommand("namespaces", "namespace", [
+        "ns",
+      ]);
+
+      nsCommand.execute(context, 0 as any);
+
+      // 0 is falsy, should clear selections
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_NAMESPACES",
+        payload: new Set(),
+      });
+    });
+  });
+
+  describe("Mode variations comprehensive coverage", () => {
+    test("canExecute should handle all valid modes", () => {
+      const nsCommand = new NavigationCommand("namespaces", "namespace", [
+        "ns",
+      ]);
+
+      // Test all valid modes
+      expect(
+        nsCommand.canExecute(
+          createMockContext({
+            state: createMockState({ mode: "normal" }),
+          }),
+        ),
+      ).toBe(true);
+
+      expect(
+        nsCommand.canExecute(
+          createMockContext({
+            state: createMockState({ mode: "command" }),
+          }),
+        ),
+      ).toBe(true);
+
+      // Test invalid modes
+      expect(
+        nsCommand.canExecute(
+          createMockContext({
+            state: createMockState({ mode: "search" as any }),
+          }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("Switch statement branch coverage", () => {
+    test("should handle all possible targetView values in both branches", () => {
+      const viewCases = [
+        { view: "clusters", dispatchType: "SET_SCOPE_CLUSTERS" },
+        { view: "namespaces", dispatchType: "SET_SCOPE_NAMESPACES" },
+        { view: "projects", dispatchType: "SET_SCOPE_PROJECTS" },
+        { view: "apps", dispatchType: "SET_SELECTED_APPS" },
+      ] as const;
+
+      for (const { view, dispatchType } of viewCases) {
+        // Test with argument (first switch branch)
+        const contextWithArg = createMockContext({
+          state: createMockState({ mode: "command" }),
+        });
+        const commandWithArg = new NavigationCommand(view, view, [view]);
+
+        commandWithArg.execute(contextWithArg, "test-value");
+
+        expect(contextWithArg.dispatch).toHaveBeenCalledWith({
+          type: dispatchType,
+          payload: new Set(["test-value"]),
+        });
+
+        // Test without argument (second switch branch)
+        const contextWithoutArg = createMockContext({
+          state: createMockState({ mode: "command" }),
+        });
+        const commandWithoutArg = new NavigationCommand(view, view, [view]);
+
+        commandWithoutArg.execute(contextWithoutArg);
+
+        expect(contextWithoutArg.dispatch).toHaveBeenCalledWith({
+          type: dispatchType,
+          payload: new Set(),
+        });
+      }
+    });
+  });
 });

@@ -1,5 +1,5 @@
-import { describe, expect, test, mock } from "bun:test";
-import { SyncCommand, DiffCommand } from "../../commands/application";
+import { describe, expect, mock, test } from "bun:test";
+import { DiffCommand, SyncCommand } from "../../commands/application";
 import {
   createMockApps,
   createMockContext,
@@ -29,7 +29,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         {
           name: "app2",
           sync: "Synced",
-          health: "Healthy", 
+          health: "Healthy",
           clusterId: "cluster2",
           clusterLabel: "production",
           namespace: "default",
@@ -43,8 +43,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: appsWithEmptyProps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
-          ui: { searchQuery: "", activeFilter: "healthy", command: ":", isVersionOutdated: false, latestVersion: undefined }
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          ui: {
+            searchQuery: "",
+            activeFilter: "healthy",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -64,14 +75,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: createMockApps(),
           mode: "search",
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
-          ui: { 
-            searchQuery: "app1", 
-            activeFilter: "different-filter", 
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          ui: {
+            searchQuery: "app1",
+            activeFilter: "different-filter",
             command: ":",
             isVersionOutdated: false,
-            latestVersion: undefined
-          }
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -91,7 +107,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
           name: "app1",
           sync: null as any,
           health: undefined as any,
-          clusterId: "cluster1", 
+          clusterId: "cluster1",
           clusterLabel: null as any,
           namespace: undefined as any,
           appNamespace: "argocd",
@@ -104,7 +120,12 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: appsWithNullProps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
         }),
       });
 
@@ -122,14 +143,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: createMockApps(),
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
-          ui: { 
-            searchQuery: "", 
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          ui: {
+            searchQuery: "",
             activeFilter: "APP1", // uppercase filter
             command: ":",
             isVersionOutdated: false,
-            latestVersion: undefined
-          }
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -148,14 +174,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: createMockApps(),
-          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
-          ui: { 
-            searchQuery: "", 
-            activeFilter: "in-cluster", 
+          navigation: {
+            view: "clusters",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          ui: {
+            searchQuery: "",
+            activeFilter: "in-cluster",
             command: ":",
             isVersionOutdated: false,
-            latestVersion: undefined
-          }
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -164,7 +195,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
 
       expect(context.statusLog.warn).toHaveBeenCalledWith(
         "No app selected to sync.",
-        "user-action"
+        "user-action",
       );
     });
   });
@@ -183,7 +214,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
       // Empty string is falsy, so should warn about no app selected
       expect(context.statusLog.warn).toHaveBeenCalledWith(
         "No app selected to diff.",
-        "user-action"
+        "user-action",
       );
     });
 
@@ -204,7 +235,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
 
       expect(context.statusLog.error).toHaveBeenCalledWith(
         "Diff failed: [object Object]",
-        "diff"
+        "diff",
       );
     });
 
@@ -225,15 +256,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
 
       expect(context.statusLog.error).toHaveBeenCalledWith(
         "Diff failed: [object Object]",
-        "diff"
+        "diff",
       );
     });
 
     test("should handle process.stdin errors gracefully", async () => {
       const originalStdin = process.stdin;
       const mockStdin = {
-        setRawMode: mock(() => { throw new Error("setRawMode failed"); }),
-        resume: mock(() => { throw new Error("resume failed"); }),
+        setRawMode: mock(() => {
+          throw new Error("setRawMode failed");
+        }),
+        resume: mock(() => {
+          throw new Error("resume failed");
+        }),
       };
       (process as any).stdin = mockStdin;
 
@@ -252,7 +287,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
 
       expect(context.statusLog.error).toHaveBeenCalledWith(
         "Diff failed: test error",
-        "diff"
+        "diff",
       );
 
       // Restore original stdin
@@ -266,14 +301,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: createMockApps(),
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
-          ui: { 
-            searchQuery: "", 
-            activeFilter: "",  // empty filter
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          ui: {
+            searchQuery: "",
+            activeFilter: "", // empty filter
             command: ":",
             isVersionOutdated: false,
-            latestVersion: undefined
-          }
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -292,14 +332,19 @@ describe("Edge Case Coverage for Mutation Testing", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps: createMockApps(),
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
-          ui: { 
-            searchQuery: "", 
-            activeFilter: "false",  // string "false" should still filter
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          ui: {
+            searchQuery: "",
+            activeFilter: "false", // string "false" should still filter
             command: ":",
             isVersionOutdated: false,
-            latestVersion: undefined
-          }
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -309,7 +354,7 @@ describe("Edge Case Coverage for Mutation Testing", () => {
       // Should not match any apps with filter "false"
       expect(context.statusLog.warn).toHaveBeenCalledWith(
         "No app selected to sync.",
-        "user-action"
+        "user-action",
       );
     });
   });
