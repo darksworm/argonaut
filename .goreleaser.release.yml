@@ -142,6 +142,25 @@ nix:
       name: nur-packages
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+  
+dockers_v2:
+  - id: docker-multi
+    dockerfile: Dockerfile.v2
+    ids: [bun-musl]
+    images:
+      - ghcr.io/darksworm/argonaut
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.source: "https://github.com/darksworm/argonaut"
 
 nfpms:
   - id: linux-packages-standard

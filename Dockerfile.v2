@@ -1,0 +1,18 @@
+FROM alpine:3.20
+
+# Buildx provides TARGETPLATFORM (e.g., linux/amd64, linux/arm64)
+ARG TARGETPLATFORM
+
+RUN apk add --no-cache \
+    ca-certificates \
+    libstdc++ \
+    libgcc \
+  && adduser -D -u 10001 appuser
+
+# GoReleaser dockers_v2 places binaries under $TARGETPLATFORM/
+COPY ${TARGETPLATFORM}/argonaut /usr/local/bin/argonaut
+
+USER 10001:10001
+ENV TERM=xterm-256color
+
+ENTRYPOINT ["/usr/local/bin/argonaut"]
