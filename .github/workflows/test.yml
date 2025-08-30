@@ -17,6 +17,11 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run generate:licenses
       - run: bun run test:ci
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
