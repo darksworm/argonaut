@@ -82,7 +82,7 @@ describe("ModeInputHandler", () => {
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: ":",
+        payload: "",
       });
     });
   });
@@ -250,54 +250,8 @@ describe("CommandInputHandler", () => {
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: ":",
+        payload: "",
       });
-    });
-
-    it("should reset cursor when backspacing at the leading colon", () => {
-      const mockDispatch = mock();
-      const context = createMockContext({
-        state: createMockState({
-          mode: "command",
-          ui: {
-            command: ":",
-            searchQuery: "",
-            activeFilter: "",
-            isVersionOutdated: false,
-            latestVersion: undefined,
-          },
-        }),
-        dispatch: mockDispatch,
-      });
-
-      const result = handler.handleInput("", { backspace: true }, context);
-
-      expect(result).toBe(true);
-      expect(mockDispatch).toHaveBeenCalledWith({
-        type: "BUMP_COMMAND_INPUT_KEY",
-      });
-    });
-
-    it("should allow deleting characters after the colon", () => {
-      const mockDispatch = mock();
-      const context = createMockContext({
-        state: createMockState({
-          mode: "command",
-          ui: {
-            command: ":a",
-            searchQuery: "",
-            activeFilter: "",
-            isVersionOutdated: false,
-            latestVersion: undefined,
-          },
-        }),
-        dispatch: mockDispatch,
-      });
-
-      const result = handler.handleInput("", { backspace: true }, context);
-
-      expect(result).toBe(false);
-      expect(mockDispatch).not.toHaveBeenCalled();
     });
   });
 
@@ -308,7 +262,7 @@ describe("CommandInputHandler", () => {
         state: createMockState({
           mode: "command",
           ui: {
-            command: ":cluster pro",
+            command: "cluster pro",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -333,7 +287,7 @@ describe("CommandInputHandler", () => {
       expect(result).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: ":cluster production",
+        payload: "cluster production",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "BUMP_COMMAND_INPUT_KEY",
@@ -346,7 +300,7 @@ describe("CommandInputHandler", () => {
         state: createMockState({
           mode: "command",
           ui: {
-            command: ":ns ku",
+            command: "ns ku",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -379,7 +333,7 @@ describe("CommandInputHandler", () => {
       expect(result).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: ":ns kube-system",
+        payload: "ns kube-system",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "BUMP_COMMAND_INPUT_KEY",
@@ -392,7 +346,7 @@ describe("CommandInputHandler", () => {
         state: createMockState({
           mode: "command",
           ui: {
-            command: ":cluster xyz",
+            command: "cluster xyz",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,

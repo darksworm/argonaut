@@ -873,7 +873,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -934,7 +934,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -995,7 +995,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -1067,7 +1067,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -1129,7 +1129,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "backend", // Search for backend
             activeFilter: "frontend", // This should be ignored in search mode
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -1191,7 +1191,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "backend", // This should be ignored in normal mode
             activeFilter: "web", // Filter for web
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -1241,7 +1241,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "production-api", // Lowercase filter should match uppercase app name
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -1279,7 +1279,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },
@@ -1318,7 +1318,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           ui: {
             searchQuery: "",
             activeFilter: "",
-            command: ":",
+            command: "",
             isVersionOutdated: false,
             latestVersion: undefined,
           },

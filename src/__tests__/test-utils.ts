@@ -53,7 +53,7 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
     ui: {
       searchQuery: "",
       activeFilter: "",
-      command: ":",
+      command: "",
       isVersionOutdated: false,
       latestVersion: undefined,
       commandInputKey: 0,

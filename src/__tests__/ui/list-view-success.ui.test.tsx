@@ -63,7 +63,7 @@ describe("ListView Success UI Tests", () => {
     ui: {
       searchQuery: "",
       activeFilter: "",
-      command: ":",
+      command: "",
       isVersionOutdated: false,
     },
   };

@@ -116,7 +116,7 @@ export const initialState: AppState = {
   ui: {
     searchQuery: "",
     activeFilter: "",
-    command: ":",
+    command: "",
     isVersionOutdated: false,
     latestVersion: undefined,
     commandInputKey: 0,

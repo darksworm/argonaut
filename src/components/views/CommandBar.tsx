@@ -21,8 +21,9 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   }
 
   const handleSubmit = (val: string) => {
-    const auto = getCommandAutocomplete(val, state);
-    const completed = auto ? auto.completed : val;
+    const line = `:${val}`;
+    const auto = getCommandAutocomplete(line, state);
+    const completed = auto ? auto.completed : line;
 
     dispatch({ type: "SET_MODE", payload: "normal" });
 
@@ -31,7 +32,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       onExecuteCommand(command, ...args);
     }
 
-    dispatch({ type: "SET_COMMAND", payload: ":" });
+    dispatch({ type: "SET_COMMAND", payload: "" });
   };
 
   return (
@@ -40,20 +41,21 @@ export const CommandBar: React.FC<CommandBarProps> = ({
         CMD
       </Text>
       <Box width={1} />
+      <Text color="white">:</Text>
       <TextInput
         key={state.ui.commandInputKey}
         value={state.ui.command}
         onChange={(value) =>
           dispatch({
             type: "SET_COMMAND",
-            payload: value.startsWith(":") ? value : `:${value}`,
+            payload: value,
           })
         }
         onSubmit={handleSubmit}
         showCursor={false}
       />
       {(() => {
-        const auto = getCommandAutocomplete(state.ui.command, state);
+        const auto = getCommandAutocomplete(`:${state.ui.command}`, state);
         return auto ? <Text dimColor>{auto.suggestion}</Text> : null;
       })()}
       <Box width={2} />

@@ -272,7 +272,7 @@ export class ModeInputHandler implements InputHandler {
 
     if (input === ":") {
       dispatch({ type: "SET_MODE", payload: "command" });
-      dispatch({ type: "SET_COMMAND", payload: ":" });
+      dispatch({ type: "SET_COMMAND", payload: "" });
       return true;
     }
 
@@ -340,19 +340,14 @@ export class CommandInputHandler implements InputHandler {
 
     if (key.escape) {
       dispatch({ type: "SET_MODE", payload: "normal" });
-      dispatch({ type: "SET_COMMAND", payload: ":" });
-      return true;
-    }
-
-    if (key.backspace && state.ui.command === ":") {
-      dispatch({ type: "BUMP_COMMAND_INPUT_KEY" });
+      dispatch({ type: "SET_COMMAND", payload: "" });
       return true;
     }
 
     if (key.tab) {
-      const auto = getCommandAutocomplete(state.ui.command, state);
+      const auto = getCommandAutocomplete(`:${state.ui.command}`, state);
       if (auto) {
-        dispatch({ type: "SET_COMMAND", payload: auto.completed });
+        dispatch({ type: "SET_COMMAND", payload: auto.completed.slice(1) });
         dispatch({ type: "BUMP_COMMAND_INPUT_KEY" });
       }
       return true;
