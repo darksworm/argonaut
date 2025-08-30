@@ -17,7 +17,10 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage --coverage-reporter=lcov",
-    "test:ci": "bun test --coverage --coverage-reporter=lcov"
+    "test:ci": "bun test --coverage --coverage-reporter=lcov",
+    "test:mutation": "bunx stryker run",
+    "test:mutation:navigation": "bunx stryker run --mutate=\"src/commands/navigation.ts\" --commandRunner.command=\"bun test src/__tests__/commands/NavigationViewCommands.test.ts src/__tests__/commands/ClearCommands.test.ts src/__tests__/commands/CommandStateIntegration.test.ts\"",
+    "test:mutation:application": "bunx stryker run --mutate=\"src/commands/application.ts\" --commandRunner.command=\"bun test src/__tests__/commands/ApplicationCommandLogic.test.ts src/__tests__/commands/CommandArgumentHandling.test.ts src/__tests__/commands/EdgeCaseCoverage.test.ts\""
   },
   "description": "A CLI tool for managing and interacting with Argo CD.",
   "engines": {
@@ -46,6 +49,9 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
     "@rollup/plugin-json": "^6.1.0",
+    "@stryker-mutator/core": "^9.1.0",
+    "@stryker-mutator/jest-runner": "^9.1.0",
+    "@stryker-mutator/typescript-checker": "^9.1.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.5.0",
