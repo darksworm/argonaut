@@ -4,6 +4,7 @@
 [![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)
 [![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
 [![codecov](https://img.shields.io/codecov/c/github/darksworm/argonaut?token=4MYA3DR30R&style=flat-square)](https://codecov.io/github/darksworm/argonaut)
+[![Mutation testing badge](https://img.shields.io/endpoint?style=flat-square&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fdarksworm%2Fargonaut%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/darksworm/argonaut/main)
 
 Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + Ink**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
 
