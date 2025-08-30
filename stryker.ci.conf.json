@@ -10,17 +10,14 @@
     "src/commands/application.ts"
   ],
   "coverageAnalysis": "off",
-  "reporters": ["html", "clear-text", "progress", "dashboard"],
-  "htmlReporter": {
-    "fileName": "reports/mutation/html/index.html"
-  },
+  "reporters": ["clear-text", "progress", "dashboard"],
   "dashboard": {
     "project": "github.com/darksworm/argonaut",
     "version": "branch",
     "module": "command-testing"
   },
-  "timeoutMS": 60000,
-  "concurrency": 18,
+  "timeoutMS": 120000,
+  "concurrency": 4,
   "checkers": ["typescript"],
   "tsconfigFile": "tsconfig.json",
   "tempDirName": "stryker-tmp"
