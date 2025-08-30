@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "bun test src/__tests__/commands/NavigationViewCommands.test.ts src/__tests__/commands/ClearCommands.test.ts src/__tests__/commands/CommandStateIntegration.test.ts src/__tests__/commands/ApplicationCommandLogic.test.ts src/__tests__/commands/CommandArgumentHandling.test.ts src/__tests__/commands/EdgeCaseCoverage.test.ts"
+  },
+  "mutate": [
+    "src/commands/navigation.ts",
+    "src/commands/application.ts"
+  ],
+  "coverageAnalysis": "off",
+  "reporters": ["html", "clear-text", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/html/index.html"
+  },
+  "timeoutMS": 60000,
+  "concurrency": 8,
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+  "tempDirName": "stryker-tmp"
+}
