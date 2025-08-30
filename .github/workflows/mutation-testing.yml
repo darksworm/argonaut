@@ -24,6 +24,9 @@ jobs:
     - name: Install dependencies
       run: bun install
 
+    - name: generate licenses
+      run: bun generate:licenses
+
     - name: Run unit tests first
       run: bun test
 
