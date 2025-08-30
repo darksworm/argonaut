@@ -55,3 +55,4 @@ claude-flow
 claude-flow.bat
 claude-flow.ps1
 hive-mind-prompt-*.txt
+\n# Ignore downloaded Argo CD manifest\nargocd/install.yaml

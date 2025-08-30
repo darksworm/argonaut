@@ -33,6 +33,17 @@ spec:
                     - name: wait-30s
                       image: busybox
                       command: ["sh","-c","sleep 30"]
+            - target: {kind: Deployment, name: guestbook-ui}
+              patch: |-
+                - op: add
+                  path: /spec/template/spec/containers/0/resources
+                  value:
+                    requests:
+                      cpu: "10m"
+                      memory: "32Mi"
+                    limits:
+                      cpu: "50m"
+                      memory: "64Mi"
       destination:
         name: '{{ .cluster }}'
         namespace: '{{ .namespace }}'
