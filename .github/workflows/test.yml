@@ -62,7 +62,6 @@ jobs:
           TAG: test
 
   install-script-test:
-    if: ${{ contains(github.event.head_commit.modified, 'install.sh') || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -77,7 +76,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check for install.sh changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            install:
+              - 'install.sh'
+
       - name: Test install script on ${{ matrix.distro }}
+        if: steps.changes.outputs.install == 'true'
         uses: ./.github/actions/test-argonaut-install
         with:
           distro: ${{ matrix.distro }}
