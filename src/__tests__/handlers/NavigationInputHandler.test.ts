@@ -356,6 +356,58 @@ describe("NavigationInputHandler", () => {
       expect(mockExecuteCommand).not.toHaveBeenCalled();
     });
 
+    it("should handle 'd' key when exactly one app is selected", () => {
+      const mockExecuteCommand = mock();
+      const context = createMockContext({
+        state: createMockState({
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(["single-app"]), // Exactly one app selected
+          },
+        }),
+        executeCommand: mockExecuteCommand,
+      });
+
+      const result = handler.handleInput("d", {}, context);
+
+      expect(result).toBe(true);
+      expect(mockExecuteCommand).toHaveBeenCalledWith("diff");
+    });
+
+    it("should not handle 'D' key (case sensitive)", () => {
+      const mockExecuteCommand = mock();
+      const context = createMockContext({
+        state: createMockState({
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+        }),
+        executeCommand: mockExecuteCommand,
+      });
+
+      const result = handler.handleInput("D", {}, context);
+
+      expect(result).toBe(false);
+      expect(mockExecuteCommand).not.toHaveBeenCalled();
+    });
+
     it("should handle Escape (clear current view selections) - clusters", () => {
       const mockDispatch = mock();
       const context = createMockContext({
