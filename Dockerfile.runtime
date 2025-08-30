@@ -1,0 +1,23 @@
+FROM alpine:3.20
+
+ARG TARGETARCH
+
+# Minimal runtime deps for the compiled binary and Argo CD CLI
+RUN apk add --no-cache \
+    ca-certificates \
+    libstdc++ \
+    libgcc \
+    curl \
+    git \
+  && curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${TARGETARCH} \
+  && chmod +x /usr/local/bin/argocd \
+  && adduser -D -u 10001 appuser
+
+# Copy the prebuilt binary produced by GoReleaser
+COPY argonaut /usr/local/bin/argonaut
+
+# Non-root execution and proper TTY colors
+USER 10001:10001
+ENV TERM=xterm-256color
+
+ENTRYPOINT ["/usr/local/bin/argonaut"]
