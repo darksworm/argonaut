@@ -845,27 +845,38 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           name: "dev-app",
           sync: "OutOfSync",
           health: "Progressing",
-          clusterId: "development", 
+          clusterId: "development",
           clusterLabel: "development",
           namespace: "default",
           appNamespace: "argocd",
           project: "default",
           lastSyncAt: "2023-12-01T09:30:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(["production"]), // Only production apps visible
             scopeNamespaces: new Set(),
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+          ui: {
+            searchQuery: "",
+            activeFilter: "",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -885,7 +896,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           sync: "Synced",
           health: "Healthy",
           clusterId: "cluster",
-          clusterLabel: "cluster", 
+          clusterLabel: "cluster",
           namespace: "system",
           appNamespace: "argocd",
           project: "default",
@@ -898,24 +909,35 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           clusterId: "cluster",
           clusterLabel: "cluster",
           namespace: "user-apps",
-          appNamespace: "argocd", 
+          appNamespace: "argocd",
           project: "default",
           lastSyncAt: "2023-12-01T09:30:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(["user-apps"]), // Only user-apps namespace visible
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+          ui: {
+            searchQuery: "",
+            activeFilter: "",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -942,7 +964,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           lastSyncAt: "2023-12-01T10:00:00Z",
         },
         {
-          name: "team-b-app", 
+          name: "team-b-app",
           sync: "OutOfSync",
           health: "Progressing",
           clusterId: "cluster",
@@ -951,21 +973,32 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           appNamespace: "argocd",
           project: "team-b",
           lastSyncAt: "2023-12-01T09:30:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
             scopeProjects: new Set(["team-b"]), // Only team-b project visible
             selectedApps: new Set(),
           },
-          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+          ui: {
+            searchQuery: "",
+            activeFilter: "",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -982,7 +1015,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       const apps = [
         {
           name: "prod-system-app",
-          sync: "Synced", 
+          sync: "Synced",
           health: "Healthy",
           clusterId: "production",
           clusterLabel: "production",
@@ -994,7 +1027,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
         {
           name: "prod-user-app",
           sync: "OutOfSync",
-          health: "Progressing", 
+          health: "Progressing",
           clusterId: "production",
           clusterLabel: "production",
           namespace: "user-apps",
@@ -1007,26 +1040,37 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           sync: "Synced",
           health: "Healthy",
           clusterId: "development",
-          clusterLabel: "development", 
+          clusterLabel: "development",
           namespace: "user-apps",
           appNamespace: "argocd",
           project: "team-a",
           lastSyncAt: "2023-12-01T08:00:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(["production"]), // Only production cluster
             scopeNamespaces: new Set(["user-apps"]), // Only user-apps namespace
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+          ui: {
+            searchQuery: "",
+            activeFilter: "",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -1044,7 +1088,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
         {
           name: "frontend-service",
           sync: "Synced",
-          health: "Healthy", 
+          health: "Healthy",
           clusterId: "production",
           clusterLabel: "production",
           namespace: "web",
@@ -1062,7 +1106,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           appNamespace: "argocd",
           project: "backend",
           lastSyncAt: "2023-12-01T09:30:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
@@ -1070,19 +1114,24 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           mode: "search", // In search mode, uses searchQuery not activeFilter
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { 
+          ui: {
             searchQuery: "backend", // Search for backend
             activeFilter: "frontend", // This should be ignored in search mode
-            command: ":", 
-            isVersionOutdated: false, 
-            latestVersion: undefined 
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
           },
         }),
       });
@@ -1100,7 +1149,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       const apps = [
         {
           name: "web-frontend",
-          sync: "Healthy", 
+          sync: "Healthy",
           health: "Healthy",
           clusterId: "production",
           clusterLabel: "production",
@@ -1113,13 +1162,13 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           name: "data-backend",
           sync: "OutOfSync",
           health: "Progressing",
-          clusterId: "production", 
+          clusterId: "production",
           clusterLabel: "production",
           namespace: "data",
           appNamespace: "argocd",
           project: "backend",
           lastSyncAt: "2023-12-01T09:30:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
@@ -1127,19 +1176,24 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           mode: "normal", // In normal mode, uses activeFilter not searchQuery
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { 
+          ui: {
             searchQuery: "backend", // This should be ignored in normal mode
             activeFilter: "web", // Filter for web
-            command: ":", 
-            isVersionOutdated: false, 
-            latestVersion: undefined 
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
           },
         }),
       });
@@ -1160,31 +1214,36 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
           sync: "Synced",
           health: "Healthy",
           clusterId: "production",
-          clusterLabel: "production", 
+          clusterLabel: "production",
           namespace: "API-Services",
           appNamespace: "argocd",
           project: "Backend-Team",
           lastSyncAt: "2023-12-01T10:00:00Z",
-        }
+        },
       ];
 
       const context = createMockContext({
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(),
-            scopeNamespaces: new Set(), 
+            scopeNamespaces: new Set(),
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { 
+          ui: {
             searchQuery: "",
             activeFilter: "production-api", // Lowercase filter should match uppercase app name
-            command: ":", 
-            isVersionOutdated: false, 
-            latestVersion: undefined 
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
           },
         }),
       });
@@ -1193,7 +1252,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       await rollbackCommand.execute(context);
 
       expect(context.dispatch).toHaveBeenCalledWith({
-        type: "SET_ROLLBACK_APP_NAME", 
+        type: "SET_ROLLBACK_APP_NAME",
         payload: "Production-API", // Should match despite case difference
       });
     });
@@ -1205,14 +1264,25 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 }, // In clusters view
+          navigation: {
+            view: "clusters",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          }, // In clusters view
           selections: {
             scopeClusters: new Set(),
             scopeNamespaces: new Set(),
             scopeProjects: new Set(),
             selectedApps: new Set(["app1"]), // Has a selected app
           },
-          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+          ui: {
+            searchQuery: "",
+            activeFilter: "",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
@@ -1233,14 +1303,25 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
         state: createMockState({
           server: { config: { baseUrl: "https://test.com" }, token: "token" },
           apps,
-          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
           selections: {
             scopeClusters: new Set(["nonexistent-cluster"]), // Filter that matches no apps
             scopeNamespaces: new Set(),
             scopeProjects: new Set(),
             selectedApps: new Set(),
           },
-          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+          ui: {
+            searchQuery: "",
+            activeFilter: "",
+            command: ":",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
       });
 
