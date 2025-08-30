@@ -408,6 +408,72 @@ describe("NavigationInputHandler", () => {
       expect(mockExecuteCommand).not.toHaveBeenCalled();
     });
 
+    it("should handle 's' key (sync) in apps view", () => {
+      const mockExecuteCommand = mock();
+      const context = createMockContext({
+        state: createMockState({
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(["app1", "app2"]), // Multiple apps allowed
+          },
+        }),
+        executeCommand: mockExecuteCommand,
+      });
+
+      const result = handler.handleInput("s", {}, context);
+
+      expect(result).toBe(true);
+      expect(mockExecuteCommand).toHaveBeenCalledWith("sync");
+    });
+
+    it("should not handle 's' key in non-apps views", () => {
+      const mockExecuteCommand = mock();
+      const context = createMockContext({
+        state: createMockState({
+          navigation: {
+            view: "clusters",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+        }),
+        executeCommand: mockExecuteCommand,
+      });
+
+      const result = handler.handleInput("s", {}, context);
+
+      expect(result).toBe(false);
+      expect(mockExecuteCommand).not.toHaveBeenCalled();
+    });
+
+    it("should not handle 'S' key (case sensitive)", () => {
+      const mockExecuteCommand = mock();
+      const context = createMockContext({
+        state: createMockState({
+          navigation: {
+            view: "apps",
+            selectedIdx: 0,
+            lastGPressed: 0,
+            lastEscPressed: 0,
+          },
+        }),
+        executeCommand: mockExecuteCommand,
+      });
+
+      const result = handler.handleInput("S", {}, context);
+
+      expect(result).toBe(false);
+      expect(mockExecuteCommand).not.toHaveBeenCalled();
+    });
+
     it("should handle Escape (clear current view selections) - clusters", () => {
       const mockDispatch = mock();
       const context = createMockContext({
