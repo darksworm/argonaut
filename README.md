@@ -38,30 +38,6 @@ curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh |
 </details>
 
 <details>
-  <summary><strong>Docker (Linux/macOS)</strong></summary>
-
-Pull and run the prebuilt image from GHCR:
-
-```bash
-docker run --rm -it ghcr.io/darksworm/argonaut:latest
-```
-
-Use your existing Argo CD credentials by mounting the config directory:
-
-```bash
-docker run --rm -it -v ~/.config/argocd:/home/appuser/.config/argocd ghcr.io/darksworm/argonaut:latest
-```
-
-Build locally instead of pulling:
-
-```bash
-bun run docker:build
-bun run docker:run
-```
-
-</details>
-
-<details>
   <summary><strong>npm (Linux/macOS)</strong></summary>
 
 ```bash
@@ -86,7 +62,8 @@ yay -S argonaut-bin
 ```
 </details>
 
-[//]: # ()
+[//]: # (</details>)
+
 [//]: # (<details>)
 
 [//]: # (  <summary><strong>NUR &#40;Nix User Repository&#41;</strong></summary>)
