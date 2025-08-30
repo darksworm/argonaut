@@ -1,0 +1,26 @@
+# VCS
+.git
+.github
+.gitignore
+
+# IDE/editor
+.idea
+.vscode
+
+# OS
+.DS_Store
+
+# Dependencies and builds
+node_modules
+dist
+out
+
+# Local binaries and artifacts
+main
+argonaut
+argonaut-bin
+
+# Misc
+*.log
+coverage
+*.lcov

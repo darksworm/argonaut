@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **docker:** add Dockerfiles, Docker scripts, and documentation for container usage
+
 ## [1.14.0](https://github.com/darksworm/argonaut/compare/v1.13.0...v1.14.0) (2025-08-29)
 
 

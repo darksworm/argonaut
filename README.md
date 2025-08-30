@@ -38,6 +38,30 @@ curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh |
 </details>
 
 <details>
+  <summary><strong>Docker (Linux/macOS)</strong></summary>
+
+Pull and run the prebuilt image from GHCR:
+
+```bash
+docker run --rm -it ghcr.io/darksworm/argonaut:latest
+```
+
+Use your existing Argo CD credentials by mounting the config directory:
+
+```bash
+docker run --rm -it -v ~/.config/argocd:/home/appuser/.config/argocd ghcr.io/darksworm/argonaut:latest
+```
+
+Build locally instead of pulling:
+
+```bash
+bun run docker:build
+bun run docker:run
+```
+
+</details>
+
+<details>
   <summary><strong>npm (Linux/macOS)</strong></summary>
 
 ```bash
@@ -120,3 +144,31 @@ argonaut
 
 ### **Rollback**  
 <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
+
+## Docker
+- Prebuilt images are published for releases to `ghcr.io/darksworm/argonaut`.
+- Local builds work cross-platform via a multi-stage Dockerfile.
+
+Pull and run:
+
+```bash
+docker run --rm -it ghcr.io/darksworm/argonaut:latest
+```
+
+Build locally and run:
+
+```bash
+# Build (uses buildx automatically if enabled)
+bun run docker:build
+
+# Run (pass CLI flags after image name)
+bun run docker:run
+```
+
+Multi-arch build with buildx (optional):
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/darksworm/argonaut:dev .
+```

@@ -83,6 +83,12 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
           restore-keys: bun-${{ runner.os }}-
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Setup SSH key for AUR
         if: env.AUR_SSH_PRIVATE_KEY != ''
         uses: webfactory/ssh-agent@v0.9.0
