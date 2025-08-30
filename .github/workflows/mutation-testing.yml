@@ -3,8 +3,22 @@ name: Mutation Testing
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'src/__tests__/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'stryker.*.conf.json'
+      - '.github/workflows/mutation-testing.yml'
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'src/__tests__/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'stryker.*.conf.json'
+      - '.github/workflows/mutation-testing.yml'
 
 jobs:
   mutation-test:
