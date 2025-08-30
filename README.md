@@ -104,6 +104,7 @@ argonaut
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
 - **Keyboard-only workflow** with Vim-like navigation
+- **Quick sync**: press `s` in apps view to open the sync modal
 
 ---
 
