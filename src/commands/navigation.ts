@@ -27,15 +27,22 @@ export class NavigationCommand implements Command {
       switch (this.targetView) {
         case "clusters":
           dispatch({ type: "SET_SCOPE_CLUSTERS", payload: new Set([arg]) });
+          // Navigate to next level down when argument is provided
+          dispatch({ type: "SET_VIEW", payload: "namespaces" });
           break;
         case "namespaces":
           dispatch({ type: "SET_SCOPE_NAMESPACES", payload: new Set([arg]) });
+          // Navigate to next level down when argument is provided
+          dispatch({ type: "SET_VIEW", payload: "projects" });
           break;
         case "projects":
           dispatch({ type: "SET_SCOPE_PROJECTS", payload: new Set([arg]) });
+          // Navigate to next level down when argument is provided
+          dispatch({ type: "SET_VIEW", payload: "apps" });
           break;
         case "apps":
           dispatch({ type: "SET_SELECTED_APPS", payload: new Set([arg]) });
+          // Apps is the deepest level, no further navigation
           break;
       }
     } else {

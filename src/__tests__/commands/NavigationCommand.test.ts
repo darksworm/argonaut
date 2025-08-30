@@ -183,6 +183,95 @@ describe("NavigationCommand", () => {
       });
     });
   });
+
+  describe("enhanced navigation with drill-down", () => {
+    it("should navigate to namespaces view when cluster argument is provided", () => {
+      const command = new NavigationCommand("clusters" as View, "clusters");
+      const mockDispatch = mock();
+      const context = createMockContext({ dispatch: mockDispatch });
+
+      command.execute(context, "production");
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_CLUSTERS",
+        payload: new Set(["production"]),
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "namespaces",
+      });
+    });
+
+    it("should navigate to projects view when namespace argument is provided", () => {
+      const command = new NavigationCommand("namespaces" as View, "namespaces");
+      const mockDispatch = mock();
+      const context = createMockContext({ dispatch: mockDispatch });
+
+      command.execute(context, "kube-system");
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_NAMESPACES",
+        payload: new Set(["kube-system"]),
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "projects",
+      });
+    });
+
+    it("should navigate to apps view when project argument is provided", () => {
+      const command = new NavigationCommand("projects" as View, "projects");
+      const mockDispatch = mock();
+      const context = createMockContext({ dispatch: mockDispatch });
+
+      command.execute(context, "team-alpha");
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_PROJECTS",
+        payload: new Set(["team-alpha"]),
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "apps",
+      });
+    });
+
+    it("should not navigate further when in apps view with argument", () => {
+      const command = new NavigationCommand("apps" as View, "apps");
+      const mockDispatch = mock();
+      const context = createMockContext({ dispatch: mockDispatch });
+
+      command.execute(context, "my-app");
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_APPS",
+        payload: new Set(["my-app"]),
+      });
+      // Should not call SET_VIEW since apps is the deepest level
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: expect.any(String),
+      });
+    });
+
+    it("should not navigate to next view when no argument is provided", () => {
+      const command = new NavigationCommand("clusters" as View, "clusters");
+      const mockDispatch = mock();
+      const context = createMockContext({ dispatch: mockDispatch });
+
+      command.execute(context); // No argument
+
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_CLUSTERS",
+        payload: new Set(),
+      });
+      // Should not navigate to next view when no argument
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "namespaces",
+      });
+    });
+  });
 });
 
 describe("ClearCommand", () => {
