@@ -19,7 +19,7 @@
     "test:coverage": "bun test --coverage --coverage-reporter=lcov",
     "test:ci": "bun test --coverage --coverage-reporter=lcov",
     "test:mutation": "bunx stryker run",
-    "test:mutation:ci": "bunx stryker run --configFile stryker.ci.conf.json",
+    "test:mutation:ci": "bunx stryker run stryker.ci.conf.json",
     "test:mutation:navigation": "bunx stryker run --mutate=\"src/commands/navigation.ts\" --commandRunner.command=\"bun test src/__tests__/commands/NavigationViewCommands.test.ts src/__tests__/commands/ClearCommands.test.ts src/__tests__/commands/CommandStateIntegration.test.ts\"",
     "test:mutation:application": "bunx stryker run --mutate=\"src/commands/application.ts\" --commandRunner.command=\"bun test src/__tests__/commands/ApplicationCommandLogic.test.ts src/__tests__/commands/CommandArgumentHandling.test.ts src/__tests__/commands/EdgeCaseCoverage.test.ts\""
   },
