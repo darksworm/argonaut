@@ -198,7 +198,16 @@ describe("NavigationCommand", () => {
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_VIEW",
-        payload: "namespaces",
+        payload: "namespaces", // Must be exactly "namespaces", not other views
+      });
+      // Ensure wrong views are NOT called
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "projects",
+      });
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "SET_VIEW", 
+        payload: "apps",
       });
     });
 
