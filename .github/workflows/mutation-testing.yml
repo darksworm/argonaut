@@ -1,24 +1,9 @@
 name: Mutation Testing
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'src/**'
-      - 'src/__tests__/**'
-      - 'package.json'
-      - 'bun.lock'
-      - 'stryker.*.conf.json'
-      - '.github/workflows/mutation-testing.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'src/**'
-      - 'src/__tests__/**'
-      - 'package.json'
-      - 'bun.lock'
-      - 'stryker.*.conf.json'
-      - '.github/workflows/mutation-testing.yml'
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   mutation-test:
