@@ -826,4 +826,431 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       }
     });
   });
+
+  describe("App filtering behavior with scoped selections", () => {
+    test("should execute diff on correct app when cluster filter is applied", async () => {
+      const apps = [
+        {
+          name: "prod-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "production",
+          clusterLabel: "production",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "default",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+        {
+          name: "dev-app",
+          sync: "OutOfSync",
+          health: "Progressing",
+          clusterId: "development", 
+          clusterLabel: "development",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "default",
+          lastSyncAt: "2023-12-01T09:30:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(["production"]), // Only production apps visible
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+        }),
+      });
+
+      const diffCommand = new DiffCommand();
+      await diffCommand.execute(context);
+
+      expect(context.statusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for prod-app…", // Should select filtered app, not dev-app
+        "diff",
+      );
+    });
+
+    test("should execute sync on correct app when namespace filter is applied", () => {
+      const apps = [
+        {
+          name: "system-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "cluster",
+          clusterLabel: "cluster", 
+          namespace: "system",
+          appNamespace: "argocd",
+          project: "default",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+        {
+          name: "user-app",
+          sync: "OutOfSync",
+          health: "Progressing",
+          clusterId: "cluster",
+          clusterLabel: "cluster",
+          namespace: "user-apps",
+          appNamespace: "argocd", 
+          project: "default",
+          lastSyncAt: "2023-12-01T09:30:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(["user-apps"]), // Only user-apps namespace visible
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+        }),
+      });
+
+      const syncCommand = new SyncCommand();
+      syncCommand.execute(context);
+
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_CONFIRM_TARGET",
+        payload: "user-app", // Should select filtered app, not system-app
+      });
+    });
+
+    test("should execute rollback on correct app when project filter is applied", async () => {
+      const apps = [
+        {
+          name: "team-a-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "cluster",
+          clusterLabel: "cluster",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "team-a",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+        {
+          name: "team-b-app", 
+          sync: "OutOfSync",
+          health: "Progressing",
+          clusterId: "cluster",
+          clusterLabel: "cluster",
+          namespace: "default",
+          appNamespace: "argocd",
+          project: "team-b",
+          lastSyncAt: "2023-12-01T09:30:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(["team-b"]), // Only team-b project visible
+            selectedApps: new Set(),
+          },
+          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+        }),
+      });
+
+      const rollbackCommand = new RollbackCommand();
+      await rollbackCommand.execute(context);
+
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_ROLLBACK_APP_NAME",
+        payload: "team-b-app", // Should select filtered app, not team-a-app
+      });
+    });
+
+    test("should handle combined cluster and namespace filtering", () => {
+      const apps = [
+        {
+          name: "prod-system-app",
+          sync: "Synced", 
+          health: "Healthy",
+          clusterId: "production",
+          clusterLabel: "production",
+          namespace: "system",
+          appNamespace: "argocd",
+          project: "infrastructure",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+        {
+          name: "prod-user-app",
+          sync: "OutOfSync",
+          health: "Progressing", 
+          clusterId: "production",
+          clusterLabel: "production",
+          namespace: "user-apps",
+          appNamespace: "argocd",
+          project: "team-a",
+          lastSyncAt: "2023-12-01T09:30:00Z",
+        },
+        {
+          name: "dev-user-app",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "development",
+          clusterLabel: "development", 
+          namespace: "user-apps",
+          appNamespace: "argocd",
+          project: "team-a",
+          lastSyncAt: "2023-12-01T08:00:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(["production"]), // Only production cluster
+            scopeNamespaces: new Set(["user-apps"]), // Only user-apps namespace
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+        }),
+      });
+
+      const resourcesCommand = new ResourcesCommand();
+      resourcesCommand.execute(context);
+
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SYNC_VIEW_APP",
+        payload: "prod-user-app", // Should select the app that matches both filters
+      });
+    });
+
+    test("should handle text filtering during search mode", async () => {
+      const apps = [
+        {
+          name: "frontend-service",
+          sync: "Synced",
+          health: "Healthy", 
+          clusterId: "production",
+          clusterLabel: "production",
+          namespace: "web",
+          appNamespace: "argocd",
+          project: "frontend",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+        {
+          name: "backend-api",
+          sync: "OutOfSync",
+          health: "Progressing",
+          clusterId: "production",
+          clusterLabel: "production",
+          namespace: "api",
+          appNamespace: "argocd",
+          project: "backend",
+          lastSyncAt: "2023-12-01T09:30:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          mode: "search", // In search mode, uses searchQuery not activeFilter
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { 
+            searchQuery: "backend", // Search for backend
+            activeFilter: "frontend", // This should be ignored in search mode
+            command: ":", 
+            isVersionOutdated: false, 
+            latestVersion: undefined 
+          },
+        }),
+      });
+
+      const diffCommand = new DiffCommand();
+      await diffCommand.execute(context);
+
+      expect(context.statusLog.info).toHaveBeenCalledWith(
+        "Preparing diff for backend-api…", // Should match searchQuery "backend", not activeFilter "frontend"
+        "diff",
+      );
+    });
+
+    test("should handle text filtering in normal mode", () => {
+      const apps = [
+        {
+          name: "web-frontend",
+          sync: "Healthy", 
+          health: "Healthy",
+          clusterId: "production",
+          clusterLabel: "production",
+          namespace: "web",
+          appNamespace: "argocd",
+          project: "frontend",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        },
+        {
+          name: "data-backend",
+          sync: "OutOfSync",
+          health: "Progressing",
+          clusterId: "production", 
+          clusterLabel: "production",
+          namespace: "data",
+          appNamespace: "argocd",
+          project: "backend",
+          lastSyncAt: "2023-12-01T09:30:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          mode: "normal", // In normal mode, uses activeFilter not searchQuery
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { 
+            searchQuery: "backend", // This should be ignored in normal mode
+            activeFilter: "web", // Filter for web
+            command: ":", 
+            isVersionOutdated: false, 
+            latestVersion: undefined 
+          },
+        }),
+      });
+
+      const syncCommand = new SyncCommand();
+      syncCommand.execute(context);
+
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_CONFIRM_TARGET",
+        payload: "web-frontend", // Should match activeFilter "web", not searchQuery "backend"
+      });
+    });
+
+    test("should handle case-insensitive filtering", async () => {
+      const apps = [
+        {
+          name: "Production-API",
+          sync: "Synced",
+          health: "Healthy",
+          clusterId: "production",
+          clusterLabel: "production", 
+          namespace: "API-Services",
+          appNamespace: "argocd",
+          project: "Backend-Team",
+          lastSyncAt: "2023-12-01T10:00:00Z",
+        }
+      ];
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(), 
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { 
+            searchQuery: "",
+            activeFilter: "production-api", // Lowercase filter should match uppercase app name
+            command: ":", 
+            isVersionOutdated: false, 
+            latestVersion: undefined 
+          },
+        }),
+      });
+
+      const rollbackCommand = new RollbackCommand();
+      await rollbackCommand.execute(context);
+
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_ROLLBACK_APP_NAME", 
+        payload: "Production-API", // Should match despite case difference
+      });
+    });
+
+    test("should work correctly when scoped to non-apps view", () => {
+      const apps = createMockApps();
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "clusters", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 }, // In clusters view
+          selections: {
+            scopeClusters: new Set(),
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(["app1"]), // Has a selected app
+          },
+          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+        }),
+      });
+
+      const resourcesCommand = new ResourcesCommand();
+      resourcesCommand.execute(context);
+
+      // Should use selectedApps since not in apps view
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_SYNC_VIEW_APP",
+        payload: "app1",
+      });
+    });
+
+    test("should handle empty results from filtering", () => {
+      const apps = createMockApps();
+
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps,
+          navigation: { view: "apps", selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+          selections: {
+            scopeClusters: new Set(["nonexistent-cluster"]), // Filter that matches no apps
+            scopeNamespaces: new Set(),
+            scopeProjects: new Set(),
+            selectedApps: new Set(),
+          },
+          ui: { searchQuery: "", activeFilter: "", command: ":", isVersionOutdated: false, latestVersion: undefined },
+        }),
+      });
+
+      const syncCommand = new SyncCommand();
+      syncCommand.execute(context);
+
+      expect(context.statusLog.warn).toHaveBeenCalledWith(
+        "No app selected to sync.",
+        "user-action",
+      );
+    });
+  });
 });
