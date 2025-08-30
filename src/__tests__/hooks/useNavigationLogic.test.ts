@@ -1,4 +1,3 @@
-// biome-ignore lint/correctness/useHookAtTopLevel: Testing React hooks
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { AppItem, View } from "../../types/domain";
 import { createMockState } from "../test-utils";
@@ -81,6 +80,48 @@ describe("useNavigationLogic", () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_SELECTED_IDX",
         payload: 1, // Should be clamped to 1 (length - 1)
+      });
+    });
+
+    test("should ensure proper bounds calculation with Math.max", async () => {
+      mockState.navigation.selectedIdx = 5; // Out of bounds for empty array
+      mockVisibleItems = []; // Empty array
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+
+      useNavigationLogic();
+
+      // Should dispatch with 0 (Math.max(0, -1) = 0)
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_IDX",
+        payload: 0,
+      });
+    });
+
+    test("should only dispatch when index actually changes", async () => {
+      mockState.navigation.selectedIdx = 1;
+      mockVisibleItems = ["item1", "item2", "item3"]; // selectedIdx is within bounds
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+
+      useNavigationLogic();
+
+      // Should NOT dispatch because index is already within bounds
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "SET_SELECTED_IDX",
+        payload: expect.any(Number),
       });
     });
 
@@ -248,6 +289,63 @@ describe("useNavigationLogic", () => {
       });
     });
 
+    test("should verify drillDown early return when item is falsy", async () => {
+      mockState.navigation.view = "clusters" as View;
+      mockState.navigation.selectedIdx = 10; // Out of bounds
+      mockVisibleItems = ["item1", "item2"]; // Only 2 items
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+      const result = useNavigationLogic();
+
+      result.drillDown();
+
+      // Should not dispatch anything because item is undefined
+      expect(mockDispatch).not.toHaveBeenCalledWith({
+        type: "RESET_NAVIGATION",
+      });
+    });
+
+    test("should complete full projects view drill down workflow", async () => {
+      mockState.navigation.view = "projects" as View;
+      mockState.navigation.selectedIdx = 0;
+      mockVisibleItems = ["project1"];
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+      const result = useNavigationLogic();
+
+      result.drillDown();
+
+      // Verify all expected dispatches happen
+      expect(mockDispatch).toHaveBeenCalledWith({ type: "RESET_NAVIGATION" });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "CLEAR_LOWER_LEVEL_SELECTIONS",
+        payload: "projects",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SCOPE_PROJECTS",
+        payload: new Set(["project1"]),
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_VIEW",
+        payload: "apps",
+      });
+
+      // Should be called exactly 4 times for this scenario
+      expect(mockDispatch).toHaveBeenCalledTimes(4);
+    });
+
     test("should handle items that convert to strings properly", async () => {
       mockState.navigation.view = "clusters" as View;
       mockState.navigation.selectedIdx = 0;
@@ -338,6 +436,7 @@ describe("useNavigationLogic", () => {
         const { useNavigationLogic } = await import(
           "../../hooks/useNavigationLogic"
         );
+        // biome-ignore lint/correctness/useHookAtTopLevel: Testing React hooks in loop
         const result = useNavigationLogic();
 
         result.toggleSelection();
@@ -346,7 +445,67 @@ describe("useNavigationLogic", () => {
           type: "SET_SELECTED_APPS",
           payload: expect.any(Set),
         });
+
+        // Verify no dispatch happens at all for non-apps views
+        expect(mockDispatch).not.toHaveBeenCalled();
       }
+    });
+
+    test("should verify toggleSelection checks view equality properly", async () => {
+      mockState.navigation.view = "clusters" as View; // Not "apps"
+      mockState.navigation.selectedIdx = 0;
+      mockVisibleItems = [{ name: "test-app" } as AppItem];
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+      const result = useNavigationLogic();
+
+      result.toggleSelection();
+
+      // Should return early due to view check
+      expect(mockDispatch).not.toHaveBeenCalled();
+    });
+
+    test("should handle toggleSelection with Set operations correctly", async () => {
+      mockState.navigation.view = "apps" as View;
+      mockState.navigation.selectedIdx = 0;
+      mockState.selections.selectedApps = new Set(["existing-app"]);
+      mockVisibleItems = [{ name: "test-app" } as AppItem];
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+      const result = useNavigationLogic();
+
+      result.toggleSelection();
+
+      // Should have both apps in the set (add operation)
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_APPS",
+        payload: new Set(["existing-app", "test-app"]),
+      });
+
+      // Verify Set.has() logic is being tested
+      mockState.selections.selectedApps = new Set(["test-app"]);
+      mockDispatch.mockReset();
+
+      const result2 = useNavigationLogic();
+      result2.toggleSelection();
+
+      // Should remove the app (delete operation)
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_SELECTED_APPS",
+        payload: new Set([]),
+      });
     });
 
     test("should not toggle when no item selected", async () => {
@@ -454,6 +613,25 @@ describe("useNavigationLogic", () => {
       expect(effectCall[1]).toEqual([1, 0, mockDispatch]); // [visibleItems.length, selectedIdx, dispatch]
     });
 
+    test("should ensure useEffect dependencies are not empty array", async () => {
+      mockVisibleItems = ["item1", "item2"];
+      mockState.navigation.selectedIdx = 1;
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+      useNavigationLogic();
+
+      const effectCall = mockUseEffect.mock.calls[0];
+      expect(effectCall).toBeDefined();
+      expect(effectCall[1]).not.toEqual([]); // Should NOT be empty array
+      expect(effectCall[1]).toHaveLength(3); // Should have 3 dependencies
+    });
+
     test("should pass correct dependencies to useCallback for drillDown", async () => {
       mockVisibleItems = ["item1"];
       mockState.navigation.selectedIdx = 0;
@@ -500,6 +678,30 @@ describe("useNavigationLogic", () => {
         mockState.selections,
         mockDispatch,
       ]);
+    });
+
+    test("should ensure useCallback dependencies are not empty arrays", async () => {
+      mockVisibleItems = ["item1"];
+      mockState.navigation.selectedIdx = 0;
+
+      mockUseVisibleItems.mockReturnValue({
+        visibleItems: mockVisibleItems,
+      });
+
+      const { useNavigationLogic } = await import(
+        "../../hooks/useNavigationLogic"
+      );
+      useNavigationLogic();
+
+      // Check drillDown callback (first call)
+      const drillDownCall = mockUseCallback.mock.calls[0];
+      expect(drillDownCall[1]).not.toEqual([]); // Should NOT be empty array
+      expect(drillDownCall[1]).toHaveLength(3); // Should have 3 dependencies
+
+      // Check toggleSelection callback (second call)
+      const toggleCall = mockUseCallback.mock.calls[1];
+      expect(toggleCall[1]).not.toEqual([]); // Should NOT be empty array
+      expect(toggleCall[1]).toHaveLength(4); // Should have 4 dependencies
     });
   });
 });

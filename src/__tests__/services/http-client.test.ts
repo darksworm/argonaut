@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { getHttpClient, httpClientManager } from "../../services/http-client";
 import type { ServerConfig } from "../../types/server";
 

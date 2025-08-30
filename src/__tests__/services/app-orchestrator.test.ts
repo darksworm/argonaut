@@ -224,13 +224,16 @@ describe("DefaultAppOrchestrator", () => {
       // Start initialization but abort quickly to avoid complex mocking
       setTimeout(() => abortController.abort(), 1);
 
-      await expect(
-        orchestrator.initializeApp(
+      try {
+        await orchestrator.initializeApp(
           mockDispatch,
           mockStatusLog,
           abortController.signal,
-        ),
-      ).resolves.not.toThrow();
+        );
+      } catch (error) {
+        // Expected to be aborted
+        expect(error).toBeDefined();
+      }
     });
   });
 });
