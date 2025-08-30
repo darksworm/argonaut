@@ -1,5 +1,6 @@
 import { UpCommand } from "../navigation";
 import type { CommandContext, InputHandler } from "../types";
+import { getCommandAutocomplete } from "../autocomplete";
 
 export class NavigationInputHandler implements InputHandler {
   priority = 10; // High priority for navigation
@@ -335,11 +336,19 @@ export class CommandInputHandler implements InputHandler {
   }
 
   handleInput(_input: string, key: any, context: CommandContext): boolean {
-    const { dispatch } = context;
+    const { dispatch, state } = context;
 
     if (key.escape) {
       dispatch({ type: "SET_MODE", payload: "normal" });
       dispatch({ type: "SET_COMMAND", payload: ":" });
+      return true;
+    }
+
+    if (key.tab) {
+      const auto = getCommandAutocomplete(state.ui.command, state);
+      if (auto) {
+        dispatch({ type: "SET_COMMAND", payload: auto.completed });
+      }
       return true;
     }
 

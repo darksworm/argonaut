@@ -3,6 +3,7 @@ import { render } from "ink-testing-library";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
 import { AppStateProvider } from "../../contexts/AppStateContext";
+import { stripAnsi } from "../test-utils";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {
@@ -277,6 +278,88 @@ describe("CommandBar and SearchBar UI Tests", () => {
           "myapp",
           "v1.2.3",
           "--force",
+        );
+      });
+    });
+
+    describe("Autocomplete", () => {
+      it("shows suggestion for partial input", () => {
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: ":cluster pro",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+          apps: [
+            {
+              name: "app1",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("cluster production");
+      });
+
+      it("applies suggestion on submit", () => {
+        mockCommandRegistry.parseCommandLine.mockReturnValue({
+          command: "cluster",
+          args: ["production"],
+        });
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: ":cluster pro",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+          apps: [
+            {
+              name: "app1",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        };
+
+        const { stdin } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("\r");
+
+        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(
+          ":cluster production",
+        );
+        expect(mockOnExecuteCommand).toHaveBeenCalledWith(
+          "cluster",
+          "production",
         );
       });
     });

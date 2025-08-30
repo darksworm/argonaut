@@ -255,6 +255,118 @@ describe("CommandInputHandler", () => {
     });
   });
 
+  describe("autocomplete", () => {
+    it("should complete cluster names on Tab", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: ":cluster pro",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND",
+        payload: ":cluster production",
+      });
+    });
+
+    it("should complete namespace names on Tab", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: ":ns ku",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "prod",
+              namespace: "kube-system",
+              project: "proj1",
+            },
+            {
+              name: "b",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "prod",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND",
+        payload: ":ns kube-system",
+      });
+    });
+
+    it("should swallow Tab when no completion available", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: ":cluster xyz",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("priority", () => {
     it("should have highest priority (30)", () => {
       expect(handler.priority).toBe(30);
