@@ -40,18 +40,10 @@ export function createMockContext(
 }
 
 export function createMockState(overrides: Partial<AppState> = {}): AppState {
-  return {
+  const base: AppState = {
     mode: "normal" as Mode,
-    terminal: {
-      rows: 24,
-      cols: 80,
-    },
-    navigation: {
-      view: "apps" as View,
-      selectedIdx: 0,
-      lastGPressed: 0,
-      lastEscPressed: 0,
-    },
+    terminal: { rows: 24, cols: 80 },
+    navigation: { view: "apps" as View, selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
     selections: {
       scopeClusters: new Set(),
       scopeNamespaces: new Set(),
@@ -64,7 +56,7 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
       command: ":",
       isVersionOutdated: false,
       latestVersion: undefined,
-      commandCursorOffset: undefined,
+      commandInputKey: 0,
     },
     modals: {
       confirmTarget: null,
@@ -74,15 +66,21 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
       syncViewApp: null,
     },
     server: {
-      config: {
-        baseUrl: "https://test-server.com",
-      },
+      config: { baseUrl: "https://test-server.com" },
       token: "test-token",
     },
     apps: [],
     apiVersion: "v2.9.0",
     loadingAbortController: null,
+  };
+
+  return {
+    ...base,
     ...overrides,
+    navigation: { ...base.navigation, ...(overrides.navigation ?? {}) },
+    selections: { ...base.selections, ...(overrides.selections ?? {}) },
+    ui: { ...base.ui, ...(overrides.ui ?? {}) },
+    modals: { ...base.modals, ...(overrides.modals ?? {}) },
   };
 }
 

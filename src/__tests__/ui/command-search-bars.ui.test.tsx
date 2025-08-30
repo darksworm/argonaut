@@ -363,6 +363,33 @@ describe("CommandBar and SearchBar UI Tests", () => {
         );
       });
 
+      it("allows deleting autocompleted text", () => {
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: ":cluster production",
+            commandInputKey: 1,
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("\u0008");
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain(":cluster productio");
+      });
+
     });
 
     describe("UI Styling and Layout", () => {

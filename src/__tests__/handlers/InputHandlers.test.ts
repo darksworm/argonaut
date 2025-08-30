@@ -334,8 +334,7 @@ describe("CommandInputHandler", () => {
         payload: ":cluster production",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: "SET_COMMAND_CURSOR_OFFSET",
-        payload: 0,
+        type: "BUMP_COMMAND_INPUT_KEY",
       });
     });
 
@@ -381,8 +380,7 @@ describe("CommandInputHandler", () => {
         payload: ":ns kube-system",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
-        type: "SET_COMMAND_CURSOR_OFFSET",
-        payload: 0,
+        type: "BUMP_COMMAND_INPUT_KEY",
       });
     });
 

@@ -1,6 +1,6 @@
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
-import React, { useEffect } from "react";
+import React from "react";
 import type { CommandRegistry } from "../../commands";
 import { useAppState } from "../../contexts/AppStateContext";
 import { getCommandAutocomplete } from "../../commands/autocomplete";
@@ -15,12 +15,6 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   onExecuteCommand,
 }) => {
   const { state, dispatch } = useAppState();
-
-  useEffect(() => {
-    if (state.ui.commandCursorOffset !== undefined) {
-      dispatch({ type: "SET_COMMAND_CURSOR_OFFSET", payload: undefined });
-    }
-  }, [state.ui.commandCursorOffset, dispatch]);
 
   if (state.mode !== "command") {
     return null;
@@ -47,6 +41,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       </Text>
       <Box width={1} />
       <TextInput
+        key={state.ui.commandInputKey}
         value={state.ui.command}
         onChange={(value) =>
           dispatch({
@@ -56,7 +51,6 @@ export const CommandBar: React.FC<CommandBarProps> = ({
         }
         onSubmit={handleSubmit}
         showCursor={false}
-        cursorOffset={state.ui.commandCursorOffset}
       />
       {(() => {
         const auto = getCommandAutocomplete(state.ui.command, state);
