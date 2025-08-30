@@ -79,6 +79,22 @@ export class NavigationInputHandler implements InputHandler {
       return true;
     }
 
+    // 'd' key to open diff - only in apps view and when not multiple apps selected
+    if (input === "d") {
+      // Only allow diff in apps view
+      if (navigation.view !== "apps") {
+        return false;
+      }
+
+      // Don't allow diff when multiple apps are selected
+      if (state.selections.selectedApps.size > 1) {
+        return false;
+      }
+
+      void context.executeCommand("diff");
+      return true;
+    }
+
     if (key.escape) {
       const now = Date.now();
       // Debounce escape key to prevent rapid firing
