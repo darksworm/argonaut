@@ -64,6 +64,7 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
       command: ":",
       isVersionOutdated: false,
       latestVersion: undefined,
+      commandCursorOffset: undefined,
     },
     modals: {
       confirmTarget: null,

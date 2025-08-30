@@ -362,6 +362,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           "production",
         );
       });
+
     });
 
     describe("UI Styling and Layout", () => {

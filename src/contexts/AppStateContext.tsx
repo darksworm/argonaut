@@ -33,6 +33,7 @@ export interface UIState {
   command: string;
   isVersionOutdated: boolean;
   latestVersion?: string;
+  commandCursorOffset?: number;
 }
 
 export interface ModalState {
@@ -73,6 +74,7 @@ export type AppAction =
   | { type: "SET_SEARCH_QUERY"; payload: string }
   | { type: "SET_ACTIVE_FILTER"; payload: string }
   | { type: "SET_COMMAND"; payload: string }
+  | { type: "SET_COMMAND_CURSOR_OFFSET"; payload: number | undefined }
   | { type: "SET_SCOPE_CLUSTERS"; payload: Set<string> }
   | { type: "SET_SCOPE_NAMESPACES"; payload: Set<string> }
   | { type: "SET_SCOPE_PROJECTS"; payload: Set<string> }
@@ -117,6 +119,7 @@ export const initialState: AppState = {
     command: ":",
     isVersionOutdated: false,
     latestVersion: undefined,
+    commandCursorOffset: undefined,
   },
   modals: {
     confirmTarget: null,
@@ -180,6 +183,12 @@ export function appStateReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         ui: { ...state.ui, command: action.payload },
+      };
+
+    case "SET_COMMAND_CURSOR_OFFSET":
+      return {
+        ...state,
+        ui: { ...state.ui, commandCursorOffset: action.payload },
       };
 
     case "SET_SCOPE_CLUSTERS":

@@ -352,6 +352,7 @@ export class CommandInputHandler implements InputHandler {
       const auto = getCommandAutocomplete(state.ui.command, state);
       if (auto) {
         dispatch({ type: "SET_COMMAND", payload: auto.completed });
+        dispatch({ type: "SET_COMMAND_CURSOR_OFFSET", payload: 0 });
       }
       return true;
     }

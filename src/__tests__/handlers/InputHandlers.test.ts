@@ -333,6 +333,10 @@ describe("CommandInputHandler", () => {
         type: "SET_COMMAND",
         payload: ":cluster production",
       });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND_CURSOR_OFFSET",
+        payload: 0,
+      });
     });
 
     it("should complete namespace names on Tab", () => {
@@ -375,6 +379,10 @@ describe("CommandInputHandler", () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
         payload: ":ns kube-system",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND_CURSOR_OFFSET",
+        payload: 0,
       });
     });
 
