@@ -17,6 +17,10 @@ coverage/
 coverage-final.json
 clover.xml
 
+# Mutation testing reports
+reports/
+stryker-tmp/
+
 # Claude Code configurations (user-specific)
 .claude/
 .roo/
