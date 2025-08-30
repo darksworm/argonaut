@@ -42,8 +42,14 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       <Box width={1} />
       <TextInput
         value={state.ui.command}
-        onChange={(value) => dispatch({ type: "SET_COMMAND", payload: value })}
+        onChange={(value) =>
+          dispatch({
+            type: "SET_COMMAND",
+            payload: value.startsWith(":") ? value : `:${value}`,
+          })
+        }
         onSubmit={handleSubmit}
+        showCursor={false}
       />
       {(() => {
         const auto = getCommandAutocomplete(state.ui.command, state);

@@ -253,6 +253,50 @@ describe("CommandInputHandler", () => {
         payload: ":",
       });
     });
+
+    it("should prevent deleting the leading colon", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: ":",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { backspace: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).not.toHaveBeenCalled();
+    });
+
+    it("should allow deleting characters after the colon", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: ":a",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { backspace: true }, context);
+
+      expect(result).toBe(false);
+      expect(mockDispatch).not.toHaveBeenCalled();
+    });
   });
 
   describe("autocomplete", () => {

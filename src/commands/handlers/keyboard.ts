@@ -344,6 +344,10 @@ export class CommandInputHandler implements InputHandler {
       return true;
     }
 
+    if (key.backspace && state.ui.command === ":") {
+      return true;
+    }
+
     if (key.tab) {
       const auto = getCommandAutocomplete(state.ui.command, state);
       if (auto) {
