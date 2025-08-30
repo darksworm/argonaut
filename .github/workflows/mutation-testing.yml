@@ -47,12 +47,5 @@ jobs:
     - name: Run mutation tests
       env:
         STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_API_KEY }}
+        STRYKER_DASHBOARD_VERSION: ${{ github.head_ref || github.ref_name }}
       run: bun run test:mutation:ci
-
-    - name: Upload mutation report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: mutation-report
-        path: reports/mutation/html/
-        retention-days: 30
