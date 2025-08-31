@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
+import { CommandRegistry } from "../../commands/registry";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
 import { AppStateProvider } from "../../contexts/AppStateContext";
-import { stripAnsi } from "../test-utils";
+import { createMockCommand, stripAnsi } from "../test-utils";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {
@@ -22,7 +23,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
   beforeEach(() => {
     mockCommandRegistry = {
-      parseCommandLine: mock(),
+      parseCommandLine: mock().mockReturnValue({ command: "", args: [] }),
       getCommands: mock().mockReturnValue([]),
       getAllCommands: mock().mockReturnValue(new Map([["cluster", {}]])),
       getCommand: mock(),
@@ -41,7 +42,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandModeState = {
           mode: "command" as const,
           ui: {
-            command: "sync",
+            command: "",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -469,6 +470,66 @@ describe("CommandBar and SearchBar UI Tests", () => {
       });
     });
 
+    describe("Command hints", () => {
+      it("shows description for known commands", () => {
+        const registry = new CommandRegistry();
+        const clustersCmd = createMockCommand({
+          description: "Switch to clusters view",
+        });
+        registry.registerCommand("clusters", clustersCmd);
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "clu",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(Switch to clusters view)");
+        expect(frame).not.toContain("Enter to run, Esc to cancel");
+      });
+
+      it("shows unknown command hint for invalid commands", () => {
+        const registry = new CommandRegistry();
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "asdfasd",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(Unknown command)");
+        expect(frame).not.toContain("Enter to run, Esc to cancel");
+      });
+    });
+
     describe("UI Styling and Layout", () => {
       it("displays with proper styling elements", () => {
         const commandState = {
@@ -495,8 +556,8 @@ describe("CommandBar and SearchBar UI Tests", () => {
         // Should have CMD label
         expect(frame).toContain("CMD");
 
-        // Should have help text
-        expect(frame).toContain("Enter to run, Esc to cancel");
+        // Should show hint about command
+        expect(frame).toContain("(Unknown command)");
 
         // Should contain the command
         expect(frame).toContain("help");

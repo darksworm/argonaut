@@ -54,6 +54,20 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     commandRegistry,
   );
 
+  const hintText = (() => {
+    if (!state.ui.command) {
+      return "(Enter to run, Esc to cancel)";
+    }
+    const completedLine = auto ? auto.completed : `:${state.ui.command}`;
+    const parsed = commandRegistry.parseCommandLine(completedLine);
+    const command = parsed?.command ?? "";
+    if (!command) {
+      return "(Unknown command)";
+    }
+    const cmd = commandRegistry.getCommand(command);
+    return `(${cmd?.description ?? "Unknown command"})`;
+  })();
+
   return (
     <Box
       borderStyle="round"
@@ -85,7 +99,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       {error ? (
         <Text color="red">{error}</Text>
       ) : (
-        <Text dimColor>(Enter to run, Esc to cancel)</Text>
+        <Text dimColor>{hintText}</Text>
       )}
     </Box>
   );
