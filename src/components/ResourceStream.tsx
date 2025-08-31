@@ -1,6 +1,5 @@
 import { Box, Text, useInput } from "ink";
-import type React from "react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getHttpClient } from "../services/http-client";
 import type { ServerConfig } from "../types/server";
 import { colorFor } from "../utils";
@@ -193,7 +192,7 @@ export type ResourceStreamProps = {
   onExit?: () => void; // called when user quits the view (press 'q')
 };
 
-export const ResourceStream: React.FC<ResourceStreamProps> = ({
+const ResourceStreamComponent: React.FC<ResourceStreamProps> = ({
   serverConfig,
   token,
   appName,
@@ -358,3 +357,5 @@ export const ResourceStream: React.FC<ResourceStreamProps> = ({
     </Box>
   );
 };
+
+export const ResourceStream = React.memo(ResourceStreamComponent);

@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { Box, Text } from "ink";
-import type React from "react";
+import React from "react";
 
 interface ArgoNautBannerProps {
   server?: string | null;
@@ -174,4 +174,4 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
   );
 };
 
-export default ArgoNautBanner;
+export default React.memo(ArgoNautBanner);

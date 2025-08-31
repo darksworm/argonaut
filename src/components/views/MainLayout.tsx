@@ -1,5 +1,5 @@
 import { Box, Text } from "ink";
-import type React from "react";
+import React, { useMemo, useCallback } from "react";
 import packageJson from "../../../package.json";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
@@ -56,6 +56,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const barOpenExtra = mode === "search" || mode === "command" ? 1 : 0;
   const listRows = Math.max(0, availableRows - barOpenExtra);
 
+  const stableVisibleItems = useMemo(() => visibleItems, [visibleItems]);
+  const serverHost = useMemo(
+    () => (server ? hostFromUrl(server.config.baseUrl) : null),
+    [server],
+  );
+  const clusterScopeStr = useMemo(() => fmtScope(scopeClusters), [scopeClusters]);
+  const namespaceScopeStr = useMemo(() => fmtScope(scopeNamespaces), [scopeNamespaces]);
+  const projectScopeStr = useMemo(() => fmtScope(scopeProjects), [scopeProjects]);
+  const appNamespace = useMemo(
+    () => state.apps.find((a) => a.name === syncViewApp)?.appNamespace,
+    [state.apps, syncViewApp],
+  );
+  const handleResourceExit = useCallback(() => {
+    dispatch({ type: "SET_MODE", payload: "normal" });
+    dispatch({ type: "SET_SYNC_VIEW_APP", payload: null });
+  }, [dispatch]);
+
   // Special view modes
   if (mode === "external") {
     return null;
@@ -72,10 +89,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   return (
     <Box flexDirection="column" paddingX={1} height={terminal.rows - 1}>
       <ArgoNautBanner
-        server={server ? hostFromUrl(server.config.baseUrl) : null}
-        clusterScope={fmtScope(scopeClusters)}
-        namespaceScope={fmtScope(scopeNamespaces)}
-        projectScope={fmtScope(scopeProjects)}
+        server={serverHost}
+        clusterScope={clusterScopeStr}
+        namespaceScope={namespaceScopeStr}
+        projectScope={projectScopeStr}
         termCols={terminal.cols}
         termRows={availableRows}
         apiVersion={apiVersion}
@@ -106,17 +123,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               serverConfig={server.config}
               token={server.token}
               appName={syncViewApp}
-              appNamespace={
-                state.apps.find((a) => a.name === syncViewApp)?.appNamespace
-              }
-              onExit={() => {
-                dispatch({ type: "SET_MODE", payload: "normal" });
-                dispatch({ type: "SET_SYNC_VIEW_APP", payload: null });
-              }}
+              appNamespace={appNamespace}
+              onExit={handleResourceExit}
             />
           </Box>
         ) : (
-          <ListView visibleItems={visibleItems} availableRows={listRows} />
+          <ListView visibleItems={stableVisibleItems} availableRows={listRows} />
         )}
       </Box>
 
@@ -132,8 +144,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <Box>
           <Text dimColor>
             {status} •{" "}
-            {visibleItems.length
-              ? `${state.navigation.selectedIdx + 1}/${visibleItems.length}`
+            {stableVisibleItems.length
+              ? `${state.navigation.selectedIdx + 1}/${stableVisibleItems.length}`
               : "0/0"}
             {state.ui.isVersionOutdated && (
               <Text color="yellow"> • Update available!</Text>

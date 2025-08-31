@@ -1,5 +1,5 @@
 import { Box, Text } from "ink";
-import type React from "react";
+import React, { useMemo } from "react";
 import stringWidth from "string-width";
 import { useAppState } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";
@@ -20,7 +20,7 @@ interface ListViewProps {
   availableRows: number;
 }
 
-export const ListView: React.FC<ListViewProps> = ({
+const ListViewComponent: React.FC<ListViewProps> = ({
   visibleItems,
   availableRows,
 }) => {
@@ -40,7 +40,10 @@ export const ListView: React.FC<ListViewProps> = ({
     ),
   );
   const end = Math.min(visibleItems.length, start + listRows);
-  const rowsSlice = visibleItems.slice(start, end);
+  const rowsSlice = useMemo(
+    () => visibleItems.slice(start, end),
+    [visibleItems, start, end],
+  );
 
   // Layout calculations for apps view
   const MIN_NAME = 12;
@@ -213,3 +216,5 @@ export const ListView: React.FC<ListViewProps> = ({
     </Box>
   );
 };
+
+export const ListView = React.memo(ListViewComponent);
