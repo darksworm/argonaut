@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.0](https://github.com/darksworm/argonaut/compare/v1.14.0...v1.15.0) (2025-08-31)
+
+
+### Features
+
+* add 'd' key shortcut for diff command in apps view ([28e72e9](https://github.com/darksworm/argonaut/commit/28e72e962cba1f15433dbf13f9b0038470f085d2))
+* add command parameter autocomplete ([#66](https://github.com/darksworm/argonaut/issues/66)) ([6aa61ea](https://github.com/darksworm/argonaut/commit/6aa61ea919e22e2808760020d10497a550c1db1a))
+* add command name autocomplete ([#69](https://github.com/darksworm/argonaut/issues/69)) ([0179d07](https://github.com/darksworm/argonaut/commit/0179d0799ddbb725043aa41f5ecb3fb0ddfc5cd3))
+* enhance navigation commands with automatic drill-down ([a475f38](https://github.com/darksworm/argonaut/commit/a475f3869ffb8b03918c63a41b3867047ffaf63a))
+* show command descriptions in command bar ([#71](https://github.com/darksworm/argonaut/issues/71)) ([f765296](https://github.com/darksworm/argonaut/commit/f765296f9bd6f04f325c93965bdbe30b03f3d018))
+
+
 ## [Unreleased]
 
 ### Features
