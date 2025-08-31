@@ -61,6 +61,34 @@ function ErrorDisplay({
 }) {
   const [termRows, setTermRows] = useState(process.stdout.rows || 24);
 
+  // Sometimes Ink doesn't refresh layout properly when the error boundary first renders.
+  // Trigger a brief terminal resize to force a reflow so the content appears at the top.
+  useEffect(() => {
+    const stdout = process.stdout as any;
+    if (stdout && typeof stdout.columns === "number") {
+      const oldCols = stdout.columns;
+      try {
+        stdout.columns = Math.max(1, oldCols - 1);
+        stdout.emit("resize");
+      } catch {}
+
+      const timer = setTimeout(() => {
+        try {
+          stdout.columns = oldCols;
+          stdout.emit("resize");
+        } catch {}
+      }, 0);
+
+      return () => {
+        clearTimeout(timer);
+        try {
+          stdout.columns = oldCols;
+          stdout.emit("resize");
+        } catch {}
+      };
+    }
+  }, []);
+
   useEffect(() => {
     const onResize = () => {
       setTermRows(process.stdout.rows || 24);
