@@ -37,7 +37,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     }
 
     if (!commandRegistry.getCommand(command)) {
-      setError(`Unknown command: ${command}`);
+      setError("Unknown command");
       process.stdout.write("\x07");
       return;
     }

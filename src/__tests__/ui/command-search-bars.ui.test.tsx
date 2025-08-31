@@ -321,6 +321,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const frame = stripAnsi(lastFrame());
         expect(frame).toContain("Unknown command");
         expect(frame).toContain(":nosuch  Unknown command");
+        expect(frame).not.toContain("Unknown command:");
         expect(frame).not.toContain("(Enter to run, Esc to cancel)");
       });
     });
