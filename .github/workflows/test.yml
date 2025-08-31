@@ -15,8 +15,7 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - run: bun run generate:licenses
-      - run: bun run test:ci
+      - run: bun test --reporter=junit --reporter-outfile=./junit.xml
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
