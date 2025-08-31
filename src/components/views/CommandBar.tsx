@@ -18,6 +18,28 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   const { state, dispatch } = useAppState();
   const [input, setInput] = useState(state.ui.command);
   const [error, setError] = useState<string | null>(null);
+  useInput(
+    (_, key) => {
+      if (key.escape) {
+        dispatch({ type: "SET_MODE", payload: "normal" });
+        dispatch({ type: "SET_COMMAND", payload: "" });
+        setInput("");
+        setError(null);
+      }
+
+      if (key.tab) {
+        const autoComplete = getCommandAutocomplete(
+          `:${input}`,
+          state,
+          commandRegistry,
+        );
+        if (autoComplete) {
+          setInput(autoComplete.completed.slice(1));
+        }
+      }
+    },
+    { isActive: state.mode === "command" },
+  );
 
   if (state.mode !== "command") {
     return null;
@@ -50,26 +72,6 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     setInput("");
     setError(null);
   };
-
-  useInput((_, key) => {
-    if (key.escape) {
-      dispatch({ type: "SET_MODE", payload: "normal" });
-      dispatch({ type: "SET_COMMAND", payload: "" });
-      setInput("");
-      setError(null);
-    }
-
-    if (key.tab) {
-      const autoComplete = getCommandAutocomplete(
-        `:${input}`,
-        state,
-        commandRegistry,
-      );
-      if (autoComplete) {
-        setInput(autoComplete.completed.slice(1));
-      }
-    }
-  });
 
   const userCommand = input.replace(/^:+/, "");
   const auto = getCommandAutocomplete(

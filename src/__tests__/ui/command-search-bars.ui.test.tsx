@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
+import { useEffect } from "react";
 import { NavigationCommand } from "../../commands/navigation";
 import { CommandRegistry } from "../../commands/registry";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
-import { AppStateProvider } from "../../contexts/AppStateContext";
+import { AppStateProvider, useAppState } from "../../contexts/AppStateContext";
 import { createMockCommand, stripAnsi } from "../test-utils";
 
 // Test CommandBar and SearchBar components
@@ -114,6 +115,41 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
         const frame = lastFrame();
         expect(frame).toBe("");
+      });
+
+      it("renders correctly after switching to command mode", async () => {
+        const initialState = {
+          mode: "normal" as const,
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const ModeSwitcher = () => {
+          const { dispatch } = useAppState();
+          useEffect(() => {
+            dispatch({ type: "SET_MODE", payload: "command" });
+          }, [dispatch]);
+          return null;
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={initialState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+            <ModeSwitcher />
+          </AppStateProvider>,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const frame = lastFrame();
+        expect(frame).toContain("CMD");
       });
     });
 
