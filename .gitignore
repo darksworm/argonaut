@@ -4,7 +4,6 @@ build/
 dist/
 out/
 *.iml
-src/data/licenses.ts
 *.bun-build
 argonaut-cli
 ./main
