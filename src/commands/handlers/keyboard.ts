@@ -1,6 +1,7 @@
-import { UpCommand } from "../navigation";
-import type { CommandContext, InputHandler } from "../types";
 import { getCommandAutocomplete } from "../autocomplete";
+import { UpCommand } from "../navigation";
+import type { CommandRegistry } from "../registry";
+import type { CommandContext, InputHandler } from "../types";
 
 export class NavigationInputHandler implements InputHandler {
   priority = 10; // High priority for navigation
@@ -331,6 +332,8 @@ export class SearchInputHandler implements InputHandler {
 export class CommandInputHandler implements InputHandler {
   priority = 30; // Highest priority when in command mode
 
+  constructor(private registry: CommandRegistry) {}
+
   canHandle(context: CommandContext): boolean {
     return context.state.mode === "command";
   }
@@ -345,7 +348,11 @@ export class CommandInputHandler implements InputHandler {
     }
 
     if (key.tab) {
-      const auto = getCommandAutocomplete(`:${state.ui.command}`, state);
+      const auto = getCommandAutocomplete(
+        `:${state.ui.command}`,
+        state,
+        this.registry,
+      );
       if (auto) {
         dispatch({ type: "SET_COMMAND", payload: auto.completed.slice(1) });
         dispatch({ type: "BUMP_COMMAND_INPUT_KEY" });

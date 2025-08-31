@@ -75,9 +75,7 @@ const Help: React.FC = () => {
       <HelpSection title="MISC" isWide={isWide}>
         <Box flexDirection="column">
           <Text>
-            <Text color="cyan">:login</Text> • <Text color="cyan">:clear</Text>{" "}
-            • <Text color="cyan">:all</Text> •{" "}
-            <Text color="cyan">:licenses</Text>
+            <Text color="cyan">:all</Text> • <Text color="cyan">:licenses</Text>
           </Text>
           <Text>
             <Text color="cyan">:logs</Text> • <Text color="cyan">:q</Text>

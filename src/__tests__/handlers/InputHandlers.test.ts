@@ -6,7 +6,12 @@ import {
   ModeInputHandler,
   SearchInputHandler,
 } from "../../commands/handlers/keyboard";
-import { createMockContext, createMockState } from "../test-utils";
+import { CommandRegistry } from "../../commands/registry";
+import {
+  createMockCommand,
+  createMockContext,
+  createMockState,
+} from "../test-utils";
 
 describe("ModeInputHandler", () => {
   let handler: ModeInputHandler;
@@ -210,9 +215,12 @@ describe("SearchInputHandler", () => {
 
 describe("CommandInputHandler", () => {
   let handler: CommandInputHandler;
+  let registry: CommandRegistry;
 
   beforeEach(() => {
-    handler = new CommandInputHandler();
+    registry = new CommandRegistry();
+    registry.registerCommand("cluster", createMockCommand());
+    handler = new CommandInputHandler(registry);
   });
 
   describe("canHandle", () => {
@@ -256,6 +264,34 @@ describe("CommandInputHandler", () => {
   });
 
   describe("autocomplete", () => {
+    it("should complete command names on Tab", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "clu",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "SET_COMMAND",
+        payload: "cluster",
+      });
+      expect(mockDispatch).toHaveBeenCalledWith({
+        type: "BUMP_COMMAND_INPUT_KEY",
+      });
+    });
+
     it("should complete cluster names on Tab", () => {
       const mockDispatch = mock();
       const context = createMockContext({
@@ -292,6 +328,29 @@ describe("CommandInputHandler", () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "BUMP_COMMAND_INPUT_KEY",
       });
+    });
+
+    it("keeps the stapler secret", () => {
+      registry.registerCommand("ilikeargonaut", createMockCommand());
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "ilike",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).not.toHaveBeenCalled();
     });
 
     it("should complete namespace names on Tab", () => {
@@ -362,6 +421,28 @@ describe("CommandInputHandler", () => {
               project: "proj1",
             },
           ],
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).not.toHaveBeenCalled();
+    });
+
+    it("should swallow Tab when no command completion available", () => {
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "zz",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
         }),
         dispatch: mockDispatch,
       });
