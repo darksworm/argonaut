@@ -74,7 +74,7 @@ export function createDefaultCommandRegistry(): CommandRegistry {
 
   // Input handlers (order matters - higher priority first)
   registry.registerInputHandler(new SearchInputHandler());
-  registry.registerInputHandler(new CommandInputHandler());
+  registry.registerInputHandler(new CommandInputHandler(registry));
   registry.registerInputHandler(new ModeInputHandler());
   registry.registerInputHandler(new NavigationInputHandler());
   registry.registerInputHandler(new GlobalInputHandler());

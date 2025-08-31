@@ -1,9 +1,9 @@
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
-import React from "react";
+import type React from "react";
 import type { CommandRegistry } from "../../commands";
-import { useAppState } from "../../contexts/AppStateContext";
 import { getCommandAutocomplete } from "../../commands/autocomplete";
+import { useAppState } from "../../contexts/AppStateContext";
 
 interface CommandBarProps {
   commandRegistry: CommandRegistry;
@@ -22,7 +22,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
 
   const handleSubmit = (val: string) => {
     const line = `:${val}`;
-    const auto = getCommandAutocomplete(line, state);
+    const auto = getCommandAutocomplete(line, state, commandRegistry);
     const completed = auto ? auto.completed : line;
 
     dispatch({ type: "SET_MODE", payload: "normal" });
@@ -55,7 +55,11 @@ export const CommandBar: React.FC<CommandBarProps> = ({
         showCursor={false}
       />
       {(() => {
-        const auto = getCommandAutocomplete(`:${state.ui.command}`, state);
+        const auto = getCommandAutocomplete(
+          `:${state.ui.command}`,
+          state,
+          commandRegistry,
+        );
         return auto ? <Text dimColor>{auto.suggestion}</Text> : null;
       })()}
       <Box width={2} />

@@ -1,5 +1,6 @@
 import type { AppState } from "../contexts/AppStateContext";
 import { uniqueSorted } from "../utils";
+import type { CommandRegistry } from "./registry";
 
 // Map command aliases to their corresponding data set keys
 const aliasMap: Record<string, keyof ReturnType<typeof buildLists>> = {
@@ -52,9 +53,27 @@ function buildLists(state: AppState) {
 export function getCommandAutocomplete(
   line: string,
   state: AppState,
+  registry?: CommandRegistry,
 ): { completed: string; suggestion: string } | null {
+  if (!line.startsWith(":")) return null;
+
   const firstSpace = line.indexOf(" ");
-  if (!line.startsWith(":") || firstSpace === -1) return null;
+
+  // Autocomplete command names when no space is present
+  if (firstSpace === -1) {
+    if (!registry) return null;
+    const cmdRaw = line.slice(1);
+    if (!cmdRaw) return null;
+
+    const commandNames = Array.from(registry.getAllCommands().keys()).sort();
+    const match = commandNames.find((c) => c.startsWith(cmdRaw.toLowerCase()));
+    if (!match || match.toLowerCase() === cmdRaw.toLowerCase()) return null;
+
+    return {
+      completed: `:${match} `,
+      suggestion: `${match.slice(cmdRaw.length)} `,
+    };
+  }
 
   const cmdRaw = line.slice(1, firstSpace);
   const listKey = aliasMap[cmdRaw.toLowerCase()];

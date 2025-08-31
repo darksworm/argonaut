@@ -22,6 +22,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
     mockCommandRegistry = {
       parseCommandLine: mock(),
       getCommands: mock().mockReturnValue([]),
+      getAllCommands: mock().mockReturnValue(new Map([["cluster", {}]])),
       executeCommand: mock(),
       registerCommand: mock(),
       registerInputHandler: mock(),
@@ -364,6 +365,38 @@ describe("CommandBar and SearchBar UI Tests", () => {
         );
       });
 
+      it("completes command names on submit", () => {
+        mockCommandRegistry.parseCommandLine.mockReturnValue({
+          command: "cluster",
+          args: [],
+        });
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "clu",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("\r");
+
+        expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(
+          ":cluster ",
+        );
+      });
+
       it("allows deleting autocompleted text", () => {
         const commandState = {
           mode: "command" as const,
@@ -390,7 +423,6 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const frame = stripAnsi(lastFrame());
         expect(frame).toContain(":cluster productio");
       });
-
     });
 
     describe("UI Styling and Layout", () => {
