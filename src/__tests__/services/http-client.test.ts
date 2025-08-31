@@ -1,6 +1,10 @@
-import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { getHttpClient, httpClientManager } from "../../services/http-client";
 import type { ServerConfig } from "../../types/server";
+
+afterEach(() => {
+  httpClientManager.clearClients();
+});
 
 describe("httpClientManager", () => {
   const mockServerConfig: ServerConfig = {
