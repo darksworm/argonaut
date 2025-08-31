@@ -16,17 +16,14 @@ jobs:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
       - run: bun run generate:licenses
-      - run: bun run test:ci
-      - run: test -f junit.xml || echo '<testsuites></testsuites>' > junit.xml
+      - run: bun run test:ci --reporter-outfile=junit.xml
       - name: Upload test results to Codecov
         # Send JUnit results for Test Analytics
-        if: ${{ always() && !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: junit.xml
       - name: Upload coverage reports to Codecov
-        continue-on-error: true
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false
