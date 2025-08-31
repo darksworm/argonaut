@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.15.0](https://github.com/darksworm/argonaut/compare/v1.14.0...v1.15.0) (2025-08-31)
+
+
+### Features
+
+* add 'd' key shortcut for diff command in apps view ([28e72e9](https://github.com/darksworm/argonaut/commit/28e72e962cba1f15433dbf13f9b0038470f085d2))
+* add CI mutation testing with Stryker Dashboard integration ([832b09e](https://github.com/darksworm/argonaut/commit/832b09e85268fc4da4a153077774d06cb823f45e))
+* add command autocomplete ([#66](https://github.com/darksworm/argonaut/issues/66)) ([6aa61ea](https://github.com/darksworm/argonaut/commit/6aa61ea919e22e2808760020d10497a550c1db1a))
+* add command name autocomplete ([#69](https://github.com/darksworm/argonaut/issues/69)) ([0179d07](https://github.com/darksworm/argonaut/commit/0179d0799ddbb725043aa41f5ecb3fb0ddfc5cd3))
+* **argocd:** Add resource limits to improve performance ([10cfbef](https://github.com/darksworm/argonaut/commit/10cfbef432a6f8f53b3404ed7c7e44aba65deb51))
+* enhance navigation commands with automatic drill-down ([a475f38](https://github.com/darksworm/argonaut/commit/a475f3869ffb8b03918c63a41b3867047ffaf63a))
+* show command descriptions in command bar ([#71](https://github.com/darksworm/argonaut/issues/71)) ([f765296](https://github.com/darksworm/argonaut/commit/f765296f9bd6f04f325c93965bdbe30b03f3d018))
+
+
+### Bug Fixes
+
+* apply DiffView mock before importing application commands ([415b773](https://github.com/darksworm/argonaut/commit/415b7732114fe0523e3fd5eb270f1a39817a2ede))
+* **ci:** push stryker report to dashboard ([1b5a6d3](https://github.com/darksworm/argonaut/commit/1b5a6d377a974ab1c2fea678e3cf595a81512a01))
+* correct Stryker config file argument syntax ([fa27a60](https://github.com/darksworm/argonaut/commit/fa27a605346a7fdf36883c3a17d9e901b02c693d))
+
 ## [Unreleased]
 
 ### Features
