@@ -16,6 +16,7 @@ coverage/
 *.lcov
 coverage-final.json
 clover.xml
+junit.xml
 
 # Mutation testing reports
 reports/
