@@ -171,6 +171,35 @@ describe("CommandBar and SearchBar UI Tests", () => {
         expect(frame).toContain("Enter to run, Esc to cancel");
         expect(frame).toContain(":");
       });
+
+      it("swallows extra leading colon input", async () => {
+        const state = {
+          mode: "command" as const,
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={state}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write(":");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const frame = stripAnsi(lastFrame());
+        const colonCount = (frame.match(/:/g) ?? []).length;
+        expect(colonCount).toBe(1);
+        expect(frame).toContain("Enter to run, Esc to cancel");
+      });
     });
 
     describe("Command Execution", () => {

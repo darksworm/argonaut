@@ -23,7 +23,8 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   }
 
   const handleSubmit = (val: string) => {
-    const line = `:${val}`;
+    const sanitized = val.replace(/^:+/, "");
+    const line = `:${sanitized}`;
     const auto = getCommandAutocomplete(line, state, commandRegistry);
     const completed = auto ? auto.completed : line;
 
@@ -48,16 +49,17 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     setError(null);
   };
 
+  const userCommand = state.ui.command.replace(/^:+/, "");
   const auto = getCommandAutocomplete(
-    `:${state.ui.command}`,
+    `:${userCommand}`,
     state,
     commandRegistry,
   );
   const hint = (() => {
-    if (!state.ui.command) {
+    if (!userCommand) {
       return <Text dimColor>(Enter to run, Esc to cancel)</Text>;
     }
-    const completedLine = auto ? auto.completed : `:${state.ui.command}`;
+    const completedLine = auto ? auto.completed : `:${userCommand}`;
     const parsed = commandRegistry.parseCommandLine(completedLine);
     const command = parsed?.command ?? "";
     if (!command) {
@@ -116,9 +118,10 @@ export const CommandBar: React.FC<CommandBarProps> = ({
         key={state.ui.commandInputKey}
         value={state.ui.command}
         onChange={(value) => {
+          const sanitized = value.replace(/^:+/, "");
           dispatch({
             type: "SET_COMMAND",
-            payload: value,
+            payload: sanitized,
           });
           if (error) {
             setError(null);
