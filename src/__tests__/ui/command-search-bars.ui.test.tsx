@@ -10,6 +10,8 @@ describe("CommandBar and SearchBar UI Tests", () => {
   let mockCommandRegistry: {
     parseCommandLine: ReturnType<typeof mock>;
     getCommands: ReturnType<typeof mock>;
+    getAllCommands: ReturnType<typeof mock>;
+    getCommand: ReturnType<typeof mock>;
     executeCommand: ReturnType<typeof mock>;
     registerCommand: ReturnType<typeof mock>;
     registerInputHandler: ReturnType<typeof mock>;
@@ -23,6 +25,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
       parseCommandLine: mock(),
       getCommands: mock().mockReturnValue([]),
       getAllCommands: mock().mockReturnValue(new Map([["cluster", {}]])),
+      getCommand: mock(),
       executeCommand: mock(),
       registerCommand: mock(),
       registerInputHandler: mock(),
@@ -174,6 +177,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           command: "sync",
           args: ["frontend-app"],
         });
+        mockCommandRegistry.getCommand.mockReturnValue({});
 
         const commandState = {
           mode: "command" as const,
@@ -249,6 +253,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           command: "rollback",
           args: ["myapp", "v1.2.3", "--force"],
         });
+        mockCommandRegistry.getCommand.mockReturnValue({});
 
         const commandState = {
           mode: "command" as const,
@@ -281,6 +286,41 @@ describe("CommandBar and SearchBar UI Tests", () => {
           "v1.2.3",
           "--force",
         );
+      });
+
+      it("shows error for unknown command", async () => {
+        mockCommandRegistry.parseCommandLine.mockReturnValue({
+          command: "nosuch",
+          args: [],
+        });
+        mockCommandRegistry.getCommand.mockReturnValue(undefined);
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "nosuch",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("\r");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(mockOnExecuteCommand).not.toHaveBeenCalled();
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("Unknown command");
+        expect(frame).toContain(":nosuch");
       });
     });
 
@@ -324,6 +364,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           command: "cluster",
           args: ["production"],
         });
+        mockCommandRegistry.getCommand.mockReturnValue({});
 
         const commandState = {
           mode: "command" as const,
@@ -370,6 +411,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
           command: "cluster",
           args: [],
         });
+        mockCommandRegistry.getCommand.mockReturnValue({});
 
         const commandState = {
           mode: "command" as const,

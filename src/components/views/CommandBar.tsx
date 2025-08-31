@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
 import type React from "react";
+import { useState } from "react";
 import type { CommandRegistry } from "../../commands";
 import { getCommandAutocomplete } from "../../commands/autocomplete";
 import { useAppState } from "../../contexts/AppStateContext";
@@ -15,6 +16,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   onExecuteCommand,
 }) => {
   const { state, dispatch } = useAppState();
+  const [error, setError] = useState<string | null>(null);
 
   if (state.mode !== "command") {
     return null;
@@ -25,18 +27,39 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     const auto = getCommandAutocomplete(line, state, commandRegistry);
     const completed = auto ? auto.completed : line;
 
-    dispatch({ type: "SET_MODE", payload: "normal" });
-
     const { command, args } = commandRegistry.parseCommandLine(completed);
-    if (command) {
-      onExecuteCommand(command, ...args);
+
+    if (!command) {
+      dispatch({ type: "SET_MODE", payload: "normal" });
+      dispatch({ type: "SET_COMMAND", payload: "" });
+      setError(null);
+      return;
     }
 
+    if (!commandRegistry.getCommand(command)) {
+      setError(`Unknown command: ${command}`);
+      process.stdout.write("\x07");
+      return;
+    }
+
+    dispatch({ type: "SET_MODE", payload: "normal" });
+    onExecuteCommand(command, ...args);
     dispatch({ type: "SET_COMMAND", payload: "" });
+    setError(null);
   };
 
+  const auto = getCommandAutocomplete(
+    `:${state.ui.command}`,
+    state,
+    commandRegistry,
+  );
+
   return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+    <Box
+      borderStyle="round"
+      borderColor={error ? "red" : "yellow"}
+      paddingX={1}
+    >
       <Text bold color="cyan">
         CMD
       </Text>
@@ -45,23 +68,23 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       <TextInput
         key={state.ui.commandInputKey}
         value={state.ui.command}
-        onChange={(value) =>
+        onChange={(value) => {
           dispatch({
             type: "SET_COMMAND",
             payload: value,
-          })
-        }
+          });
+          if (error) {
+            setError(null);
+          }
+        }}
         onSubmit={handleSubmit}
         showCursor={false}
       />
-      {(() => {
-        const auto = getCommandAutocomplete(
-          `:${state.ui.command}`,
-          state,
-          commandRegistry,
-        );
-        return auto ? <Text dimColor>{auto.suggestion}</Text> : null;
-      })()}
+      {error ? (
+        <Text color="red">{error}</Text>
+      ) : auto ? (
+        <Text dimColor>{auto.suggestion}</Text>
+      ) : null}
       <Box width={2} />
       <Text dimColor>(Enter to run, Esc to cancel)</Text>
     </Box>
