@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ResourcesCommand, SyncCommand } from "../../commands/application";
-import { ClearCommand, NavigationCommand } from "../../commands/navigation";
+import { NavigationCommand } from "../../commands/navigation";
 import {
   createMockApps,
   createMockContext,
@@ -139,42 +139,6 @@ describe("Command Argument Handling", () => {
         type: "SET_MODE",
         payload: "resources",
       });
-    });
-  });
-
-  describe("Commands without argument handling", () => {
-    test(":clear command should not accept arguments", () => {
-      const context = createMockContext({
-        state: createMockState({
-          mode: "command",
-          navigation: {
-            view: "clusters",
-            selectedIdx: 0,
-            lastGPressed: 0,
-            lastEscPressed: 0,
-          },
-          selections: {
-            scopeClusters: new Set(["prod", "staging"]),
-            scopeNamespaces: new Set(),
-            scopeProjects: new Set(),
-            selectedApps: new Set(),
-          },
-        }),
-      });
-
-      const clearCommand = new ClearCommand();
-
-      // Clear command doesn't use the arg parameter - it always clears current view
-      clearCommand.execute(context, "ignored-argument");
-
-      expect(context.dispatch).toHaveBeenCalledWith({
-        type: "SET_SCOPE_CLUSTERS",
-        payload: new Set(),
-      });
-      expect(context.statusLog.info).toHaveBeenCalledWith(
-        "Selection cleared.",
-        "user-action",
-      );
     });
   });
 

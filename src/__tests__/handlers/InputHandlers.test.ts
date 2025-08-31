@@ -285,7 +285,7 @@ describe("CommandInputHandler", () => {
       expect(result).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "SET_COMMAND",
-        payload: "cluster ",
+        payload: "cluster",
       });
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "BUMP_COMMAND_INPUT_KEY",
@@ -328,6 +328,29 @@ describe("CommandInputHandler", () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: "BUMP_COMMAND_INPUT_KEY",
       });
+    });
+
+    it("keeps the stapler secret", () => {
+      registry.registerCommand("ilikeargonaut", createMockCommand());
+      const mockDispatch = mock();
+      const context = createMockContext({
+        state: createMockState({
+          mode: "command",
+          ui: {
+            command: "ilike",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+            latestVersion: undefined,
+          },
+        }),
+        dispatch: mockDispatch,
+      });
+
+      const result = handler.handleInput("", { tab: true }, context);
+
+      expect(result).toBe(true);
+      expect(mockDispatch).not.toHaveBeenCalled();
     });
 
     it("should complete namespace names on Tab", () => {

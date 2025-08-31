@@ -393,7 +393,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         stdin.write("\r");
 
         expect(mockCommandRegistry.parseCommandLine).toHaveBeenCalledWith(
-          ":cluster ",
+          ":cluster",
         );
       });
 

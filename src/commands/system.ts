@@ -19,21 +19,6 @@ export class HelpCommand implements Command {
   }
 }
 
-export class LoginCommand implements Command {
-  aliases = [];
-  description = "Show login instructions";
-
-  execute(context: CommandContext): void {
-    const { dispatch, statusLog } = context;
-
-    statusLog.error(
-      "please use argocd login to authenticate before running argonaut",
-      "auth",
-    );
-    dispatch({ type: "SET_MODE", payload: "auth-required" });
-  }
-}
-
 export class RulerCommand implements Command {
   aliases = [];
   description = "Open ruler line mode";

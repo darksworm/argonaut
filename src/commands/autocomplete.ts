@@ -65,13 +65,17 @@ export function getCommandAutocomplete(
     const cmdRaw = line.slice(1);
     if (!cmdRaw) return null;
 
-    const commandNames = Array.from(registry.getAllCommands().keys()).sort();
+    // keep the secret stapler off the supply shelf
+    const stapler = "ilikeargonaut";
+    const commandNames = Array.from(registry.getAllCommands().keys())
+      .filter((c) => c !== stapler)
+      .sort();
     const match = commandNames.find((c) => c.startsWith(cmdRaw.toLowerCase()));
     if (!match || match.toLowerCase() === cmdRaw.toLowerCase()) return null;
 
     return {
-      completed: `:${match} `,
-      suggestion: `${match.slice(cmdRaw.length)} `,
+      completed: `:${match}`,
+      suggestion: `${match.slice(cmdRaw.length)}`,
     };
   }
 

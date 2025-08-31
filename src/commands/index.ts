@@ -13,19 +13,9 @@ import {
   NavigationInputHandler,
   SearchInputHandler,
 } from "./handlers/keyboard";
-import {
-  ClearAllCommand,
-  ClearCommand,
-  NavigationCommand,
-  UpCommand,
-} from "./navigation";
+import { ClearAllCommand, NavigationCommand, UpCommand } from "./navigation";
 import { CommandRegistry } from "./registry";
-import {
-  createRulerCommand,
-  HelpCommand,
-  LoginCommand,
-  QuitCommand,
-} from "./system";
+import { createRulerCommand, HelpCommand, QuitCommand } from "./system";
 
 export function createDefaultCommandRegistry(): CommandRegistry {
   const registry = new CommandRegistry();
@@ -33,7 +23,6 @@ export function createDefaultCommandRegistry(): CommandRegistry {
   // System commands
   registry.registerCommand("q", new QuitCommand());
   registry.registerCommand("help", new HelpCommand());
-  registry.registerCommand("login", new LoginCommand());
 
   // Special ruler command
   const { name: rulerName, command: rulerCommand } = createRulerCommand();
@@ -58,7 +47,6 @@ export function createDefaultCommandRegistry(): CommandRegistry {
   );
 
   // Clear commands
-  registry.registerCommand("clear", new ClearCommand());
   registry.registerCommand("all", new ClearAllCommand());
 
   // Navigation commands

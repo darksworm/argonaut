@@ -23,21 +23,6 @@ class TestHelpCommand implements Command {
   }
 }
 
-class TestLoginCommand implements Command {
-  aliases = [];
-  description = "Show login instructions";
-
-  execute(context: CommandContext): void {
-    const { dispatch, statusLog } = context;
-
-    statusLog.error(
-      "please use argocd login to authenticate before running argonaut",
-      "auth",
-    );
-    dispatch({ type: "SET_MODE", payload: "auth-required" });
-  }
-}
-
 class TestRulerCommand implements Command {
   aliases = [];
   description = "Open ruler line mode";
@@ -218,161 +203,6 @@ describe("HelpCommand", () => {
   });
 });
 
-describe("LoginCommand", () => {
-  let loginCommand: TestLoginCommand;
-
-  beforeEach(() => {
-    loginCommand = new TestLoginCommand();
-  });
-
-  describe("execute", () => {
-    it("should show error message and set auth-required mode", () => {
-      // Arrange
-      const mockDispatch = mock();
-      const mockStatusLog = {
-        info: mock(),
-        warn: mock(),
-        error: mock(),
-        debug: mock(),
-        set: mock(),
-        clear: mock(),
-      };
-      const context = createMockContext({
-        dispatch: mockDispatch,
-        statusLog: mockStatusLog,
-      });
-
-      // Act
-      loginCommand.execute(context);
-
-      // Assert
-      expect(mockStatusLog.error).toHaveBeenCalledWith(
-        "please use argocd login to authenticate before running argonaut",
-        "auth",
-      );
-      expect(mockDispatch).toHaveBeenCalledWith({
-        type: "SET_MODE",
-        payload: "auth-required",
-      });
-    });
-
-    it("should work when called from any authentication state", () => {
-      // Arrange - Test with authenticated state
-      const mockDispatch = mock();
-      const mockStatusLog = {
-        info: mock(),
-        warn: mock(),
-        error: mock(),
-        debug: mock(),
-        set: mock(),
-        clear: mock(),
-      };
-      const authenticatedContext = createMockContext({
-        state: createMockState({
-          server: {
-            config: { baseUrl: "https://test.com" },
-            token: "test-token",
-          },
-        }),
-        dispatch: mockDispatch,
-        statusLog: mockStatusLog,
-      });
-
-      // Act
-      loginCommand.execute(authenticatedContext);
-
-      // Assert - Should still show login message
-      expect(mockStatusLog.error).toHaveBeenCalledWith(
-        "please use argocd login to authenticate before running argonaut",
-        "auth",
-      );
-      expect(mockDispatch).toHaveBeenCalledWith({
-        type: "SET_MODE",
-        payload: "auth-required",
-      });
-    });
-
-    it("should work when called with minimal context", () => {
-      // Arrange
-      const mockDispatch = mock();
-      const mockStatusLog = {
-        info: mock(),
-        warn: mock(),
-        error: mock(),
-        debug: mock(),
-        set: mock(),
-        clear: mock(),
-      };
-      const minimalContext = createMockContext({
-        dispatch: mockDispatch,
-        statusLog: mockStatusLog,
-      });
-
-      // Act & Assert
-      expect(() => loginCommand.execute(minimalContext)).not.toThrow();
-      expect(mockStatusLog.error).toHaveBeenCalled();
-      expect(mockDispatch).toHaveBeenCalled();
-    });
-  });
-
-  describe("properties", () => {
-    it("should have empty aliases array", () => {
-      expect(loginCommand.aliases).toEqual([]);
-    });
-
-    it("should have correct description", () => {
-      expect(loginCommand.description).toBe("Show login instructions");
-    });
-  });
-
-  describe("error handling", () => {
-    it("should handle dispatch failure gracefully", () => {
-      // Arrange
-      const mockDispatch = mock().mockImplementation(() => {
-        throw new Error("Dispatch failed");
-      });
-      const mockStatusLog = {
-        info: mock(),
-        warn: mock(),
-        error: mock(),
-        debug: mock(),
-        set: mock(),
-        clear: mock(),
-      };
-      const context = createMockContext({
-        dispatch: mockDispatch,
-        statusLog: mockStatusLog,
-      });
-
-      // Act & Assert
-      expect(() => loginCommand.execute(context)).toThrow("Dispatch failed");
-      expect(mockStatusLog.error).toHaveBeenCalled();
-    });
-
-    it("should handle statusLog failure gracefully", () => {
-      // Arrange
-      const mockDispatch = mock();
-      const mockStatusLog = {
-        info: mock(),
-        warn: mock(),
-        error: mock().mockImplementation(() => {
-          throw new Error("StatusLog failed");
-        }),
-        debug: mock(),
-        set: mock(),
-        clear: mock(),
-      };
-      const context = createMockContext({
-        dispatch: mockDispatch,
-        statusLog: mockStatusLog,
-      });
-
-      // Act & Assert
-      expect(() => loginCommand.execute(context)).toThrow("StatusLog failed");
-    });
-  });
-});
-
 describe("RulerCommand", () => {
   let rulerCommand: TestRulerCommand;
 
@@ -540,14 +370,12 @@ describe("System Commands Integration", () => {
       // Act - Rapid command execution
       const helpCommand = new TestHelpCommand();
       const rulerCommand = new TestRulerCommand();
-      const loginCommand = new TestLoginCommand();
 
       helpCommand.execute(context);
       rulerCommand.execute(context);
-      loginCommand.execute(context);
 
       // Assert
-      expect(mockDispatch).toHaveBeenCalledTimes(3);
+      expect(mockDispatch).toHaveBeenCalledTimes(2);
       expect(mockDispatch).toHaveBeenNthCalledWith(1, {
         type: "SET_MODE",
         payload: "help",
@@ -555,10 +383,6 @@ describe("System Commands Integration", () => {
       expect(mockDispatch).toHaveBeenNthCalledWith(2, {
         type: "SET_MODE",
         payload: "rulerline",
-      });
-      expect(mockDispatch).toHaveBeenNthCalledWith(3, {
-        type: "SET_MODE",
-        payload: "auth-required",
       });
     });
   });
