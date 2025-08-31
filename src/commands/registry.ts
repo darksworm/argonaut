@@ -3,14 +3,19 @@ import type { Command, CommandContext, InputHandler } from "./types";
 export class CommandRegistry {
   private commands = new Map<string, Command>();
   private inputHandlers: InputHandler[] = [];
+  private canonicalNames = new Map<string, string>();
 
   registerCommand(name: string, command: Command) {
-    this.commands.set(name.toLowerCase(), command);
+    const canonical = name.toLowerCase();
+    this.commands.set(canonical, command);
+    this.canonicalNames.set(canonical, canonical);
 
     // Register aliases
     if (command.aliases) {
       for (const alias of command.aliases) {
-        this.commands.set(alias.toLowerCase(), command);
+        const lower = alias.toLowerCase();
+        this.commands.set(lower, command);
+        this.canonicalNames.set(lower, canonical);
       }
     }
   }
@@ -67,6 +72,10 @@ export class CommandRegistry {
     return new Map(this.commands);
   }
 
+  getCanonicalCommand(name: string): string | undefined {
+    return this.canonicalNames.get(name.toLowerCase());
+  }
+
   parseCommandLine(line: string): { command: string; args: string[] } {
     const raw = line.trim();
     if (!raw.startsWith(":")) {
@@ -74,7 +83,8 @@ export class CommandRegistry {
     }
 
     const parts = raw.slice(1).trim().split(/\s+/);
-    const command = (parts[0] || "").toLowerCase();
+    const input = (parts[0] || "").toLowerCase();
+    const command = this.getCanonicalCommand(input) ?? input;
     const args = parts.slice(1);
 
     return { command, args };

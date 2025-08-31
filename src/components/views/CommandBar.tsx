@@ -89,11 +89,11 @@ export const CommandBar: React.FC<CommandBarProps> = ({
         </Text>
       ) : (
         <Text dimColor>
-          (display{" "}
+          (go to app{" "}
           <Text color="white" dimColor={false}>
             {arg}
-          </Text>{" "}
-          {command})
+          </Text>
+          )
         </Text>
       );
     }

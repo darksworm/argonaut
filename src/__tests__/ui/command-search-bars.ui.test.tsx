@@ -476,8 +476,9 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const registry = new CommandRegistry();
         const clustersCmd = createMockCommand({
           description: "Switch to clusters view",
+          aliases: ["clusters"],
         });
-        registry.registerCommand("clusters", clustersCmd);
+        registry.registerCommand("cluster", clustersCmd);
 
         const commandState = {
           mode: "command" as const,
@@ -647,8 +648,38 @@ describe("CommandBar and SearchBar UI Tests", () => {
         );
 
         const frame = stripAnsi(lastFrame());
-        expect(frame).toContain("(display frontend app)");
+        expect(frame).toContain("(go to app frontend)");
         expect(frame).not.toContain("Switch to apps view");
+      });
+
+      it("supports aliases for scoped hints", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster", ["clusters", "cls"]),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cls enigma-us",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display namespaces in enigma-us cluster)");
       });
     });
 
