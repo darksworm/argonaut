@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.1](https://github.com/darksworm/argonaut/compare/v1.15.0...v1.15.1) (2025-08-31)
+
+
+### Bug Fixes
+
+* disable broken docker build ([a7a980c](https://github.com/darksworm/argonaut/commit/a7a980c4045c2034227e44b4521b426b052883a9))
+
 ## [1.15.0](https://github.com/darksworm/argonaut/compare/v1.14.0...v1.15.0) (2025-08-31)
 
 
