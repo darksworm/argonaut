@@ -80,13 +80,13 @@ export const CommandBar: React.FC<CommandBarProps> = ({
         onSubmit={handleSubmit}
         showCursor={false}
       />
+      {!error && auto ? <Text dimColor>{auto.suggestion}</Text> : null}
+      <Box width={2} />
       {error ? (
         <Text color="red">{error}</Text>
-      ) : auto ? (
-        <Text dimColor>{auto.suggestion}</Text>
-      ) : null}
-      <Box width={2} />
-      <Text dimColor>(Enter to run, Esc to cancel)</Text>
+      ) : (
+        <Text dimColor>(Enter to run, Esc to cancel)</Text>
+      )}
     </Box>
   );
 };

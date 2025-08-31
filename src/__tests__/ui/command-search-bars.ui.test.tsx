@@ -320,7 +320,8 @@ describe("CommandBar and SearchBar UI Tests", () => {
         expect(mockOnExecuteCommand).not.toHaveBeenCalled();
         const frame = stripAnsi(lastFrame());
         expect(frame).toContain("Unknown command");
-        expect(frame).toContain(":nosuch");
+        expect(frame).toContain(":nosuch  Unknown command");
+        expect(frame).not.toContain("(Enter to run, Esc to cancel)");
       });
     });
 
