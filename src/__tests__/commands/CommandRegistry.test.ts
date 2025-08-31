@@ -358,5 +358,13 @@ describe("CommandRegistry", () => {
       // Note: This tests current behavior - in real implementation you might want to handle quotes
       expect(result.args).toEqual(['"my', 'app"', "other"]);
     });
+
+    it("resolves command aliases to canonical names", () => {
+      const mockCommand = createMockCommand({ aliases: ["clusters"] });
+      registry.registerCommand("cluster", mockCommand);
+      const result = registry.parseCommandLine(":clusters test");
+      expect(result.command).toBe("cluster");
+      expect(result.args).toEqual(["test"]);
+    });
   });
 });

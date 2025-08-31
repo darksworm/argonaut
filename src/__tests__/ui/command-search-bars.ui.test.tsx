@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
+import { useEffect } from "react";
+import { NavigationCommand } from "../../commands/navigation";
+import { CommandRegistry } from "../../commands/registry";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
-import { AppStateProvider } from "../../contexts/AppStateContext";
-import { stripAnsi } from "../test-utils";
+import { AppStateProvider, useAppState } from "../../contexts/AppStateContext";
+import { createMockCommand, stripAnsi } from "../test-utils";
 
 // Test CommandBar and SearchBar components
 describe("CommandBar and SearchBar UI Tests", () => {
@@ -22,7 +25,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
 
   beforeEach(() => {
     mockCommandRegistry = {
-      parseCommandLine: mock(),
+      parseCommandLine: mock().mockReturnValue({ command: "", args: [] }),
       getCommands: mock().mockReturnValue([]),
       getAllCommands: mock().mockReturnValue(new Map([["cluster", {}]])),
       getCommand: mock(),
@@ -41,7 +44,7 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const commandModeState = {
           mode: "command" as const,
           ui: {
-            command: "sync",
+            command: "",
             searchQuery: "",
             activeFilter: "",
             isVersionOutdated: false,
@@ -113,6 +116,41 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const frame = lastFrame();
         expect(frame).toBe("");
       });
+
+      it("renders correctly after switching to command mode", async () => {
+        const initialState = {
+          mode: "normal" as const,
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const ModeSwitcher = () => {
+          const { dispatch } = useAppState();
+          useEffect(() => {
+            dispatch({ type: "SET_MODE", payload: "command" });
+          }, [dispatch]);
+          return null;
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={initialState}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+            <ModeSwitcher />
+          </AppStateProvider>,
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const frame = lastFrame();
+        expect(frame).toContain("CMD");
+      });
     });
 
     describe("Command Input Display", () => {
@@ -168,6 +206,35 @@ describe("CommandBar and SearchBar UI Tests", () => {
         expect(frame).toContain("CMD");
         expect(frame).toContain("Enter to run, Esc to cancel");
         expect(frame).toContain(":");
+      });
+
+      it("swallows extra leading colon input", async () => {
+        const state = {
+          mode: "command" as const,
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={state}>
+            <CommandBar
+              commandRegistry={mockCommandRegistry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write(":");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const frame = stripAnsi(lastFrame());
+        const colonCount = (frame.match(/:/g) ?? []).length;
+        expect(colonCount).toBe(1);
+        expect(frame).toContain("Enter to run, Esc to cancel");
       });
     });
 
@@ -469,6 +536,300 @@ describe("CommandBar and SearchBar UI Tests", () => {
       });
     });
 
+    describe("Command hints", () => {
+      it("shows description for known commands", () => {
+        const registry = new CommandRegistry();
+        const clustersCmd = createMockCommand({
+          description: "Switch to clusters view",
+          aliases: ["clusters"],
+        });
+        registry.registerCommand("cluster", clustersCmd);
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "clu",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(Switch to clusters view)");
+        expect(frame).not.toContain("Enter to run, Esc to cancel");
+      });
+
+      it("shows unknown command hint for invalid commands", () => {
+        const registry = new CommandRegistry();
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "asdfasd",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(Unknown command)");
+        expect(frame).not.toContain("Enter to run, Esc to cancel");
+      });
+
+      it("shows scoped hint for cluster command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster"),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cluster enigma-us",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display namespaces in enigma-us cluster)");
+        expect(frame).not.toContain("Switch to clusters view");
+      });
+
+      it("shows scoped hint for namespace command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "namespace",
+          new NavigationCommand("namespaces", "namespace"),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "namespace api",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display projects in api namespace)");
+        expect(frame).not.toContain("Switch to namespaces view");
+      });
+
+      it("shows scoped hint for project command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "project",
+          new NavigationCommand("projects", "project"),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "project payments",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display apps in payments project)");
+        expect(frame).not.toContain("Switch to projects view");
+      });
+
+      it("shows scoped hint for app command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand("app", new NavigationCommand("apps", "app"));
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "app frontend",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(go to app frontend)");
+        expect(frame).not.toContain("Switch to apps view");
+      });
+
+      it("supports aliases for scoped hints", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster", ["clusters", "cls"]),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cls enigma-us",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display namespaces in enigma-us cluster)");
+      });
+    });
+
+    describe("Autocomplete", () => {
+      it("completes command names on Tab", async () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster"),
+        );
+
+        const state = {
+          mode: "command" as const,
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={state}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("clu");
+        await new Promise((r) => setTimeout(r, 0));
+        stdin.write("\t");
+        await new Promise((r) => setTimeout(r, 0));
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("cluster");
+      });
+
+      it("completes cluster names on Tab", async () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster"),
+        );
+
+        const state = {
+          mode: "command" as const,
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={state}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("cluster pro");
+        await new Promise((r) => setTimeout(r, 0));
+        stdin.write("\t");
+        await new Promise((r) => setTimeout(r, 0));
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("cluster production");
+      });
+    });
+
     describe("UI Styling and Layout", () => {
       it("displays with proper styling elements", () => {
         const commandState = {
@@ -495,8 +856,8 @@ describe("CommandBar and SearchBar UI Tests", () => {
         // Should have CMD label
         expect(frame).toContain("CMD");
 
-        // Should have help text
-        expect(frame).toContain("Enter to run, Esc to cancel");
+        // Should show hint about command
+        expect(frame).toContain("(Unknown command)");
 
         // Should contain the command
         expect(frame).toContain("help");
