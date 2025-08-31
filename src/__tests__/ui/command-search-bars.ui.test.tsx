@@ -712,6 +712,88 @@ describe("CommandBar and SearchBar UI Tests", () => {
       });
     });
 
+    describe("Autocomplete", () => {
+      it("completes command names on Tab", async () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster"),
+        );
+
+        const state = {
+          mode: "command" as const,
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={state}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("clu");
+        await new Promise((r) => setTimeout(r, 0));
+        stdin.write("\t");
+        await new Promise((r) => setTimeout(r, 0));
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("cluster");
+      });
+
+      it("completes cluster names on Tab", async () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster"),
+        );
+
+        const state = {
+          mode: "command" as const,
+          apps: [
+            {
+              name: "a",
+              sync: "Synced",
+              health: "Healthy",
+              clusterLabel: "production",
+              namespace: "default",
+              project: "proj1",
+            },
+          ],
+          ui: {
+            command: "",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { stdin, lastFrame } = render(
+          <AppStateProvider initialState={state}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        stdin.write("cluster pro");
+        await new Promise((r) => setTimeout(r, 0));
+        stdin.write("\t");
+        await new Promise((r) => setTimeout(r, 0));
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("cluster production");
+      });
+    });
+
     describe("UI Styling and Layout", () => {
       it("displays with proper styling elements", () => {
         const commandState = {

@@ -1,4 +1,4 @@
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
 import type React from "react";
 import { useState } from "react";
@@ -16,6 +16,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   onExecuteCommand,
 }) => {
   const { state, dispatch } = useAppState();
+  const [input, setInput] = useState(state.ui.command);
   const [error, setError] = useState<string | null>(null);
 
   if (state.mode !== "command") {
@@ -46,10 +47,31 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     dispatch({ type: "SET_MODE", payload: "normal" });
     onExecuteCommand(command, ...args);
     dispatch({ type: "SET_COMMAND", payload: "" });
+    setInput("");
     setError(null);
   };
 
-  const userCommand = state.ui.command.replace(/^:+/, "");
+  useInput((_, key) => {
+    if (key.escape) {
+      dispatch({ type: "SET_MODE", payload: "normal" });
+      dispatch({ type: "SET_COMMAND", payload: "" });
+      setInput("");
+      setError(null);
+    }
+
+    if (key.tab) {
+      const autoComplete = getCommandAutocomplete(
+        `:${input}`,
+        state,
+        commandRegistry,
+      );
+      if (autoComplete) {
+        setInput(autoComplete.completed.slice(1));
+      }
+    }
+  });
+
+  const userCommand = input.replace(/^:+/, "");
   const auto = getCommandAutocomplete(
     `:${userCommand}`,
     state,
@@ -115,14 +137,10 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       <Box width={1} />
       <Text color="white">:</Text>
       <TextInput
-        key={state.ui.commandInputKey}
-        value={state.ui.command}
+        value={input}
         onChange={(value) => {
           const sanitized = value.replace(/^:+/, "");
-          dispatch({
-            type: "SET_COMMAND",
-            payload: sanitized,
-          });
+          setInput(sanitized);
           if (error) {
             setError(null);
           }

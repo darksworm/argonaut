@@ -1,6 +1,4 @@
-import { getCommandAutocomplete } from "../autocomplete";
 import { UpCommand } from "../navigation";
-import type { CommandRegistry } from "../registry";
 import type { CommandContext, InputHandler } from "../types";
 
 export class NavigationInputHandler implements InputHandler {
@@ -326,42 +324,6 @@ export class SearchInputHandler implements InputHandler {
   private getVisibleItemsCount(context: CommandContext): number {
     // Simplified implementation
     return context.state.apps.length;
-  }
-}
-
-export class CommandInputHandler implements InputHandler {
-  priority = 30; // Highest priority when in command mode
-
-  constructor(private registry: CommandRegistry) {}
-
-  canHandle(context: CommandContext): boolean {
-    return context.state.mode === "command";
-  }
-
-  handleInput(_input: string, key: any, context: CommandContext): boolean {
-    const { dispatch, state } = context;
-
-    if (key.escape) {
-      dispatch({ type: "SET_MODE", payload: "normal" });
-      dispatch({ type: "SET_COMMAND", payload: "" });
-      return true;
-    }
-
-    if (key.tab) {
-      const auto = getCommandAutocomplete(
-        `:${state.ui.command}`,
-        state,
-        this.registry,
-      );
-      if (auto) {
-        dispatch({ type: "SET_COMMAND", payload: auto.completed.slice(1) });
-        dispatch({ type: "BUMP_COMMAND_INPUT_KEY" });
-      }
-      return true;
-    }
-
-    // TextInput handles typing/enter
-    return false;
   }
 }
 
