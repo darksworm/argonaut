@@ -53,19 +53,52 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     state,
     commandRegistry,
   );
-
-  const hintText = (() => {
+  const hint = (() => {
     if (!state.ui.command) {
-      return "(Enter to run, Esc to cancel)";
+      return <Text dimColor>(Enter to run, Esc to cancel)</Text>;
     }
     const completedLine = auto ? auto.completed : `:${state.ui.command}`;
     const parsed = commandRegistry.parseCommandLine(completedLine);
     const command = parsed?.command ?? "";
     if (!command) {
-      return "(Unknown command)";
+      return <Text dimColor>(Unknown command)</Text>;
     }
     const cmd = commandRegistry.getCommand(command);
-    return `(${cmd?.description ?? "Unknown command"})`;
+
+    const scopeMap: Record<string, string | null> = {
+      cluster: "namespaces",
+      namespace: "projects",
+      project: "apps",
+      app: null,
+    };
+
+    const arg = parsed.args[0];
+    const nextScope = scopeMap[command];
+    if (arg && nextScope !== undefined) {
+      return nextScope ? (
+        <Text dimColor>
+          (display{" "}
+          <Text bold dimColor={false}>
+            {nextScope}
+          </Text>{" "}
+          in{" "}
+          <Text color="white" dimColor={false}>
+            {arg}
+          </Text>{" "}
+          {command})
+        </Text>
+      ) : (
+        <Text dimColor>
+          (display{" "}
+          <Text color="white" dimColor={false}>
+            {arg}
+          </Text>{" "}
+          {command})
+        </Text>
+      );
+    }
+
+    return <Text dimColor>({cmd?.description ?? "Unknown command"})</Text>;
   })();
 
   return (
@@ -96,11 +129,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       />
       {!error && auto ? <Text dimColor>{auto.suggestion}</Text> : null}
       <Box width={2} />
-      {error ? (
-        <Text color="red">{error}</Text>
-      ) : (
-        <Text dimColor>{hintText}</Text>
-      )}
+      {error ? <Text color="red">{error}</Text> : hint}
     </Box>
   );
 };

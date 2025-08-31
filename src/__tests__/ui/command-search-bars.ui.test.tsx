@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
+import { NavigationCommand } from "../../commands/navigation";
 import { CommandRegistry } from "../../commands/registry";
 import { CommandBar } from "../../components/views/CommandBar";
 import { SearchBar } from "../../components/views/SearchBar";
@@ -527,6 +528,127 @@ describe("CommandBar and SearchBar UI Tests", () => {
         const frame = stripAnsi(lastFrame());
         expect(frame).toContain("(Unknown command)");
         expect(frame).not.toContain("Enter to run, Esc to cancel");
+      });
+
+      it("shows scoped hint for cluster command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "cluster",
+          new NavigationCommand("clusters", "cluster"),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "cluster enigma-us",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display namespaces in enigma-us cluster)");
+        expect(frame).not.toContain("Switch to clusters view");
+      });
+
+      it("shows scoped hint for namespace command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "namespace",
+          new NavigationCommand("namespaces", "namespace"),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "namespace api",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display projects in api namespace)");
+        expect(frame).not.toContain("Switch to namespaces view");
+      });
+
+      it("shows scoped hint for project command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand(
+          "project",
+          new NavigationCommand("projects", "project"),
+        );
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "project payments",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display apps in payments project)");
+        expect(frame).not.toContain("Switch to projects view");
+      });
+
+      it("shows scoped hint for app command with entity", () => {
+        const registry = new CommandRegistry();
+        registry.registerCommand("app", new NavigationCommand("apps", "app"));
+
+        const commandState = {
+          mode: "command" as const,
+          ui: {
+            command: "app frontend",
+            searchQuery: "",
+            activeFilter: "",
+            isVersionOutdated: false,
+          },
+        };
+
+        const { lastFrame } = render(
+          <AppStateProvider initialState={commandState}>
+            <CommandBar
+              commandRegistry={registry}
+              onExecuteCommand={mockOnExecuteCommand}
+            />
+          </AppStateProvider>,
+        );
+
+        const frame = stripAnsi(lastFrame());
+        expect(frame).toContain("(display frontend app)");
+        expect(frame).not.toContain("Switch to apps view");
       });
     });
 
