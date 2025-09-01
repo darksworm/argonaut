@@ -5,13 +5,61 @@ export interface InkPagerOptions {
   searchEnabled?: boolean;
 }
 
+export interface PagerDependencies {
+  stdin: {
+    setRawMode: (enabled: boolean) => any;
+    pause: () => any;
+    resume: () => any;
+    on: (event: string, handler: Function) => any;
+    removeListener: (event: string, handler: Function) => any;
+  };
+  stdout: {
+    rows?: number;
+    cols?: number;
+    on: (event: string, handler: Function) => any;
+    off: (event: string, handler: Function) => any;
+  };
+  process: {
+    emit: (event: string) => boolean;
+    on: (event: string, handler: Function) => any;
+    off: (event: string, handler: Function) => any;
+  };
+  rawStdoutWrite: (chunk: string) => boolean;
+  setTimeout: (fn: Function, ms: number) => any;
+}
+
+// Default dependencies using real Node.js APIs
+const createDefaultDependencies = (): PagerDependencies => ({
+  stdin: {
+    setRawMode: (enabled: boolean) => (process.stdin as any).setRawMode?.(enabled),
+    pause: () => process.stdin.pause(),
+    resume: () => process.stdin.resume(),
+    on: (event: string, handler: Function) => process.stdin.on(event, handler),
+    removeListener: (event: string, handler: Function) => process.stdin.removeListener(event, handler),
+  },
+  stdout: {
+    rows: (process.stdout as any)?.rows,
+    cols: (process.stdout as any)?.cols,
+    on: (event: string, handler: Function) => process.stdout.on(event, handler),
+    off: (event: string, handler: Function) => process.stdout.off(event, handler),
+  },
+  process: {
+    emit: (event: string) => process.emit(event),
+    on: (event: string, handler: Function) => process.on(event, handler),
+    off: (event: string, handler: Function) => process.off(event, handler),
+  },
+  rawStdoutWrite,
+  setTimeout: global.setTimeout,
+});
+
 // Reusable Ink-based pager with scroll and search
 export async function showInkPager(
   content: string,
   options: InkPagerOptions = {},
+  deps: PagerDependencies = createDefaultDependencies(),
 ): Promise<void> {
   const lines = content.split("\n");
-  const terminalRows = (process.stdout as any)?.rows || 24;
+  const terminalRows = deps.stdout.rows || 24;
   // Use full terminal height minus space for title and status line
   const titleLines = options.title ? 2 : 0; // title + empty line
   let maxRows = Math.max(8, terminalRows - titleLines - 1); // -1 for status line
@@ -36,11 +84,11 @@ export async function showInkPager(
 
   const render = () => {
     // Clear screen and move to top
-    rawStdoutWrite("\x1b[2J\x1b[H");
+    deps.rawStdoutWrite("\x1b[2J\x1b[H");
 
     // Show title if provided
     if (options.title) {
-      rawStdoutWrite(`\x1b[1m${options.title}\x1b[0m\n\n`);
+      deps.rawStdoutWrite(`\x1b[1m${options.title}\x1b[0m\n\n`);
     }
 
     const visibleLines = lines.slice(topLine, topLine + maxRows);
@@ -69,10 +117,10 @@ export async function showInkPager(
           displayLine = line.replace(regex, `${highlightColor}$1\x1b[0m`);
         }
 
-        rawStdoutWrite(`${displayLine}\n`);
+        deps.rawStdoutWrite(`${displayLine}\n`);
       } else {
         // Pad with empty lines to fill the screen
-        rawStdoutWrite("\n");
+        deps.rawStdoutWrite("\n");
       }
     }
 
@@ -95,51 +143,24 @@ export async function showInkPager(
         : " | q:quit j:down k:up space:page-down b:page-up g:top G:bottom";
     statusLine += controls;
 
-    rawStdoutWrite(
-      `\x1b[7m${statusLine.padEnd((process.stdout as any)?.columns || 80)}\x1b[0m`,
+    deps.rawStdoutWrite(
+      `\x1b[7m${statusLine.padEnd(deps.stdout.cols || 80)}\x1b[0m`,
     );
   };
 
-  process.emit("external-enter");
+  deps.process.emit("external-enter");
   // hack - wait a tick to let Ink unmount and clear the screen
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => deps.setTimeout(resolve, 0));
 
   return new Promise<void>((resolve, reject) => {
-    const stdin = process.stdin;
     let cleanedUp = false;
-
-    // Centralized cleanup function
-    let cleanup = () => {
-      if (cleanedUp) return;
-      cleanedUp = true;
-
-      stdin.removeListener("data", handleInput);
-      process.stdout.off("resize", onResize);
-      try {
-        (stdin as any).setRawMode?.(false);
-        stdin.pause();
-      } catch {}
-      // Don't clear screen - let Ink handle the redraw
-
-      // Hand stdin back to Ink
-      process.emit("external-exit");
-    };
-
-    try {
-      (stdin as any).setRawMode?.(true);
-      stdin.resume();
-    } catch (error) {
-      cleanup();
-      reject(error);
-      return;
-    }
-
     let inputBuffer = "";
     let inSearchMode = false;
+    let cleanupWrapper: () => void;
 
     // Handle terminal resize
     const updateSize = () => {
-      const newTerminalRows = (process.stdout as any)?.rows || 24;
+      const newTerminalRows = deps.stdout.rows || 24;
       const newTitleLines = options.title ? 2 : 0;
       const newMaxRows = Math.max(8, newTerminalRows - newTitleLines - 1);
 
@@ -151,10 +172,27 @@ export async function showInkPager(
     };
 
     const onResize = () => updateSize();
-    process.stdout.on("resize", onResize);
+    
+    // Centralized cleanup function
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
 
+      deps.stdin.removeListener("data", handleInput);
+      deps.stdout.off("resize", onResize);
+      try {
+        deps.stdin.setRawMode(false);
+        deps.stdin.pause();
+      } catch {}
+      // Don't clear screen - let Ink handle the redraw
+
+      // Hand stdin back to Ink
+      deps.process.emit("external-exit");
+    };
+    
     const handleInput = (chunk: Buffer) => {
       try {
+        if (!chunk) return; // Handle null/undefined chunks
         const key = chunk.toString();
 
         if (inSearchMode && options.searchEnabled !== false) {
@@ -175,11 +213,11 @@ export async function showInkPager(
           } else if (key === "\x7f" || key === "\b") {
             // Backspace in search
             inputBuffer = inputBuffer.slice(0, -1);
-            rawStdoutWrite(`\x1b[2K\rSearch: ${inputBuffer}`);
+            deps.rawStdoutWrite(`\x1b[2K\rSearch: ${inputBuffer}`);
           } else if (key.length === 1 && key >= " ") {
             // Regular character in search
             inputBuffer += key;
-            rawStdoutWrite(`\x1b[2K\rSearch: ${inputBuffer}`);
+            deps.rawStdoutWrite(`\x1b[2K\rSearch: ${inputBuffer}`);
           }
           return;
         }
@@ -187,7 +225,7 @@ export async function showInkPager(
         switch (key) {
           case "q":
           case "Q":
-            cleanup();
+            cleanupWrapper();
             resolve();
             break;
           case "j":
@@ -220,7 +258,7 @@ export async function showInkPager(
             if (options.searchEnabled !== false) {
               inSearchMode = true;
               inputBuffer = "";
-              rawStdoutWrite("\x1b[2K\rSearch: ");
+              deps.rawStdoutWrite("\x1b[2K\rSearch: ");
             }
             break;
           case "n":
@@ -255,7 +293,7 @@ export async function showInkPager(
             break;
         }
       } catch (error) {
-        cleanup();
+        cleanupWrapper();
         reject(error);
       }
     };
@@ -263,21 +301,30 @@ export async function showInkPager(
     // Handle process termination signals
     const signalHandler = () => {
       cleanup();
-      process.exit(0);
+      // Don't call process.exit in tests - let the test environment handle it
     };
 
-    process.on("SIGINT", signalHandler);
-    process.on("SIGTERM", signalHandler);
+    deps.process.on("SIGINT", signalHandler);
+    deps.process.on("SIGTERM", signalHandler);
 
     // Clean up signal handlers when done
-    const originalCleanup = cleanup;
-    cleanup = () => {
-      process.off("SIGINT", signalHandler);
-      process.off("SIGTERM", signalHandler);
-      originalCleanup();
+    cleanupWrapper = () => {
+      deps.process.off("SIGINT", signalHandler);
+      deps.process.off("SIGTERM", signalHandler);
+      cleanup();
     };
 
-    stdin.on("data", handleInput);
+    try {
+      deps.stdin.setRawMode(true);
+      deps.stdin.resume();
+    } catch (error) {
+      cleanupWrapper();
+      reject(error);
+      return;
+    }
+
+    deps.stdout.on("resize", onResize);
+    deps.stdin.on("data", handleInput);
     render();
   });
 }
