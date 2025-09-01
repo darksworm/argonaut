@@ -8,14 +8,14 @@ name: test
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - run: docker run --rm -v "$(pwd):/app" -w /app oven/bun:latest bun test --coverage --reporter=junit --reporter-outfile=$GITHUB_WORKSPACE/junit.xml
+      - run: bun test --coverage --reporter=junit --reporter-outfile=$GITHUB_WORKSPACE/junit.xml
       - run: cat $GITHUB_WORKSPACE/junit.xml
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
