@@ -15,7 +15,7 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - run: bun test --coverage --reporter=junit --reporter-outfile=$GITHUB_WORKSPACE/junit.xml
+      - run: docker run --rm -it -v "$(pwd):/app" -w /app oven/bun:latest bun test --coverage --reporter=junit --reporter-outfile=$GITHUB_WORKSPACE/junit.xml
       - run: cat $GITHUB_WORKSPACE/junit.xml
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
