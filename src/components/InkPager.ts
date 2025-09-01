@@ -10,22 +10,22 @@ export interface PagerDependencies {
     setRawMode: (enabled: boolean) => any;
     pause: () => any;
     resume: () => any;
-    on: (event: string, handler: Function) => any;
-    removeListener: (event: string, handler: Function) => any;
+    on: (event: string, handler: (...args: any[]) => void) => any;
+    removeListener: (event: string, handler: (...args: any[]) => void) => any;
   };
   stdout: {
     rows?: number;
     cols?: number;
-    on: (event: string, handler: Function) => any;
-    off: (event: string, handler: Function) => any;
+    on: (event: string, handler: (...args: any[]) => void) => any;
+    off: (event: string, handler: (...args: any[]) => void) => any;
   };
   process: {
     emit: (event: string) => boolean;
-    on: (event: string, handler: Function) => any;
-    off: (event: string, handler: Function) => any;
+    on: (event: string, handler: (...args: any[]) => void) => any;
+    off: (event: string, handler: (...args: any[]) => void) => any;
   };
   rawStdoutWrite: (chunk: string) => boolean;
-  setTimeout: (fn: Function, ms: number) => any;
+  setTimeout: (fn: (...args: any[]) => void, ms: number) => any;
 }
 
 // Default dependencies using real Node.js APIs
@@ -34,22 +34,22 @@ const createDefaultDependencies = (): PagerDependencies => ({
     setRawMode: (enabled: boolean) => (process.stdin as any).setRawMode?.(enabled),
     pause: () => process.stdin.pause(),
     resume: () => process.stdin.resume(),
-    on: (event: string, handler: Function) => process.stdin.on(event, handler),
-    removeListener: (event: string, handler: Function) => process.stdin.removeListener(event, handler),
+    on: (event: string, handler: (...args: any[]) => void) => process.stdin.on(event, handler),
+    removeListener: (event: string, handler: (...args: any[]) => void) => process.stdin.removeListener(event, handler),
   },
   stdout: {
     rows: (process.stdout as any)?.rows,
     cols: (process.stdout as any)?.cols,
-    on: (event: string, handler: Function) => process.stdout.on(event, handler),
-    off: (event: string, handler: Function) => process.stdout.off(event, handler),
+    on: (event: string, handler: (...args: any[]) => void) => process.stdout.on(event as "resize", handler),
+    off: (event: string, handler: (...args: any[]) => void) => process.stdout.off(event as "resize", handler),
   },
   process: {
-    emit: (event: string) => process.emit(event),
-    on: (event: string, handler: Function) => process.on(event, handler),
-    off: (event: string, handler: Function) => process.off(event, handler),
+    emit: (event: string) => process.emit(event as any),
+    on: (event: string, handler: (...args: any[]) => void) => process.on(event as any, handler),
+    off: (event: string, handler: (...args: any[]) => void) => process.off(event as any, handler),
   },
   rawStdoutWrite,
-  setTimeout: global.setTimeout,
+  setTimeout: (fn: (...args: any[]) => void, ms: number) => global.setTimeout(fn, ms),
 });
 
 // Reusable Ink-based pager with scroll and search
