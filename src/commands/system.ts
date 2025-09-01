@@ -2,7 +2,7 @@ import { rulerLineMode } from "../components/OfficeSupplyManager";
 import type { Command, CommandContext } from "./types";
 
 export class QuitCommand implements Command {
-  aliases = ["quit", "exit"];
+  aliases = ["quit", "exit", "q!"];
   description = "Exit the application";
 
   execute(context: CommandContext): void {

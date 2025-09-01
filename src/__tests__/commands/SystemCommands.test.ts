@@ -6,7 +6,7 @@ import { createMockContext, createMockState } from "../test-utils";
 
 // Test implementations of system command classes without external dependencies
 class TestQuitCommand implements Command {
-  aliases = ["quit", "exit"];
+  aliases = ["quit", "exit", "q!"];
   description = "Exit the application";
 
   execute(context: CommandContext): void {
@@ -69,7 +69,7 @@ describe("QuitCommand", () => {
 
   describe("properties", () => {
     it("should have correct aliases", () => {
-      expect(quitCommand.aliases).toEqual(["quit", "exit"]);
+      expect(quitCommand.aliases).toEqual(["quit", "exit", "q!"]);
     });
 
     it("should have correct description", () => {

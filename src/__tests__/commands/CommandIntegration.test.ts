@@ -86,7 +86,7 @@ class MockSyncCommand implements Command {
 }
 
 class MockQuitCommand implements Command {
-  aliases = ["quit", "exit"];
+  aliases = ["quit", "exit", "q!"];
   description = "Exit the application";
 
   execute(context: CommandContext): void {
@@ -258,7 +258,7 @@ describe("Command Integration Tests", () => {
 
     it("should handle multiple aliases for same command", async () => {
       // Act & Assert
-      const aliases = ["quit", "exit"];
+      const aliases = ["quit", "exit", "q!"];
       for (const alias of aliases) {
         mockCleanupAndExit.mockClear();
         const result = await registry.execute(alias, context);
