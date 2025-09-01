@@ -15,12 +15,11 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - run: bun test --coverage --reporter=junit --reporter-outfile=$GITHUB_WORKSPACE/junit.xml
+      - run: bun run test:ci
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false
-          files: $GITHUB_WORKSPACE/junit.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
