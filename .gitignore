@@ -7,8 +7,13 @@ out/
 *.bun-build
 argonaut-cli
 ./main
+main
+junit.xml
 
 
+
+# Performance profiling
+.clinic/
 
 # Test coverage reports
 coverage/

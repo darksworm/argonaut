@@ -1,3 +1,9 @@
+// Set NODE_ENV before any other imports to ensure production builds are used
+// This ensures react-reconciler and other packages use their production builds
+if (typeof process !== 'undefined' && !process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'production';
+}
+
 import type { ReadStream, WriteStream } from "node:tty";
 import packageJson from "../package.json";
 

@@ -8,7 +8,7 @@
     "dev": "[ -f \"src/data/licenses.ts\" ] || bun run generate:licenses; bun src/main.tsx",
     "logs": "bun tools/logs.ts --session=latest",
     "build:node": "bun run generate:licenses && rollup -c rollup.config.js --configPlugin typescript2",
-    "build:binary": "bun run generate:licenses && bun build --compile --minify --sourcemap src/main.tsx",
+    "build:binary": "bun run generate:licenses && bun build --define:process.env.NODE_ENV=\"production\" --compile --minify --sourcemap --banner=\"process.env.NODE_ENV = process.env.NODE_ENV || 'production';\" src/main.tsx",
     "docker:build": "docker buildx build -t argonaut:dev .",
     "docker:run": "docker run --rm -it -e TERM=xterm-256color argonaut:dev",
     "generate:licenses": "mkdir -p dist && bun x generate-license-file --input package.json --output dist/third-party-licenses.txt --overwrite && bun scripts/generate-licenses.cjs",
@@ -42,6 +42,7 @@
     "@codecov/rollup-plugin": "^1.9.1",
     "chalk": "^5.6.0",
     "execa": "^9.6.0",
+    "fast-string-width": "^3.0.1",
     "ink": "^6.2.1",
     "ink-text-input": "^6.0.0",
     "neverthrow": "^8.2.0",
@@ -51,7 +52,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
+    "@rollup/plugin-alias": "^5.1.1",
     "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@stryker-mutator/core": "^9.1.0",
     "@stryker-mutator/jest-runner": "^9.1.0",
     "@stryker-mutator/typescript-checker": "^9.1.0",
@@ -104,5 +107,8 @@
     "terminal",
     "cli",
     "yaml"
-  ]
+  ],
+  "overrides": {
+    "string-width": "npm:fast-string-width@3.0.1"
+  }
 }
