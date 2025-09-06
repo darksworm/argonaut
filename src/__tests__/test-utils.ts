@@ -43,7 +43,12 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
   const base: AppState = {
     mode: "normal" as Mode,
     terminal: { rows: 24, cols: 80 },
-    navigation: { view: "apps" as View, selectedIdx: 0, lastGPressed: 0, lastEscPressed: 0 },
+    navigation: {
+      view: "apps" as View,
+      selectedIdx: 0,
+      lastGPressed: 0,
+      lastEscPressed: 0,
+    },
     selections: {
       scopeClusters: new Set(),
       scopeNamespaces: new Set(),

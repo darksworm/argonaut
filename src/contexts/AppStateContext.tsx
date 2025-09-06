@@ -365,7 +365,10 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
           ...initialState.selections,
           ...(providedInitialState.selections ?? {}),
         },
-        modals: { ...initialState.modals, ...(providedInitialState.modals ?? {}) },
+        modals: {
+          ...initialState.modals,
+          ...(providedInitialState.modals ?? {}),
+        },
       }
     : initialState;
 

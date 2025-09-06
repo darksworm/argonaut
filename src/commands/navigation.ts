@@ -40,7 +40,7 @@ export class NavigationCommand implements Command {
           // Navigate to next level down when argument is provided
           dispatch({ type: "SET_VIEW", payload: "apps" });
           break;
-        case "apps":
+        case "apps": {
           dispatch({ type: "SET_SELECTED_APPS", payload: new Set([arg]) });
           const idx = context.state.apps.findIndex((a) => a.name === arg);
           if (idx !== -1) {
@@ -48,6 +48,7 @@ export class NavigationCommand implements Command {
           }
           // Apps is the deepest level, no further navigation
           break;
+        }
       }
     } else {
       // Clear selection when returning to view without argument

@@ -206,7 +206,7 @@ describe("NavigationCommand", () => {
         payload: "projects",
       });
       expect(mockDispatch).not.toHaveBeenCalledWith({
-        type: "SET_VIEW", 
+        type: "SET_VIEW",
         payload: "apps",
       });
     });
