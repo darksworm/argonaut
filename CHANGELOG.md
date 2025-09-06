@@ -8,6 +8,7 @@
 * ensure react-reconciler uses production build in node and binary outputs ([6e95d24](https://github.com/darksworm/argonaut/commit/6e95d24be43e238c6d1ef9d3db4d710d039b7e6f))
 * login to ghcr before goreleaser to fix docker build ([777b39a](https://github.com/darksworm/argonaut/commit/777b39a7f7da83179b25d23e9a645e921e560239))
 
+
 ## [1.15.1](https://github.com/darksworm/argonaut/compare/v1.15.0...v1.15.1) (2025-08-31)
 
 
