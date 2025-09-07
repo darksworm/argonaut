@@ -62,6 +62,24 @@ yay -S argonaut-bin
 ```
 </details>
 
+<details>
+  <summary><strong>Docker</strong></summary>
+
+Pull the image:
+```bash
+docker pull ghcr.io/darksworm/argonaut:latest
+```
+
+Run with mounted Argo CD config:
+```bash
+docker run -it --rm \
+  -v ~/.config/argocd:/root/.config/argocd:ro \
+  ghcr.io/darksworm/argonaut:latest
+```
+
+The container needs access to your Argo CD configuration for authentication. The `:ro` flag mounts it as read-only for security.
+</details>
+
 [//]: # (</details>)
 
 [//]: # (<details>)
