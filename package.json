@@ -5,7 +5,7 @@
   "private": false,
   "type": "module",
   "scripts": {
-    "dev": "[ -f \"src/data/licenses.ts\" ] || bun run generate:licenses; bun src/main.tsx",
+    "dev": "[ -f \"src/data/licenses.ts\" ] || bun run generate:licenses; NODE_ENV=dev bun src/main.tsx",
     "logs": "bun tools/logs.ts --session=latest",
     "build:node": "bun run generate:licenses && rollup -c rollup.config.js --configPlugin typescript2",
     "build:binary": "bun run generate:licenses && bun build --define:process.env.NODE_ENV=\"production\" --compile --minify --sourcemap --banner=\"process.env.NODE_ENV = process.env.NODE_ENV || 'production';\" src/main.tsx",
