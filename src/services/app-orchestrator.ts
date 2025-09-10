@@ -1,5 +1,6 @@
 import { getUserInfo } from "../api/session";
 import { getApiVersion } from "../api/version";
+import { listApps } from "../api/applications.query";
 import type { StatusLogger } from "../commands/types";
 import {
   getCurrentServerConfigObj,
@@ -8,6 +9,8 @@ import {
 } from "../config/cli-config";
 import type { AppAction } from "../contexts/AppStateContext";
 import { httpClientManager } from "../services/http-client";
+import { appToItem } from "./app-mapper";
+import { getDisplayMessage, requiresUserAction } from "./api-errors";
 import { log, setCurrentView } from "../services/logger";
 import type { Server } from "../types/server";
 import { checkVersion } from "../utils/version-check";
@@ -147,6 +150,29 @@ export class DefaultAppOrchestrator implements AppOrchestrator {
         return;
       }
       log.debug("Fetched user info");
+
+      // Fetch initial applications before leaving loading mode
+      statusLog.info("Fetching applications…", "boot");
+      const appsResult = await listApps(serverObj, effectiveSignal);
+      if (effectiveSignal.aborted) return;
+
+      if (appsResult.isErr()) {
+        const apiError = appsResult.error;
+        if (requiresUserAction(apiError)) {
+          this.loadingAbortController = null;
+          this.handleAuthError(dispatch, statusLog);
+          return;
+        }
+        statusLog.error(
+          `initial apps fetch failed: ${getDisplayMessage(apiError)}`,
+          "boot",
+        );
+        dispatch({ type: "SET_MODE", payload: "error" });
+        return;
+      }
+
+      const items = appsResult.value.map(appToItem);
+      dispatch({ type: "SET_APPS", payload: items });
 
       // Show ready status
       if (serverConfig.value.insecure) {
