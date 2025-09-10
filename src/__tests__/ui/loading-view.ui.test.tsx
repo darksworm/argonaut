@@ -1,4 +1,5 @@
 import { render } from "ink-testing-library";
+import React from "react";
 import { LoadingView } from "../../components/views/LoadingView";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import { stripAnsi } from "../test-utils";

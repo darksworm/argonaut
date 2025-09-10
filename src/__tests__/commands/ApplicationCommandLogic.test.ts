@@ -6,8 +6,12 @@ import {
 } from "../test-utils";
 
 // Mock the external dependencies BEFORE importing the commands
-mock.module("../../components/DiffView", () => ({
-  runAppDiffSession: mock(() => Promise.resolve()),
+const mockRunAppDiffSession = mock(() => Promise.resolve(true));
+mock.module("../../components/DiffView.ts", () => ({
+  runAppDiffSession: mockRunAppDiffSession,
+}));
+mock.module("execa", () => ({
+  default: mock(() => Promise.resolve()),
 }));
 
 // Import commands AFTER mocks are set up
@@ -102,6 +106,24 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       });
       expect(context.statusLog.info).toHaveBeenCalledWith(
         "Preparing diff for selected-app…",
+        "diff",
+      );
+    });
+
+    test("should show message when no differences", async () => {
+      mockRunAppDiffSession.mockResolvedValueOnce(false);
+      const context = createMockContext({
+        state: createMockState({
+          server: { config: { baseUrl: "https://test.com" }, token: "token" },
+          apps: createMockApps(),
+        }),
+      });
+
+      const diffCommand = new DiffCommand();
+      await diffCommand.execute(context, "app1");
+
+      expect(context.statusLog.info).toHaveBeenCalledWith(
+        "No differences.",
         "diff",
       );
     });

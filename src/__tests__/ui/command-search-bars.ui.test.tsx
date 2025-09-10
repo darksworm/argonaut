@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { NavigationCommand } from "../../commands/navigation";
 import { CommandRegistry } from "../../commands/registry";
 import { CommandBar } from "../../components/views/CommandBar";

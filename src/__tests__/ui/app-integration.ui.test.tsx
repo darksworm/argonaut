@@ -1,4 +1,5 @@
 import { render } from "ink-testing-library";
+import React from "react";
 import AuthRequiredView from "../../components/AuthRequiredView";
 import { LoadingView } from "../../components/views";
 import { AppStateProvider } from "../../contexts/AppStateContext";

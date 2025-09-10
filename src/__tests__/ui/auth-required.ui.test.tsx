@@ -1,4 +1,5 @@
 import { render } from "ink-testing-library";
+import React from "react";
 import AuthRequiredView from "../../components/AuthRequiredView";
 
 // Real UI tests for AuthRequiredView component

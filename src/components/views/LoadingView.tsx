@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { Box, Text } from "ink";
-import type React from "react";
+import React, { useEffect, useState } from "react";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
 
@@ -12,7 +12,18 @@ export const LoadingView: React.FC = () => {
     return null;
   }
 
-  const spinChar = "⠋";
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(
+      () => setFrame((f) => (f + 1) % frames.length),
+      80,
+    );
+    return () => clearInterval(timer);
+  }, []);
+
+  const spinChar = frames[frame];
   const loadingHeader = `${chalk.bold("View:")} ${chalk.yellow("LOADING")} • ${chalk.bold("Context:")} ${chalk.cyan(server ? hostFromUrl(server.config.baseUrl) : "—")}`;
 
   return (

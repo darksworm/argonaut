@@ -1,4 +1,5 @@
 import { render } from "ink-testing-library";
+import React from "react";
 import { ConfirmSyncModal } from "../../components/modals/ConfirmSyncModal";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";

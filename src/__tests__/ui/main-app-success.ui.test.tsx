@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
+import React from "react";
 import { MainLayout } from "../../components/views/MainLayout";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";

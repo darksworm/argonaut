@@ -176,15 +176,16 @@ export class DiffCommand implements Command {
       });
       dispatch({ type: "SET_MODE", payload: "loading" });
       statusLog.info(`Preparing diff for ${target}…`, "diff");
-
-      await runAppDiffSession(server, target, {
+      const opened = await runAppDiffSession(server, target, {
         title: `${target} - Live vs Desired`,
       });
 
       // Small delay and trigger re-render with status message
       await new Promise((resolve) => setTimeout(resolve, 50));
       dispatch({ type: "SET_MODE", payload: "normal" });
-      statusLog.info("No differences.", "diff");
+      if (!opened) {
+        statusLog.info("No differences.", "diff");
+      }
     } catch (e: any) {
       try {
         const stdinAny = process.stdin as any;

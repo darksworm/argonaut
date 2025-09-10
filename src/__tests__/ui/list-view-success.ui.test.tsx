@@ -1,4 +1,5 @@
 import { render } from "ink-testing-library";
+import React from "react";
 import { ListView } from "../../components/views/ListView";
 import { AppStateProvider } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";
