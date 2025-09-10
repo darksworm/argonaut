@@ -4,7 +4,13 @@ import type React from "react";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
 
-export const LoadingView: React.FC = () => {
+interface LoadingViewProps {
+  message?: string;
+}
+
+export const LoadingView: React.FC<LoadingViewProps> = ({
+  message = "Starting…",
+}) => {
   const { state } = useAppState();
   const { server, terminal } = state;
 
@@ -32,7 +38,7 @@ export const LoadingView: React.FC = () => {
         </Text>
       </Box>
       <Box>
-        <Text dimColor>Starting…</Text>
+        <Text dimColor>{message}</Text>
       </Box>
     </Box>
   );

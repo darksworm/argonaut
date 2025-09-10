@@ -5,6 +5,8 @@ import {
   getRevisionMetadata as getRevisionMetadataApi,
   postRollback as postRollbackApi,
 } from "../api/rollback";
+import type { StatusLogger } from "../commands/types";
+import { useAppState } from "../contexts/AppStateContext";
 import type { Server } from "../types/server";
 import { humanizeSince, shortSha, singleLine } from "../utils";
 import ConfirmationBox from "./ConfirmationBox";
@@ -26,10 +28,12 @@ interface RollbackProps {
   appNamespace?: string;
   onClose: () => void;
   onStartWatching: (appName: string) => void;
+  statusLog: StatusLogger;
 }
 
 export default function Rollback(props: RollbackProps) {
-  const { app, server, appNamespace, onClose, onStartWatching } = props;
+  const { app, server, appNamespace, onClose, onStartWatching, statusLog } = props;
+  const { dispatch } = useAppState();
 
   type SubMode = "list" | "confirm";
   const [subMode, setSubMode] = useState<SubMode>("list");
@@ -230,6 +234,9 @@ export default function Rollback(props: RollbackProps) {
       return;
     }
     try {
+      dispatch({ type: "SET_MODE", payload: "loading" });
+      statusLog.info(`Preparing diff for ${app}…`, "diff");
+
       const opened = await runRollbackDiffSession(
         server,
         app,
@@ -239,8 +246,15 @@ export default function Rollback(props: RollbackProps) {
         },
         appNamespace,
       );
-      if (!opened) setError("No differences.");
+
+      dispatch({ type: "SET_MODE", payload: "rollback" });
+      if (!opened) {
+        statusLog.info("No differences.", "diff");
+        setError("No differences.");
+      }
     } catch (e: any) {
+      dispatch({ type: "SET_MODE", payload: "rollback" });
+      statusLog.error(`Diff failed: ${e?.message || String(e)}`, "diff");
       setError(`Diff failed: ${e?.message || String(e)}`);
     }
   }

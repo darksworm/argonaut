@@ -582,7 +582,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
   });
 
   describe("Comprehensive edge cases for mutation testing", () => {
-    test("DiffCommand should handle server authentication correctly", () => {
+    test("DiffCommand should handle server authentication correctly", async () => {
       const mockApps = createMockApps();
 
       // Test with no server
@@ -610,7 +610,7 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       });
 
       const diffCommand2 = new DiffCommand();
-      diffCommand2.execute(withServerContext, "test-app");
+      await diffCommand2.execute(withServerContext, "test-app");
 
       expect(withServerContext.dispatch).toHaveBeenCalledWith({
         type: "SET_MODE",

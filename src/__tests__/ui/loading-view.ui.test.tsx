@@ -128,18 +128,18 @@ describe("LoadingView UI Tests", () => {
       expect(frame).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
     });
 
-    it("shows loading message", () => {
+    it("shows provided message", () => {
       const { lastFrame } = render(
         <AppStateProvider initialState={baseState}>
-          <LoadingView />
+          <LoadingView message="Preparing diff" />
         </AppStateProvider>,
       );
 
       const frame = lastFrame();
       const cleanFrame = stripAnsi(frame);
 
-      // Should show loading text
-      expect(cleanFrame).toMatch(/loading|connecting|authenticating/i);
+      // Should show custom message
+      expect(cleanFrame).toContain("Preparing diff");
     });
 
     it("displays proper border styling", () => {

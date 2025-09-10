@@ -170,7 +170,7 @@ export class DiffCommand implements Command {
     }
 
     try {
-      dispatch({ type: "SET_MODE", payload: "normal" });
+      dispatch({ type: "SET_MODE", payload: "loading" });
       statusLog.info(`Preparing diff for ${target}…`, "diff");
 
       await runAppDiffSession(server, target, {

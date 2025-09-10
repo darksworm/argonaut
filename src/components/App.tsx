@@ -48,7 +48,7 @@ const AppContent: React.FC = () => {
   // Render based on current mode
   switch (state.mode) {
     case "loading":
-      return <LoadingView />;
+      return <LoadingView message={status} />;
 
     case "auth-required":
       return (
@@ -85,7 +85,7 @@ const AppContent: React.FC = () => {
             state.mode === "confirm-sync" ? (
               <ConfirmSyncModal />
             ) : state.mode === "rollback" ? (
-              <RollbackModal />
+              <RollbackModal statusLog={statusLog} />
             ) : null
           }
         />
