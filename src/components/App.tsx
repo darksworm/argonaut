@@ -68,12 +68,13 @@ const AppContent: React.FC = () => {
         />
       );
 
-    default:
-      // Handle modal states directly in the main layout
-      if (state.mode === "help") {
-        return <HelpModal />;
-      }
+    case "help":
+      return <HelpModal />;
 
+    case "rollback":
+      return <RollbackModal />;
+
+    default:
       return (
         <MainLayout
           visibleItems={visibleItems}
@@ -82,11 +83,7 @@ const AppContent: React.FC = () => {
           onExecuteCommand={executeCommand}
           status={status}
           modal={
-            state.mode === "confirm-sync" ? (
-              <ConfirmSyncModal />
-            ) : state.mode === "rollback" ? (
-              <RollbackModal />
-            ) : null
+            state.mode === "confirm-sync" ? <ConfirmSyncModal /> : null
           }
         />
       );

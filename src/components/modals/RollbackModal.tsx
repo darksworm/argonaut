@@ -33,7 +33,12 @@ export const RollbackModal: React.FC = () => {
   };
 
   return (
-    <Box flexDirection="column" paddingX={1} height={terminal.rows - 1}>
+    <Box
+      flexDirection="column"
+      paddingX={1}
+      height={terminal.rows - 1}
+      flexGrow={1}
+    >
       <ArgoNautBanner
         server={server ? hostFromUrl(server.config.baseUrl) : null}
         clusterScope={fmtScope(scopeClusters)}
