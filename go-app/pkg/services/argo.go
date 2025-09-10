@@ -1,0 +1,274 @@
+package services
+
+import (
+	"context"
+	"errors"
+	"log"
+	"strings"
+	"sync"
+
+	"github.com/a9s/go-app/pkg/api"
+	"github.com/a9s/go-app/pkg/model"
+)
+
+// ArgoApiService interface defines operations for interacting with ArgoCD API
+type ArgoApiService interface {
+	// ListApplications retrieves all applications from ArgoCD
+	ListApplications(ctx context.Context, server *model.Server) ([]model.App, error)
+
+	// WatchApplications starts watching for application changes
+	// Returns a channel for events and a cleanup function
+	WatchApplications(ctx context.Context, server *model.Server) (<-chan ArgoApiEvent, func(), error)
+
+	// SyncApplication syncs a specific application
+	SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error
+
+	// GetResourceDiffs gets resource diffs for an application
+	GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error)
+
+	// Cleanup stops all watchers and cleans up resources
+	Cleanup()
+}
+
+// ArgoApiEvent represents events from the ArgoCD API
+type ArgoApiEvent struct {
+	Type    string       `json:"type"`
+	Apps    []model.App  `json:"apps,omitempty"`
+	App     *model.App   `json:"app,omitempty"`
+	AppName string       `json:"appName,omitempty"`
+	Error   error        `json:"error,omitempty"`
+	Status  string       `json:"status,omitempty"`
+}
+
+// ResourceDiff represents a resource difference
+type ResourceDiff struct {
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Diff      string `json:"diff"`
+}
+
+// ArgoApiServiceImpl provides a concrete implementation of ArgoApiService
+type ArgoApiServiceImpl struct {
+	appService  *api.ApplicationService
+	watchCancel context.CancelFunc
+	mu          sync.RWMutex
+}
+
+// NewArgoApiService creates a new ArgoApiService implementation
+func NewArgoApiService(server *model.Server) ArgoApiService {
+	impl := &ArgoApiServiceImpl{}
+	if server != nil {
+		impl.appService = api.NewApplicationService(server)
+	}
+	return impl
+}
+
+// ListApplications implements ArgoApiService.ListApplications
+func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model.Server) ([]model.App, error) {
+	if server == nil {
+		return nil, errors.New("server configuration is required")
+	}
+
+	// Use the real API service
+	if s.appService == nil {
+		s.appService = api.NewApplicationService(server)
+	}
+
+	apps, err := s.appService.ListApplications(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return apps, nil
+}
+
+// WatchApplications implements ArgoApiService.WatchApplications
+func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *model.Server) (<-chan ArgoApiEvent, func(), error) {
+	if server == nil {
+		return nil, nil, errors.New("server configuration is required")
+	}
+
+	// Use the real API service
+	if s.appService == nil {
+		s.appService = api.NewApplicationService(server)
+	}
+
+	eventChan := make(chan ArgoApiEvent, 100)
+	watchCtx, cancel := context.WithCancel(ctx)
+	s.mu.Lock()
+	s.watchCancel = cancel
+	s.mu.Unlock()
+
+	// Start watching in a goroutine
+	go func() {
+		defer close(eventChan)
+
+		// Send initial status
+		eventChan <- ArgoApiEvent{
+			Type:   "status-change",
+			Status: "Loading…",
+		}
+
+		// Send initial apps loaded event
+		apps, err := s.ListApplications(watchCtx, server)
+		if err != nil {
+			if isAuthError(err.Error()) {
+				eventChan <- ArgoApiEvent{
+					Type:  "auth-error",
+					Error: err,
+				}
+				eventChan <- ArgoApiEvent{
+					Type:   "status-change",
+					Status: "Auth required",
+				}
+				return
+			}
+			eventChan <- ArgoApiEvent{
+				Type:  "api-error",
+				Error: err,
+			}
+			eventChan <- ArgoApiEvent{
+				Type:   "status-change",
+				Status: "Error: " + err.Error(),
+			}
+			return
+		}
+
+		eventChan <- ArgoApiEvent{
+			Type: "apps-loaded",
+			Apps: apps,
+		}
+
+		eventChan <- ArgoApiEvent{
+			Type:   "status-change",
+			Status: "Live",
+		}
+
+		// Start real watch stream
+		s.startWatchStream(watchCtx, eventChan)
+	}()
+
+	cleanup := func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.watchCancel != nil {
+			s.watchCancel()
+			s.watchCancel = nil
+		}
+	}
+
+	return eventChan, cleanup, nil
+}
+
+// SyncApplication implements ArgoApiService.SyncApplication
+func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error {
+	if server == nil {
+		return errors.New("server configuration is required")
+	}
+	if appName == "" {
+		return errors.New("application name is required")
+	}
+
+	// Use the real API service
+	if s.appService == nil {
+		s.appService = api.NewApplicationService(server)
+	}
+
+	opts := &api.SyncOptions{
+		Prune: prune,
+	}
+
+	return s.appService.SyncApplication(ctx, appName, opts)
+}
+
+// GetResourceDiffs implements ArgoApiService.GetResourceDiffs
+func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error) {
+	if server == nil {
+		return nil, errors.New("server configuration is required")
+	}
+	if appName == "" {
+		return nil, errors.New("application name is required")
+	}
+
+	// TODO: Implement actual resource diffs API call
+	// This is a placeholder implementation
+	return []ResourceDiff{}, nil
+}
+
+// Cleanup implements ArgoApiService.Cleanup
+func (s *ArgoApiServiceImpl) Cleanup() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.watchCancel != nil {
+		s.watchCancel()
+		s.watchCancel = nil
+	}
+}
+
+// startWatchStream starts the application watch stream
+func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan chan<- ArgoApiEvent) {
+	watchEventChan := make(chan api.ApplicationWatchEvent, 100)
+	
+	go func() {
+		defer close(watchEventChan)
+		err := s.appService.WatchApplications(ctx, watchEventChan)
+		if err != nil && ctx.Err() == nil {
+			log.Printf("Watch stream error: %v", err)
+			eventChan <- ArgoApiEvent{
+				Type:  "api-error",
+				Error: err,
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-watchEventChan:
+			if !ok {
+				return
+			}
+			s.handleWatchEvent(event, eventChan)
+		}
+	}
+}
+
+// handleWatchEvent processes watch events from the API stream
+func (s *ArgoApiServiceImpl) handleWatchEvent(event api.ApplicationWatchEvent, eventChan chan<- ArgoApiEvent) {
+	appName := event.Application.Metadata.Name
+	if appName == "" {
+		return
+	}
+
+	switch event.Type {
+	case "DELETED":
+		eventChan <- ArgoApiEvent{
+			Type:    "app-deleted",
+			AppName: appName,
+		}
+	default:
+		// Convert to our model
+		app := s.appService.ConvertToApp(event.Application)
+		eventChan <- ArgoApiEvent{
+			Type: "app-updated",
+			App:  &app,
+		}
+	}
+}
+
+// isAuthError checks if an error indicates authentication issues
+func isAuthError(errMsg string) bool {
+	authIndicators := []string{
+		"401", "403", "unauthorized", "forbidden", "auth", "login",
+	}
+	
+	errLower := strings.ToLower(errMsg)
+	for _, indicator := range authIndicators {
+		if strings.Contains(errLower, indicator) {
+			return true
+		}
+	}
+	return false
+}
