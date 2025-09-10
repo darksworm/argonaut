@@ -216,9 +216,16 @@ func (m Model) handleEscape() (Model, tea.Cmd) {
         m.state.Mode = model.ModeNormal
         return m, nil
     default:
-        // Drill up one level and clear current and prior scope selections
         curr := m.state.Navigation.View
-        // Always clear transient UI filters on escape
+        // Edge case: in apps view with an applied filter, first Esc only clears the filter
+        if curr == model.ViewApps && (m.state.UI.ActiveFilter != "" || m.state.UI.SearchQuery != "") {
+            m.state.UI.SearchQuery = ""
+            m.state.UI.ActiveFilter = ""
+            return m, nil
+        }
+
+        // Drill up one level and clear current and prior scope selections
+        // Clear transient UI inputs as we navigate up
         m.state.UI.SearchQuery = ""
         m.state.UI.ActiveFilter = ""
         m.state.UI.Command = ""

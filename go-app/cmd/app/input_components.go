@@ -114,47 +114,25 @@ func (m Model) renderEnhancedSearchBar() string {
 	// Content matching SearchBar layout
 	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
 	
-    // Help text
-    helpText := "Enter "
-    if m.state.Navigation.View == model.ViewApps {
-        helpText += "keeps filter"
-    } else {
-        helpText += "opens first result"
-    }
-    helpText += ", Esc cancels"
-
-    // Compute widths to make input fill the full row
+    // Compute widths to make input fill the full row (no trailing help text)
     totalWidth := m.state.Terminal.Cols
-    styleWidth := maxInt(0, totalWidth-2) // account for main container left/right padding
-    innerWidth := maxInt(0, styleWidth-4) // 2 borders + 2 padding (left/right)
+    // style.Width() sets the content width; border(2) + padding(2) are added on top.
+    // Main container adds 1 space padding on both sides, so available inner width = totalWidth-2.
+    // Therefore, to fit exactly, content width must be (totalWidth-2) - (border+padding)= totalWidth-6.
+    styleWidth := maxInt(0, totalWidth-6)
+    innerWidth := styleWidth
 
-    // Compute widths ensuring no wrap
-    baseUsed := lipgloss.Width(searchLabel) + 1 /*space*/ + 2 /*two spaces before help*/
-    // Provisional help width (plain, no ANSI), clipped to available space after input min
+    // Allocate remaining width to the input field
+    baseUsed := lipgloss.Width(searchLabel) + 1 /*space*/
     minInput := 5
-    maxInput := maxInt(minInput, innerWidth-baseUsed)
-    // Start by allocating most space to input, then fit help in the rest
-    inputWidth := maxInput
-    helpPlain := "(" + helpText + ")"
-    remaining := innerWidth - baseUsed - inputWidth
-    if remaining < 0 { remaining = 0 }
-    helpClipped := clipPlainToWidth(helpPlain, remaining)
-    // If help was heavily clipped and we still have space, rebalance: reserve at least 8 cols for help
-    if remaining == 0 && innerWidth-baseUsed-minInput > 8 {
-        inputWidth = innerWidth - baseUsed - 8
-        if inputWidth < minInput { inputWidth = minInput }
-        remaining = innerWidth - baseUsed - inputWidth
-        if remaining < 0 { remaining = 0 }
-        helpClipped = clipPlainToWidth(helpPlain, remaining)
-    }
+    inputWidth := maxInt(minInput, innerWidth-baseUsed)
     if inputWidth != m.inputComponents.searchInput.Width {
         m.inputComponents.searchInput.Width = inputWidth
     }
 
     // Render
     searchInputView := m.inputComponents.searchInput.View()
-    helpRendered := statusStyle.Render(helpClipped)
-    content := fmt.Sprintf("%s %s  %s", searchLabel, searchInputView, helpRendered)
+    content := fmt.Sprintf("%s %s", searchLabel, searchInputView)
 
     return searchBarStyle.Width(styleWidth).Render(content)
 }
@@ -176,41 +154,20 @@ func (m Model) renderEnhancedCommandBar() string {
 	cmdLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("CMD")
 	colonPrefix := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(":")
 	
-    helpText := "(Enter to run, Esc to cancel)"
-    commandValue := m.inputComponents.GetCommandValue()
-    if commandValue != "" {
-        // TODO: Add command validation and hints
-        helpText = "(Command: " + commandValue + ")"
-    }
-
-    // Compute widths for full-row input
+    // Compute widths for full-row input (no trailing help text)
     totalWidth := m.state.Terminal.Cols
-    styleWidth := maxInt(0, totalWidth-2)
-    innerWidth := maxInt(0, styleWidth-4)
-    baseUsed := lipgloss.Width(cmdLabel) + 1 /*space*/ + lipgloss.Width(colonPrefix) + 2 /*two spaces*/
+    styleWidth := maxInt(0, totalWidth-6)
+    innerWidth := styleWidth
+    baseUsed := lipgloss.Width(cmdLabel) + 1 /*space*/ + lipgloss.Width(colonPrefix)
     minInput := 5
-    maxInput := maxInt(minInput, innerWidth-baseUsed)
-    inputWidth := maxInput
-    // Compute remaining for help (plain text), clip to width
-    remaining := innerWidth - baseUsed - inputWidth
-    if remaining < 0 { remaining = 0 }
-    helpClipped := clipPlainToWidth(helpText, remaining)
-    // Rebalance if needed (reserve at least 8 cols for help when possible)
-    if remaining == 0 && innerWidth-baseUsed-minInput > 8 {
-        inputWidth = innerWidth - baseUsed - 8
-        if inputWidth < minInput { inputWidth = minInput }
-        remaining = innerWidth - baseUsed - inputWidth
-        if remaining < 0 { remaining = 0 }
-        helpClipped = clipPlainToWidth(helpText, remaining)
-    }
+    inputWidth := maxInt(minInput, innerWidth-baseUsed)
     if inputWidth != m.inputComponents.commandInput.Width {
         m.inputComponents.commandInput.Width = inputWidth
     }
 
     // Render
     commandInputView := m.inputComponents.commandInput.View()
-    helpRendered := statusStyle.Render(helpClipped)
-    content := fmt.Sprintf("%s %s%s  %s", cmdLabel, colonPrefix, commandInputView, helpRendered)
+    content := fmt.Sprintf("%s %s%s", cmdLabel, colonPrefix, commandInputView)
 
     return commandBarStyle.Width(styleWidth).Render(content)
 }
