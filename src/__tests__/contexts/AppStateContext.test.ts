@@ -413,12 +413,19 @@ describe("appStateReducer", () => {
   });
 
   describe("unknown actions", () => {
-    it("should return current state for unknown actions", () => {
+    it("should return equivalent state for unknown actions", () => {
       // @ts-expect-error - Testing unknown action type
       const action: AppAction = { type: "UNKNOWN_ACTION", payload: "test" };
       const newState = appStateReducer(initialState, action);
 
-      expect(newState).toBe(initialState);
+      // With split reducers, we get a new object but with the same values
+      // The reducer adds the computed 'server' field from serverState
+      const expectedState = {
+        ...initialState,
+        server: initialState.serverState?.server || null,
+      };
+      expect(newState).toEqual(expectedState);
+      expect(newState).not.toBe(initialState); // Different reference due to split reducers
     });
   });
 });

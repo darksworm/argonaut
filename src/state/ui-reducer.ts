@@ -14,7 +14,8 @@ export type UIAction =
   | { type: "BUMP_COMMAND_INPUT_KEY" }
   | { type: "SET_VERSION_OUTDATED"; payload: boolean }
   | { type: "SET_LATEST_VERSION"; payload: string | undefined }
-  | { type: "CLEAR_FILTERS" };
+  | { type: "CLEAR_FILTERS" }
+  | { type: "RESET_NAVIGATION"; payload?: { view?: any } };
 
 export const initialUIState: UIState = {
   searchQuery: "",
@@ -68,6 +69,13 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
       };
 
     case "CLEAR_FILTERS":
+      return {
+        ...state,
+        activeFilter: "",
+        searchQuery: "",
+      };
+
+    case "RESET_NAVIGATION":
       return {
         ...state,
         activeFilter: "",

@@ -9,7 +9,7 @@ import { useLiveData } from "../hooks/useLiveData";
 import { useNavigationLogic } from "../hooks/useNavigationLogic";
 import { useStatus } from "../hooks/useStatus";
 import { DefaultAppOrchestrator } from "../services/app-orchestrator";
-import { fmtScope } from "../utils";
+import { fmtScope } from "../utils/scope-helpers";
 import AuthRequiredView from "./AuthRequiredView";
 import { ConfirmSyncModal, HelpModal, RollbackModal } from "./modals";
 import { LoadingView, MainLayout } from "./views";

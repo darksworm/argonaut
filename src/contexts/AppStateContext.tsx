@@ -4,44 +4,52 @@ import React, {
   useContext,
   useReducer,
 } from "react";
-import type { AppItem, Mode, View } from "../types/domain";
+import {
+  initialModalState,
+  type ModalAction,
+  type ModalState,
+  modalReducer,
+} from "../state/modal-reducer";
+import {
+  initialNavigationState,
+  type NavigationAction,
+  type NavigationState,
+  navigationReducer,
+} from "../state/navigation-reducer";
+import {
+  initialSelectionState,
+  type SelectionAction,
+  type SelectionState,
+  selectionReducer,
+} from "../state/selection-reducer";
+import {
+  initialServerState,
+  type ServerAction,
+  type ServerState,
+  serverReducer,
+} from "../state/server-reducer";
+import {
+  initialUIState,
+  type UIAction,
+  type UIState,
+  uiReducer,
+} from "../state/ui-reducer";
+import type { AppItem, Mode } from "../types/domain";
 import type { Server } from "../types/server";
+
+// Re-export types from individual reducers
+export type {
+  NavigationState,
+  SelectionState,
+  UIState,
+  ModalState,
+  ServerState,
+};
 
 // State interfaces
 export interface TerminalState {
   rows: number;
   cols: number;
-}
-
-export interface NavigationState {
-  view: View;
-  selectedIdx: number;
-  lastGPressed: number;
-  lastEscPressed: number;
-}
-
-export interface SelectionState {
-  scopeClusters: Set<string>;
-  scopeNamespaces: Set<string>;
-  scopeProjects: Set<string>;
-  selectedApps: Set<string>;
-}
-
-export interface UIState {
-  searchQuery: string;
-  activeFilter: string;
-  command: string;
-  isVersionOutdated: boolean;
-  latestVersion?: string;
-  commandInputKey: number;
-}
-
-export interface ModalState {
-  confirmTarget: string | null;
-  confirmSyncPrune: boolean;
-  confirmSyncWatch: boolean;
-  rollbackAppName: string | null;
-  syncViewApp: string | null;
 }
 
 export interface AppState {
@@ -52,89 +60,54 @@ export interface AppState {
   selections: SelectionState;
   ui: UIState;
   modals: ModalState;
+  serverState: ServerState;
 
   // Data
-  server: Server | null;
   apps: AppItem[];
   apiVersion: string;
 
   // Cleanup
   loadingAbortController: AbortController | null;
+
+  // Backward compatibility
+  server: Server | null;
 }
 
-// Action types
+// Legacy server access for backward compatibility
+export const getServer = (state: AppState): Server | null =>
+  state.serverState.server;
+
+// Combined action type
 export type AppAction =
   | { type: "SET_MODE"; payload: Mode }
   | { type: "SET_TERMINAL_SIZE"; payload: { rows: number; cols: number } }
-  | { type: "SET_VIEW"; payload: View }
-  | { type: "SET_SELECTED_IDX"; payload: number }
-  | { type: "SET_SERVER"; payload: Server | null }
   | { type: "SET_APPS"; payload: AppItem[] }
   | { type: "SET_API_VERSION"; payload: string }
-  | { type: "SET_SEARCH_QUERY"; payload: string }
-  | { type: "SET_ACTIVE_FILTER"; payload: string }
-  | { type: "SET_COMMAND"; payload: string }
-  | { type: "BUMP_COMMAND_INPUT_KEY" }
-  | { type: "SET_SCOPE_CLUSTERS"; payload: Set<string> }
-  | { type: "SET_SCOPE_NAMESPACES"; payload: Set<string> }
-  | { type: "SET_SCOPE_PROJECTS"; payload: Set<string> }
-  | { type: "SET_SELECTED_APPS"; payload: Set<string> }
-  | { type: "SET_CONFIRM_TARGET"; payload: string | null }
-  | { type: "SET_CONFIRM_SYNC_PRUNE"; payload: boolean }
-  | { type: "SET_CONFIRM_SYNC_WATCH"; payload: boolean }
-  | { type: "SET_ROLLBACK_APP_NAME"; payload: string | null }
-  | { type: "SET_SYNC_VIEW_APP"; payload: string | null }
-  | { type: "SET_VERSION_OUTDATED"; payload: boolean }
-  | { type: "SET_LATEST_VERSION"; payload: string | undefined }
-  | { type: "SET_LAST_G_PRESSED"; payload: number }
-  | { type: "SET_LAST_ESC_PRESSED"; payload: number }
   | { type: "SET_LOADING_ABORT_CONTROLLER"; payload: AbortController | null }
-  | { type: "CLEAR_LOWER_LEVEL_SELECTIONS"; payload: View }
-  | { type: "RESET_NAVIGATION"; payload?: { view?: View } }
-  | { type: "CLEAR_ALL_SELECTIONS" }
-  | { type: "CLEAR_FILTERS" };
+  | NavigationAction
+  | SelectionAction
+  | UIAction
+  | ModalAction
+  | ServerAction;
 
-// Initial state
+// Initial state using individual reducer states
 export const initialState: AppState = {
   mode: "loading",
   terminal: {
     rows: process.stdout.rows || 24,
     cols: process.stdout.columns || 80,
   },
-  navigation: {
-    view: "clusters",
-    selectedIdx: 0,
-    lastGPressed: 0,
-    lastEscPressed: 0,
-  },
-  selections: {
-    scopeClusters: new Set(),
-    scopeNamespaces: new Set(),
-    scopeProjects: new Set(),
-    selectedApps: new Set(),
-  },
-  ui: {
-    searchQuery: "",
-    activeFilter: "",
-    command: "",
-    isVersionOutdated: false,
-    latestVersion: undefined,
-    commandInputKey: 0,
-  },
-  modals: {
-    confirmTarget: null,
-    confirmSyncPrune: false,
-    confirmSyncWatch: true,
-    rollbackAppName: null,
-    syncViewApp: null,
-  },
-  server: null,
+  navigation: initialNavigationState,
+  selections: initialSelectionState,
+  ui: initialUIState,
+  modals: initialModalState,
+  serverState: initialServerState,
   apps: [],
   apiVersion: "",
   loadingAbortController: null,
 };
 
-// Reducer
+// Combined reducer using individual reducers
 export function appStateReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "SET_MODE":
@@ -146,193 +119,37 @@ export function appStateReducer(state: AppState, action: AppAction): AppState {
         terminal: { ...state.terminal, ...action.payload },
       };
 
-    case "SET_VIEW":
-      return {
-        ...state,
-        navigation: { ...state.navigation, view: action.payload },
-      };
-
-    case "SET_SELECTED_IDX":
-      return {
-        ...state,
-        navigation: { ...state.navigation, selectedIdx: action.payload },
-      };
-
-    case "SET_SERVER":
-      return { ...state, server: action.payload };
-
     case "SET_APPS":
       return { ...state, apps: action.payload };
 
     case "SET_API_VERSION":
       return { ...state, apiVersion: action.payload };
 
-    case "SET_SEARCH_QUERY":
-      return {
-        ...state,
-        ui: { ...state.ui, searchQuery: action.payload },
-      };
-
-    case "SET_ACTIVE_FILTER":
-      return {
-        ...state,
-        ui: { ...state.ui, activeFilter: action.payload },
-      };
-
-    case "SET_COMMAND":
-      return {
-        ...state,
-        ui: { ...state.ui, command: action.payload },
-      };
-
-    case "BUMP_COMMAND_INPUT_KEY":
-      return {
-        ...state,
-        ui: { ...state.ui, commandInputKey: state.ui.commandInputKey + 1 },
-      };
-
-    case "SET_SCOPE_CLUSTERS":
-      return {
-        ...state,
-        selections: { ...state.selections, scopeClusters: action.payload },
-      };
-
-    case "SET_SCOPE_NAMESPACES":
-      return {
-        ...state,
-        selections: { ...state.selections, scopeNamespaces: action.payload },
-      };
-
-    case "SET_SCOPE_PROJECTS":
-      return {
-        ...state,
-        selections: { ...state.selections, scopeProjects: action.payload },
-      };
-
-    case "SET_SELECTED_APPS":
-      return {
-        ...state,
-        selections: { ...state.selections, selectedApps: action.payload },
-      };
-
-    case "SET_CONFIRM_TARGET":
-      return {
-        ...state,
-        modals: { ...state.modals, confirmTarget: action.payload },
-      };
-
-    case "SET_CONFIRM_SYNC_PRUNE":
-      return {
-        ...state,
-        modals: { ...state.modals, confirmSyncPrune: action.payload },
-      };
-
-    case "SET_CONFIRM_SYNC_WATCH":
-      return {
-        ...state,
-        modals: { ...state.modals, confirmSyncWatch: action.payload },
-      };
-
-    case "SET_ROLLBACK_APP_NAME":
-      return {
-        ...state,
-        modals: { ...state.modals, rollbackAppName: action.payload },
-      };
-
-    case "SET_SYNC_VIEW_APP":
-      return {
-        ...state,
-        modals: { ...state.modals, syncViewApp: action.payload },
-      };
-
-    case "SET_VERSION_OUTDATED":
-      return {
-        ...state,
-        ui: { ...state.ui, isVersionOutdated: action.payload },
-      };
-
-    case "SET_LATEST_VERSION":
-      return {
-        ...state,
-        ui: { ...state.ui, latestVersion: action.payload },
-      };
-
-    case "SET_LAST_G_PRESSED":
-      return {
-        ...state,
-        navigation: { ...state.navigation, lastGPressed: action.payload },
-      };
-
-    case "SET_LAST_ESC_PRESSED":
-      return {
-        ...state,
-        navigation: { ...state.navigation, lastEscPressed: action.payload },
-      };
-
     case "SET_LOADING_ABORT_CONTROLLER":
       return { ...state, loadingAbortController: action.payload };
 
-    case "CLEAR_LOWER_LEVEL_SELECTIONS": {
-      const view = action.payload;
-      const emptySet = new Set<string>();
-      const selections = { ...state.selections };
-
-      switch (view) {
-        case "clusters":
-          selections.scopeNamespaces = emptySet;
-          selections.scopeProjects = emptySet;
-          selections.selectedApps = emptySet;
-          break;
-        case "namespaces":
-          selections.scopeProjects = emptySet;
-          selections.selectedApps = emptySet;
-          break;
-        case "projects":
-          selections.selectedApps = emptySet;
-          break;
-      }
-
-      return { ...state, selections };
+    default: {
+      // Delegate to individual reducers
+      const newServerState = serverReducer(
+        state.serverState,
+        action as ServerAction,
+      );
+      return {
+        ...state,
+        navigation: navigationReducer(
+          state.navigation,
+          action as NavigationAction,
+        ),
+        selections: selectionReducer(
+          state.selections,
+          action as SelectionAction,
+        ),
+        ui: uiReducer(state.ui, action as UIAction),
+        modals: modalReducer(state.modals, action as ModalAction),
+        serverState: newServerState,
+        server: newServerState.server, // Keep computed property in sync
+      };
     }
-
-    case "RESET_NAVIGATION":
-      return {
-        ...state,
-        navigation: {
-          ...state.navigation,
-          selectedIdx: 0,
-          view: action.payload?.view ?? state.navigation.view,
-        },
-        ui: {
-          ...state.ui,
-          activeFilter: "",
-          searchQuery: "",
-        },
-      };
-
-    case "CLEAR_ALL_SELECTIONS":
-      return {
-        ...state,
-        selections: {
-          scopeClusters: new Set(),
-          scopeNamespaces: new Set(),
-          scopeProjects: new Set(),
-          selectedApps: new Set(),
-        },
-      };
-
-    case "CLEAR_FILTERS":
-      return {
-        ...state,
-        ui: {
-          ...state.ui,
-          activeFilter: "",
-          searchQuery: "",
-        },
-      };
-
-    default:
-      return state;
   }
 }
 
@@ -369,6 +186,11 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
           ...initialState.modals,
           ...(providedInitialState.modals ?? {}),
         },
+        serverState: {
+          ...initialState.serverState,
+          ...(providedInitialState.serverState ?? {}),
+        },
+        server: providedInitialState.server ?? initialState.server,
       }
     : initialState;
 
@@ -423,7 +245,7 @@ export const useModals = () => {
 
 export const useServer = () => {
   const { state } = useAppState();
-  return state.server;
+  return state.serverState.server;
 };
 
 export const useAppsData = () => {

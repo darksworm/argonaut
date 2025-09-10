@@ -1,5 +1,5 @@
 import type { AppState } from "../contexts/AppStateContext";
-import { uniqueSorted } from "../utils";
+import { uniqueSorted } from "../utils/scope-helpers";
 import type { CommandRegistry } from "./registry";
 
 // Map command aliases to their corresponding data set keys

@@ -3,7 +3,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { getHttpClient } from "../services/http-client";
 import type { ServerConfig } from "../types/server";
-import { colorFor } from "../utils";
+import { colorFor } from "../utils/formatters";
 
 // Types for streamed resources
 export type Health = { status?: string; message?: string };

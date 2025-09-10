@@ -3,7 +3,7 @@ import type React from "react";
 import packageJson from "../../../package.json";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
-import { fmtScope } from "../../utils";
+import { fmtScope } from "../../utils/scope-helpers";
 import ArgoNautBanner from "../Banner";
 import OfficeSupplyManager from "../OfficeSupplyManager";
 import { ResourceStream } from "../ResourceStream";

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useAppState } from "../contexts/AppStateContext";
 import type { AppItem } from "../types/domain";
-import { uniqueSorted } from "../utils";
+import { uniqueSorted } from "../utils/scope-helpers";
 
 export const useVisibleItems = () => {
   const { state } = useAppState();

@@ -3,7 +3,7 @@ import type React from "react";
 import stringWidth from "string-width";
 import { useAppState } from "../../contexts/AppStateContext";
 import type { AppItem } from "../../types/domain";
-import { colorFor } from "../../utils";
+import { colorFor } from "../../utils/formatters";
 
 const COL = {
   mark: 2,

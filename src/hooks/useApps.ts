@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { listApps, watchApps } from "../api/applications.query";
-import { getDisplayMessage, requiresUserAction } from "../services/api-errors";
-import { appToItem } from "../services/app-mapper";
+import {
+  type ArgoApiEvent,
+  ArgoApiService,
+} from "../services/argo-api-service";
 import type { AppItem } from "../types/domain";
 import type { Server } from "../types/server";
 
@@ -21,78 +22,52 @@ export function useApps(
       setStatus("Paused");
       return;
     }
-    const controller = new AbortController();
-    let cancelled = false;
-    (async () => {
-      setStatus("Loading…");
-      try {
-        // Handle the Result-based API call
-        const appsResult = await listApps(server, controller.signal);
 
-        if (appsResult.isErr()) {
-          if (controller.signal.aborted) {
-            return; // Silent on abort
-          }
+    const apiService = new ArgoApiService();
 
-          const apiError = appsResult.error;
-
-          // Check if requires user action (re-authentication)
-          if (requiresUserAction(apiError)) {
-            onAuthError?.(new Error(getDisplayMessage(apiError)));
-            setStatus("Auth required");
-            return;
-          }
-
-          setStatus(`Error: ${getDisplayMessage(apiError)}`);
-          return;
-        }
-
-        // Success - update apps and start watching
-        const items = appsResult.value.map(appToItem);
-        if (!cancelled) setApps(items);
-        setStatus("Live");
-
-        // Continue with watching (this still uses the old async generator approach)
-        for await (const ev of watchApps(
-          server,
-          undefined,
-          controller.signal,
-        )) {
-          const { type, application } = ev || ({} as any);
-          if (!application?.metadata?.name) continue;
+    // Event handler for ArgoApiService events
+    const handleApiEvent = (event: ArgoApiEvent) => {
+      switch (event.type) {
+        case "apps-loaded":
+          setApps(event.apps);
+          break;
+        case "app-updated":
           setApps((curr) => {
             const map = new Map(curr.map((a) => [a.name, a] as const));
-            if (application?.metadata?.name) {
-              if (type === "DELETED") {
-                map.delete(application.metadata.name);
-              } else {
-                map.set(
-                  application.metadata.name,
-                  appToItem(application as any),
-                );
-              }
-            }
+            map.set(event.app.name, event.app);
             return Array.from(map.values());
           });
-        }
-      } catch (e: any) {
-        if (controller.signal.aborted) {
-          return; // Silent on abort
-        }
-
-        // Fallback for any unexpected errors (from watchApps)
-        const msg = e?.message || String(e);
-        if (/\b(401|403)\b/i.test(msg) || /unauthorized/i.test(msg)) {
-          onAuthError?.(e instanceof Error ? e : new Error(msg));
-          setStatus("Auth required");
-          return;
-        }
-        setStatus(`Error: ${msg}`);
+          break;
+        case "app-deleted":
+          setApps((curr) => {
+            const map = new Map(curr.map((a) => [a.name, a] as const));
+            map.delete(event.appName);
+            return Array.from(map.values());
+          });
+          break;
+        case "auth-error":
+          onAuthError?.(event.error);
+          break;
+        case "api-error":
+          // Status will be updated by status-change event
+          break;
+        case "status-change":
+          setStatus(event.status);
+          break;
       }
-    })();
+    };
+
+    // Start watching applications
+    const watchPromise = apiService.watchApplications(server, handleApiEvent);
+
+    let cleanup: (() => void) | undefined;
+    watchPromise.then((cleanupFn) => {
+      cleanup = cleanupFn;
+    });
+
     return () => {
-      cancelled = true;
-      controller.abort();
+      cleanup?.();
+      apiService.cleanup();
     };
   }, [server, paused]);
 

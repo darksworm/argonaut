@@ -6,7 +6,7 @@ import {
   postRollback as postRollbackApi,
 } from "../api/rollback";
 import type { Server } from "../types/server";
-import { humanizeSince, shortSha, singleLine } from "../utils";
+import { humanizeSince, shortSha, singleLine } from "../utils/formatters";
 import ConfirmationBox from "./ConfirmationBox";
 import { runRollbackDiffSession } from "./DiffView";
 

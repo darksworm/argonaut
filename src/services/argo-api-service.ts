@@ -1,4 +1,4 @@
-import type { Result } from "neverthrow";
+import { ok, type Result } from "neverthrow";
 import { syncApp } from "../api/applications.command";
 import {
   getManagedResourceDiffs,
@@ -54,7 +54,7 @@ export class ArgoApiService {
 
     // Transform ArgoApplication[] to AppItem[]
     const items = appsResult.value.map(appToItem);
-    return { isOk: () => true, value: items } as Result<AppItem[], ApiError>;
+    return ok(items);
   }
 
   /**

@@ -1,5 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { useAppState } from "../contexts/AppStateContext";
+import {
+  drillDown as drillDownFn,
+  toggleSelection as toggleSelectionFn,
+  validateBounds,
+} from "../services/navigation-service";
 import { useVisibleItems } from "./useVisibleItems";
 
 export const useNavigationLogic = () => {
@@ -9,10 +14,7 @@ export const useNavigationLogic = () => {
 
   // Keep selectedIdx within bounds when visibleItems change
   useEffect(() => {
-    const newIdx = Math.min(
-      navigation.selectedIdx,
-      Math.max(0, visibleItems.length - 1),
-    );
+    const newIdx = validateBounds(navigation.selectedIdx, visibleItems.length);
 
     // Only update if the index actually needs to change
     if (newIdx !== navigation.selectedIdx) {
@@ -25,57 +27,64 @@ export const useNavigationLogic = () => {
 
   // Drill down navigation logic
   const drillDown = useCallback(() => {
-    const item = visibleItems[navigation.selectedIdx];
-    if (!item) return;
+    const result = drillDownFn(
+      navigation.view,
+      visibleItems[navigation.selectedIdx],
+      visibleItems,
+      navigation.selectedIdx,
+    );
 
-    dispatch({ type: "RESET_NAVIGATION" });
-    dispatch({
-      type: "CLEAR_LOWER_LEVEL_SELECTIONS",
-      payload: navigation.view,
-    });
+    if (!result) return;
 
-    const val = String(item);
-    const next = new Set([val]);
+    if (result.shouldResetNavigation) {
+      dispatch({ type: "RESET_NAVIGATION" });
+    }
 
-    switch (navigation.view) {
-      case "clusters":
-        dispatch({ type: "SET_SCOPE_CLUSTERS", payload: next });
-        dispatch({ type: "SET_VIEW", payload: "namespaces" });
-        break;
-      case "namespaces":
-        dispatch({ type: "SET_SCOPE_NAMESPACES", payload: next });
-        dispatch({ type: "SET_VIEW", payload: "projects" });
-        break;
-      case "projects":
-        dispatch({ type: "SET_SCOPE_PROJECTS", payload: next });
-        dispatch({ type: "SET_VIEW", payload: "apps" });
-        break;
+    if (result.shouldClearLowerLevelSelections) {
+      dispatch({
+        type: "CLEAR_LOWER_LEVEL_SELECTIONS",
+        payload: navigation.view,
+      });
+    }
+
+    if (result.newView) {
+      dispatch({ type: "SET_VIEW", payload: result.newView });
+    }
+
+    if (result.scopeClusters) {
+      dispatch({ type: "SET_SCOPE_CLUSTERS", payload: result.scopeClusters });
+    }
+
+    if (result.scopeNamespaces) {
+      dispatch({
+        type: "SET_SCOPE_NAMESPACES",
+        payload: result.scopeNamespaces,
+      });
+    }
+
+    if (result.scopeProjects) {
+      dispatch({ type: "SET_SCOPE_PROJECTS", payload: result.scopeProjects });
     }
   }, [visibleItems, navigation, dispatch]);
 
   // Toggle selection logic - only works in apps view
   const toggleSelection = useCallback(() => {
-    // Only allow toggle selection in apps view
-    if (navigation.view !== "apps") {
-      return;
-    }
+    const result = toggleSelectionFn(
+      navigation.view,
+      visibleItems[navigation.selectedIdx],
+      visibleItems,
+      navigation.selectedIdx,
+      state.selections.selectedApps,
+    );
 
-    const item = visibleItems[navigation.selectedIdx];
-    if (!item) return;
+    if (!result) return;
 
     dispatch({
       type: "CLEAR_LOWER_LEVEL_SELECTIONS",
       payload: navigation.view,
     });
 
-    const appName = (item as any).name;
-    const next = new Set(state.selections.selectedApps);
-    if (next.has(appName)) {
-      next.delete(appName);
-    } else {
-      next.add(appName);
-    }
-    dispatch({ type: "SET_SELECTED_APPS", payload: next });
+    dispatch({ type: "SET_SELECTED_APPS", payload: result.selectedApps });
   }, [visibleItems, navigation, state.selections, dispatch]);
 
   return {
