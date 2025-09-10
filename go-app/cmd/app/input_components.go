@@ -220,6 +220,13 @@ func (m Model) renderEnhancedCommandBar() string {
 // handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
 func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
     switch msg.String() {
+    case "ctrl+c":
+        // Treat Ctrl+C as closing the input (do not quit app)
+        m.inputComponents.BlurInputs()
+        m.inputComponents.ClearSearchInput()
+        m.state.Mode = model.ModeNormal
+        m.state.UI.SearchQuery = ""
+        return m, nil
     case "up", "k":
         // Navigate results while search is active
         return m.handleNavigationUp()
@@ -269,11 +276,18 @@ func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 // handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
 func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
     switch msg.String() {
-	case "esc":
-		m.inputComponents.BlurInputs()
-		m.inputComponents.ClearCommandInput()
-		m.state.Mode = model.ModeNormal
-		m.state.UI.Command = ""
+    case "ctrl+c":
+        // Treat Ctrl+C as closing the input (do not quit app)
+        m.inputComponents.BlurInputs()
+        m.inputComponents.ClearCommandInput()
+        m.state.Mode = model.ModeNormal
+        m.state.UI.Command = ""
+        return m, nil
+    case "esc":
+        m.inputComponents.BlurInputs()
+        m.inputComponents.ClearCommandInput()
+        m.state.Mode = model.ModeNormal
+        m.state.UI.Command = ""
 		return m, nil
     case "enter":
         // Execute simple navigation commands (clusters/namespaces/projects/apps) with aliases
