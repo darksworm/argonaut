@@ -82,9 +82,7 @@ const AppContent: React.FC = () => {
           commandRegistry={commandRegistry}
           onExecuteCommand={executeCommand}
           status={status}
-          modal={
-            state.mode === "confirm-sync" ? <ConfirmSyncModal /> : null
-          }
+          modal={state.mode === "confirm-sync" ? <ConfirmSyncModal /> : null}
         />
       );
   }
