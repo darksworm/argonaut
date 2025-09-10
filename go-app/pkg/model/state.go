@@ -98,7 +98,7 @@ type ModalState struct {
 
 // AppState represents the complete application state for Bubbletea
 type AppState struct {
-	Mode       Mode            `json:"mode"`
+    Mode       Mode            `json:"mode"`
 	Terminal   TerminalState   `json:"terminal"`
 	Navigation NavigationState `json:"navigation"`
 	Selections SelectionState  `json:"selections"`
@@ -106,8 +106,18 @@ type AppState struct {
 	Modals     ModalState      `json:"modals"`
 	Server     *Server         `json:"server,omitempty"`
 	Apps       []App           `json:"apps"`
-	APIVersion string          `json:"apiVersion"`
-	// Note: AbortController equivalent will use context.Context in Go services
+    APIVersion string          `json:"apiVersion"`
+    // Note: AbortController equivalent will use context.Context in Go services
+    Diff       *DiffState      `json:"diff,omitempty"`
+}
+
+// DiffState holds state for the diff pager view
+type DiffState struct {
+    Title       string   `json:"title"`
+    Content     []string `json:"content"`
+    Filtered    []int    `json:"filtered"`
+    Offset      int      `json:"offset"`
+    SearchQuery string   `json:"searchQuery"`
 }
 
 // NewAppState creates a new AppState with default values

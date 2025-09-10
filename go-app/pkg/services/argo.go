@@ -42,10 +42,11 @@ type ArgoApiEvent struct {
 
 // ResourceDiff represents a resource difference
 type ResourceDiff struct {
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Diff      string `json:"diff"`
+    Kind       string `json:"kind"`
+    Name       string `json:"name"`
+    Namespace  string `json:"namespace"`
+    LiveState  string `json:"liveState,omitempty"`
+    TargetState string `json:"targetState,omitempty"`
 }
 
 // ArgoApiServiceImpl provides a concrete implementation of ArgoApiService
@@ -191,9 +192,24 @@ func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model
 		return nil, errors.New("application name is required")
 	}
 
-	// TODO: Implement actual resource diffs API call
-	// This is a placeholder implementation
-	return []ResourceDiff{}, nil
+    // Use the real API service
+    if s.appService == nil {
+        s.appService = api.NewApplicationService(server)
+    }
+
+    diffs, err := s.appService.GetManagedResourceDiffs(ctx, appName)
+    if err != nil {
+        return nil, err
+    }
+    // Map to service layer struct
+    out := make([]ResourceDiff, len(diffs))
+    for i, d := range diffs {
+        out[i] = ResourceDiff{
+            Kind: d.Kind, Name: d.Name, Namespace: d.Namespace,
+            LiveState: d.LiveState, TargetState: d.TargetState,
+        }
+    }
+    return out, nil
 }
 
 // Cleanup implements ArgoApiService.Cleanup

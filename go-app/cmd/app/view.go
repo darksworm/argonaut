@@ -80,6 +80,10 @@ func (m Model) View() string {
 		return m.renderRollbackModal()
 	case model.ModeExternal:
 		return ""  // External mode returns null in React
+	case model.ModeDiffLoading:
+		return m.renderLoadingView()
+	case model.ModeDiff:
+		return m.renderDiffView()
 	case model.ModeRulerLine:
 		return m.renderOfficeSupplyManager()
 	default:
@@ -980,7 +984,46 @@ func (m Model) renderConfirmSyncModal() string {
 }
 
 func (m Model) renderResourceStream() string {
-	return contentBorderStyle.Render("Resource stream - TODO: implement 1:1")
+    return contentBorderStyle.Render("Resource stream - TODO: implement 1:1")
+}
+
+// renderDiffView - simple pager for diff content
+func (m Model) renderDiffView() string {
+    if m.state.Diff == nil {
+        return contentBorderStyle.Render("No diff loaded")
+    }
+    lines := m.state.Diff.Content
+    // Apply filter if present
+    if q := strings.ToLower(strings.TrimSpace(m.state.Diff.SearchQuery)); q != "" {
+        filtered := make([]string, 0, len(lines))
+        for _, ln := range lines {
+            if strings.Contains(strings.ToLower(ln), q) {
+                filtered = append(filtered, ln)
+            }
+        }
+        lines = filtered
+    }
+
+    // Compute viewport height: fill remaining space (reuse main container padding assumptions)
+    totalHeight := m.state.Terminal.Rows - 2 // leave one row for title and one for status
+    if totalHeight < 5 { totalHeight = 5 }
+    // Clamp offset
+    if m.state.Diff.Offset < 0 { m.state.Diff.Offset = 0 }
+    if m.state.Diff.Offset > max(0, len(lines)-totalHeight) {
+        m.state.Diff.Offset = max(0, len(lines)-totalHeight)
+    }
+    start := m.state.Diff.Offset
+    end := min(len(lines), start+totalHeight)
+    body := strings.Join(lines[start:end], "\n")
+
+    title := headerStyle.Render(m.state.Diff.Title)
+    status := statusStyle.Render(fmt.Sprintf("%d-%d/%d  j/k, g/G, / search, esc/q back", start+1, end, len(lines)))
+    width := max(0, m.state.Terminal.Cols-4)
+    return lipgloss.JoinVertical(lipgloss.Left,
+        title,
+        contentBorderStyle.Width(width).Height(totalHeight).Render(body),
+        status,
+    )
 }
 
 // renderHelpSection - helper for HelpModal (matches Help.tsx HelpSection)

@@ -1,14 +1,18 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/a9s/go-app/pkg/model"
-	"github.com/a9s/go-app/pkg/services"
+    tea "github.com/charmbracelet/bubbletea"
+    "github.com/a9s/go-app/pkg/model"
+    "github.com/a9s/go-app/pkg/services"
+    yaml "gopkg.in/yaml.v3"
 )
 
 // startLoadingApplications initiates loading applications from ArgoCD API
@@ -110,6 +114,112 @@ func (m Model) startWatchingApplications() tea.Cmd {
 
 		return model.StatusChangeMsg{Status: "Watching for changes..."}
 	})
+}
+
+// startDiffSession loads diffs and opens the diff pager
+func (m Model) startDiffSession(appName string) tea.Cmd {
+    return tea.Cmd(func() tea.Msg {
+        if m.state.Server == nil {
+            return model.ApiErrorMsg{Message: "No server configured"}
+        }
+        ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+        defer cancel()
+
+        apiService := services.NewArgoApiService(m.state.Server)
+        diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+        if err != nil {
+            return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
+        }
+
+        desiredDocs := make([]string, 0)
+        liveDocs := make([]string, 0)
+        for _, d := range diffs {
+            if d.TargetState != "" {
+                s := cleanManifestToYAML(d.TargetState)
+                if s != "" { desiredDocs = append(desiredDocs, s) }
+            }
+            if d.LiveState != "" {
+                s := cleanManifestToYAML(d.LiveState)
+                if s != "" { liveDocs = append(liveDocs, s) }
+            }
+        }
+
+        if len(desiredDocs) == 0 && len(liveDocs) == 0 {
+            return model.StatusChangeMsg{Status: "No diffs"}
+        }
+
+        leftFile, _ := writeTempYAML("live-", liveDocs)
+        rightFile, _ := writeTempYAML("desired-", desiredDocs)
+
+        cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
+        out, err := cmd.CombinedOutput()
+        if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
+            return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
+        }
+        cleaned := stripDiffHeader(string(out))
+        if strings.TrimSpace(cleaned) == "" {
+            return model.StatusChangeMsg{Status: "No differences"}
+        }
+        lines := strings.Split(cleaned, "\n")
+        m.state.Diff = &model.DiffState{Title: fmt.Sprintf("%s - Live vs Desired (Cleaned)", appName), Content: lines, Offset: 0}
+        return model.SetModeMsg{Mode: model.ModeDiff}
+    })
+}
+
+func writeTempYAML(prefix string, docs []string) (string, error) {
+    f, err := os.CreateTemp("", prefix+"*.yaml")
+    if err != nil { return "", err }
+    defer f.Close()
+    content := strings.Join(docs, "\n---\n")
+    if _, err := f.WriteString(content); err != nil { return "", err }
+    return f.Name(), nil
+}
+
+func cleanManifestToYAML(jsonOrYaml string) string {
+    var obj map[string]interface{}
+    if err := json.Unmarshal([]byte(jsonOrYaml), &obj); err == nil {
+        if m, ok := obj["metadata"].(map[string]interface{}); ok {
+            delete(m, "creationTimestamp"); delete(m, "resourceVersion"); delete(m, "uid"); delete(m, "managedFields")
+            if ann, ok := m["annotations"].(map[string]interface{}); ok {
+                delete(ann, "kubectl.kubernetes.io/last-applied-configuration"); delete(ann, "deployment.kubernetes.io/revision")
+                if len(ann) == 0 { delete(m, "annotations") }
+            }
+            if len(m) == 0 { delete(obj, "metadata") }
+        }
+        delete(obj, "status")
+        if spec, ok := obj["spec"].(map[string]interface{}); ok {
+            delete(spec, "serviceAccount")
+            if tpl, ok := spec["template"].(map[string]interface{}); ok {
+                if ps, ok := tpl["spec"].(map[string]interface{}); ok {
+                    if cs, ok := ps["containers"].([]interface{}); ok {
+                        for _, c := range cs {
+                            if cm, ok := c.(map[string]interface{}); ok {
+                                if cm["imagePullPolicy"] == "IfNotPresent" { delete(cm, "imagePullPolicy") }
+                                delete(cm, "terminationMessagePath"); delete(cm, "terminationMessagePolicy")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        by, err := yaml.Marshal(obj)
+        if err == nil { return string(by) }
+    }
+    return jsonOrYaml
+}
+
+func stripDiffHeader(out string) string {
+    lines := strings.Split(out, "\n")
+    start := 0
+    for i, ln := range lines {
+        s := strings.TrimSpace(ln)
+        if s == "" { continue }
+        if strings.HasPrefix(s, "@@") || strings.HasPrefix(s, "+") || strings.HasPrefix(s, "-") || strings.Contains(s, "│") {
+            start = i
+            break
+        }
+    }
+    return strings.Join(lines[start:], "\n")
 }
 
 // syncSelectedApplications syncs the currently selected applications

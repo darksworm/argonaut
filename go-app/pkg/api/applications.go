@@ -68,12 +68,26 @@ type WatchEventResult struct {
 
 // ListApplicationsResponse represents the response from listing applications
 type ListApplicationsResponse struct {
-	Items []ArgoApplication `json:"items"`
+    Items []ArgoApplication `json:"items"`
+}
+
+// ManagedResourceDiff represents ArgoCD managed resource diff item
+type ManagedResourceDiff struct {
+    Kind        string `json:"kind"`
+    Namespace   string `json:"namespace"`
+    Name        string `json:"name"`
+    TargetState string `json:"targetState,omitempty"`
+    LiveState   string `json:"liveState,omitempty"`
+}
+
+// ManagedResourcesResponse represents response for managed resources
+type ManagedResourcesResponse struct {
+    Items []ManagedResourceDiff `json:"items"`
 }
 
 // ApplicationService provides ArgoCD application operations
 type ApplicationService struct {
-	client *Client
+    client *Client
 }
 
 // NewApplicationService creates a new application service
@@ -148,6 +162,29 @@ func (s *ApplicationService) ListApplications(ctx context.Context) ([]model.App,
     }
 
     return apps, nil
+}
+
+// GetManagedResourceDiffs fetches managed resource diffs for an application
+func (s *ApplicationService) GetManagedResourceDiffs(ctx context.Context, appName string) ([]ManagedResourceDiff, error) {
+    if appName == "" {
+        return nil, fmt.Errorf("application name is required")
+    }
+    path := fmt.Sprintf("/api/v1/applications/%s/managed-resources", url.PathEscape(appName))
+    data, err := s.client.Get(ctx, path)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get managed resources: %w", err)
+    }
+
+    // Accept both {items:[...]} and bare array
+    var withItems ManagedResourcesResponse
+    if err := json.Unmarshal(data, &withItems); err == nil && len(withItems.Items) > 0 {
+        return withItems.Items, nil
+    }
+    var arr []ManagedResourceDiff
+    if err := json.Unmarshal(data, &arr); err == nil {
+        return arr, nil
+    }
+    return []ManagedResourceDiff{}, nil
 }
 
 // SyncApplication triggers a sync for the specified application

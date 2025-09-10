@@ -181,8 +181,12 @@ func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         // Treat Ctrl+C as closing the input (do not quit app)
         m.inputComponents.BlurInputs()
         m.inputComponents.ClearSearchInput()
-        m.state.Mode = model.ModeNormal
-        m.state.UI.SearchQuery = ""
+        if m.state.Diff != nil {
+            m.state.Mode = model.ModeDiff
+        } else {
+            m.state.Mode = model.ModeNormal
+            m.state.UI.SearchQuery = ""
+        }
         return m, nil
     case "up", "k":
         // Navigate results while search is active
@@ -191,15 +195,29 @@ func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         // Navigate results while search is active
         return m.handleNavigationDown()
     case "esc":
+        // Exit search; if coming from diff mode, return to diff; else normal
         m.inputComponents.BlurInputs()
         m.inputComponents.ClearSearchInput()
-        m.state.Mode = model.ModeNormal
-        m.state.UI.SearchQuery = ""
+        if m.state.Diff != nil {
+            m.state.Mode = model.ModeDiff
+        } else {
+            m.state.Mode = model.ModeNormal
+            m.state.UI.SearchQuery = ""
+        }
         return m, nil
     case "enter":
         // Apply search filter and exit search mode or drill down for non-app views
         searchValue := m.inputComponents.GetSearchValue()
-        if m.state.Navigation.View == model.ViewApps {
+        if m.state.Mode == model.ModeDiff {
+            // Apply filter to diff view
+            if m.state.Diff != nil {
+                m.state.Diff.SearchQuery = searchValue
+                m.state.Diff.Offset = 0
+            }
+            m.inputComponents.BlurInputs()
+            m.state.Mode = model.ModeDiff
+            return m, nil
+        } else if m.state.Navigation.View == model.ViewApps {
             // Keep filter applied in apps view
             m.inputComponents.BlurInputs()
             m.state.Mode = model.ModeNormal
@@ -271,6 +289,24 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         m.state.UI.SearchQuery = ""
 
         switch cmd {
+        case "diff":
+            // :diff [app]
+            target := arg
+            if target == "" {
+                // default to current selection in apps view
+                items := m.getVisibleItemsForCurrentView()
+                if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+                    if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+                        target = app.Name
+                    }
+                }
+            }
+            if target == "" {
+                return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
+            }
+            // Start diff loading
+            m.state.Mode = model.ModeDiffLoading
+            return m, m.startDiffSession(target)
         case "cluster", "clusters", "cls":
             // Switch to clusters view
             m.state.Navigation.View = model.ViewClusters

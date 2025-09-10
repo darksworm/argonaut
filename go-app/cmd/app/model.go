@@ -227,6 +227,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleConfirmSyncKeys(msg)
 	case model.ModeRollback:
 		return m.handleRollbackModeKeys(msg)
+	case model.ModeDiff:
+		return m.handleDiffModeKeys(msg)
 	}
 
 	// Global key handling for normal mode

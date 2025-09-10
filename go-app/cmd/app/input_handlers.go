@@ -296,6 +296,38 @@ func (m Model) handleHelpModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleDiffModeKeys handles navigation and search in diff mode
+func (m Model) handleDiffModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+    if m.state.Diff == nil { return m, nil }
+    switch msg.String() {
+    case "q", "esc":
+        m.state.Mode = model.ModeNormal
+        m.state.Diff = nil
+        return m, nil
+    case "up", "k":
+        m.state.Diff.Offset = max(0, m.state.Diff.Offset-1)
+        return m, nil
+    case "down", "j":
+        m.state.Diff.Offset = m.state.Diff.Offset + 1
+        return m, nil
+    case "g":
+        m.state.Diff.Offset = 0
+        return m, nil
+    case "G":
+        // set to large; clamped on render
+        m.state.Diff.Offset = 1<<30
+        return m, nil
+    case "/":
+        // Reuse search input for diff filtering
+        m.inputComponents.ClearSearchInput()
+        m.inputComponents.FocusSearchInput()
+        m.state.Mode = model.ModeSearch
+        return m, nil
+    default:
+        return m, nil
+    }
+}
+
 // handleConfirmSyncKeys handles input when in sync confirmation mode
 func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
