@@ -4,15 +4,9 @@ import type React from "react";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
 
-interface LoadingViewProps {
-  message?: string;
-}
-
-export const LoadingView: React.FC<LoadingViewProps> = ({
-  message = "Starting…",
-}) => {
+export const LoadingView: React.FC = () => {
   const { state } = useAppState();
-  const { server, terminal } = state;
+  const { server, terminal, loadingMessage } = state;
 
   if (state.mode !== "loading") {
     return null;
@@ -34,11 +28,8 @@ export const LoadingView: React.FC<LoadingViewProps> = ({
       </Box>
       <Box flexGrow={1} alignItems="center" justifyContent="center">
         <Text color="yellow">
-          {spinChar} Connecting & fetching applications…
+          {spinChar} {loadingMessage}
         </Text>
-      </Box>
-      <Box>
-        <Text dimColor>{message}</Text>
       </Box>
     </Box>
   );

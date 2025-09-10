@@ -57,6 +57,7 @@ export interface AppState {
   server: Server | null;
   apps: AppItem[];
   apiVersion: string;
+  loadingMessage: string;
 
   // Cleanup
   loadingAbortController: AbortController | null;
@@ -71,6 +72,7 @@ export type AppAction =
   | { type: "SET_SERVER"; payload: Server | null }
   | { type: "SET_APPS"; payload: AppItem[] }
   | { type: "SET_API_VERSION"; payload: string }
+  | { type: "SET_LOADING_MESSAGE"; payload: string }
   | { type: "SET_SEARCH_QUERY"; payload: string }
   | { type: "SET_ACTIVE_FILTER"; payload: string }
   | { type: "SET_COMMAND"; payload: string }
@@ -131,6 +133,7 @@ export const initialState: AppState = {
   server: null,
   apps: [],
   apiVersion: "",
+  loadingMessage: "Connecting & fetching applications…",
   loadingAbortController: null,
 };
 
@@ -166,6 +169,9 @@ export function appStateReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_API_VERSION":
       return { ...state, apiVersion: action.payload };
+
+    case "SET_LOADING_MESSAGE":
+      return { ...state, loadingMessage: action.payload };
 
     case "SET_SEARCH_QUERY":
       return {

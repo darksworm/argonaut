@@ -234,6 +234,10 @@ export default function Rollback(props: RollbackProps) {
       return;
     }
     try {
+      dispatch({
+        type: "SET_LOADING_MESSAGE",
+        payload: `Preparing diff for ${app}…`,
+      });
       dispatch({ type: "SET_MODE", payload: "loading" });
       statusLog.info(`Preparing diff for ${app}…`, "diff");
 

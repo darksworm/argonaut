@@ -32,6 +32,10 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       await diffCommand.execute(context, "test-app");
 
       expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_LOADING_MESSAGE",
+        payload: "Preparing diff for test-app…",
+      });
+      expect(context.dispatch).toHaveBeenCalledWith({
         type: "SET_MODE",
         payload: "normal",
       });
@@ -59,6 +63,10 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       const diffCommand = new DiffCommand();
       await diffCommand.execute(context);
 
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_LOADING_MESSAGE",
+        payload: "Preparing diff for app1…",
+      });
       expect(context.statusLog.info).toHaveBeenCalledWith(
         "Preparing diff for app1…",
         "diff",
@@ -88,6 +96,10 @@ describe("Application Commands (:diff, :sync, :rollback, :resources)", () => {
       const diffCommand = new DiffCommand();
       await diffCommand.execute(context);
 
+      expect(context.dispatch).toHaveBeenCalledWith({
+        type: "SET_LOADING_MESSAGE",
+        payload: "Preparing diff for selected-app…",
+      });
       expect(context.statusLog.info).toHaveBeenCalledWith(
         "Preparing diff for selected-app…",
         "diff",

@@ -48,7 +48,7 @@ const AppContent: React.FC = () => {
   // Render based on current mode
   switch (state.mode) {
     case "loading":
-      return <LoadingView message={status} />;
+      return <LoadingView />;
 
     case "auth-required":
       return (

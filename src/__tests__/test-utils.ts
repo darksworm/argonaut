@@ -76,6 +76,7 @@ export function createMockState(overrides: Partial<AppState> = {}): AppState {
     },
     apps: [],
     apiVersion: "v2.9.0",
+    loadingMessage: "Connecting & fetching applications…",
     loadingAbortController: null,
   };
 

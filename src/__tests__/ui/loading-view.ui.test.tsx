@@ -12,6 +12,7 @@ describe("LoadingView UI Tests", () => {
     },
     apps: [],
     apiVersion: "v2.8.0",
+    loadingMessage: "Connecting & fetching applications…",
     terminal: { rows: 30, cols: 120 },
     navigation: { view: "apps" as const, selectedIdx: 0, lastGPressed: 0 },
     selections: {
@@ -128,10 +129,11 @@ describe("LoadingView UI Tests", () => {
       expect(frame).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
     });
 
-    it("shows provided message", () => {
+    it("shows provided message from state", () => {
+      const customState = { ...baseState, loadingMessage: "Preparing diff" };
       const { lastFrame } = render(
-        <AppStateProvider initialState={baseState}>
-          <LoadingView message="Preparing diff" />
+        <AppStateProvider initialState={customState}>
+          <LoadingView />
         </AppStateProvider>,
       );
 

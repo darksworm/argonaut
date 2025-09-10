@@ -170,6 +170,10 @@ export class DiffCommand implements Command {
     }
 
     try {
+      dispatch({
+        type: "SET_LOADING_MESSAGE",
+        payload: `Preparing diff for ${target}…`,
+      });
       dispatch({ type: "SET_MODE", payload: "loading" });
       statusLog.info(`Preparing diff for ${target}…`, "diff");
 
