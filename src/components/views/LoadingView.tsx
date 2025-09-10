@@ -6,7 +6,7 @@ import { useAppState } from "../../contexts/AppStateContext";
 
 export const LoadingView: React.FC = () => {
   const { state } = useAppState();
-  const { server, terminal } = state;
+  const { server, terminal, loadingMessage } = state;
 
   if (state.mode !== "loading") {
     return null;
@@ -28,11 +28,8 @@ export const LoadingView: React.FC = () => {
       </Box>
       <Box flexGrow={1} alignItems="center" justifyContent="center">
         <Text color="yellow">
-          {spinChar} Connecting & fetching applications…
+          {spinChar} {loadingMessage}
         </Text>
-      </Box>
-      <Box>
-        <Text dimColor>Starting…</Text>
       </Box>
     </Box>
   );

@@ -3,11 +3,18 @@ import type React from "react";
 import packageJson from "../../../package.json";
 import { hostFromUrl } from "../../config/paths";
 import { useAppState } from "../../contexts/AppStateContext";
+import type { StatusLogger } from "../../commands/types";
 import { fmtScope } from "../../utils";
 import ArgoNautBanner from "../Banner";
 import Rollback from "../Rollback";
 
-export const RollbackModal: React.FC = () => {
+interface RollbackModalProps {
+  statusLog: StatusLogger;
+}
+
+export const RollbackModal: React.FC<RollbackModalProps> = ({
+  statusLog,
+}) => {
   const { state, dispatch } = useAppState();
 
   const { mode, terminal, modals, server, apps, apiVersion, selections } =
@@ -52,6 +59,7 @@ export const RollbackModal: React.FC = () => {
         }
         onClose={handleClose}
         onStartWatching={handleStartWatching}
+        statusLog={statusLog}
       />
     </Box>
   );

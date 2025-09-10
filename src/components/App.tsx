@@ -85,7 +85,7 @@ const AppContent: React.FC = () => {
             state.mode === "confirm-sync" ? (
               <ConfirmSyncModal />
             ) : state.mode === "rollback" ? (
-              <RollbackModal />
+              <RollbackModal statusLog={statusLog} />
             ) : null
           }
         />
