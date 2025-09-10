@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/darksworm/argonaut/compare/v1.16.0...v1.16.1) (2025-09-10)
+
+
+### Bug Fixes
+
+* expand rollback view ([31cccfb](https://github.com/darksworm/argonaut/commit/31cccfbf14c72347febdb815f3f91fec68ae4fe3))
+
 ## [1.16.0](https://github.com/darksworm/argonaut/compare/v1.15.1...v1.16.0) (2025-09-06)
 
 
