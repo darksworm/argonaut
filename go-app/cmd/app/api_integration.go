@@ -327,7 +327,9 @@ func (m Model) startLogsSession() tea.Cmd {
         data, err := os.ReadFile("logs/a9s.log")
         if err != nil { return model.ApiErrorMsg{Message: "No logs available"} }
         lines := strings.Split(string(data), "\n")
-        m.state.Diff = &model.DiffState{Title: "Logs", Content: lines, Offset: max(0, len(lines)-(m.state.Terminal.Rows-4))}
+        offset := len(lines)-(m.state.Terminal.Rows-4)
+        if offset < 0 { offset = 0 }
+        m.state.Diff = &model.DiffState{Title: "Logs", Content: lines, Offset: offset}
         return model.SetModeMsg{Mode: model.ModeDiff}
     })
 }
