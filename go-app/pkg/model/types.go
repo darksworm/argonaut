@@ -110,3 +110,65 @@ func RemoveFromStringSet(set map[string]bool, item string) map[string]bool {
 func HasInStringSet(set map[string]bool, item string) bool {
 	return set != nil && set[item]
 }
+
+// ResourceNode represents a Kubernetes resource in the ArgoCD application tree
+type ResourceNode struct {
+	Kind        string                 `json:"kind"`
+	Name        string                 `json:"name"`
+	Namespace   *string                `json:"namespace,omitempty"`
+	Version     string                 `json:"version"`
+	Group       string                 `json:"group"`
+	UID         string                 `json:"uid"`
+	Health      *ResourceHealth        `json:"health,omitempty"`
+	Status      string                 `json:"status"`
+	NetworkingInfo *NetworkingInfo     `json:"networkingInfo,omitempty"`
+	ResourceRef ResourceRef            `json:"resourceRef"`
+	ParentRefs  []ResourceRef          `json:"parentRefs,omitempty"`
+	Info        []ResourceInfo         `json:"info,omitempty"`
+	CreatedAt   *time.Time            `json:"createdAt,omitempty"`
+}
+
+// ResourceHealth represents the health status of a resource
+type ResourceHealth struct {
+	Status  *string `json:"status,omitempty"`
+	Message *string `json:"message,omitempty"`
+}
+
+// NetworkingInfo represents networking information for a resource
+type NetworkingInfo struct {
+	TargetLabels map[string]string   `json:"targetLabels,omitempty"`
+	TargetRefs   []ResourceRef       `json:"targetRefs,omitempty"`
+	Labels       map[string]string   `json:"labels,omitempty"`
+	Ingress      []IngressInfo       `json:"ingress,omitempty"`
+}
+
+// IngressInfo represents ingress information
+type IngressInfo struct {
+	Hostname string `json:"hostname"`
+	IP       string `json:"ip"`
+}
+
+// ResourceRef represents a reference to a Kubernetes resource
+type ResourceRef struct {
+	Kind      string  `json:"kind"`
+	Name      string  `json:"name"`
+	Namespace *string `json:"namespace,omitempty"`
+	Group     string  `json:"group"`
+	Version   string  `json:"version"`
+	UID       string  `json:"uid"`
+}
+
+// ResourceInfo represents additional information about a resource
+type ResourceInfo struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// ResourceState holds the state for resource viewing
+type ResourceState struct {
+	AppName   string         `json:"appName"`
+	Resources []ResourceNode `json:"resources"`
+	Loading   bool           `json:"loading"`
+	Error     string         `json:"error"`
+	Offset    int            `json:"offset"`
+}

@@ -555,7 +555,6 @@ func convertApiToModelResourceNode(apiNode api.ResourceNode) model.ResourceNode 
 		Version:        apiNode.Version,
 		Health:         health,
 		NetworkingInfo: networkingInfo,
-		Images:         apiNode.Images,
 	}
 }
 
