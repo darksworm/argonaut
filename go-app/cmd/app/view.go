@@ -1155,28 +1155,24 @@ func (m Model) renderConfirmSyncModal() string {
 	target := *m.state.Modals.ConfirmTarget
 	isMulti := target == "__MULTI__"
 
-	// Enhanced modal content with cool visuals
-	var title, message, targetText, headerIcon string
+	// Enhanced modal content with clean visual design
+	var title, message, targetText string
 	if isMulti {
 		title = "SYNC APPLICATIONS"
 		message = "Ready to sync"
 		targetText = fmt.Sprintf("%d selected apps", len(m.state.Selections.SelectedApps))
-		headerIcon = "⚡ 🔄 ⚡"
 	} else {
 		title = "SYNC APPLICATION"
 		message = "Ready to sync"
 		targetText = target
-		headerIcon = "🚀 🔄 🚀"
 	}
 
-	// Options with cool icons
-	pruneIcon := "🗑️"
+	// Options with clean indicators
 	pruneStatus := "○"
 	if m.state.Modals.ConfirmSyncPrune {
 		pruneStatus = "●"
 	}
 
-	watchIcon := "👁️"
 	watchStatus := "○"
 	if m.state.Modals.ConfirmSyncWatch {
 		watchStatus = "●"
@@ -1197,14 +1193,6 @@ func (m Model) renderConfirmSyncModal() string {
 		Align(lipgloss.Center)
 
 	var content strings.Builder
-
-	// Cool header with icons
-	headerStyle := lipgloss.NewStyle().
-		Foreground(cyanBright).
-		Bold(true).
-		Align(lipgloss.Center)
-	content.WriteString(headerStyle.Render(headerIcon))
-	content.WriteString("\n")
 
 	// Title with enhanced styling
 	titleStyle := lipgloss.NewStyle().
@@ -1237,23 +1225,23 @@ func (m Model) renderConfirmSyncModal() string {
 	content.WriteString(separatorStyle.Render("─────────────────────────"))
 	content.WriteString("\n\n")
 
-	// Enhanced options with icons and better styling
+	// Enhanced options with clean styling
 	optionStyle := lipgloss.NewStyle().
 		Foreground(cyanBright).
 		Bold(true)
 	
-	pruneText := fmt.Sprintf(" %s [p] %s Prune resources", pruneIcon, pruneStatus)
+	pruneText := fmt.Sprintf(" [p] %s Prune resources", pruneStatus)
 	content.WriteString(optionStyle.Render(pruneText))
 	content.WriteString("\n")
 
 	if !watchDisabled {
-		watchText := fmt.Sprintf(" %s [w] %s Watch resources", watchIcon, watchStatus)
+		watchText := fmt.Sprintf(" [w] %s Watch resources", watchStatus)
 		content.WriteString(optionStyle.Render(watchText))
 	} else {
 		dimStyle := lipgloss.NewStyle().
 			Foreground(dimColor).
 			Strikethrough(true)
-		watchText := fmt.Sprintf(" %s [w] %s Watch (multi-sync)", watchIcon, watchStatus)
+		watchText := fmt.Sprintf(" [w] %s Watch (multi-sync)", watchStatus)
 		content.WriteString(dimStyle.Render(watchText))
 	}
 	content.WriteString("\n\n")
@@ -1262,18 +1250,18 @@ func (m Model) renderConfirmSyncModal() string {
 	content.WriteString(separatorStyle.Render("─────────────────────────"))
 	content.WriteString("\n")
 
-	// Enhanced instructions with icons
+	// Enhanced instructions 
 	instructionStyle := lipgloss.NewStyle().
 		Foreground(yellowBright).
 		Bold(true).
 		Align(lipgloss.Center)
-	content.WriteString(instructionStyle.Render("⏎ ENTER to confirm"))
+	content.WriteString(instructionStyle.Render("ENTER to confirm"))
 	content.WriteString("\n")
 	
 	cancelStyle := lipgloss.NewStyle().
 		Foreground(dimColor).
 		Align(lipgloss.Center)
-	content.WriteString(cancelStyle.Render("⎋ ESC to cancel"))
+	content.WriteString(cancelStyle.Render("ESC to cancel"))
 
 	return modalStyle.Render(content.String())
 }
