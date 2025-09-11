@@ -330,71 +330,146 @@ func joinWithRightAlignment(left, right string, totalWidth int) string {
 	return strings.Join(out, "\n")
 }
 
-// renderListView - 1:1 mapping from ListView.tsx
+// renderListView - uses bubbles table for consistent styling across all views
 func (m Model) renderListView(availableRows int) string {
 	visibleItems := m.getVisibleItems()
+	
+	// Calculate content dimensions
+	contentWidth := max(0, m.state.Terminal.Cols-12) // Aggressive padding to prevent overflow
+	tableHeight := max(3, availableRows-2) // Reserve space for title if needed
 
-	// Calculate visible slice (exact copy from ListView.tsx)
-	listRows := max(0, availableRows)
-	selectedIdx := m.state.Navigation.SelectedIdx
-
-	start := max(0, min(
-		max(0, selectedIdx-listRows/2),
-		max(0, len(visibleItems)-listRows),
-	))
-	end := min(len(visibleItems), start+listRows)
-
-	if start >= len(visibleItems) {
-		start = 0
-		end = 0
+	// Handle empty state
+	if len(visibleItems) == 0 {
+		emptyContent := statusStyle.Render("No items.")
+		return contentBorderStyle.Width(contentWidth+12).Height(availableRows).Render(emptyContent)
 	}
 
-	rowsSlice := visibleItems[start:end]
-
-	var content strings.Builder
-
-	// Header row (matches ListView header)
-	headerRow := m.renderListHeader()
-	content.WriteString(headerRow)
-	content.WriteString("\n")
-
-	// Data rows (matches ListView map function)
-	for i, item := range rowsSlice {
-		actualIndex := start + i
-		isCursor := actualIndex == selectedIdx
-
-		if m.state.Navigation.View == model.ViewApps {
-			row := m.renderAppRow(item.(model.App), isCursor)
-			content.WriteString(row)
+	// Prepare data and update the appropriate table directly
+	var tableView string
+	
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		// Calculate responsive column widths for apps
+		nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
+		
+		// Update column widths and headers based on available width
+		var nameHeaderText, syncHeaderText, healthHeaderText string
+		if contentWidth < 60 {
+			nameHeaderText = "📱 NAME"
+			syncHeaderText = "🔄"
+			healthHeaderText = "💚"
 		} else {
-			row := m.renderSimpleRow(fmt.Sprintf("%v", item), isCursor)
-			content.WriteString(row)
+			nameHeaderText = "NAME"
+			syncHeaderText = "SYNC"
+			healthHeaderText = "HEALTH"
 		}
-
-		if i < len(rowsSlice)-1 {
-			content.WriteString("\n")
+		
+		columns := []table.Column{
+			{Title: nameHeaderText, Width: nameWidth},
+			{Title: syncHeaderText, Width: syncWidth},
+			{Title: healthHeaderText, Width: healthWidth},
 		}
+		m.appsTable.SetColumns(columns)
+		
+		// Convert apps to table rows with proper styling
+		rows := make([]table.Row, len(visibleItems))
+		for i, item := range visibleItems {
+			app := item.(model.App)
+			
+			// Get icons and format text based on width
+			syncIcon := m.getSyncIcon(app.Sync)
+			healthIcon := m.getHealthIcon(app.Health)
+			
+			var syncText, healthText string
+			if contentWidth < 45 {
+				syncText = syncIcon
+				healthText = healthIcon
+			} else {
+				syncText = fmt.Sprintf("%s %s", syncIcon, app.Sync)
+				healthText = fmt.Sprintf("%s %s", healthIcon, app.Health)
+			}
+			
+			rows[i] = table.Row{
+				truncateWithEllipsis(app.Name, nameWidth),
+				syncText,
+				healthText,
+			}
+		}
+		
+		m.appsTable.SetRows(rows)
+		m.appsTable.SetHeight(tableHeight)
+		m.appsTable.SetWidth(contentWidth)
+		m.appsTable.SetCursor(m.state.Navigation.SelectedIdx)
+		tableView = m.appsTable.View()
+		
+	case model.ViewClusters:
+		// Update column width to be responsive
+		columns := []table.Column{
+			{Title: "NAME", Width: contentWidth - 4}, // Full width minus some padding
+		}
+		m.clustersTable.SetColumns(columns)
+		
+		rows := make([]table.Row, len(visibleItems))
+		for i, item := range visibleItems {
+			rows[i] = table.Row{fmt.Sprintf("%v", item)}
+		}
+		
+		m.clustersTable.SetRows(rows)
+		m.clustersTable.SetHeight(tableHeight)
+		m.clustersTable.SetWidth(contentWidth)
+		m.clustersTable.SetCursor(m.state.Navigation.SelectedIdx)
+		tableView = m.clustersTable.View()
+		
+	case model.ViewNamespaces:
+		// Update column width to be responsive
+		columns := []table.Column{
+			{Title: "NAME", Width: contentWidth - 4}, // Full width minus some padding
+		}
+		m.namespacesTable.SetColumns(columns)
+		
+		rows := make([]table.Row, len(visibleItems))
+		for i, item := range visibleItems {
+			rows[i] = table.Row{fmt.Sprintf("%v", item)}
+		}
+		
+		m.namespacesTable.SetRows(rows)
+		m.namespacesTable.SetHeight(tableHeight)
+		m.namespacesTable.SetWidth(contentWidth)
+		m.namespacesTable.SetCursor(m.state.Navigation.SelectedIdx)
+		tableView = m.namespacesTable.View()
+		
+	case model.ViewProjects:
+		// Update column width to be responsive
+		columns := []table.Column{
+			{Title: "NAME", Width: contentWidth - 4}, // Full width minus some padding
+		}
+		m.projectsTable.SetColumns(columns)
+		
+		rows := make([]table.Row, len(visibleItems))
+		for i, item := range visibleItems {
+			rows[i] = table.Row{fmt.Sprintf("%v", item)}
+		}
+		
+		m.projectsTable.SetRows(rows)
+		m.projectsTable.SetHeight(tableHeight)
+		m.projectsTable.SetWidth(contentWidth)
+		m.projectsTable.SetCursor(m.state.Navigation.SelectedIdx)
+		tableView = m.projectsTable.View()
+		
+	default:
+		// Fallback to apps table
+		m.appsTable.SetRows([]table.Row{})
+		m.appsTable.SetHeight(tableHeight)
+		m.appsTable.SetWidth(contentWidth)
+		tableView = m.appsTable.View()
 	}
 
-	// No items message (matches ListView empty state)
-	if len(visibleItems) == 0 {
-		content.WriteString(statusStyle.Render("No items."))
-	}
+	// Render the table
+	var content strings.Builder
+	content.WriteString(tableView)
 
-	// Pad the list to consume all available rows so the table fills the space
-	usedRows := len(rowsSlice)
-	if len(visibleItems) == 0 {
-		usedRows = 1 // the "No items." line uses one row
-	}
-	pad := max(0, listRows-usedRows)
-	for i := 0; i < pad; i++ {
-		content.WriteString("\n")
-	}
-
-	// Apply border style with full width (matches MainLayout content Box)
-	contentWidth := max(0, m.state.Terminal.Cols-4) // Account for main container padding
-	// Set height to header (1) + listRows so border takes full vertical space
-	return contentBorderStyle.Width(contentWidth).Height(1 + listRows).Render(content.String())
+	// Apply border style with proper dimensions
+	return contentBorderStyle.Width(contentWidth+12).Height(availableRows).Render(content.String())
 }
 
 // renderListHeader - matches ListView header row with responsive widths

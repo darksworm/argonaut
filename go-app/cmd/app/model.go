@@ -38,8 +38,12 @@ type Model struct {
 	// bubbles spinner for loading
 	spinner spinner.Model
 	
-	// bubbles table for resources view
+	// bubbles tables for all views
 	resourcesTable table.Model
+	appsTable      table.Model
+	clustersTable  table.Model
+	namespacesTable table.Model
+	projectsTable  table.Model
 }
 
 // NewModel creates a new Model with default state and services
@@ -48,31 +52,72 @@ func NewModel() *Model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	
+	// Create a function to get standard table styles
+	getTableStyle := func() table.Styles {
+		s := table.DefaultStyles()
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			BorderBottom(true).
+			Bold(false)
+		s.Selected = s.Selected.
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("57")).
+			Bold(false)
+		return s
+	}
+
 	// Initialize resources table
-	columns := []table.Column{
+	resourcesColumns := []table.Column{
 		{Title: "KIND", Width: 20},
 		{Title: "NAME", Width: 40},
 		{Title: "STATUS", Width: 15},
 	}
-	
-	t := table.New(
-		table.WithColumns(columns),
+	resourcesTable := table.New(
+		table.WithColumns(resourcesColumns),
 		table.WithFocused(false),
 		table.WithHeight(10),
 	)
+	resourcesTable.SetStyles(getTableStyle())
+
+	// Initialize apps table  
+	appsColumns := []table.Column{
+		{Title: "NAME", Width: 40},
+		{Title: "SYNC", Width: 12},
+		{Title: "HEALTH", Width: 15},
+	}
+	appsTable := table.New(
+		table.WithColumns(appsColumns),
+		table.WithFocused(true), // Apps table should be focused for navigation
+		table.WithHeight(10),
+	)
+	appsTable.SetStyles(getTableStyle())
+
+	// Initialize simple tables for other views
+	simpleColumns := []table.Column{
+		{Title: "NAME", Width: 60},
+	}
 	
-	// Style the table to match the app's theme
-	tableStyle := table.DefaultStyles()
-	tableStyle.Header = tableStyle.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	tableStyle.Selected = tableStyle.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(tableStyle)
+	clustersTable := table.New(
+		table.WithColumns(simpleColumns),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+	clustersTable.SetStyles(getTableStyle())
+
+	namespacesTable := table.New(
+		table.WithColumns(simpleColumns),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+	namespacesTable.SetStyles(getTableStyle())
+
+	projectsTable := table.New(
+		table.WithColumns(simpleColumns),
+		table.WithFocused(true),
+		table.WithHeight(10),
+	)
+	projectsTable.SetStyles(getTableStyle())
 	
 	return &Model{
 		state:             model.NewAppState(),
@@ -82,11 +127,15 @@ func NewModel() *Model {
 			Handler:      createFileStatusHandler(), // Log to file instead of stdout
 			DebugEnabled: true,
 		}),
-		inputComponents: NewInputComponents(),
-		ready:           false,
-		err:             nil,
+		inputComponents:  NewInputComponents(),
+		ready:            false,
+		err:              nil,
 		spinner:          s,
-		resourcesTable:   t,
+		resourcesTable:   resourcesTable,
+		appsTable:        appsTable,
+		clustersTable:    clustersTable,
+		namespacesTable:  namespacesTable,
+		projectsTable:    projectsTable,
 	}
 }
 

@@ -10,11 +10,25 @@ import (
 
 // handleNavigationUp moves cursor up with bounds checking
 func (m Model) handleNavigationUp() (Model, tea.Cmd) {
+	// Update both our navigation state and the appropriate table cursor
 	newIdx := m.state.Navigation.SelectedIdx - 1
 	if newIdx < 0 {
 		newIdx = 0
 	}
 	m.state.Navigation.SelectedIdx = newIdx
+	
+	// Update the appropriate table cursor to match
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		m.appsTable.MoveUp(1)
+	case model.ViewClusters:
+		m.clustersTable.MoveUp(1)
+	case model.ViewNamespaces:
+		m.namespacesTable.MoveUp(1)
+	case model.ViewProjects:
+		m.projectsTable.MoveUp(1)
+	}
+	
 	return m, nil
 }
 
@@ -30,6 +44,19 @@ func (m Model) handleNavigationDown() (Model, tea.Cmd) {
 		newIdx = maxItems - 1
 	}
 	m.state.Navigation.SelectedIdx = newIdx
+	
+	// Update the appropriate table cursor to match
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		m.appsTable.MoveDown(1)
+	case model.ViewClusters:
+		m.clustersTable.MoveDown(1)
+	case model.ViewNamespaces:
+		m.namespacesTable.MoveDown(1)
+	case model.ViewProjects:
+		m.projectsTable.MoveDown(1)
+	}
+	
 	return m, nil
 }
 
@@ -275,6 +302,19 @@ func (m Model) handleEscape() (Model, tea.Cmd) {
 func (m Model) handleGoToTop() (Model, tea.Cmd) {
 	m.state.Navigation.SelectedIdx = 0
 	m.state.Navigation.LastGPressed = 0 // Reset double-g state
+	
+	// Update the appropriate table cursor to match
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		m.appsTable.GotoTop()
+	case model.ViewClusters:
+		m.clustersTable.GotoTop()
+	case model.ViewNamespaces:
+		m.namespacesTable.GotoTop()
+	case model.ViewProjects:
+		m.projectsTable.GotoTop()
+	}
+	
 	return m, nil
 }
 
@@ -284,6 +324,19 @@ func (m Model) handleGoToBottom() (Model, tea.Cmd) {
 	if len(visibleItems) > 0 {
 		m.state.Navigation.SelectedIdx = len(visibleItems) - 1
 	}
+	
+	// Update the appropriate table cursor to match
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		m.appsTable.GotoBottom()
+	case model.ViewClusters:
+		m.clustersTable.GotoBottom()
+	case model.ViewNamespaces:
+		m.namespacesTable.GotoBottom()
+	case model.ViewProjects:
+		m.projectsTable.GotoBottom()
+	}
+	
 	return m, nil
 }
 
