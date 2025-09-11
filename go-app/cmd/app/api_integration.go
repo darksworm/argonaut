@@ -320,3 +320,14 @@ func isAuthenticationError(errMsg string) bool {
 	}
 	return false
 }
+
+// startLogsSession opens application logs in pager
+func (m Model) startLogsSession() tea.Cmd {
+    return tea.Cmd(func() tea.Msg {
+        data, err := os.ReadFile("logs/a9s.log")
+        if err != nil { return model.ApiErrorMsg{Message: "No logs available"} }
+        lines := strings.Split(string(data), "\n")
+        m.state.Diff = &model.DiffState{Title: "Logs", Content: lines, Offset: max(0, len(lines)-(m.state.Terminal.Rows-4))}
+        return model.SetModeMsg{Mode: model.ModeDiff}
+    })
+}

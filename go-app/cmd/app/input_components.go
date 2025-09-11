@@ -289,6 +289,8 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         m.state.UI.SearchQuery = ""
 
         switch cmd {
+        case "logs":
+            return m, m.startLogsSession()
         case "diff":
             // :diff [app]
             target := arg
