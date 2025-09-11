@@ -129,11 +129,6 @@ func (m Model) renderMainLayout() string {
     if searchBar != "" { sections = append(sections, searchBar) }
     if commandBar != "" { sections = append(sections, commandBar) }
 
-	// Modal (matches MainLayout modal)
-	if m.state.Mode == model.ModeConfirmSync {
-		sections = append(sections, m.renderConfirmSyncModal())
-	}
-
 	// Main content area (matches MainLayout Box with border)
 	if m.state.Mode == model.ModeResources && m.state.Server != nil && m.state.Modals.SyncViewApp != nil {
 		sections = append(sections, m.renderResourceStream())
@@ -149,7 +144,17 @@ func (m Model) renderMainLayout() string {
 	totalHeight := m.state.Terminal.Rows - 1
 	totalWidth := m.state.Terminal.Cols
 	
-	return mainContainerStyle.Height(totalHeight).Width(totalWidth).Render(content)
+	baseView := mainContainerStyle.Height(totalHeight).Width(totalWidth).Render(content)
+	
+	// Modal overlay (should overlay the base view, not push content down)
+	if m.state.Mode == model.ModeConfirmSync {
+		modal := m.renderConfirmSyncModal()
+		// Center the modal in the available space
+		centeredModal := lipgloss.Place(totalWidth, totalHeight, lipgloss.Center, lipgloss.Center, modal)
+		return centeredModal
+	}
+	
+	return baseView
 }
 
 // countLines returns the number of lines in a rendered string
@@ -170,11 +175,18 @@ func (m Model) renderBanner() string {
             Foreground(whiteBright).
             Bold(true).Render(" Argonaut " + appVersion)
 
-        content := badge
+        // Add spacing before and after the badge, and after Project line
+        var sections []string
+        sections = append(sections, "") // Empty line before badge
+        sections = append(sections, badge)
+        sections = append(sections, "") // Empty line after badge
 
-        // Context block (stacked)
+        // Context block (stacked) 
         ctx := m.renderContextBlock(true)
-        return lipgloss.JoinVertical(lipgloss.Left, content, ctx)
+        sections = append(sections, ctx)
+        sections = append(sections, "") // Empty line after Project
+
+        return strings.Join(sections, "\n")
     }
 
     // Wide layout: left context block, right ASCII logo, bottom-aligned and pushed to right edge
@@ -377,11 +389,10 @@ func (m Model) renderListView(availableRows int) string {
 // renderListHeader - matches ListView header row with responsive widths
 func (m Model) renderListHeader() string {
     if m.state.Navigation.View == model.ViewApps {
-        // Calculate responsive column widths based on terminal size
-        contentWidth := max(0, m.state.Terminal.Cols-8) // Account for padding and borders
-        syncWidth := 12   // Fixed width for SYNC column
-        healthWidth := 15 // Fixed width for HEALTH column
-        nameWidth := max(10, contentWidth-syncWidth-healthWidth-2) // Remaining space for NAME, minimum 10
+        // Calculate responsive column widths to match content box width
+        // contentBorderStyle has left/right padding (2 chars) + border chars (2 chars) + main container padding (2 chars)
+        contentWidth := max(0, m.state.Terminal.Cols-6) // Account for all padding and borders
+        nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
 
         nameHeader := headerStyle.Render("NAME")
         syncHeader := headerStyle.Render("SYNC")
@@ -410,33 +421,51 @@ func (m Model) renderAppRow(app model.App, isCursor bool) string {
 		_ = *app.Project
 	}
 
-    // Prepare texts and widths
+    // Prepare texts and widths using same responsive logic as header
     syncIcon := m.getSyncIcon(app.Sync)
-    syncText := fmt.Sprintf("%s %s", syncIcon, app.Sync)
     healthIcon := m.getHealthIcon(app.Health)
-    healthText := fmt.Sprintf("%s %s", healthIcon, app.Health)
+    
+    contentWidth := max(0, m.state.Terminal.Cols-6) // Account for all padding and borders to match header
+    nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
+    
+    // Generate text based on available width (either full text or icons only)
+    var syncText, healthText string
+    if contentWidth < 45 {
+        // Very narrow: use single character icons only
+        syncText = syncIcon  // Just icon
+        healthText = healthIcon  // Just icon
+    } else {
+        // Wide: use full text (skip abbreviated step)
+        syncText = fmt.Sprintf("%s %s", syncIcon, app.Sync)
+        healthText = fmt.Sprintf("%s %s", healthIcon, app.Health)
+    }
 
-    contentWidth := max(0, m.state.Terminal.Cols-8) // Account for padding and borders
-    syncWidth := 12   // Fixed width for SYNC column
-    healthWidth := 15 // Fixed width for HEALTH column
-    nameWidth := max(10, contentWidth-syncWidth-healthWidth-2) // Remaining space for NAME, minimum 10
-
+    // Truncate app name with ellipsis if it's too long
+    truncatedName := truncateWithEllipsis(app.Name, nameWidth)
+    
     var nameCell, syncCell, healthCell string
     if isCursor || isSelected {
         // Active row: avoid inner color styles so background highlight spans the whole row
-        nameCell = padRight(app.Name, nameWidth)
+        nameCell = padRight(truncatedName, nameWidth)
         syncCell = padLeft(syncText, syncWidth)
         healthCell = padLeft(healthText, healthWidth)
     } else {
         // Inactive row: apply color styles to sync/health
         syncStyled := m.getColorForStatus(app.Sync).Render(syncText)
         healthStyled := m.getColorForStatus(app.Health).Render(healthText)
-        nameCell = padRight(app.Name, nameWidth)
+        nameCell = padRight(truncatedName, nameWidth)
         syncCell = padLeft(syncStyled, syncWidth)
         healthCell = padLeft(healthStyled, healthWidth)
     }
 
     row := fmt.Sprintf("%s %s %s", nameCell, syncCell, healthCell)
+
+	// Ensure row spans full content width for proper highlighting
+	fullRowWidth := nameWidth + syncWidth + healthWidth + 2 // +2 for separators
+	if lipgloss.Width(row) < fullRowWidth {
+		// Pad the row to full width so selection highlighting spans completely
+		row = padRight(row, fullRowWidth)
+	}
 
 	// Apply selection highlight (matches ListView backgroundColor)
     if active {
@@ -479,12 +508,18 @@ func (m Model) renderSimpleRow(label string, isCursor bool) string {
 
 	active := isCursor || isSelected
 	
+	// Calculate available width for simple rows (full content width minus padding)
+	contentWidth := max(0, m.state.Terminal.Cols-6)
+	
+	// Truncate label if too long
+	truncatedLabel := truncateWithEllipsis(label, contentWidth)
+	
 	// Apply selection highlight if active
 	if active {
-		return selectedStyle.Render(label)
+		return selectedStyle.Render(truncatedLabel)
 	}
 	
-	return label
+	return truncatedLabel
 }
 
 // renderStatusLine - 1:1 mapping from MainLayout status Box
@@ -951,7 +986,7 @@ func (m Model) renderConfirmSyncModal() string {
 	if isMulti {
 		title = "Sync applications?"
 		message = "Do you want to sync"
-		targetText = fmt.Sprintf("%d", len(m.state.Selections.SelectedApps))
+		targetText = fmt.Sprintf("%d selected apps", len(m.state.Selections.SelectedApps))
 	} else {
 		title = "Sync application?"
 		message = "Do you want to sync"
@@ -961,28 +996,67 @@ func (m Model) renderConfirmSyncModal() string {
 	// Options (matches ConfirmSyncModal options)
 	pruneStatus := "[ ]"
 	if m.state.Modals.ConfirmSyncPrune {
-		pruneStatus = "[x]"
+		pruneStatus = "[×]"
 	}
 	
 	watchStatus := "[ ]"
 	if m.state.Modals.ConfirmSyncWatch {
-		watchStatus = "[x]"
+		watchStatus = "[×]"
 	}
 	watchDisabled := isMulti
 	
-	var content strings.Builder
-	content.WriteString(headerStyle.Render(title))
-	content.WriteString("\n\n")
-	content.WriteString(fmt.Sprintf("%s %s\n\n", message, targetText))
-	content.WriteString(fmt.Sprintf("p) %s Prune\n", pruneStatus))
-	if !watchDisabled {
-		content.WriteString(fmt.Sprintf("w) %s Watch\n", watchStatus))
-	} else {
-		content.WriteString(fmt.Sprintf("w) %s Watch (disabled for multi)\n", watchStatus))
-	}
-	content.WriteString("\nEnter to confirm, Esc to cancel")
+	// Create modal style that matches TypeScript version
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(yellowBright).
+		Background(lipgloss.Color("0")).
+		Foreground(whiteBright).
+		PaddingLeft(2).
+		PaddingRight(2).
+		PaddingTop(1).
+		PaddingBottom(1).
+		Width(50).  // Fixed width like the TypeScript version
+		Align(lipgloss.Center)
 	
-	return contentBorderStyle.Render(content.String())
+	var content strings.Builder
+	
+	// Title styling
+	titleStyled := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(yellowBright).
+		Align(lipgloss.Center).
+		Render(title)
+	content.WriteString(titleStyled)
+	content.WriteString("\n\n")
+	
+	// Message and target
+	messageStyled := lipgloss.NewStyle().
+		Foreground(whiteBright).
+		Align(lipgloss.Center).
+		Render(fmt.Sprintf("%s %s", message, targetText))
+	content.WriteString(messageStyled)
+	content.WriteString("\n\n")
+	
+	// Options with better styling
+	optionStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	content.WriteString(optionStyle.Render(fmt.Sprintf("p) %s Prune", pruneStatus)))
+	content.WriteString("\n")
+	
+	if !watchDisabled {
+		content.WriteString(optionStyle.Render(fmt.Sprintf("w) %s Watch", watchStatus)))
+	} else {
+		dimStyle := lipgloss.NewStyle().Foreground(dimColor)
+		content.WriteString(dimStyle.Render(fmt.Sprintf("w) %s Watch (disabled for multi)", watchStatus)))
+	}
+	content.WriteString("\n\n")
+	
+	// Instructions
+	instructionStyle := lipgloss.NewStyle().
+		Foreground(dimColor).
+		Align(lipgloss.Center)
+	content.WriteString(instructionStyle.Render("Enter to confirm • Esc to cancel"))
+	
+	return modalStyle.Render(content.String())
 }
 
 func (m Model) renderResourceStream() string {
@@ -1006,26 +1080,49 @@ func (m Model) renderDiffView() string {
         lines = filtered
     }
 
-    // Compute viewport height: fill remaining space (reuse main container padding assumptions)
-    totalHeight := m.state.Terminal.Rows - 2 // leave one row for title and one for status
-    if totalHeight < 5 { totalHeight = 5 }
-    // Clamp offset
+    // Compute viewport height: account for all UI elements like main layout does
+    // The diff view structure: title + bordered_content + status
+    // contentBorderStyle adds 2 lines (top+bottom border), no vertical padding
+    const (
+        TITLE_LINES   = 1 // diff title line
+        STATUS_LINES  = 1 // diff status line  
+        BORDER_LINES  = 2 // contentBorderStyle border top+bottom
+        MAIN_CONTAINER_PADDING = 1 // main container has some margin
+    )
+    overhead := TITLE_LINES + STATUS_LINES + BORDER_LINES + MAIN_CONTAINER_PADDING
+    contentHeight := max(3, m.state.Terminal.Rows - overhead)
+    
+    // Clamp offset - the content area height should be used for pagination
     if m.state.Diff.Offset < 0 { m.state.Diff.Offset = 0 }
-    if m.state.Diff.Offset > max(0, len(lines)-totalHeight) {
-        m.state.Diff.Offset = max(0, len(lines)-totalHeight)
+    if m.state.Diff.Offset > max(0, len(lines)-contentHeight) {
+        m.state.Diff.Offset = max(0, len(lines)-contentHeight)
     }
     start := m.state.Diff.Offset
-    end := min(len(lines), start+totalHeight)
+    end := min(len(lines), start+contentHeight)
     body := strings.Join(lines[start:end], "\n")
 
     title := headerStyle.Render(m.state.Diff.Title)
     status := statusStyle.Render(fmt.Sprintf("%d-%d/%d  j/k, g/G, / search, esc/q back", start+1, end, len(lines)))
-    width := max(0, m.state.Terminal.Cols-4)
-    return lipgloss.JoinVertical(lipgloss.Left,
-        title,
-        contentBorderStyle.Width(width).Height(totalHeight).Render(body),
-        status,
-    )
+    
+    // Width should account for main container padding (2) and content border padding (2)
+    contentWidth := max(0, m.state.Terminal.Cols-4)
+    
+    // Don't set a fixed height on the content border - let it size naturally
+    content := contentBorderStyle.Width(contentWidth).Render(body)
+    
+    // Build sections ensuring header and status are always visible
+    // Don't use fixed height container which can clip the header
+    var sections []string
+    sections = append(sections, title)
+    sections = append(sections, content)
+    sections = append(sections, status)
+    
+    // Join sections and apply main container style WITHOUT fixed height
+    // This ensures title and status are always visible
+    viewContent := strings.Join(sections, "\n")
+    totalWidth := m.state.Terminal.Cols
+    
+    return mainContainerStyle.Width(totalWidth).Render(viewContent)
 }
 
 // renderHelpSection - helper for HelpModal (matches Help.tsx HelpSection)
@@ -1055,4 +1152,84 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// abbreviateStatus shortens status text for narrow displays
+func abbreviateStatus(status string) string {
+	switch status {
+	case "Synced":
+		return "Sync"
+	case "OutOfSync":
+		return "Out"
+	case "Healthy":
+		return "OK"
+	case "Degraded":
+		return "Bad"
+	case "Progressing":
+		return "Prog"
+	case "Unknown":
+		return "?"
+	default:
+		// If status is short already, return as-is
+		if len(status) <= 4 {
+			return status
+		}
+		// Otherwise truncate to 4 characters
+		return status[:4]
+	}
+}
+
+// truncateWithEllipsis truncates text to fit width, adding ellipsis if needed
+func truncateWithEllipsis(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if maxWidth <= 3 {
+		// Too narrow even for ellipsis
+		return text[:min(len(text), maxWidth)]
+	}
+	
+	// Use lipgloss.Width to handle ANSI sequences properly
+	if lipgloss.Width(text) <= maxWidth {
+		return text
+	}
+	
+	// Need to truncate - reserve 3 characters for "..."
+	targetWidth := maxWidth - 3
+	if targetWidth <= 0 {
+		return "..."
+	}
+	
+	// Truncate character by character until we fit
+	for i := len(text); i > 0; i-- {
+		truncated := text[:i]
+		if lipgloss.Width(truncated) <= targetWidth {
+			return truncated + "..."
+		}
+	}
+	
+	return "..."
+}
+
+// calculateColumnWidths returns responsive column widths based on available space
+func calculateColumnWidths(availableWidth int) (nameWidth, syncWidth, healthWidth int) {
+	if availableWidth < 45 {
+		// Very narrow: minimal widths (icons only)
+		syncWidth = 2    // Just icon
+		healthWidth = 2  // Just icon
+		nameWidth = max(8, availableWidth-syncWidth-healthWidth-2) // -2 for column separators
+	} else {
+		// Wide: full widths (keep full text, skip abbreviated step)
+		syncWidth = 12   // Full width for SYNC column
+		healthWidth = 15 // Full width for HEALTH column
+		nameWidth = max(10, availableWidth-syncWidth-healthWidth-2)
+	}
+	
+	// Ensure we use the full width - distribute any remaining space to nameWidth
+	totalUsed := nameWidth + syncWidth + healthWidth + 2 // +2 for separators
+	if totalUsed < availableWidth {
+		nameWidth += (availableWidth - totalUsed)
+	}
+	
+	return nameWidth, syncWidth, healthWidth
 }

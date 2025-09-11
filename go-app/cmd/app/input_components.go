@@ -292,7 +292,8 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         case "logs":
             return m, m.startLogsSession()
         case "sync":
-            return m, m.handleSyncModal()
+            model, cmd := m.handleSyncModal()
+            return model, cmd
         case "rollback":
             target := arg
             if target == "" {
