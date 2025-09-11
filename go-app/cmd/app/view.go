@@ -712,7 +712,9 @@ func (m Model) renderLoadingView() string {
 	loadingHeader := fmt.Sprintf("View: LOADING • Context: %s", serverText)
 	
 	// Main content with spinner (matches LoadingView center box)
-	spinChar := "⠋"
+    frames := []string{"⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧"}
+    idx := m.spinnerFrame % len(frames)
+    spinChar := frames[idx]
 	loadingMessage := fmt.Sprintf("%s Connecting & fetching applications…", spinChar)
 	
 	var sections []string

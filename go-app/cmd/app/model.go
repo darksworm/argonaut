@@ -28,6 +28,9 @@ type Model struct {
 
     // Watch channel for Argo events
     watchChan chan services.ArgoApiEvent
+
+    // loading spinner frame
+    spinnerFrame int
 }
 
 // NewModel creates a new Model with default state and services
@@ -146,7 +149,8 @@ case model.SetSelectedIdxMsg:
 		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
 			// Start loading applications from API
 			fmt.Printf("[MODE] Triggering API load for loading mode\n")
-			return m, m.startLoadingApplications()
+			m.spinnerFrame = 0
+			return m, tea.Batch(m.startLoadingApplications(), tea.Tick(120*time.Millisecond, func(t time.Time) tea.Msg { return model.TickMsg{} }))
 		}
 		
 		return m, nil
@@ -197,6 +201,13 @@ case model.SetSelectedIdxMsg:
 		// Now safe to log since we're using file logging
 		m.statusService.Set(msg.Status)
 		return m, m.consumeWatchEvent()
+
+	case model.TickMsg:
+		if m.state.Mode == model.ModeLoading {
+			m.spinnerFrame = (m.spinnerFrame + 1) % 8
+			return m, tea.Tick(120*time.Millisecond, func(t time.Time) tea.Msg { return model.TickMsg{} })
+		}
+		return m, nil
 
 	case model.ApiErrorMsg:
 		// Log error to file and store in model for display
