@@ -399,7 +399,18 @@ func (m Model) renderListView(availableRows int) string {
 		m.appsTable.SetRows(rows)
 		m.appsTable.SetHeight(tableHeight)
 		m.appsTable.SetWidth(contentWidth)
-		m.appsTable.SetCursor(m.state.Navigation.SelectedIdx)
+		
+		// Set cursor with bounds checking
+		if len(rows) > 0 {
+			cursor := m.state.Navigation.SelectedIdx
+			if cursor < 0 {
+				cursor = 0
+			}
+			if cursor >= len(rows) {
+				cursor = len(rows) - 1
+			}
+			m.appsTable.SetCursor(cursor)
+		}
 		tableView = m.appsTable.View()
 		
 	case model.ViewClusters:
@@ -417,7 +428,18 @@ func (m Model) renderListView(availableRows int) string {
 		m.clustersTable.SetRows(rows)
 		m.clustersTable.SetHeight(tableHeight)
 		m.clustersTable.SetWidth(contentWidth)
-		m.clustersTable.SetCursor(m.state.Navigation.SelectedIdx)
+		
+		// Set cursor with bounds checking
+		if len(rows) > 0 {
+			cursor := m.state.Navigation.SelectedIdx
+			if cursor < 0 {
+				cursor = 0
+			}
+			if cursor >= len(rows) {
+				cursor = len(rows) - 1
+			}
+			m.clustersTable.SetCursor(cursor)
+		}
 		tableView = m.clustersTable.View()
 		
 	case model.ViewNamespaces:
@@ -435,7 +457,18 @@ func (m Model) renderListView(availableRows int) string {
 		m.namespacesTable.SetRows(rows)
 		m.namespacesTable.SetHeight(tableHeight)
 		m.namespacesTable.SetWidth(contentWidth)
-		m.namespacesTable.SetCursor(m.state.Navigation.SelectedIdx)
+		
+		// Set cursor with bounds checking
+		if len(rows) > 0 {
+			cursor := m.state.Navigation.SelectedIdx
+			if cursor < 0 {
+				cursor = 0
+			}
+			if cursor >= len(rows) {
+				cursor = len(rows) - 1
+			}
+			m.namespacesTable.SetCursor(cursor)
+		}
 		tableView = m.namespacesTable.View()
 		
 	case model.ViewProjects:
@@ -453,7 +486,18 @@ func (m Model) renderListView(availableRows int) string {
 		m.projectsTable.SetRows(rows)
 		m.projectsTable.SetHeight(tableHeight)
 		m.projectsTable.SetWidth(contentWidth)
-		m.projectsTable.SetCursor(m.state.Navigation.SelectedIdx)
+		
+		// Set cursor with bounds checking
+		if len(rows) > 0 {
+			cursor := m.state.Navigation.SelectedIdx
+			if cursor < 0 {
+				cursor = 0
+			}
+			if cursor >= len(rows) {
+				cursor = len(rows) - 1
+			}
+			m.projectsTable.SetCursor(cursor)
+		}
 		tableView = m.projectsTable.View()
 		
 	default:
