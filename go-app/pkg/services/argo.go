@@ -24,7 +24,10 @@ type ArgoApiService interface {
 	SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error
 
 	// GetResourceDiffs gets resource diffs for an application
-	GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error)
+    GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error)
+
+    // GetAPIVersion fetches the ArgoCD API server version string
+    GetAPIVersion(ctx context.Context, server *model.Server) (string, error)
 
 	// Cleanup stops all watchers and cleans up resources
 	Cleanup()
@@ -210,6 +213,21 @@ func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model
         }
     }
     return out, nil
+}
+
+// GetAPIVersion fetches /api/version and returns a version string
+func (s *ArgoApiServiceImpl) GetAPIVersion(ctx context.Context, server *model.Server) (string, error) {
+    if server == nil { return "", errors.New("server configuration is required") }
+    client := api.NewClient(server)
+    data, err := client.Get(ctx, "/api/version")
+    if err != nil { return "", err }
+    // Accept {Version:"..."} or {version:"..."}
+    var anyMap map[string]interface{}
+    if err := json.Unmarshal(data, &anyMap); err == nil {
+        if v, ok := anyMap["Version"].(string); ok && v != "" { return v, nil }
+        if v, ok := anyMap["version"].(string); ok && v != "" { return v, nil }
+    }
+    return string(data), nil
 }
 
 // Cleanup implements ArgoApiService.Cleanup

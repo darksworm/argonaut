@@ -52,8 +52,8 @@ func (m Model) startLoadingApplications() tea.Cmd {
 		for i, app := range apps {
 			fmt.Printf("[API] App %d: %s (sync: %s, health: %s)\n", i+1, app.Name, app.Sync, app.Health)
 		}
-		return model.AppsLoadedMsg{Apps: apps}
-	})
+        return model.AppsLoadedMsg{Apps: apps}
+    })
 }
 
 // startWatchingApplications starts the real-time watch stream
@@ -84,6 +84,19 @@ func (m Model) startWatchingApplications() tea.Cmd {
             close(m.watchChan)
         }()
         return model.StatusChangeMsg{Status: "Watching for changes..."}
+    })
+}
+
+// fetchAPIVersion fetches the ArgoCD API version and updates state
+func (m Model) fetchAPIVersion() tea.Cmd {
+    if m.state.Server == nil { return nil }
+    return tea.Cmd(func() tea.Msg {
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+        apiService := services.NewArgoApiService(m.state.Server)
+        v, err := apiService.GetAPIVersion(ctx, m.state.Server)
+        if err != nil { return model.StatusChangeMsg{Status: "Version: unknown"} }
+        return model.SetAPIVersionMsg{Version: v}
     })
 }
 

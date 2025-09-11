@@ -132,6 +132,10 @@ case model.SetSelectedIdxMsg:
 		m.state.UI.ActiveFilter = ""
 		return m, nil
 
+	case model.SetAPIVersionMsg:
+		m.state.APIVersion = msg.Version
+		return m, nil
+
 	// Mode messages
 	case model.SetModeMsg:
 		oldMode := m.state.Mode
@@ -155,7 +159,8 @@ case model.SetSelectedIdxMsg:
 
 	case model.SetServerMsg:
 		m.state.Server = msg.Server
-		return m, nil
+		// Also fetch API version and start watching
+		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
 	// API Event messages
 	case model.AppsLoadedMsg:
