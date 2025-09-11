@@ -1171,8 +1171,8 @@ func (m Model) renderResourceStream(availableRows int) string {
 	resourcesTable.SetRows(rows)
 	
 	// Calculate column widths based on available width - account for table borders and padding
-	// Bubbles table adds its own border/padding, so give it slightly less width
-	tableWidth := max(0, contentWidth-2) // Account for table internal padding
+	// Bubbles table adds its own border/padding, so give it much less width to prevent overflow
+	tableWidth := max(0, contentWidth-12) // Very aggressive padding to prevent header overflow
 	kindWidth, nameWidth, statusWidth := calculateResourceColumnWidths(tableWidth)
 	
 	// Update table column widths
@@ -1188,12 +1188,12 @@ func (m Model) renderResourceStream(availableRows int) string {
 	resourcesTable.SetHeight(tableHeight)
 	resourcesTable.SetWidth(tableWidth)
 
-	// Apply the same table styles as the apps table, but disable table borders to prevent overflow
+	// Apply table styles with header border (should fit now with reduced width)
 	tableStyle := table.DefaultStyles()
 	tableStyle.Header = tableStyle.Header.
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
+		BorderBottom(true). // Re-enable header border with reduced table width
 		Bold(false)
 	tableStyle.Selected = tableStyle.Selected.
 		Foreground(lipgloss.Color("229")).
