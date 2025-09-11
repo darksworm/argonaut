@@ -433,6 +433,19 @@ func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleAuthRequiredModeKeys handles input when authentication is required
+func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		return m, func() tea.Msg { return model.QuitMsg{} }
+	case "l":
+		// Open logs view (matching TypeScript behavior)
+		m.state.Mode = model.ModeLogs
+		return m, nil
+	}
+	return m, nil
+}
+
 // Helper function to get visible items for current view
 func (m Model) getVisibleItemsForCurrentView() []interface{} {
 	// Delegate to shared computation used by the view

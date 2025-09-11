@@ -1630,3 +1630,4 @@ func calculateResourceColumnWidths(availableWidth int) (kindWidth, nameWidth, st
 
     return kindWidth, nameWidth, statusWidth
 }
+

@@ -148,16 +148,33 @@ func (m Model) Init() tea.Cmd {
 		func() tea.Msg {
 			return model.StatusChangeMsg{Status: "Initializing..."}
 		},
-		// Start loading applications if server is configured
-		func() tea.Msg {
-			if m.state.Server != nil {
-				// [INIT] Server configured - removed printf to avoid TUI interference
-				return model.SetModeMsg{Mode: model.ModeLoading}
-			}
-			// [INIT] No server configured - removed printf to avoid TUI interference
-			return model.StatusChangeMsg{Status: "No server configured"}
-		},
+		// Validate authentication if server is configured
+		m.validateAuthentication(),
 	)
+}
+
+// validateAuthentication checks if authentication is valid (matches TypeScript app-orchestrator.ts)
+func (m Model) validateAuthentication() tea.Cmd {
+	return func() tea.Msg {
+		if m.state.Server == nil {
+			log.Printf("No server configured - showing auth required")
+			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+		}
+
+		// Create API service to validate authentication
+		appService := api.NewApplicationService(m.state.Server)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Validate user info (similar to TypeScript getUserInfo call)
+		if err := appService.GetUserInfo(ctx); err != nil {
+			log.Printf("Authentication validation failed: %v", err)
+			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+		}
+
+		log.Printf("Authentication validated successfully")
+		return model.SetModeMsg{Mode: model.ModeLoading}
+	}
 }
 
 // Update implements tea.Model.Update
@@ -415,6 +432,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleDiffModeKeys(msg)
 	case model.ModeResources:
 		return m.handleResourcesModeKeys(msg)
+	case model.ModeAuthRequired:
+		return m.handleAuthRequiredModeKeys(msg)
 	}
 
 	// Global key handling for normal mode

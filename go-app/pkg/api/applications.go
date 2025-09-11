@@ -401,3 +401,17 @@ func (s *ApplicationService) GetResourceTree(ctx context.Context, appName, appNa
 
 	return &tree, nil
 }
+
+// GetUserInfo validates user authentication by checking session info
+func (s *ApplicationService) GetUserInfo(ctx context.Context) error {
+	resp, err := s.client.Get(ctx, "/api/v1/session/userinfo")
+	if err != nil {
+		return fmt.Errorf("failed to get user info: %w", err)
+	}
+
+	// We don't need to parse the response, just verify it's successful
+	// The existence of a successful response indicates the user is authenticated
+	_ = resp // Acknowledge we received the response
+
+	return nil
+}
