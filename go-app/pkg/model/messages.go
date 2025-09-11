@@ -247,3 +247,17 @@ type LoadingMsg struct {
 	IsLoading bool
 	Message   string
 }
+
+// Sync completion messages
+
+// SyncCompletedMsg indicates a single app sync has completed
+type SyncCompletedMsg struct {
+	AppName string
+	Success bool
+}
+
+// MultiSyncCompletedMsg indicates multiple app sync has completed
+type MultiSyncCompletedMsg struct {
+	AppCount int
+	Success  bool
+}
