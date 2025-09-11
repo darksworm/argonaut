@@ -291,6 +291,42 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         switch cmd {
         case "logs":
             return m, m.startLogsSession()
+        case "sync":
+            return m, m.handleSyncModal()
+        case "rollback":
+            target := arg
+            if target == "" {
+                items := m.getVisibleItemsForCurrentView()
+                if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+                    if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok { target = app.Name }
+                }
+            }
+            if target == "" { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for rollback"} } }
+            m.state.Modals.RollbackAppName = &target
+            m.state.Mode = model.ModeRollback
+            return m, nil
+        case "resources":
+            target := arg
+            if target == "" {
+                items := m.getVisibleItemsForCurrentView()
+                if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+                    if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok { target = app.Name }
+                }
+            }
+            if target == "" { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} } }
+            m.state.Modals.SyncViewApp = &target
+            m.state.Mode = model.ModeResources
+            return m, nil
+        case "license", "licenses":
+            m.state.Mode = model.ModeLicense
+            return m, nil
+        case "all":
+            m.state.Selections = *model.NewSelectionState()
+            m.state.UI.SearchQuery = ""
+            m.state.UI.ActiveFilter = ""
+            return m, func() tea.Msg { return model.StatusChangeMsg{Status: "All filtering cleared."} }
+        case "up":
+            return m.handleEscape()
         case "diff":
             // :diff [app]
             target := arg
