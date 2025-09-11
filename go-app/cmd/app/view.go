@@ -1148,7 +1148,6 @@ func (m Model) renderCommandBar() string {
 }
 
 func (m Model) renderConfirmSyncModal() string {
-	// 1:1 mapping from ConfirmSyncModal.tsx
 	if m.state.Modals.ConfirmTarget == nil {
 		return ""
 	}
@@ -1156,80 +1155,125 @@ func (m Model) renderConfirmSyncModal() string {
 	target := *m.state.Modals.ConfirmTarget
 	isMulti := target == "__MULTI__"
 
-	// Modal content matching ConfirmationBox
-	var title, message, targetText string
+	// Enhanced modal content with cool visuals
+	var title, message, targetText, headerIcon string
 	if isMulti {
-		title = "Sync applications?"
-		message = "Do you want to sync"
+		title = "SYNC APPLICATIONS"
+		message = "Ready to sync"
 		targetText = fmt.Sprintf("%d selected apps", len(m.state.Selections.SelectedApps))
+		headerIcon = "⚡ 🔄 ⚡"
 	} else {
-		title = "Sync application?"
-		message = "Do you want to sync"
+		title = "SYNC APPLICATION"
+		message = "Ready to sync"
 		targetText = target
+		headerIcon = "🚀 🔄 🚀"
 	}
 
-	// Options (matches ConfirmSyncModal options)
-	pruneStatus := "[ ]"
+	// Options with cool icons
+	pruneIcon := "🗑️"
+	pruneStatus := "○"
 	if m.state.Modals.ConfirmSyncPrune {
-		pruneStatus = "[×]"
+		pruneStatus = "●"
 	}
 
-	watchStatus := "[ ]"
+	watchIcon := "👁️"
+	watchStatus := "○"
 	if m.state.Modals.ConfirmSyncWatch {
-		watchStatus = "[×]"
+		watchStatus = "●"
 	}
 	watchDisabled := isMulti
 
-	// Create modal style that matches TypeScript version
+	// Enhanced modal style with gradient-like effect
 	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		Background(lipgloss.Color("0")).
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(cyanBright).
+		Background(lipgloss.Color("232")). // Dark gray background
 		Foreground(whiteBright).
-		PaddingLeft(2).
-		PaddingRight(2).
+		PaddingLeft(3).
+		PaddingRight(3).
 		PaddingTop(1).
 		PaddingBottom(1).
-		Width(50). // Fixed width like the TypeScript version
+		Width(60).
 		Align(lipgloss.Center)
 
 	var content strings.Builder
 
-	// Title styling
-	titleStyled := lipgloss.NewStyle().
+	// Cool header with icons
+	headerStyle := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true).
+		Align(lipgloss.Center)
+	content.WriteString(headerStyle.Render(headerIcon))
+	content.WriteString("\n")
+
+	// Title with enhanced styling
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(yellowBright).
-		Align(lipgloss.Center).
-		Render(title)
-	content.WriteString(titleStyled)
+		Background(lipgloss.Color("53")). // Purple background
+		PaddingLeft(1).
+		PaddingRight(1).
+		Align(lipgloss.Center)
+	content.WriteString(titleStyle.Render(fmt.Sprintf(" %s ", title)))
 	content.WriteString("\n\n")
 
-	// Message and target
-	messageStyled := lipgloss.NewStyle().
+	// Target with highlight box
+	targetStyle := lipgloss.NewStyle().
 		Foreground(whiteBright).
-		Align(lipgloss.Center).
-		Render(fmt.Sprintf("%s %s", message, targetText))
-	content.WriteString(messageStyled)
+		Background(lipgloss.Color("24")). // Blue background  
+		Bold(true).
+		PaddingLeft(1).
+		PaddingRight(1).
+		Align(lipgloss.Center)
+	
+	messageText := fmt.Sprintf("%s: %s", message, targetText)
+	content.WriteString(targetStyle.Render(fmt.Sprintf(" %s ", messageText)))
 	content.WriteString("\n\n")
 
-	// Options with better styling
-	optionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	content.WriteString(optionStyle.Render(fmt.Sprintf("p) %s Prune", pruneStatus)))
+	// Cool separator
+	separatorStyle := lipgloss.NewStyle().
+		Foreground(dimColor).
+		Align(lipgloss.Center)
+	content.WriteString(separatorStyle.Render("─────────────────────────"))
+	content.WriteString("\n\n")
+
+	// Enhanced options with icons and better styling
+	optionStyle := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true)
+	
+	pruneText := fmt.Sprintf(" %s [p] %s Prune resources", pruneIcon, pruneStatus)
+	content.WriteString(optionStyle.Render(pruneText))
 	content.WriteString("\n")
 
 	if !watchDisabled {
-		content.WriteString(optionStyle.Render(fmt.Sprintf("w) %s Watch", watchStatus)))
+		watchText := fmt.Sprintf(" %s [w] %s Watch resources", watchIcon, watchStatus)
+		content.WriteString(optionStyle.Render(watchText))
 	} else {
-		dimStyle := lipgloss.NewStyle().Foreground(dimColor)
-		content.WriteString(dimStyle.Render(fmt.Sprintf("w) %s Watch (disabled for multi)", watchStatus)))
+		dimStyle := lipgloss.NewStyle().
+			Foreground(dimColor).
+			Strikethrough(true)
+		watchText := fmt.Sprintf(" %s [w] %s Watch (multi-sync)", watchIcon, watchStatus)
+		content.WriteString(dimStyle.Render(watchText))
 	}
 	content.WriteString("\n\n")
 
-	// Instructions
+	// Another separator
+	content.WriteString(separatorStyle.Render("─────────────────────────"))
+	content.WriteString("\n")
+
+	// Enhanced instructions with icons
 	instructionStyle := lipgloss.NewStyle().
+		Foreground(yellowBright).
+		Bold(true).
+		Align(lipgloss.Center)
+	content.WriteString(instructionStyle.Render("⏎ ENTER to confirm"))
+	content.WriteString("\n")
+	
+	cancelStyle := lipgloss.NewStyle().
 		Foreground(dimColor).
 		Align(lipgloss.Center)
-	content.WriteString(instructionStyle.Render("Enter to confirm • Esc to cancel"))
+	content.WriteString(cancelStyle.Render("⎋ ESC to cancel"))
 
 	return modalStyle.Render(content.String())
 }
