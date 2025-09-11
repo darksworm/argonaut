@@ -24,7 +24,10 @@ type Model struct {
 
 	// Internal flags
 	ready bool
-	err   error
+    err   error
+
+    // Watch channel for Argo events
+    watchChan chan services.ArgoApiEvent
 }
 
 // NewModel creates a new Model with default state and services
@@ -158,14 +161,37 @@ case model.SetSelectedIdxMsg:
 	case model.AppsLoadedMsg:
 		m.state.Apps = msg.Apps
 		// m.ui.UpdateListItems(m.state)
-		return m, func() tea.Msg {
-			return model.SetModeMsg{Mode: model.ModeNormal}
+		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }, m.consumeWatchEvent())
+
+	case model.AppUpdatedMsg:
+		// upsert app
+		updated := msg.App
+		found := false
+		for i, a := range m.state.Apps {
+			if a.Name == updated.Name {
+				m.state.Apps[i] = updated
+				found = true
+				break
+			}
 		}
+		if !found {
+			m.state.Apps = append(m.state.Apps, updated)
+		}
+		return m, m.consumeWatchEvent()
+
+	case model.AppDeletedMsg:
+		name := msg.AppName
+		filtered := m.state.Apps[:0]
+		for _, a := range m.state.Apps {
+			if a.Name != name { filtered = append(filtered, a) }
+		}
+		m.state.Apps = filtered
+		return m, m.consumeWatchEvent()
 
 	case model.StatusChangeMsg:
 		// Now safe to log since we're using file logging
 		m.statusService.Set(msg.Status)
-		return m, nil
+		return m, m.consumeWatchEvent()
 
 	case model.ApiErrorMsg:
 		// Log error to file and store in model for display
@@ -179,9 +205,7 @@ case model.SetSelectedIdxMsg:
 		// Log error to file and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
-		return m, func() tea.Msg {
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
-		}
+		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeAuthRequired} })
 
 	// Navigation update messages
 	case model.NavigationUpdateMsg:

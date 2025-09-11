@@ -58,62 +58,73 @@ func (m Model) startLoadingApplications() tea.Cmd {
 
 // startWatchingApplications starts the real-time watch stream
 func (m Model) startWatchingApplications() tea.Cmd {
-	if m.state.Server == nil {
-		return nil
-	}
+    if m.state.Server == nil {
+        return nil
+    }
 
-	return tea.Cmd(func() tea.Msg {
-		// Create context for the watch stream
-		ctx := context.Background()
-		
-		// Create a new ArgoApiService with the current server
-		apiService := services.NewArgoApiService(m.state.Server)
-		
-		// Start watching applications
-		eventChan, cleanup, err := apiService.WatchApplications(ctx, m.state.Server)
-		if err != nil {
-			return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
-		}
+    return tea.Cmd(func() tea.Msg {
+        // Create context for the watch stream
+        ctx := context.Background()
 
-		// Process events in a goroutine and send them as tea messages
-		go func() {
-			defer cleanup()
-			
-			for event := range eventChan {
-				// Convert ArgoApiEvent to appropriate tea message
-				switch event.Type {
-				case "apps-loaded":
-					if event.Apps != nil {
-						// Send the loaded apps (this might be sent via a channel in a real implementation)
-						// For now, we'll just log it since we can't send tea messages from goroutines
-					}
-				case "app-updated":
-					if event.App != nil {
-						// Handle individual app updates
-						// In a real implementation, you'd need to send this through a channel
-					}
-				case "app-deleted":
-					if event.AppName != "" {
-						// Handle app deletion
-					}
-				case "status-change":
-					if event.Status != "" {
-						// Handle status changes
-					}
-				case "auth-error":
-					if event.Error != nil {
-						// Handle auth errors
-					}
-				case "api-error":
-					if event.Error != nil {
-						// Handle API errors
-					}
-				}
-			}
-		}()
+        // Create a new ArgoApiService with the current server
+        apiService := services.NewArgoApiService(m.state.Server)
 
-		return model.StatusChangeMsg{Status: "Watching for changes..."}
-	})
+        // Start watching applications
+        eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
+        if err != nil {
+            return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
+        }
+
+        // Store channel and start first consume
+        m.watchChan = make(chan services.ArgoApiEvent, 100)
+        go func() {
+            for ev := range eventChan {
+                m.watchChan <- ev
+            }
+            close(m.watchChan)
+        }()
+        return model.StatusChangeMsg{Status: "Watching for changes..."}
+    })
+}
+
+// consumeWatchEvent reads a single service event and converts it to a tea message
+func (m Model) consumeWatchEvent() tea.Cmd {
+    return func() tea.Msg {
+        if m.watchChan == nil {
+            return nil
+        }
+        ev, ok := <-m.watchChan
+        if !ok {
+            return nil
+        }
+        switch ev.Type {
+        case "apps-loaded":
+            if ev.Apps != nil {
+                return model.AppsLoadedMsg{Apps: ev.Apps}
+            }
+        case "app-updated":
+            if ev.App != nil {
+                return model.AppUpdatedMsg{App: *ev.App}
+            }
+        case "app-deleted":
+            if ev.AppName != "" {
+                return model.AppDeletedMsg{AppName: ev.AppName}
+            }
+        case "status-change":
+            if ev.Status != "" {
+                return model.StatusChangeMsg{Status: ev.Status}
+            }
+        case "auth-error":
+            if ev.Error != nil {
+                return model.AuthErrorMsg{Error: ev.Error}
+            }
+        case "api-error":
+            if ev.Error != nil {
+                return model.ApiErrorMsg{Message: ev.Error.Error()}
+            }
+        }
+        return nil
+    }
 }
 
 // startDiffSession loads diffs and opens the diff pager
