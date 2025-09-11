@@ -364,6 +364,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleRollbackModeKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
+	case model.ModeResources:
+		return m.handleResourcesModeKeys(msg)
 	}
 
 	// Global key handling for normal mode

@@ -1,8 +1,9 @@
 package main
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/a9s/go-app/pkg/model"
+	tea "github.com/charmbracelet/bubbletea"
+	"time"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -81,10 +82,10 @@ func (m Model) handleToggleSelection() (Model, tea.Cmd) {
 
 // handleDrillDown implements drill-down navigation (enter key)
 func (m Model) handleDrillDown() (Model, tea.Cmd) {
-    visibleItems := m.getVisibleItemsForCurrentView()
-    if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
-        return m, nil
-    }
+	visibleItems := m.getVisibleItemsForCurrentView()
+	if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
+		return m, nil
+	}
 
 	selectedItem := visibleItems[m.state.Navigation.SelectedIdx]
 
@@ -100,9 +101,9 @@ func (m Model) handleDrillDown() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-    // Apply navigation updates
-    var cmds []tea.Cmd
-    prevView := m.state.Navigation.View
+	// Apply navigation updates
+	var cmds []tea.Cmd
+	prevView := m.state.Navigation.View
 
 	if result.NewView != nil {
 		m.state.Navigation.View = *result.NewView
@@ -124,34 +125,34 @@ func (m Model) handleDrillDown() (Model, tea.Cmd) {
 		m.state.Selections.SelectedApps = result.SelectedApps
 	}
 
-    if result.ShouldResetNavigation {
-        // Reset index and clear transient UI filters similar to TS resetNavigation()
-        m.state.Navigation.SelectedIdx = 0
-        m.state.UI.ActiveFilter = ""
-        m.state.UI.SearchQuery = ""
-    }
+	if result.ShouldResetNavigation {
+		// Reset index and clear transient UI filters similar to TS resetNavigation()
+		m.state.Navigation.SelectedIdx = 0
+		m.state.UI.ActiveFilter = ""
+		m.state.UI.SearchQuery = ""
+	}
 
-    if result.ShouldClearLowerLevelSelections {
-        // Clear lower-level selections based on the current view
-        cleared := m.navigationService.ClearLowerLevelSelections(prevView)
-        if v, ok := cleared["scopeNamespaces"]; ok {
-            if set, ok2 := v.(map[string]bool); ok2 {
-                m.state.Selections.ScopeNamespaces = set
-            }
-        }
-        if v, ok := cleared["scopeProjects"]; ok {
-            if set, ok2 := v.(map[string]bool); ok2 {
-                m.state.Selections.ScopeProjects = set
-            }
-        }
-        if v, ok := cleared["selectedApps"]; ok {
-            if set, ok2 := v.(map[string]bool); ok2 {
-                m.state.Selections.SelectedApps = set
-            }
-        }
-    }
+	if result.ShouldClearLowerLevelSelections {
+		// Clear lower-level selections based on the current view
+		cleared := m.navigationService.ClearLowerLevelSelections(prevView)
+		if v, ok := cleared["scopeNamespaces"]; ok {
+			if set, ok2 := v.(map[string]bool); ok2 {
+				m.state.Selections.ScopeNamespaces = set
+			}
+		}
+		if v, ok := cleared["scopeProjects"]; ok {
+			if set, ok2 := v.(map[string]bool); ok2 {
+				m.state.Selections.ScopeProjects = set
+			}
+		}
+		if v, ok := cleared["selectedApps"]; ok {
+			if set, ok2 := v.(map[string]bool); ok2 {
+				m.state.Selections.SelectedApps = set
+			}
+		}
+	}
 
-    return m, tea.Batch(cmds...)
+	return m, tea.Batch(cmds...)
 }
 
 // Mode switching handlers
@@ -190,11 +191,11 @@ func (m Model) handleSyncModal() (Model, tea.Cmd) {
 		target := "__MULTI__"
 		m.state.Modals.ConfirmTarget = &target
 	}
-	
+
 	if m.state.Modals.ConfirmTarget != nil {
 		m.state.Mode = model.ModeConfirmSync
 	}
-	
+
 	return m, nil
 }
 
@@ -209,53 +210,65 @@ func (m Model) handleRefresh() (Model, tea.Cmd) {
 	}
 }
 
-// handleEscape handles escape key (clear filters, exit modes)
+// handleEscape handles escape key (clear filters, exit modes) with debounce
 func (m Model) handleEscape() (Model, tea.Cmd) {
-    switch m.state.Mode {
-    case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback:
-        m.state.Mode = model.ModeNormal
-        return m, nil
-    default:
-        curr := m.state.Navigation.View
-        // Edge case: in apps view with an applied filter, first Esc only clears the filter
-        if curr == model.ViewApps && (m.state.UI.ActiveFilter != "" || m.state.UI.SearchQuery != "") {
-            m.state.UI.SearchQuery = ""
-            m.state.UI.ActiveFilter = ""
-            return m, nil
-        }
+	// Debounce escape key to prevent rapid multiple exits
+	now := time.Now().UnixMilli()
+	const ESCAPE_DEBOUNCE_MS = 100 // 100ms debounce (reduced from 200ms)
 
-        // Drill up one level and clear current and prior scope selections
-        // Clear transient UI inputs as we navigate up
-        m.state.UI.SearchQuery = ""
-        m.state.UI.ActiveFilter = ""
-        m.state.UI.Command = ""
+	if now-m.state.Navigation.LastEscPressed < ESCAPE_DEBOUNCE_MS {
+		// Too soon, ignore this escape
+		return m, nil
+	}
 
-        switch curr {
-        case model.ViewApps:
-            // Clear current level (selected apps) and prior (projects), go up to Projects
-            m.state.Selections.SelectedApps = model.NewStringSet()
-            m.state.Selections.ScopeProjects = model.NewStringSet()
-            m.state.Navigation.View = model.ViewProjects
-            m.state.Navigation.SelectedIdx = 0
-        case model.ViewProjects:
-            // Clear current (projects) and prior (namespaces), go up to Namespaces
-            m.state.Selections.ScopeProjects = model.NewStringSet()
-            m.state.Selections.ScopeNamespaces = model.NewStringSet()
-            m.state.Navigation.View = model.ViewNamespaces
-            m.state.Navigation.SelectedIdx = 0
-        case model.ViewNamespaces:
-            // Clear current (namespaces) and prior (clusters), go up to Clusters
-            m.state.Selections.ScopeNamespaces = model.NewStringSet()
-            m.state.Selections.ScopeClusters = model.NewStringSet()
-            m.state.Navigation.View = model.ViewClusters
-            m.state.Navigation.SelectedIdx = 0
-        case model.ViewClusters:
-            // At top level: clear current scope only; stay on Clusters
-            m.state.Selections.ScopeClusters = model.NewStringSet()
-            m.state.Navigation.SelectedIdx = 0
-        }
-        return m, nil
-    }
+	// Update last escape timestamp
+	m.state.Navigation.LastEscPressed = now
+
+	switch m.state.Mode {
+	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeResources, model.ModeDiff:
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	default:
+		curr := m.state.Navigation.View
+		// Edge case: in apps view with an applied filter, first Esc only clears the filter
+		if curr == model.ViewApps && (m.state.UI.ActiveFilter != "" || m.state.UI.SearchQuery != "") {
+			m.state.UI.SearchQuery = ""
+			m.state.UI.ActiveFilter = ""
+			return m, nil
+		}
+
+		// Drill up one level and clear current and prior scope selections
+		// Clear transient UI inputs as we navigate up
+		m.state.UI.SearchQuery = ""
+		m.state.UI.ActiveFilter = ""
+		m.state.UI.Command = ""
+
+		switch curr {
+		case model.ViewApps:
+			// Clear current level (selected apps) and prior (projects), go up to Projects
+			m.state.Selections.SelectedApps = model.NewStringSet()
+			m.state.Selections.ScopeProjects = model.NewStringSet()
+			m.state.Navigation.View = model.ViewProjects
+			m.state.Navigation.SelectedIdx = 0
+		case model.ViewProjects:
+			// Clear current (projects) and prior (namespaces), go up to Namespaces
+			m.state.Selections.ScopeProjects = model.NewStringSet()
+			m.state.Selections.ScopeNamespaces = model.NewStringSet()
+			m.state.Navigation.View = model.ViewNamespaces
+			m.state.Navigation.SelectedIdx = 0
+		case model.ViewNamespaces:
+			// Clear current (namespaces) and prior (clusters), go up to Clusters
+			m.state.Selections.ScopeNamespaces = model.NewStringSet()
+			m.state.Selections.ScopeClusters = model.NewStringSet()
+			m.state.Navigation.View = model.ViewClusters
+			m.state.Navigation.SelectedIdx = 0
+		case model.ViewClusters:
+			// At top level: clear current scope only; stay on Clusters
+			m.state.Selections.ScopeClusters = model.NewStringSet()
+			m.state.Navigation.SelectedIdx = 0
+		}
+		return m, nil
+	}
 }
 
 // handleGoToTop moves to first item (double-g)
@@ -296,36 +309,78 @@ func (m Model) handleHelpModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleResourcesModeKeys handles navigation in resources mode
+func (m Model) handleResourcesModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if m.state.Resources == nil {
+		return m, nil
+	}
+	switch msg.String() {
+	case "q", "esc":
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	case "j", "down":
+		// Scroll down in resources list using table cursor
+		if m.state.Resources != nil && len(m.state.Resources.Resources) > 0 {
+			maxOffset := len(m.state.Resources.Resources) - 1
+			if m.state.Resources.Offset < maxOffset {
+				m.state.Resources.Offset++
+			}
+		}
+		return m, nil
+	case "k", "up":
+		// Scroll up in resources list using table cursor
+		if m.state.Resources != nil && m.state.Resources.Offset > 0 {
+			m.state.Resources.Offset--
+		}
+		return m, nil
+	case "g":
+		// Go to top of resources
+		if m.state.Resources != nil {
+			m.state.Resources.Offset = 0
+		}
+		return m, nil
+	case "G":
+		// Go to bottom of resources
+		if m.state.Resources != nil && len(m.state.Resources.Resources) > 0 {
+			m.state.Resources.Offset = len(m.state.Resources.Resources) - 1
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
 // handleDiffModeKeys handles navigation and search in diff mode
 func (m Model) handleDiffModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-    if m.state.Diff == nil { return m, nil }
-    switch msg.String() {
-    case "q", "esc":
-        m.state.Mode = model.ModeNormal
-        m.state.Diff = nil
-        return m, nil
-    case "up", "k":
-        m.state.Diff.Offset = max(0, m.state.Diff.Offset-1)
-        return m, nil
-    case "down", "j":
-        m.state.Diff.Offset = m.state.Diff.Offset + 1
-        return m, nil
-    case "g":
-        m.state.Diff.Offset = 0
-        return m, nil
-    case "G":
-        // set to large; clamped on render
-        m.state.Diff.Offset = 1<<30
-        return m, nil
-    case "/":
-        // Reuse search input for diff filtering
-        m.inputComponents.ClearSearchInput()
-        m.inputComponents.FocusSearchInput()
-        m.state.Mode = model.ModeSearch
-        return m, nil
-    default:
-        return m, nil
-    }
+	if m.state.Diff == nil {
+		return m, nil
+	}
+	switch msg.String() {
+	case "q", "esc":
+		m.state.Mode = model.ModeNormal
+		m.state.Diff = nil
+		return m, nil
+	case "up", "k":
+		m.state.Diff.Offset = max(0, m.state.Diff.Offset-1)
+		return m, nil
+	case "down", "j":
+		m.state.Diff.Offset = m.state.Diff.Offset + 1
+		return m, nil
+	case "g":
+		m.state.Diff.Offset = 0
+		return m, nil
+	case "G":
+		// set to large; clamped on render
+		m.state.Diff.Offset = 1 << 30
+		return m, nil
+	case "/":
+		// Reuse search input for diff filtering
+		m.inputComponents.ClearSearchInput()
+		m.inputComponents.FocusSearchInput()
+		m.state.Mode = model.ModeSearch
+		return m, nil
+	default:
+		return m, nil
+	}
 }
 
 // handleConfirmSyncKeys handles input when in sync confirmation mode
@@ -341,7 +396,7 @@ func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		target := m.state.Modals.ConfirmTarget
 		prune := m.state.Modals.ConfirmSyncPrune
 		m.state.Modals.ConfirmTarget = nil
-		
+
 		if target != nil {
 			if *target == "__MULTI__" {
 				// Sync multiple selected applications
@@ -379,6 +434,6 @@ func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // Helper function to get visible items for current view
 func (m Model) getVisibleItemsForCurrentView() []interface{} {
-    // Delegate to shared computation used by the view
-    return m.getVisibleItems()
+	// Delegate to shared computation used by the view
+	return m.getVisibleItems()
 }

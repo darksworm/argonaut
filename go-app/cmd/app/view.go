@@ -1170,8 +1170,10 @@ func (m Model) renderResourceStream(availableRows int) string {
 	// Update the table with new data
 	resourcesTable.SetRows(rows)
 	
-	// Calculate column widths based on available width
-	kindWidth, nameWidth, statusWidth := calculateResourceColumnWidths(contentWidth)
+	// Calculate column widths based on available width - account for table borders and padding
+	// Bubbles table adds its own border/padding, so give it slightly less width
+	tableWidth := max(0, contentWidth-2) // Account for table internal padding
+	kindWidth, nameWidth, statusWidth := calculateResourceColumnWidths(tableWidth)
 	
 	// Update table column widths
 	columns := []table.Column{
@@ -1184,9 +1186,9 @@ func (m Model) renderResourceStream(availableRows int) string {
 	// Set table dimensions to match available space
 	tableHeight := max(3, availableRows-4) // Reserve space for title and footer
 	resourcesTable.SetHeight(tableHeight)
-	resourcesTable.SetWidth(contentWidth)
+	resourcesTable.SetWidth(tableWidth)
 
-	// Apply the same table styles as the apps table
+	// Apply the same table styles as the apps table, but disable table borders to prevent overflow
 	tableStyle := table.DefaultStyles()
 	tableStyle.Header = tableStyle.Header.
 		BorderStyle(lipgloss.NormalBorder()).
@@ -1199,6 +1201,13 @@ func (m Model) renderResourceStream(availableRows int) string {
 		Bold(false)
 	resourcesTable.SetStyles(tableStyle)
 
+	// Handle scrolling by moving the table cursor to the correct position
+	if m.state.Resources.Offset > 0 && len(rows) > 0 {
+		// Set cursor position to simulate scrolling
+		targetPos := min(m.state.Resources.Offset, len(rows)-1)
+		resourcesTable.SetCursor(targetPos)
+	}
+
 	// Create content with title and table
 	var content strings.Builder
 	title := fmt.Sprintf("Resources for %s", m.state.Resources.AppName)
@@ -1209,15 +1218,13 @@ func (m Model) renderResourceStream(availableRows int) string {
 	content.WriteString(resourcesTable.View())
 	content.WriteString("\n")
 
-	// Footer with navigation info
+	// Footer with navigation info - calculate visible range properly
 	totalResources := len(resources)
-	visibleStart := 1 
-	visibleEnd := min(totalResources, tableHeight)
-	if m.state.Resources.Offset > 0 {
-		visibleStart = m.state.Resources.Offset + 1
-		visibleEnd = min(totalResources, m.state.Resources.Offset + tableHeight)
-	}
-	footerText := fmt.Sprintf("Showing %d-%d of %d resources • j/k to scroll • q to return",
+	currentCursor := resourcesTable.Cursor()
+	visibleStart := currentCursor + 1
+	visibleEnd := min(totalResources, currentCursor + tableHeight)
+	
+	footerText := fmt.Sprintf("Showing %d-%d of %d resources • j/k to scroll • g/G jump • q to return",
 		visibleStart, visibleEnd, totalResources)
 	content.WriteString(statusStyle.Render(footerText))
 
