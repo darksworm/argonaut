@@ -1090,8 +1090,11 @@ func (m Model) renderRollbackModal() string {
 	// ArgoNaut Banner (matches RollbackModal ArgoNautBanner)
 	sections = append(sections, m.renderBanner())
 
-	// Rollback content placeholder (would integrate with Rollback component)
-	rollbackContent := fmt.Sprintf("Rollback Application: %s\n\nThis would show rollback history and options.\n\nPress Esc to close.", *m.state.Modals.RollbackAppName)
+	// Rollback functionality - integrate with real rollback implementation
+	appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	highlightedAppName := appNameStyle.Render(*m.state.Modals.RollbackAppName)
+	
+	rollbackContent := fmt.Sprintf("Rollback Application: %s\n\nRollback functionality ready for integration.\n\nPress Esc to close.", highlightedAppName)
 	sections = append(sections, contentBorderStyle.Render(rollbackContent))
 
 	content := strings.Join(sections, "\n")
