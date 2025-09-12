@@ -186,17 +186,18 @@ type RollbackRow struct {
 
 // RollbackState holds the state for rollback operations
 type RollbackState struct {
-	AppName       string        `json:"appName"`       // App being rolled back
-	AppNamespace  *string       `json:"appNamespace"`  // App namespace
-	Rows          []RollbackRow `json:"rows"`          // Deployment history
-	SelectedIdx   int           `json:"selectedIdx"`   // Currently selected row
-	CurrentRevision string      `json:"currentRevision"` // Current deployment revision
-	Loading       bool          `json:"loading"`       // Loading state
-	Error         string        `json:"error"`         // Error message
-	Mode          string        `json:"mode"`          // "list" or "confirm"
-	Prune         bool          `json:"prune"`         // Prune option
-	Watch         bool          `json:"watch"`         // Watch option after rollback
-	DryRun        bool          `json:"dryRun"`        // Dry run option
+    AppName       string        `json:"appName"`       // App being rolled back
+    AppNamespace  *string       `json:"appNamespace"`  // App namespace
+    Rows          []RollbackRow `json:"rows"`          // Deployment history
+    SelectedIdx   int           `json:"selectedIdx"`   // Currently selected row
+    CurrentRevision string      `json:"currentRevision"` // Current deployment revision
+    Loading       bool          `json:"loading"`       // Loading state
+    Error         string        `json:"error"`         // Error message
+    Mode          string        `json:"mode"`          // "list" or "confirm"
+    Prune         bool          `json:"prune"`         // Prune option
+    Watch         bool          `json:"watch"`         // Watch option after rollback
+    DryRun        bool          `json:"dryRun"`        // Dry run option (not shown in confirm view)
+    ConfirmSelected int         `json:"confirmSelected"` // 0 = Yes, 1 = No/Cancel
 }
 
 // RevisionMetadata represents git commit metadata for a revision

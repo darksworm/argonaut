@@ -89,11 +89,15 @@ type UIState struct {
 
 // ModalState holds modal-related state
 type ModalState struct {
-	ConfirmTarget    *string `json:"confirmTarget,omitempty"`
-	ConfirmSyncPrune bool    `json:"confirmSyncPrune"`
-	ConfirmSyncWatch bool    `json:"confirmSyncWatch"`
-	RollbackAppName  *string `json:"rollbackAppName,omitempty"`
-	SyncViewApp      *string `json:"syncViewApp,omitempty"`
+    ConfirmTarget    *string `json:"confirmTarget,omitempty"`
+    ConfirmSyncPrune bool    `json:"confirmSyncPrune"`
+    ConfirmSyncWatch bool    `json:"confirmSyncWatch"`
+    // Which button is selected in confirm modal: 0 = Yes, 1 = Cancel
+    ConfirmSyncSelected int `json:"confirmSyncSelected"`
+    // When true, show a small syncing overlay instead of the confirm UI
+    ConfirmSyncLoading  bool `json:"confirmSyncLoading"`
+    RollbackAppName  *string `json:"rollbackAppName,omitempty"`
+    SyncViewApp      *string `json:"syncViewApp,omitempty"`
 }
 
 // AppState represents the complete application state for Bubbletea
@@ -210,6 +214,8 @@ func NewAppState() *AppState {
 			ConfirmTarget:    nil,
 			ConfirmSyncPrune: false,
 			ConfirmSyncWatch: true,
+			ConfirmSyncSelected: 0,
+			ConfirmSyncLoading:  false,
 			RollbackAppName:  nil,
 			SyncViewApp:      nil,
 		},

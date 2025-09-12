@@ -552,15 +552,11 @@ func (s *ApplicationService) RollbackApplication(ctx context.Context, request mo
 		body["appNamespace"] = *request.AppNamespace
 	}
 
-	bodyJSON, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal rollback request: %w", err)
-	}
-
-	_, err = s.client.Post(ctx, endpoint, bodyJSON)
-	if err != nil {
-		return fmt.Errorf("failed to rollback application %s to deployment %d: %w", request.Name, request.ID, err)
-	}
+    // Pass the structured body directly; the client marshals it to JSON.
+    _, err := s.client.Post(ctx, endpoint, body)
+    if err != nil {
+        return fmt.Errorf("failed to rollback application %s to deployment %d: %w", request.Name, request.ID, err)
+    }
 
 	return nil
 }

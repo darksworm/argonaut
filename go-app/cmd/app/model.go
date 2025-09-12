@@ -354,7 +354,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Old spinner TickMsg removed - now using bubbles spinner
 
-	case model.ApiErrorMsg:
+case model.ApiErrorMsg:
 		// Log error to file and store structured error in state for display
 		fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
 		if msg.StatusCode > 0 {
@@ -362,28 +362,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.statusService.Error(fullErrorMsg)
 		
-		// Clear any loading states that might be active
-		if m.state.Diff != nil {
-			m.state.Diff.Loading = false
-		}
+        // Clear any loading states that might be active
+        if m.state.Diff != nil {
+            m.state.Diff.Loading = false
+        }
+        if m.state.Modals.ConfirmSyncLoading {
+            m.state.Modals.ConfirmSyncLoading = false
+            m.state.Modals.ConfirmTarget = nil
+            if m.state.Mode == model.ModeConfirmSync {
+                m.state.Mode = model.ModeNormal
+            }
+        }
 		
 		// Handle rollback-specific errors
 		if m.state.Mode == model.ModeRollback {
-			// Initialize rollback state with error if not exists
-			if m.state.Rollback == nil && m.state.Modals.RollbackAppName != nil {
-				m.state.Rollback = &model.RollbackState{
-					AppName: *m.state.Modals.RollbackAppName,
-					Loading: false,
-					Error:   msg.Message,
-					Mode:    "list",
+			// If we're not in an active rollback execution (i.e., not loading), keep error in modal
+			if m.state.Rollback != nil && !m.state.Rollback.Loading {
+				// Initialize rollback state with error if not exists
+				if m.state.Rollback == nil && m.state.Modals.RollbackAppName != nil {
+					m.state.Rollback = &model.RollbackState{
+						AppName: *m.state.Modals.RollbackAppName,
+						Loading: false,
+						Error:   msg.Message,
+						Mode:    "list",
+					}
+				} else {
+					// Update existing rollback state with error
+					m.state.Rollback.Loading = false
+					m.state.Rollback.Error = msg.Message
 				}
-			} else if m.state.Rollback != nil {
-				// Update existing rollback state with error
-				m.state.Rollback.Loading = false
-				m.state.Rollback.Error = msg.Message
+				// Stay in rollback mode to show the error inline
+				return m, nil
 			}
-			// Stay in rollback mode to show the error
-			return m, nil
+			// else: in active rollback execution, fall through to generic error screen below
 		}
 		
 		// Store structured error information in state
@@ -448,7 +459,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// m.ui.UpdateListItems(m.state)
 		return m, nil
 
-	case model.SyncCompletedMsg:
+case model.SyncCompletedMsg:
 		// Handle single app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
@@ -472,16 +483,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusService.Set("Sync cancelled")
 		}
-		return m, nil
+        // Close confirm modal/loading state if open
+        m.state.Modals.ConfirmTarget = nil
+        m.state.Modals.ConfirmSyncLoading = false
+        if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
+            m.state.Mode = model.ModeNormal
+        }
+        return m, nil
 
-	case model.MultiSyncCompletedMsg:
+case model.MultiSyncCompletedMsg:
 		// Handle multiple app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
 			// Clear selections after multi-sync (matching TypeScript behavior)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 		}
-		return m, nil
+        // Close confirm modal/loading state if open
+        m.state.Modals.ConfirmTarget = nil
+        m.state.Modals.ConfirmSyncLoading = false
+        if m.state.Mode == model.ModeConfirmSync {
+            m.state.Mode = model.ModeNormal
+        }
+        return m, nil
 
 	// Rollback Messages
 	case model.RollbackHistoryLoadedMsg:
@@ -498,13 +521,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			DryRun:         false,
 		}
 		
-		// Start loading metadata for the first few rows
-		var cmds []tea.Cmd
-		for i := 0; i < min(3, len(msg.Rows)); i++ {
-			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
-		}
-		
-		return m, tea.Batch(cmds...)
+        // Start loading metadata for the first visible chunk (up to 10)
+        var cmds []tea.Cmd
+        preload := min(10, len(msg.Rows))
+        for i := 0; i < preload; i++ {
+            cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
+        }
+        
+        return m, tea.Batch(cmds...)
 
 	case model.RollbackMetadataLoadedMsg:
 		// Update rollback row with loaded metadata
@@ -557,19 +581,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
 					}
 				}
-			case "down":
-				if m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows)-1 {
-					m.state.Rollback.SelectedIdx++
-					// Load metadata for newly selected row if not loaded
-					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-					if row.Author == nil && row.MetaError == nil {
-						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
-					}
-				}
-			case "top":
-				m.state.Rollback.SelectedIdx = 0
-			case "bottom":
-				m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+        case "down":
+            if m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows)-1 {
+                m.state.Rollback.SelectedIdx++
+                // Load metadata for newly selected row if not loaded
+                row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+                var cmds []tea.Cmd
+                if row.Author == nil && row.MetaError == nil {
+                    cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision))
+                }
+                // Opportunistically preload the next two rows' metadata to reduce "loading" gaps
+                for j := 1; j <= 2; j++ {
+                    idx := m.state.Rollback.SelectedIdx + j
+                    if idx < len(m.state.Rollback.Rows) {
+                        r := m.state.Rollback.Rows[idx]
+                        if r.Author == nil && r.MetaError == nil {
+                            cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision))
+                        }
+                    }
+                }
+                return m, tea.Batch(cmds...)
+            }
+            case "top":
+                m.state.Rollback.SelectedIdx = 0
+            case "bottom":
+                m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
 			}
 		}
 		return m, nil

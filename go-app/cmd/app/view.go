@@ -1,14 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"net/url"
-	"os"
-	"strings"
-	"time"
+    "fmt"
+    "net/url"
+    "os"
+    "regexp"
+    "strings"
+    "time"
 
-	"github.com/a9s/go-app/pkg/model"
-	"github.com/charmbracelet/lipgloss/v2"
+    "github.com/a9s/go-app/pkg/model"
+    "github.com/charmbracelet/lipgloss/v2"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -158,13 +159,27 @@ func (m Model) renderMainLayout() string {
 
 	baseView := mainContainerStyle.Render(content)
 
-	// Modal overlay (should overlay the base view, not push content down)
-	if m.state.Mode == model.ModeConfirmSync {
-		modal := m.renderConfirmSyncModal()
-		// Center the modal in the available space
-		centeredModal := lipgloss.Place(m.state.Terminal.Cols, totalHeight, lipgloss.Center, lipgloss.Center, modal)
-		return centeredModal
-	}
+    // Modal overlay (render atop existing content using lipgloss v2 layers)
+    if m.state.Mode == model.ModeConfirmSync {
+        modal := ""
+        if m.state.Modals.ConfirmSyncLoading {
+            modal = m.renderSyncLoadingModal()
+        } else {
+            modal = m.renderConfirmSyncModal()
+        }
+        mw := lipgloss.Width(modal)
+        mh := lipgloss.Height(modal)
+
+        // Center modal; desaturate base layer so the modal pops
+        grayBase := desaturateANSI(baseView)
+        modalX := (m.state.Terminal.Cols - mw) / 2
+        modalY := (totalHeight - mh) / 2
+
+        baseLayer := lipgloss.NewLayer(grayBase)
+        modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+        canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+        return canvas.Render()
+    }
 
 	// Add diff loading spinner as an overlay if loading using lipgloss v2 layer/canvas system
 	if m.state.Diff != nil && m.state.Diff.Loading {
@@ -206,11 +221,14 @@ func (m Model) renderBanner() string {
 	isNarrow := m.state.Terminal.Cols <= 100
 
 	// Cyan badge for very narrow terminals
-	if isNarrow {
-		badge := lipgloss.NewStyle().
-			Background(cyanBright).
-			Foreground(whiteBright).
-			Bold(true).Render(" Argonaut " + appVersion)
+    if isNarrow {
+        badge := lipgloss.NewStyle().
+            Background(cyanBright).
+            Foreground(whiteBright).
+            Bold(true).
+            PaddingLeft(1).
+            PaddingRight(1).
+            Render("Argonaut " + appVersion)
 
 		// Add spacing before and after the badge, and after Project line
 		var sections []string
@@ -534,6 +552,37 @@ func clipAnsiToWidth(s string, width int) string {
 	return b.String()
 }
 
+// renderBackdropBlock returns a patterned, dim block for modal backdrops
+func (m Model) renderBackdropBlock(width, height int) string {
+    if width <= 0 || height <= 0 {
+        return ""
+    }
+    // Render a soft drop shadow using spaces with a dark background.
+    line := strings.Repeat(" ", width)
+    var b strings.Builder
+    for y := 0; y < height; y++ {
+        b.WriteString(line)
+        if y < height-1 {
+            b.WriteByte('\n')
+        }
+    }
+    // Slightly dark background to suggest depth; keep foreground default
+    style := lipgloss.NewStyle().Background(lipgloss.Color("236"))
+    return style.Render(b.String())
+}
+
+// clipAnsiToLines trims the string to at most maxLines lines (ANSI-safe).
+func clipAnsiToLines(s string, maxLines int) string {
+    if maxLines <= 0 {
+        return ""
+    }
+    lines := strings.Split(s, "\n")
+    if len(lines) <= maxLines {
+        return s
+    }
+    return strings.Join(lines[:maxLines], "\n")
+}
+
 // normalizeLinesToWidth pads or trims each line to an exact width (ANSI-aware)
 func normalizeLinesToWidth(s string, width int) string {
 	if width <= 0 || s == "" {
@@ -549,6 +598,15 @@ func normalizeLinesToWidth(s string, width int) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// ANSI escape sequence regex for colors/styles
+var ansiRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+// desaturateANSI strips ANSI color/style codes and recolors text dim gray
+func desaturateANSI(s string) string {
+    plain := ansiRE.ReplaceAllString(s, "")
+    return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(plain)
 }
 
 // renderAppRow - matches ListView app row rendering
@@ -1165,122 +1223,84 @@ func (m Model) renderCommandBar() string {
 }
 
 func (m Model) renderConfirmSyncModal() string {
-	if m.state.Modals.ConfirmTarget == nil {
-		return ""
-	}
+    if m.state.Modals.ConfirmTarget == nil {
+        return ""
+    }
 
-	target := *m.state.Modals.ConfirmTarget
-	isMulti := target == "__MULTI__"
+    target := *m.state.Modals.ConfirmTarget
+    isMulti := target == "__MULTI__"
 
-	// Enhanced modal content with clean visual design
-	var title, message, targetText string
-	if isMulti {
-		title = "SYNC APPLICATIONS"
-		message = "Ready to sync"
-		targetText = fmt.Sprintf("%d selected apps", len(m.state.Selections.SelectedApps))
-	} else {
-		title = "SYNC APPLICATION"
-		message = "Ready to sync"
-		targetText = target
-	}
+    // Modal width: compact and centered
+    half := m.state.Terminal.Cols / 2
+    modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+    innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
 
-	// Options with clean indicators
-	pruneStatus := "○"
-	if m.state.Modals.ConfirmSyncPrune {
-		pruneStatus = "●"
-	}
+    // Message: de-emphasize the "Sync" verb and highlight the subject
+    var titleLine string
+    {
+        // Build parts with different emphasis, then center as a whole
+        syncPart := statusStyle.Render("Sync ") // dim
+        var subject string
+        if isMulti {
+            subject = fmt.Sprintf("%d application(s)", len(m.state.Selections.SelectedApps))
+        } else {
+            subject = target
+        }
+        subjectStyled := lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
+        qmark := statusStyle.Render("?")
+        titleLine = syncPart + subjectStyled + qmark
+    }
 
-	watchStatus := "○"
-	if m.state.Modals.ConfirmSyncWatch {
-		watchStatus = "●"
-	}
-	watchDisabled := isMulti
+    // Buttons: highlight selected using stronger contrast
+    active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
+    inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+    yesBtn := inactive.Render("Yes")
+    cancelBtn := inactive.Render("Cancel")
+    if m.state.Modals.ConfirmSyncSelected == 0 { yesBtn = active.Render("Yes") }
+    if m.state.Modals.ConfirmSyncSelected == 1 { cancelBtn = active.Render("Cancel") }
 
-	// Enhanced modal style with gradient-like effect
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(cyanBright).
-		Background(lipgloss.Color("232")). // Dark gray background
-		Foreground(whiteBright).
-		PaddingLeft(3).
-		PaddingRight(3).
-		PaddingTop(1).
-		PaddingBottom(1).
-		Width(60).
-		Align(lipgloss.Center)
+    // Options line (prune/watch) rendered below piecewise; no prebuilt string
 
-	var content strings.Builder
+    // Simple rounded border; cyan accent
+    wrapper := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(cyanBright).
+        Padding(1, 2).
+        Width(modalWidth)
 
-	// Title with enhanced styling
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(yellowBright).
-		Background(lipgloss.Color("53")). // Purple background
-		PaddingLeft(1).
-		PaddingRight(1).
-		Align(lipgloss.Center)
-	content.WriteString(titleStyle.Render(fmt.Sprintf(" %s ", title)))
-	content.WriteString("\n\n")
+    // Center helpers
+    center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
 
-	// Target with highlight box
-	targetStyle := lipgloss.NewStyle().
-		Foreground(whiteBright).
-		Background(lipgloss.Color("24")). // Blue background
-		Bold(true).
-		PaddingLeft(1).
-		PaddingRight(1).
-		Align(lipgloss.Center)
+    title := center.Render(titleLine)
 
-	messageText := fmt.Sprintf("%s: %s", message, targetText)
-	content.WriteString(targetStyle.Render(fmt.Sprintf(" %s ", messageText)))
-	content.WriteString("\n\n")
+    buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), cancelBtn)
+    buttons = center.Render(buttons)
 
-	// Cool separator
-	separatorStyle := lipgloss.NewStyle().
-		Foreground(dimColor).
-		Align(lipgloss.Center)
-	content.WriteString(separatorStyle.Render("─────────────────────────"))
-	content.WriteString("\n\n")
+    // Options line rendered piecewise to avoid ANSI resets affecting following text
+    dim := lipgloss.NewStyle().Foreground(dimColor)
+    on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+    var optsLine strings.Builder
+    optsLine.WriteString(dim.Render("p: Prune "))
+    if m.state.Modals.ConfirmSyncPrune {
+        optsLine.WriteString(on.Render("On"))
+    } else {
+        optsLine.WriteString(dim.Render("Off"))
+    }
+    if !isMulti {
+        optsLine.WriteString(dim.Render(" • w: Watch "))
+        if m.state.Modals.ConfirmSyncWatch {
+            optsLine.WriteString(on.Render("On"))
+        } else {
+            optsLine.WriteString(dim.Render("Off"))
+        }
+    }
+    aux := center.Render(optsLine.String())
 
-	// Enhanced options with clean styling
-	optionStyle := lipgloss.NewStyle().
-		Foreground(cyanBright).
-		Bold(true)
+    // Lines are already centered to innerWidth; avoid re-normalizing which can
+    // introduce asymmetric trailing padding.
+    body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
 
-	pruneText := fmt.Sprintf(" [p] %s Prune resources", pruneStatus)
-	content.WriteString(optionStyle.Render(pruneText))
-	content.WriteString("\n")
-
-	if !watchDisabled {
-		watchText := fmt.Sprintf(" [w] %s Watch resources", watchStatus)
-		content.WriteString(optionStyle.Render(watchText))
-	} else {
-		dimStyle := lipgloss.NewStyle().
-			Foreground(dimColor).
-			Strikethrough(true)
-		watchText := fmt.Sprintf(" [w] %s Watch (multi-sync)", watchStatus)
-		content.WriteString(dimStyle.Render(watchText))
-	}
-	content.WriteString("\n\n")
-
-	// Another separator
-	content.WriteString(separatorStyle.Render("─────────────────────────"))
-	content.WriteString("\n")
-
-	// Enhanced instructions
-	instructionStyle := lipgloss.NewStyle().
-		Foreground(yellowBright).
-		Bold(true).
-		Align(lipgloss.Center)
-	content.WriteString(instructionStyle.Render("ENTER to confirm"))
-	content.WriteString("\n")
-
-	cancelStyle := lipgloss.NewStyle().
-		Foreground(dimColor).
-		Align(lipgloss.Center)
-	content.WriteString(cancelStyle.Render("ESC to cancel"))
-
-	return modalStyle.Render(content.String())
+    return wrapper.Render(body)
 }
 
 func (m Model) renderResourceStream(availableRows int) string {
@@ -1304,16 +1324,16 @@ func (m Model) renderResourceStream(availableRows int) string {
 	}
 
 	resources := m.state.Resources.Resources
-	if len(resources) == 0 {
-		// Create single bordered box (no double border) with app name highlighted
-		resourcesStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(magentaBright).
-			Width(contentWidth).
-			Height(contentHeight).
-			AlignVertical(lipgloss.Top).
-			PaddingLeft(1).
-			PaddingRight(1)
+    if len(resources) == 0 {
+        // Create single bordered box with standard inner padding (1 char each side)
+        resourcesStyle := lipgloss.NewStyle().
+            Border(lipgloss.RoundedBorder()).
+            BorderForeground(magentaBright).
+            Width(contentWidth).
+            Height(contentHeight).
+            AlignVertical(lipgloss.Top).
+            PaddingLeft(1).
+            PaddingRight(1)
 
 		// Highlight the app name in cyan
 		appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
@@ -1323,11 +1343,11 @@ func (m Model) renderResourceStream(availableRows int) string {
 		return resourcesStyle.Render(emptyContent)
 	}
 
-	// Calculate content dimensions matching main layout pattern
-	// Container uses Cols-2, so content inside must be more conservative to prevent overflow
-	boxContentWidth := max(0, m.state.Terminal.Cols-10) // More padding to prevent overflow
-	// Use the more conservative boxContentWidth for table content
-	tableContentWidth := boxContentWidth
+    // Calculate widths so the inner content fills the bordered box exactly
+    // Outer container width inside main container
+    tableContainerWidth := max(0, m.state.Terminal.Cols-2) // account for mainContainer left/right padding
+    // Inner width = outer width - borders(2) - padding(2)
+    tableContentWidth := max(0, tableContainerWidth-4)
 	// Leave one line for the table header
 	tableHeight := max(3, availableRows-1)
 
@@ -1353,14 +1373,33 @@ func (m Model) renderResourceStream(availableRows int) string {
 	}
 	end := min(total, start+visibleRows)
 
-	// Calculate proper column widths for a single-line table format
-	kindWidth, nameWidth, statusWidthCalc := calculateResourceColumnWidths(tableContentWidth)
+    // Calculate proper column widths for a single-line table format
+    // Derive kind and status widths from visible rows to give more room to name
+    // 2 separators (spaces) between columns
+    const sep = 2
+    // Find maximum kind length among visible rows
+    maxKind := 0
+    maxStatus := 0
+    for i := start; i < end; i++ {
+        r := resources[i]
+        if w := lipgloss.Width(r.Kind); w > maxKind { maxKind = w }
+        hs := "Unknown"
+        if r.Health != nil && r.Health.Status != nil { hs = *r.Health.Status }
+        st := fmt.Sprintf("%s %s", m.getHealthIcon(hs), hs)
+        if w := lipgloss.Width(st); w > maxStatus { maxStatus = w }
+    }
+    // Kind is exactly its widest value + 1 char
+    kindWidth := min(maxKind+1, max(6, tableContentWidth/3))
+    // Status width capped; right-aligned at end
+    statusWidthCalc := min(max(6, maxStatus), 18)
+    // Name gets the remainder
+    nameWidth := max(10, tableContentWidth-kindWidth-statusWidthCalc-sep)
 
 	// Build single-line header with proper column alignment
-	kindHeader := padRight(headerStyle.Render("KIND"), kindWidth)
-	nameHeader := padRight(headerStyle.Render("NAME"), nameWidth)
-	statusHeader := padRight(headerStyle.Render("STATUS"), statusWidthCalc)
-	headerLine := fmt.Sprintf("%s %s %s", kindHeader, nameHeader, statusHeader)
+    kindHeader := padRight(headerStyle.Render("KIND"), kindWidth)
+    nameHeader := padRight(headerStyle.Render("NAME"), nameWidth)
+    statusHeader := padLeft(headerStyle.Render("STATUS"), statusWidthCalc)
+    headerLine := fmt.Sprintf("%s %s%s", kindHeader, nameHeader, statusHeader)
 	headerLine = clipAnsiToWidth(headerLine, tableContentWidth)
 
 	// Build rows
@@ -1389,9 +1428,9 @@ func (m Model) renderResourceStream(availableRows int) string {
 		// Build the row with proper column alignment
 		kindCell := padRight(kindText, kindWidth)
 		nameCell := padRight(nameText, nameWidth)
-		statusCell := m.getColorForStatus(healthStatus).Render(padRight(statusText, statusWidthCalc))
+        statusCell := m.getColorForStatus(healthStatus).Render(padLeft(statusText, statusWidthCalc))
 
-		rowLine := fmt.Sprintf("%s %s %s", kindCell, nameCell, statusCell)
+        rowLine := fmt.Sprintf("%s %s%s", kindCell, nameCell, statusCell)
 		rowLine = clipAnsiToWidth(rowLine, tableContentWidth)
 
 		if i == cursor {
@@ -1434,11 +1473,15 @@ func (m Model) renderResourceStream(availableRows int) string {
 	content.WriteString("\n")
 	content.WriteString(footerLine)
 
-	// Fix border width to full container width so the box fills the row
-	// container width = cols - main container padding (2)
-	tableContainerWidth := max(0, m.state.Terminal.Cols-2)
-	normalized := normalizeLinesToWidth(content.String(), tableContentWidth)
-	return contentBorderStyle.Width(tableContainerWidth).Render(normalized)
+    // Render with standard inner padding so content matches other views visually
+    resourcesBorder := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(magentaBright).
+        PaddingLeft(1).
+        PaddingRight(1).
+        Width(tableContainerWidth)
+    normalized := normalizeLinesToWidth(content.String(), tableContentWidth)
+    return resourcesBorder.Render(normalized)
 }
 
 // renderDiffView - simple pager for diff content
@@ -1736,10 +1779,10 @@ func (m Model) renderErrorView() string {
 	overhead := BORDER_LINES + headerLines + STATUS_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4) // Account for border and padding
-	contentHeight := max(3, availableRows)
+    // Calculate dimensions for consistent full-height layout
+    // Use full available width inside the main container
+    containerWidth := max(0, m.state.Terminal.Cols-2) // main container has 1 char padding on each side
+    contentHeight := max(3, availableRows)
 
 	// Build error content
 	errorContent := ""
@@ -1786,14 +1829,14 @@ func (m Model) renderErrorView() string {
 	errorContent += fmt.Sprintf("\n%s", instructStyle.Render("Press Esc to return to main view"))
 
 	// Create a full-height bordered box directly to avoid double borders
-	errorStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
+    errorStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(outOfSyncColor).
+        Width(containerWidth).
+        Height(contentHeight).
+        AlignVertical(lipgloss.Top).
+        PaddingLeft(1).
+        PaddingRight(1)
 
 	styledErrorContent := errorStyle.Render(errorContent)
 
@@ -1819,10 +1862,9 @@ func (m Model) renderConnectionErrorView() string {
 	overhead := BORDER_LINES + headerLines + STATUS_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4) // Account for border and padding
-	contentHeight := max(3, availableRows)
+    // Calculate dimensions for consistent full-height layout
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    contentHeight := max(3, availableRows)
 
 	// Build connection error content
 	errorContent := ""
@@ -1845,15 +1887,15 @@ func (m Model) renderConnectionErrorView() string {
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
 	errorContent += instructStyle.Render("Press q to exit • Press Esc to retry")
 
-	// Create a full-height bordered box directly to avoid double borders
-	errorStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
+    // Create a full-height bordered box directly to avoid double borders
+    errorStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(outOfSyncColor).
+        Width(containerWidth).
+        Height(contentHeight).
+        AlignVertical(lipgloss.Top).
+        PaddingLeft(1).
+        PaddingRight(1)
 
 	styledErrorContent := errorStyle.Render(errorContent)
 
@@ -1885,6 +1927,22 @@ func (m Model) renderDiffLoadingSpinner() string {
 	return spinnerStyle.Render(spinnerContent)
 }
 
+// renderSyncLoadingModal displays a compact centered modal with a spinner during sync start
+func (m Model) renderSyncLoadingModal() string {
+    msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
+    content := msg
+    // Compact wrapper with cyan border to match confirm modal theme
+    wrapper := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(cyanBright).
+        Padding(1, 2)
+    // Width based on content, with a small minimum
+    minW := 24
+    w := max(minW, lipgloss.Width(content)+4)
+    wrapper = wrapper.Width(w)
+    return wrapper.Render(content)
+}
+
 // renderRollbackModal displays the rollback modal with deployment history
 func (m Model) renderRollbackModal() string {
 	// Calculate available space using the same pattern as other modals
@@ -1897,10 +1955,11 @@ func (m Model) renderRollbackModal() string {
 	overhead := BORDER_LINES + headerLines + STATUS_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4) // Account for border and padding
-	contentHeight := max(3, availableRows)
+    // Calculate dimensions for consistent full-height layout
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    contentHeight := max(3, availableRows)
+    innerWidth := max(0, containerWidth-4) // 2 borders + 2 padding
+    innerHeight := max(0, contentHeight-2) // no vertical padding set
 
 	// Check if rollback state is available
 	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
@@ -1916,51 +1975,61 @@ func (m Model) renderRollbackModal() string {
 	rollback := m.state.Rollback
 	var modalContent string
 
-	if rollback.Loading {
-		// Loading state
-		modalContent = fmt.Sprintf("%s Loading deployment history for %s...", m.spinner.View(), *m.state.Modals.RollbackAppName)
+    if rollback.Loading {
+        // Loading state: if confirming, we're executing the rollback; otherwise we're loading history
+        if rollback.Mode == "confirm" {
+            modalContent = fmt.Sprintf("%s Executing rollback for %s...", m.spinner.View(), rollback.AppName)
+        } else {
+            modalContent = fmt.Sprintf("%s Loading deployment history for %s...", m.spinner.View(), *m.state.Modals.RollbackAppName)
+        }
 	} else if rollback.Error != "" {
 		// Error state
 		errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
 		modalContent = errorStyle.Render(fmt.Sprintf("Error loading rollback history:\n%s", rollback.Error))
-	} else if rollback.Mode == "confirm" {
-		// Confirmation mode
-		modalContent = m.renderRollbackConfirmation(rollback)
+    } else if rollback.Mode == "confirm" {
+        // Confirmation mode - render with bottom-aligned confirmation block
+        modalContent = m.renderRollbackConfirmation(rollback, innerHeight, innerWidth)
 	} else {
 		// List mode - show deployment history
 		modalContent = m.renderRollbackHistory(rollback)
 	}
 
-	// Add instructions at the bottom
-	instructionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	var instructions string
-	if rollback.Mode == "confirm" {
-		instructions = "Enter: Execute Rollback • Esc: Cancel"
-	} else {
-		instructions = "j/k: Navigate • Enter: Select • p: Toggle Prune • w: Toggle Watch • Esc: Cancel"
-	}
-	modalContent += "\n\n" + instructionStyle.Render(instructions)
+    // Add instructions only for list mode; confirmation view has inline keys
+    if rollback.Mode != "confirm" {
+        instructionStyle := lipgloss.NewStyle().Foreground(cyanBright)
+        instructions := "j/k: Navigate • Enter: Select • Esc: Cancel"
+        modalContent += "\n\n" + instructionStyle.Render(instructions)
+    }
 
-	// Create a full-height bordered box
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
+    // Create a full-height bordered box
+    modalStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(cyanBright).
+        // Occupy full width of the main container
+        Width(containerWidth).
+        Height(contentHeight).
+        AlignVertical(lipgloss.Top).
+        PaddingLeft(1).
+        PaddingRight(1)
 
-	styledContent := modalStyle.Render(modalContent)
+    // Normalize each modal line to the inner content width to avoid wrapping,
+    // then clip to available inner height to prevent vertical overflow.
+    modalContent = normalizeLinesToWidth(modalContent, innerWidth)
+    // Clip modal content to available inner height to prevent overflow.
+    // Height() does not clip content; it only pads. Inner height is total minus borders.
+    modalContent = clipAnsiToLines(modalContent, innerHeight)
+    styledContent := modalStyle.Render(modalContent)
 
 	// Combine with header
 	var sections []string
 	sections = append(sections, header)
 	sections = append(sections, styledContent)
 
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
+    content := strings.Join(sections, "\n")
+    totalHeight := m.state.Terminal.Rows - 1
+    // Clip final composed content to terminal height to ensure no overflow.
+    content = clipAnsiToLines(content, totalHeight)
+    return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 // renderRollbackHistory renders the deployment history list
@@ -1979,72 +2048,97 @@ func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
 		content += currentStyle.Render(fmt.Sprintf("Current: %s", rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))])) + "\n\n"
 	}
 
-	// Show deployment history table
-	content += "Deployment History:\n\n"
+    // Show deployment history table
+    content += "Deployment History:\n\n"
 
-	for i, row := range rollback.Rows {
-		var line string
-		
-		// Selection indicator
-		if i == rollback.SelectedIdx {
-			line += "> "
-		} else {
-			line += "  "
-		}
-		
-		// Deployment ID and revision
-		idStyle := lipgloss.NewStyle().Foreground(whiteBright)
-		revisionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-		line += fmt.Sprintf("%s %s", 
-			idStyle.Render(fmt.Sprintf("#%d", row.ID)),
-			revisionStyle.Render(row.Revision[:min(8, len(row.Revision))]))
+    // Compute how many rows we can show to avoid overflowing the modal.
+    // This mirrors the height math used in renderRollbackModal.
+    header := m.renderBanner()
+    headerLines := countLines(header)
+    const BORDER_LINES = 2
+    const STATUS_LINES = 1
+    availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+headerLines+STATUS_LINES))
 
-		// Deployment date
-		if row.DeployedAt != nil {
-			dateStyle := lipgloss.NewStyle().Foreground(unknownColor)
-			line += " " + dateStyle.Render(row.DeployedAt.Format("2006-01-02 15:04"))
-		}
+    // Inside the modal we render the following fixed lines when in list mode:
+    // 2 (title + blank) + optional 2 for current revision + 2 (section header + blank)
+    // + 2 (blank + options) added below in this function
+    // + 3 (two blanks + instructions) appended by renderRollbackModal.
+    fixedTop := 2
+    if rollback.CurrentRevision != "" {
+        fixedTop += 2
+    }
+    fixedBottom := 2 + 3
+    rowsViewport := max(1, availableRows-fixedTop-fixedBottom)
 
-		// Git metadata (if loaded)
-		if row.Author != nil && row.Message != nil {
-			authorStyle := lipgloss.NewStyle().Foreground(yellowBright)
-			messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-			line += fmt.Sprintf(" %s: %s", 
-				authorStyle.Render(*row.Author),
-				messageStyle.Render(truncateString(*row.Message, 40)))
-		} else if row.MetaError != nil {
-			errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
-			line += " " + errorStyle.Render("(metadata unavailable)")
-		} else {
-			loadingStyle := lipgloss.NewStyle().Foreground(unknownColor)
-			line += " " + loadingStyle.Render("(loading metadata...)")
-		}
+    // Window the rows around the selection
+    total := len(rollback.Rows)
+    start := max(0, min(rollback.SelectedIdx-rowsViewport/2, total-rowsViewport))
+    end := min(start+rowsViewport, total)
 
-		content += line + "\n"
-	}
+    // Indicators for clipped content
+    if start > 0 {
+        content += lipgloss.NewStyle().Foreground(dimColor).Render("… older entries above …") + "\n"
+    }
 
-	// Show options
-	content += "\n"
-	optionsStyle := lipgloss.NewStyle().Foreground(yellowBright)
-	
-	pruneStatus := "false"
-	if rollback.Prune {
-		pruneStatus = "true"
-	}
-	watchStatus := "false"
-	if rollback.Watch {
-		watchStatus = "true"
-	}
-	
-	content += optionsStyle.Render(fmt.Sprintf("Options: Prune=%s, Watch=%s", pruneStatus, watchStatus))
+    // Calculate the maximum line width inside the modal so rows never wrap
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    rowMaxWidth := max(0, containerWidth-4) // inner width (2 border + 2 padding)
 
-	return content
+    for i := start; i < end; i++ {
+        row := rollback.Rows[i]
+        var line string
+
+        // Build single-line summary: id, short rev, date, author, and message
+        idStyle := lipgloss.NewStyle().Foreground(whiteBright)
+        revisionStyle := lipgloss.NewStyle().Foreground(cyanBright)
+        line += fmt.Sprintf("%s %s",
+            idStyle.Render(fmt.Sprintf("#%d", row.ID)),
+            revisionStyle.Render(row.Revision[:min(8, len(row.Revision))]))
+
+        if row.DeployedAt != nil {
+            dateStyle := lipgloss.NewStyle().Foreground(unknownColor)
+            line += " " + dateStyle.Render(row.DeployedAt.Format("2006-01-02 15:04"))
+        }
+
+        if row.Author != nil && row.Message != nil {
+            authorStyle := lipgloss.NewStyle().Foreground(yellowBright)
+            messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+            // Leave message uncapped here; we clip to rowMaxWidth below.
+            line += fmt.Sprintf(" %s: %s",
+                authorStyle.Render(*row.Author),
+                messageStyle.Render(*row.Message))
+        } else if row.MetaError != nil {
+            errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
+            line += " " + errorStyle.Render("(metadata unavailable)")
+        } else {
+            loadingStyle := lipgloss.NewStyle().Foreground(unknownColor)
+            line += " " + loadingStyle.Render("(loading metadata...)")
+        }
+
+        // Ensure single visual line within the modal width
+        line = clipAnsiToWidth(line, rowMaxWidth)
+        line = padRight(line, rowMaxWidth)
+
+        // Highlight entire row when selected
+        if i == rollback.SelectedIdx {
+            content += selectedStyle.Render(line) + "\n"
+        } else {
+            content += line + "\n"
+        }
+    }
+
+    if end < total {
+        content += lipgloss.NewStyle().Foreground(dimColor).Render("… newer entries below …") + "\n"
+    }
+
+    // No options in list view; options are configured in confirmation view
+    return content
 }
 
 // renderRollbackConfirmation renders the confirmation screen
-func (m Model) renderRollbackConfirmation(rollback *model.RollbackState) string {
-	titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
-	content := titleStyle.Render("Confirm Rollback") + "\n\n"
+func (m Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHeight int, innerWidth int) string {
+    titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+    content := titleStyle.Render("Confirm Rollback") + "\n\n"
 
 	if len(rollback.Rows) == 0 || rollback.SelectedIdx >= len(rollback.Rows) {
 		return content + "Invalid selection"
@@ -2073,31 +2167,61 @@ func (m Model) renderRollbackConfirmation(rollback *model.RollbackState) string 
 		}
 	}
 	
-	// Options
-	content += "\n"
-	optionsStyle := lipgloss.NewStyle().Foreground(yellowBright)
-	
-	pruneStatus := "No"
-	if rollback.Prune {
-		pruneStatus = "Yes"
-	}
-	watchStatus := "No"
-	if rollback.Watch {
-		watchStatus = "Yes"
-	}
-	dryRunStatus := "No"
-	if rollback.DryRun {
-		dryRunStatus = "Yes"
-	}
-	
-	content += optionsStyle.Render(fmt.Sprintf("Prune: %s\nWatch: %s\nDry Run: %s", pruneStatus, watchStatus, dryRunStatus))
-	
-	// Warning
-	content += "\n\n"
-	warningStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
-	content += warningStyle.Render("⚠️  This will rollback the application to the selected revision.")
+    // Prepare bottom-aligned confirmation block
+    if innerWidth < 20 { innerWidth = 20 }
+    center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+    dim := lipgloss.NewStyle().Foreground(dimColor)
+    on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+    var opts strings.Builder
+    opts.WriteString(dim.Render("[p] Prune: "))
+    if rollback.Prune { opts.WriteString(on.Render("Yes")) } else { opts.WriteString(dim.Render("No")) }
+    opts.WriteString(dim.Render("   [w] Watch: "))
+    if rollback.Watch { opts.WriteString(on.Render("Yes")) } else { opts.WriteString(dim.Render("No")) }
+    // Build inner confirmation modal (bordered) with title
+    active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
+    inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+    yesBtn := inactive.Render("Yes")
+    noBtn := inactive.Render("No")
+    if rollback.ConfirmSelected == 0 { yesBtn = active.Render("Yes") }
+    if rollback.ConfirmSelected == 1 { noBtn = active.Render("No") }
+    buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), noBtn)
 
-	return content
+    confirmTitle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true).Render("Confirm Rollback")
+    confirmInner := strings.Join([]string{
+        center.Render(confirmTitle),
+        "",
+        center.Render(opts.String()),
+        "",
+        center.Render(buttons),
+    }, "\n")
+
+    // Make confirmation modal narrower than the outer box and center it
+    confirmWidth := innerWidth - 8
+    if confirmWidth < 30 {
+        confirmWidth = max(24, innerWidth-4)
+    }
+    confirmStyled := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(cyanBright).
+        Padding(1, 2).
+        Width(confirmWidth)
+    confirmBox := center.Render(confirmStyled.Render(confirmInner))
+
+    bottomBlock := strings.Builder{}
+    // Add a bit of top padding for the confirmation area
+    bottomBlock.WriteString("\n")
+    bottomBlock.WriteString(confirmBox)
+
+    // Now bottom-align the confirmation block by inserting filler lines
+    topLines := countLines(content)
+    bottomLines := countLines(bottomBlock.String())
+    filler := max(0, innerHeight-topLines-bottomLines)
+    if filler > 0 {
+        content += strings.Repeat("\n", filler)
+    }
+    content += bottomBlock.String()
+
+    return content
 }
 
 // renderSimpleModal renders a simple modal with title and content
@@ -2147,4 +2271,3 @@ func truncateString(s string, maxLen int) string {
 	}
 	return s[:maxLen-3] + "..."
 }
-

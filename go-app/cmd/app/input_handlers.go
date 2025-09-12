@@ -195,9 +195,10 @@ func (m Model) handleSyncModal() (Model, tea.Cmd) {
 		m.state.Modals.ConfirmTarget = &target
 	}
 
-	if m.state.Modals.ConfirmTarget != nil {
-		m.state.Mode = model.ModeConfirmSync
-	}
+    if m.state.Modals.ConfirmTarget != nil {
+        m.state.Modals.ConfirmSyncSelected = 0 // default to Yes
+        m.state.Mode = model.ModeConfirmSync
+    }
 
 	return m, nil
 }
@@ -451,33 +452,49 @@ func (m Model) handleDiffModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleConfirmSyncKeys handles input when in sync confirmation mode
 func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc", "q":
-		m.state.Mode = model.ModeNormal
-		m.state.Modals.ConfirmTarget = nil
-		return m, nil
-	case "enter", "y":
-		// Confirm sync
-		m.state.Mode = model.ModeNormal
-		target := m.state.Modals.ConfirmTarget
-		prune := m.state.Modals.ConfirmSyncPrune
-		m.state.Modals.ConfirmTarget = nil
+    switch msg.String() {
+    case "esc", "q":
+        m.state.Mode = model.ModeNormal
+        m.state.Modals.ConfirmTarget = nil
+        return m, nil
+    case "left", "h":
+        if m.state.Modals.ConfirmSyncSelected > 0 {
+            m.state.Modals.ConfirmSyncSelected = 0
+        }
+        return m, nil
+    case "right", "l":
+        if m.state.Modals.ConfirmSyncSelected < 1 {
+            m.state.Modals.ConfirmSyncSelected = 1
+        }
+        return m, nil
+    case "enter":
+        if m.state.Modals.ConfirmSyncSelected == 1 {
+            // Cancel
+            m.state.Mode = model.ModeNormal
+            m.state.Modals.ConfirmTarget = nil
+            return m, nil
+        }
+        fallthrough
+    case "y":
+        // Confirm sync - keep modal open and show loading overlay
+        target := m.state.Modals.ConfirmTarget
+        prune := m.state.Modals.ConfirmSyncPrune
+        m.state.Modals.ConfirmSyncLoading = true
+        m.state.Mode = model.ModeConfirmSync
 
-		if target != nil {
-			if *target == "__MULTI__" {
-				// Sync multiple selected applications
-				return m, m.syncSelectedApplications(prune)
-			} else {
-				// Sync single application
-				return m, m.syncSingleApplication(*target, prune)
-			}
-		}
-		return m, nil
-	case "p":
-		// Toggle prune option
-		m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
-		return m, nil
-	case "w":
+        if target != nil {
+            if *target == "__MULTI__" {
+                return m, m.syncSelectedApplications(prune)
+            } else {
+                return m, m.syncSingleApplication(*target, prune)
+            }
+        }
+        return m, nil
+    case "p":
+        // Toggle prune option
+        m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
+        return m, nil
+    case "w":
 		// Toggle watch option (only for single app)
 		if m.state.Modals.ConfirmTarget != nil && *m.state.Modals.ConfirmTarget != "__MULTI__" {
 			m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
@@ -541,43 +558,59 @@ func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
 		}
 		return m, nil
-	case "p":
-		// Toggle prune option
-		if m.state.Rollback.Mode == "list" {
-			m.state.Rollback.Prune = !m.state.Rollback.Prune
-		}
-		return m, nil
-	case "w":
-		// Toggle watch option
-		if m.state.Rollback.Mode == "list" {
-			m.state.Rollback.Watch = !m.state.Rollback.Watch
-		}
-		return m, nil
-	case "enter":
-		// Confirm rollback or execute rollback
-		if m.state.Rollback.Mode == "list" {
-			// Switch to confirmation mode
-			m.state.Rollback.Mode = "confirm"
-		} else if m.state.Rollback.Mode == "confirm" {
-			// Execute rollback
-			if len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
-				selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-				request := model.RollbackRequest{
-					ID:           selectedRow.ID,
-					Name:         m.state.Rollback.AppName,
-					AppNamespace: m.state.Rollback.AppNamespace,
-					Prune:        m.state.Rollback.Prune,
-					DryRun:       m.state.Rollback.DryRun,
-				}
-				
-				// Set loading state
-				m.state.Rollback.Loading = true
-				m.state.Rollback.Error = ""
-				
-				return m, m.executeRollback(request)
-			}
-		}
-		return m, nil
+    case "p":
+        // Toggle prune option in confirmation view
+        if m.state.Rollback.Mode == "confirm" {
+            m.state.Rollback.Prune = !m.state.Rollback.Prune
+        }
+        return m, nil
+    case "w":
+        // Toggle watch option in confirmation view
+        if m.state.Rollback.Mode == "confirm" {
+            m.state.Rollback.Watch = !m.state.Rollback.Watch
+        }
+        return m, nil
+    case "left", "h":
+        if m.state.Rollback.Mode == "confirm" {
+            m.state.Rollback.ConfirmSelected = 0
+        }
+        return m, nil
+    case "right", "l":
+        if m.state.Rollback.Mode == "confirm" {
+            m.state.Rollback.ConfirmSelected = 1
+        }
+        return m, nil
+    case "enter":
+        // Confirm rollback or execute rollback
+        if m.state.Rollback.Mode == "list" {
+            // Switch to confirmation mode
+            m.state.Rollback.Mode = "confirm"
+            m.state.Rollback.ConfirmSelected = 0
+        } else if m.state.Rollback.Mode == "confirm" {
+            if m.state.Rollback.ConfirmSelected == 1 {
+                // Cancel
+                m.state.Rollback = nil
+                m.state.Modals.RollbackAppName = nil
+                m.state.Mode = model.ModeNormal
+                return m, nil
+            }
+            // Execute rollback
+            if len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
+                selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+                request := model.RollbackRequest{
+                    ID:           selectedRow.ID,
+                    Name:         m.state.Rollback.AppName,
+                    AppNamespace: m.state.Rollback.AppNamespace,
+                    Prune:        m.state.Rollback.Prune,
+                    DryRun:       m.state.Rollback.DryRun,
+                }
+                // Set loading state
+                m.state.Rollback.Loading = true
+                m.state.Rollback.Error = ""
+                return m, m.executeRollback(request)
+            }
+        }
+        return m, nil
 	case "d":
 		// Show diff for selected revision (if we want to implement this later)
 		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
