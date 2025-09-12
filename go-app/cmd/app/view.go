@@ -973,11 +973,11 @@ func (m Model) renderAuthRequiredView() string {
 
 	var sections []string
 
-	// Calculate consistent width for all components
+	// Calculate widths: banner needs full width, auth box needs constrained width
 	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4) // Account for padding
+	contentWidth := max(0, containerWidth-1) // Account for auth box padding
 
-	// ArgoNaut Banner with consistent width (matches AuthRequiredView ArgoNautBanner)
+	// ArgoNaut Banner needs full container width to render properly
 	banner := m.renderBanner()
 	sections = append(sections, banner)
 
@@ -1037,7 +1037,7 @@ func (m Model) renderAuthRequiredView() string {
 	content := strings.Join(sections, "\n")
     totalHeight := m.state.Terminal.Rows - 1
 
-    return mainContainerStyle.Height(totalHeight).Width(containerWidth).Render(content)
+    return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 func (m Model) renderHelpModal() string {
