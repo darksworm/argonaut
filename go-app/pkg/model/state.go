@@ -110,6 +110,9 @@ type AppState struct {
     // Note: AbortController equivalent will use context.Context in Go services
     Diff       *DiffState      `json:"diff,omitempty"`
     Resources  *ResourceState  `json:"resources,omitempty"`
+    // Store previous navigation state for restoration
+    SavedNavigation *NavigationState `json:"savedNavigation,omitempty"`
+    SavedSelections *SelectionState  `json:"savedSelections,omitempty"`
 }
 
 // DiffState holds state for the diff pager view
@@ -119,6 +122,52 @@ type DiffState struct {
     Filtered    []int    `json:"filtered"`
     Offset      int      `json:"offset"`
     SearchQuery string   `json:"searchQuery"`
+}
+
+// SaveNavigationState saves current navigation and selection state
+func (s *AppState) SaveNavigationState() {
+	s.SavedNavigation = &NavigationState{
+		View:           s.Navigation.View,
+		SelectedIdx:    s.Navigation.SelectedIdx,
+		LastGPressed:   s.Navigation.LastGPressed,
+		LastEscPressed: s.Navigation.LastEscPressed,
+	}
+	s.SavedSelections = &SelectionState{
+		ScopeClusters:   copyStringSet(s.Selections.ScopeClusters),
+		ScopeNamespaces: copyStringSet(s.Selections.ScopeNamespaces),
+		ScopeProjects:   copyStringSet(s.Selections.ScopeProjects),
+		SelectedApps:    copyStringSet(s.Selections.SelectedApps),
+	}
+}
+
+// RestoreNavigationState restores previously saved navigation state
+func (s *AppState) RestoreNavigationState() {
+	if s.SavedNavigation != nil {
+		s.Navigation.View = s.SavedNavigation.View
+		s.Navigation.SelectedIdx = s.SavedNavigation.SelectedIdx
+		s.Navigation.LastGPressed = s.SavedNavigation.LastGPressed
+		s.Navigation.LastEscPressed = s.SavedNavigation.LastEscPressed
+		// Clear the saved state after restoration
+		s.SavedNavigation = nil
+	}
+}
+
+// ClearSelectionsAfterDetailView clears only app selections when returning from detail views
+// Preserves scope filters (clusters, namespaces, projects) to maintain the filtered view
+func (s *AppState) ClearSelectionsAfterDetailView() {
+	// Only clear selected apps, preserve scope filters
+	s.Selections.SelectedApps = NewStringSet()
+	// Clear saved selections as well
+	s.SavedSelections = nil
+}
+
+// Helper function to copy a string set
+func copyStringSet(original map[string]bool) map[string]bool {
+	copy := make(map[string]bool)
+	for k, v := range original {
+		copy[k] = v
+	}
+	return copy
 }
 
 // NewAppState creates a new AppState with default values
@@ -154,5 +203,7 @@ func NewAppState() *AppState {
 		Server:     nil,
 		Apps:       []App{},
 		APIVersion: "",
+		SavedNavigation: nil,
+		SavedSelections: nil,
 	}
 }

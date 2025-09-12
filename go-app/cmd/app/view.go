@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     "net/url"
+    "os"
     "strings"
 
     "github.com/a9s/go-app/pkg/model"
@@ -87,6 +88,8 @@ func (m Model) View() string {
 		return m.renderDiffView()
 	case model.ModeRulerLine:
 		return m.renderOfficeSupplyManager()
+	case model.ModeLogs:
+		return m.renderLogsView()
 	default:
 		return m.renderMainLayout()
 	}
@@ -1278,30 +1281,50 @@ func (m Model) renderConfirmSyncModal() string {
 }
 
 func (m Model) renderResourceStream(availableRows int) string {
+    // Calculate dimensions for consistent full-height layout
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    contentWidth := max(0, containerWidth-4) // Account for border and padding
+    contentHeight := max(3, availableRows)
+
     if m.state.Resources == nil {
-        return contentBorderStyle.Render("Loading resources...")
+        return m.renderFullHeightContent("Loading resources...", contentWidth, contentHeight, containerWidth)
     }
 
     if m.state.Resources.Error != "" {
         errorContent := fmt.Sprintf("Error loading resources:\n%s\n\nPress q to return", m.state.Resources.Error)
-        return contentBorderStyle.Render(errorContent)
+        return m.renderFullHeightContent(errorContent, contentWidth, contentHeight, containerWidth)
     }
 
     if m.state.Resources.Loading {
         loadingContent := fmt.Sprintf("Loading resources for %s...\n\nPress q to return", m.state.Resources.AppName)
-        return contentBorderStyle.Render(loadingContent)
+        return m.renderFullHeightContent(loadingContent, contentWidth, contentHeight, containerWidth)
     }
 
     resources := m.state.Resources.Resources
     if len(resources) == 0 {
-        emptyContent := fmt.Sprintf("No resources found for application: %s\n\nPress q to return", m.state.Resources.AppName)
-        return contentBorderStyle.Render(emptyContent)
+        // Create single bordered box (no double border) with app name highlighted
+        resourcesStyle := lipgloss.NewStyle().
+            Border(lipgloss.RoundedBorder()).
+            BorderForeground(magentaBright).
+            Width(contentWidth).
+            Height(contentHeight).
+            AlignVertical(lipgloss.Top).
+            PaddingLeft(1).
+            PaddingRight(1)
+        
+        // Highlight the app name in cyan
+        appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+        highlightedAppName := appNameStyle.Render(m.state.Resources.AppName)
+        
+        emptyContent := fmt.Sprintf("No resources found for application: %s\n\nPress q to return", highlightedAppName)
+        return resourcesStyle.Render(emptyContent)
     }
 
     // Calculate content dimensions matching main layout pattern
     // Container uses Cols-2, so content inside must be more conservative to prevent overflow
     boxContentWidth := max(0, m.state.Terminal.Cols-8) // More padding to prevent overflow
-    contentWidth := boxContentWidth
+    // Use the more conservative boxContentWidth for table content
+    tableContentWidth := boxContentWidth
     // Leave one line for the table header
     tableHeight := max(3, availableRows-1)
 
@@ -1328,14 +1351,14 @@ func (m Model) renderResourceStream(availableRows int) string {
     end := min(total, start+visibleRows)
 
     // Calculate proper column widths for a single-line table format
-    kindWidth, nameWidth, statusWidthCalc := calculateResourceColumnWidths(contentWidth)
+    kindWidth, nameWidth, statusWidthCalc := calculateResourceColumnWidths(tableContentWidth)
     
     // Build single-line header with proper column alignment
     kindHeader := padRight(headerStyle.Render("KIND"), kindWidth)
     nameHeader := padRight(headerStyle.Render("NAME"), nameWidth)  
     statusHeader := padRight(headerStyle.Render("STATUS"), statusWidthCalc)
     headerLine := fmt.Sprintf("%s %s %s", kindHeader, nameHeader, statusHeader)
-    headerLine = clipAnsiToWidth(headerLine, contentWidth)
+    headerLine = clipAnsiToWidth(headerLine, tableContentWidth)
 
     // Build rows
     var b strings.Builder
@@ -1366,7 +1389,7 @@ func (m Model) renderResourceStream(availableRows int) string {
         statusCell := m.getColorForStatus(healthStatus).Render(padRight(statusText, statusWidthCalc))
         
         rowLine := fmt.Sprintf("%s %s %s", kindCell, nameCell, statusCell)
-        rowLine = clipAnsiToWidth(rowLine, contentWidth)
+        rowLine = clipAnsiToWidth(rowLine, tableContentWidth)
         
         if i == cursor {
             rowLine = selectedStyle.Render(rowLine)
@@ -1398,21 +1421,21 @@ func (m Model) renderResourceStream(availableRows int) string {
     // Compose content; clip each section to inner content width
     var content strings.Builder
     title := fmt.Sprintf("Resources for %s", m.state.Resources.AppName)
-    titleLine := clipAnsiToWidth(headerStyle.Render(title), contentWidth)
+    titleLine := clipAnsiToWidth(headerStyle.Render(title), tableContentWidth)
     tableBody := b.String()
-    footerLine := clipAnsiToWidth(statusStyle.Render(footerText), contentWidth)
+    footerLine := clipAnsiToWidth(statusStyle.Render(footerText), tableContentWidth)
 
     content.WriteString(titleLine)
     content.WriteString("\n\n")
-    content.WriteString(normalizeLinesToWidth(tableBody, contentWidth))
+    content.WriteString(normalizeLinesToWidth(tableBody, tableContentWidth))
     content.WriteString("\n")
     content.WriteString(footerLine)
 
     // Fix border width to full container width so the box fills the row
     // container width = cols - main container padding (2)
-    containerWidth := max(0, m.state.Terminal.Cols-2)
-    normalized := normalizeLinesToWidth(content.String(), contentWidth)
-    return contentBorderStyle.Width(containerWidth).Render(normalized)
+    tableContainerWidth := max(0, m.state.Terminal.Cols-2)
+    normalized := normalizeLinesToWidth(content.String(), tableContentWidth)
+    return contentBorderStyle.Width(tableContainerWidth).Render(normalized)
 }
 
 // renderDiffView - simple pager for diff content
@@ -1640,5 +1663,67 @@ func calculateResourceColumnWidths(availableWidth int) (kindWidth, nameWidth, st
     }
 
     return kindWidth, nameWidth, statusWidth
+}
+
+// renderLogsView renders the logs view with full-height layout
+func (m Model) renderLogsView() string {
+    // Calculate dimensions for consistent full-height layout
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    contentWidth := max(0, containerWidth-4) // Account for border and padding
+    contentHeight := max(10, m.state.Terminal.Rows-6) // Reserve space for header/footer
+
+    // Read actual log file content
+    logContent := m.readLogContent()
+    
+    // Create single bordered box (no double border)
+    logStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(magentaBright).
+        Width(contentWidth).
+        Height(contentHeight).
+        AlignVertical(lipgloss.Top). // Align to top for log content
+        PaddingLeft(1).
+        PaddingRight(1)
+
+    return logStyle.Render(logContent)
+}
+
+// readLogContent reads the actual log file content
+func (m Model) readLogContent() string {
+    // Try to read the log file that we write to in main.go
+    logFile := "logs/a9s.log"
+    content, err := os.ReadFile(logFile)
+    if err != nil {
+        return fmt.Sprintf("ArgoCD Application Logs\n\nError reading log file: %v\n\nPress q to return to main view.", err)
+    }
+    
+    // Convert to string and add instructions
+    logText := string(content)
+    if logText == "" {
+        return "ArgoCD Application Logs\n\nNo log entries found.\n\nPress q to return to main view."
+    }
+    
+    // Add header and instructions
+    header := "ArgoCD Application Logs\n\nPress q to return to main view.\n\n"
+    return header + "--- Log Content ---\n\n" + logText
+}
+
+// renderFullHeightContent renders content with consistent full-height layout
+func (m Model) renderFullHeightContent(content string, contentWidth, contentHeight, containerWidth int) string {
+    // Create a full-height bordered box with vertically centered content
+    fullHeightStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(magentaBright).
+        Width(contentWidth).
+        Height(contentHeight).
+        AlignVertical(lipgloss.Center).
+        AlignHorizontal(lipgloss.Center).
+        PaddingLeft(1).
+        PaddingRight(1)
+
+    styledContent := fullHeightStyle.Render(content)
+    
+    // Apply container width for consistency with other views
+    return contentBorderStyle.Width(containerWidth).Render(styledContent)
 }
 

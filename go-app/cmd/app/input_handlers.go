@@ -317,7 +317,17 @@ func (m Model) handleResourcesModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 	switch msg.String() {
 	case "q", "esc":
+		// Restore navigation state and clear selections when returning from resources
+		m.state.RestoreNavigationState()
+		m.state.ClearSelectionsAfterDetailView()
 		m.state.Mode = model.ModeNormal
+		
+		// Validate bounds for the restored cursor position
+		visibleItems := m.getVisibleItemsForCurrentView()
+		m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+			m.state.Navigation.SelectedIdx,
+			len(visibleItems),
+		)
 		return m, nil
 	case "j", "down":
 		// Scroll down in resources list using table cursor
@@ -428,6 +438,26 @@ func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "esc", "q":
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.RollbackAppName = nil
+		return m, nil
+	}
+	return m, nil
+}
+
+// handleLogsModeKeys handles input when in logs mode
+func (m Model) handleLogsModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		// Restore navigation state and clear selections when returning from logs
+		m.state.RestoreNavigationState()
+		m.state.ClearSelectionsAfterDetailView()
+		m.state.Mode = model.ModeNormal
+		
+		// Validate bounds for the restored cursor position
+		visibleItems := m.getVisibleItemsForCurrentView()
+		m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+			m.state.Navigation.SelectedIdx,
+			len(visibleItems),
+		)
 		return m, nil
 	}
 	return m, nil

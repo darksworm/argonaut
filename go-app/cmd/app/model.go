@@ -432,6 +432,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleDiffModeKeys(msg)
 	case model.ModeResources:
 		return m.handleResourcesModeKeys(msg)
+	case model.ModeLogs:
+		return m.handleLogsModeKeys(msg)
 	case model.ModeAuthRequired:
 		return m.handleAuthRequiredModeKeys(msg)
 	}

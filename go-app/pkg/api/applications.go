@@ -20,11 +20,18 @@ type ArgoApplication struct {
 	} `json:"metadata"`
 	Spec struct {
 		Project string `json:"project,omitempty"`
-		Source  struct {
+		// Single source (legacy/traditional)
+		Source  *struct {
 			RepoURL        string `json:"repoURL,omitempty"`
 			Path           string `json:"path,omitempty"`
 			TargetRevision string `json:"targetRevision,omitempty"`
-		} `json:"source"`
+		} `json:"source,omitempty"`
+		// Multiple sources (newer multi-source support)
+		Sources []struct {
+			RepoURL        string `json:"repoURL,omitempty"`
+			Path           string `json:"path,omitempty"`
+			TargetRevision string `json:"targetRevision,omitempty"`
+		} `json:"sources,omitempty"`
 		Destination struct {
 			Name      string `json:"name,omitempty"`
 			Server    string `json:"server,omitempty"`
@@ -35,13 +42,19 @@ type ArgoApplication struct {
 		Sync struct {
 			Status     string    `json:"status,omitempty"`
 			ComparedTo struct {
-				Source struct {
+				Source *struct {
 					RepoURL        string `json:"repoURL,omitempty"`
 					Path           string `json:"path,omitempty"`
 					TargetRevision string `json:"targetRevision,omitempty"`
-				} `json:"source"`
+				} `json:"source,omitempty"`
+				Sources []struct {
+					RepoURL        string `json:"repoURL,omitempty"`
+					Path           string `json:"path,omitempty"`
+					TargetRevision string `json:"targetRevision,omitempty"`
+				} `json:"sources,omitempty"`
 			} `json:"comparedTo"`
-			Revision string `json:"revision,omitempty"`
+			Revision  string   `json:"revision,omitempty"`
+			Revisions []string `json:"revisions,omitempty"`
 		} `json:"sync"`
 		Health struct {
 			Status  string `json:"status,omitempty"`
@@ -322,6 +335,41 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 	}
 
 	return app
+}
+
+// GetPrimaryRevision returns the primary revision with fallback logic
+// Mimics TypeScript logic: revision ?? revisions?.[0] ?? ''
+func GetPrimaryRevision(syncStatus struct {
+	Revision  string   `json:"revision,omitempty"`
+	Revisions []string `json:"revisions,omitempty"`
+}) string {
+	if syncStatus.Revision != "" {
+		return syncStatus.Revision
+	}
+	if len(syncStatus.Revisions) > 0 {
+		return syncStatus.Revisions[0]
+	}
+	return ""
+}
+
+// HasMultipleSources returns true if the application uses multiple sources
+func (app *ArgoApplication) HasMultipleSources() bool {
+	return len(app.Spec.Sources) > 0
+}
+
+// GetPrimarySources returns either the single source or the first source from multiple sources
+func (app *ArgoApplication) GetPrimarySource() *struct {
+	RepoURL        string `json:"repoURL,omitempty"`
+	Path           string `json:"path,omitempty"`
+	TargetRevision string `json:"targetRevision,omitempty"`
+} {
+	if app.Spec.Source != nil {
+		return app.Spec.Source
+	}
+	if len(app.Spec.Sources) > 0 {
+		return &app.Spec.Sources[0]
+	}
+	return nil
 }
 
 // ResourceNode represents a Kubernetes resource from ArgoCD API

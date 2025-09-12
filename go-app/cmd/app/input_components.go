@@ -290,6 +290,8 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 		switch cmd {
 		case "logs":
+			// Save current navigation state before entering logs view
+			m.state.SaveNavigationState()
 			return m, m.startLogsSession()
 		case "sync":
 			model, cmd := m.handleSyncModal()
@@ -297,11 +299,16 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		case "rollback":
 			target := arg
 			if target == "" {
-				items := m.getVisibleItemsForCurrentView()
-				if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
-					if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
-						target = app.Name
+				// Only try to get current selection if we're in the apps view
+				if m.state.Navigation.View == model.ViewApps {
+					items := m.getVisibleItemsForCurrentView()
+					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+							target = app.Name
+						}
 					}
+				} else {
+					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for rollback"} }
 				}
 			}
 			if target == "" {
@@ -313,16 +320,24 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		case "resources":
 			target := arg
 			if target == "" {
-				items := m.getVisibleItemsForCurrentView()
-				if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
-					if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
-						target = app.Name
+				// Only try to get current selection if we're in the apps view
+				if m.state.Navigation.View == model.ViewApps {
+					items := m.getVisibleItemsForCurrentView()
+					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+							target = app.Name
+						}
 					}
+				} else {
+					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"} }
 				}
 			}
 			if target == "" {
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
 			}
+			// Save current navigation state before entering resources view
+			m.state.SaveNavigationState()
+			
 			m.state.Modals.SyncViewApp = &target
 			m.state.Mode = model.ModeResources
 
@@ -351,12 +366,16 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			// :diff [app]
 			target := arg
 			if target == "" {
-				// default to current selection in apps view
-				items := m.getVisibleItemsForCurrentView()
-				if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
-					if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
-						target = app.Name
+				// Only try to get current selection if we're in the apps view
+				if m.state.Navigation.View == model.ViewApps {
+					items := m.getVisibleItemsForCurrentView()
+					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+							target = app.Name
+						}
 					}
+				} else {
+					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"} }
 				}
 			}
 			if target == "" {
