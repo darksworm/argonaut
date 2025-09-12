@@ -1087,7 +1087,7 @@ func (m Model) renderHelpModal() string {
 	sections = append(sections, m.renderHelpSection("VIEWS", viewsContent, isWide))
 
 	// ACTIONS section
-	actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:up go up level\ns sync modal (apps view)"
+	actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:up go up level\ns sync modal • R rollback modal (apps view)"
 	sections = append(sections, m.renderHelpSection("ACTIONS", actionsContent, isWide))
 
 	// MISC section

@@ -604,3 +604,30 @@
 2025/09/12 19:41:08 status.go:142: INFO: Initializing...
 2025/09/12 19:41:08 main.go:110: INFO: Initializing...
 2025/09/12 19:41:08 model.go:188: Authentication validated successfully
+2025/09/12 19:41:27 main.go:81: ArgoCD Apps started
+2025/09/12 19:41:27 main.go:26: Loading ArgoCD config…
+2025/09/12 19:41:27 main.go:36: Successfully loaded ArgoCD config for server: https://localhost:3001
+2025/09/12 19:41:27 status.go:142: INFO: Ready
+2025/09/12 19:41:27 main.go:110: INFO: Ready
+2025/09/12 19:41:27 status.go:142: INFO: Initializing...
+2025/09/12 19:41:27 main.go:110: INFO: Initializing...
+2025/09/12 19:41:27 model.go:188: Authentication validated successfully
+2025/09/12 19:41:37 model.go:681: R key pressed, current view: apps
+2025/09/12 19:41:37 model.go:683: Calling handleRollback()
+2025/09/12 19:41:37 input_handlers.go:263: Starting rollback session for app: diagon-eyelops-owl-emporium
+2025/09/12 19:41:37 api_integration.go:392: Successfully loaded application diagon-eyelops-owl-emporium with 10 history entries
+2025/09/12 19:41:37 api_integration.go:405: Rollback session loaded for diagon-eyelops-owl-emporium: 10 deployment history rows, current revision: 0d521c6e049889134f3122eb32d7ed342f43ca0d
+2025/09/12 19:42:12 model.go:681: R key pressed, current view: apps
+2025/09/12 19:42:12 model.go:683: Calling handleRollback()
+2025/09/12 19:42:12 input_handlers.go:263: Starting rollback session for app: diagon-eyelops-owl-emporium
+2025/09/12 19:42:12 api_integration.go:392: Successfully loaded application diagon-eyelops-owl-emporium with 10 history entries
+2025/09/12 19:42:12 api_integration.go:405: Rollback session loaded for diagon-eyelops-owl-emporium: 10 deployment history rows, current revision: 0d521c6e049889134f3122eb32d7ed342f43ca0d
+2025/09/12 19:42:18 status.go:138: ERROR: API Error: Failed to rollback application: failed to rollback application diagon-eyelops-owl-emporium to deployment 68: API error 400: {"error":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest","code":3,"message":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest"}
+2025/09/12 19:42:18 main.go:106: ERROR: API Error: Failed to rollback application: failed to rollback application diagon-eyelops-owl-emporium to deployment 68: API error 400: {"error":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest","code":3,"message":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest"}
+2025/09/12 19:42:38 model.go:681: R key pressed, current view: apps
+2025/09/12 19:42:38 model.go:683: Calling handleRollback()
+2025/09/12 19:42:38 input_handlers.go:263: Starting rollback session for app: diagon-eyelops-owl-emporium
+2025/09/12 19:42:38 api_integration.go:392: Successfully loaded application diagon-eyelops-owl-emporium with 10 history entries
+2025/09/12 19:42:38 api_integration.go:405: Rollback session loaded for diagon-eyelops-owl-emporium: 10 deployment history rows, current revision: 0d521c6e049889134f3122eb32d7ed342f43ca0d
+2025/09/12 19:42:52 status.go:138: ERROR: API Error: Failed to rollback application: failed to rollback application diagon-eyelops-owl-emporium to deployment 71: API error 400: {"error":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest","code":3,"message":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest"}
+2025/09/12 19:42:52 main.go:106: ERROR: API Error: Failed to rollback application: failed to rollback application diagon-eyelops-owl-emporium to deployment 71: API error 400: {"error":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest","code":3,"message":"json: cannot unmarshal string into Go value of type application.ApplicationRollbackRequest"}

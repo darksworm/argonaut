@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/a9s/go-app/pkg/model"
@@ -315,9 +316,21 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			if target == "" {
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for rollback"} }
 			}
+			
+			// Use the same rollback logic as the R key
+			log.Printf(":rollback command for app: %s", target)
 			m.state.Modals.RollbackAppName = &target
 			m.state.Mode = model.ModeRollback
-			return m, nil
+			
+			// Initialize rollback state with loading
+			m.state.Rollback = &model.RollbackState{
+				AppName: target,
+				Loading: true,
+				Mode:    "list",
+			}
+			
+			// Start loading rollback history using the same function as R key
+			return m, m.startRollbackSession(target)
 		case "resources":
 			target := arg
 			if target == "" {
