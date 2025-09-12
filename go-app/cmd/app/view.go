@@ -961,9 +961,6 @@ func (m Model) renderAuthRequiredView() string {
 		serverText = m.state.Server.BaseURL
 	}
 
-	// Header message (matches AuthRequiredView.tsx)
-	headerMsg := fmt.Sprintf("View: AUTH REQUIRED • Context: %s", serverText)
-
 	// Instructions (matches AuthRequiredView.tsx instructions array)
 	instructions := []string{
 		"1. Run: argocd login <your-argocd-server>",
@@ -986,13 +983,19 @@ func (m Model) renderAuthRequiredView() string {
 
 	// Center the content vertically
 	contentSections = append(contentSections, "")
-	contentSections = append(contentSections, lipgloss.NewStyle().
+	
+	// Apply background only to text, then center within full width
+	authHeaderStyled := lipgloss.NewStyle().
 		Background(outOfSyncColor).
 		Foreground(lipgloss.Color("15")).
 		Bold(true).
+		Render(" AUTHENTICATION REQUIRED ")
+	authHeaderCentered := lipgloss.NewStyle().
 		Width(contentWidth).
 		Align(lipgloss.Center).
-		Render(" AUTHENTICATION REQUIRED "))
+		Render(authHeaderStyled)
+	contentSections = append(contentSections, authHeaderCentered)
+	
 	contentSections = append(contentSections, "")
 	contentSections = append(contentSections, lipgloss.NewStyle().
 		Foreground(outOfSyncColor).
@@ -1007,31 +1010,30 @@ func (m Model) renderAuthRequiredView() string {
 		contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("- "+instruction))
 	}
 	contentSections = append(contentSections, "")
-	contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Current context: "+serverText))
+	if (serverText != "—") {
+	    contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Current context: "+serverText))
+	}
 	contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Press l to view logs, q to quit."))
 
-	// Apply border with red color and full width (matches AuthRequiredView borderColor="red")
+	// Calculate available height for auth box (total - banner - status line)
+	bannerHeight := strings.Count(banner, "\n") + 1
+	statusHeight := 1 // status line is always 1 line
+	availableAuthHeight := max(5, m.state.Terminal.Rows - bannerHeight - statusHeight - 2) // -2 for some padding
+
+	// Apply border with red color, full width and height (matches AuthRequiredView borderColor="red")
 	authBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
 		Width(contentWidth).
+		Height(availableAuthHeight).
 		PaddingLeft(2).
 		PaddingRight(2).
 		PaddingTop(1).
-		PaddingBottom(1)
+		PaddingBottom(1).
+		AlignVertical(lipgloss.Center) // Center content vertically in the full-height box
 
 	authContent := authBoxStyle.Render(strings.Join(contentSections, "\n"))
 	sections = append(sections, authContent)
-
-	// Status line (matches AuthRequiredView bottom Box)
-    gap := max(0, containerWidth-lipgloss.Width(headerMsg)-lipgloss.Width("Ready")-4)
-    statusLine := lipgloss.JoinHorizontal(
-        lipgloss.Center,
-        statusStyle.Render(headerMsg),
-        strings.Repeat(" ", gap),
-        statusStyle.Render("Ready"),
-    )
-	sections = append(sections, statusLine)
 
 	// Join with newlines and apply main container style with full width
 	content := strings.Join(sections, "\n")
