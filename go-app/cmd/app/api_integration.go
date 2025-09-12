@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -381,11 +382,14 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 		app, err := apiService.GetApplication(ctx, m.state.Server, appName, nil)
 		if err != nil {
 			errMsg := err.Error()
+			log.Printf("Rollback session failed for app %s: %v", appName, err)
 			if isAuthenticationError(errMsg) {
 				return model.AuthErrorMsg{Error: err}
 			}
 			return model.ApiErrorMsg{Message: "Failed to load application: " + err.Error()}
 		}
+
+		log.Printf("Successfully loaded application %s with %d history entries", appName, len(app.Status.History))
 
 		// Convert history to rollback rows
 		rows := api.ConvertDeploymentHistoryToRollbackRows(app.Status.History)
@@ -397,6 +401,8 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 		} else if len(app.Status.Sync.Revisions) > 0 {
 			currentRevision = app.Status.Sync.Revisions[0]
 		}
+
+		log.Printf("Rollback session loaded for %s: %d deployment history rows, current revision: %s", appName, len(rows), currentRevision)
 
 		return model.RollbackHistoryLoadedMsg{
 			AppName:         appName,

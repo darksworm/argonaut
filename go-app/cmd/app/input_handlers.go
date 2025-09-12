@@ -1,9 +1,11 @@
 package main
 
 import (
+	"log"
+	"time"
+
 	"github.com/a9s/go-app/pkg/model"
 	tea "github.com/charmbracelet/bubbletea/v2"
-	"time"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -250,6 +252,16 @@ func (m Model) handleRollback() (Model, tea.Cmd) {
 	m.state.Modals.RollbackAppName = &appName
 	m.state.Mode = model.ModeRollback
 	
+	// Initialize rollback state with loading
+	m.state.Rollback = &model.RollbackState{
+		AppName: appName,
+		Loading: true,
+		Mode:    "list",
+	}
+	
+	// Log rollback start
+	log.Printf("Starting rollback session for app: %s", appName)
+	
 	// Start loading rollback history
 	return m, m.startRollbackSession(appName)
 }
@@ -477,16 +489,21 @@ func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleRollbackModeKeys handles input when in rollback mode
 func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if m.state.Rollback == nil {
-		return m, nil
-	}
-
 	switch msg.String() {
-	case "esc", "q":
+	case "esc", "q", "ctrl+c":
+		// Allow exit even during loading
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.RollbackAppName = nil
 		m.state.Rollback = nil
 		return m, nil
+	}
+
+	// If still loading or no rollback state, only handle exit keys above
+	if m.state.Rollback == nil || m.state.Rollback.Loading {
+		return m, nil
+	}
+
+	switch msg.String() {
 	case "j", "down":
 		// Navigate down in rollback history
 		if len(m.state.Rollback.Rows) > 0 {

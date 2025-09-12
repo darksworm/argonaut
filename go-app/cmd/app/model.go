@@ -678,8 +678,12 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "r":
 		return m.handleRefresh()
 	case "R":
+		log.Printf("R key pressed, current view: %v", m.state.Navigation.View)
 		if m.state.Navigation.View == model.ViewApps {
+			log.Printf("Calling handleRollback()")
 			return m.handleRollback()
+		} else {
+			log.Printf("Rollback not available in view: %v", m.state.Navigation.View)
 		}
 
 	// Clear/escape functionality
