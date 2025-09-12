@@ -2137,8 +2137,8 @@ func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
 
 // renderRollbackConfirmation renders the confirmation screen
 func (m Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHeight int, innerWidth int) string {
-    titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
-    content := titleStyle.Render("Confirm Rollback") + "\n\n"
+    // Top details section (no title here)
+    content := ""
 
 	if len(rollback.Rows) == 0 || rollback.SelectedIdx >= len(rollback.Rows) {
 		return content + "Invalid selection"
@@ -2195,17 +2195,8 @@ func (m Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHe
         center.Render(buttons),
     }, "\n")
 
-    // Make confirmation modal narrower than the outer box and center it
-    confirmWidth := innerWidth - 8
-    if confirmWidth < 30 {
-        confirmWidth = max(24, innerWidth-4)
-    }
-    confirmStyled := lipgloss.NewStyle().
-        Border(lipgloss.RoundedBorder()).
-        BorderForeground(cyanBright).
-        Padding(1, 2).
-        Width(confirmWidth)
-    confirmBox := center.Render(confirmStyled.Render(confirmInner))
+    // Render confirmation content centered without an inner box
+    confirmBox := center.Render(confirmInner)
 
     bottomBlock := strings.Builder{}
     // Add a bit of top padding for the confirmation area
