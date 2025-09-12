@@ -83,8 +83,6 @@ func (m Model) View() string {
 		return m.renderRollbackModal()
 	case model.ModeExternal:
 		return "" // External mode returns null in React
-	case model.ModeDiffLoading:
-		return m.renderLoadingView()
 	case model.ModeDiff:
 		return m.renderDiffView()
 	case model.ModeRulerLine:
@@ -166,6 +164,14 @@ func (m Model) renderMainLayout() string {
 		// Center the modal in the available space
 		centeredModal := lipgloss.Place(m.state.Terminal.Cols, totalHeight, lipgloss.Center, lipgloss.Center, modal)
 		return centeredModal
+	}
+
+	// Diff loading spinner overlay (should overlay the base view)
+	if m.state.Diff != nil && m.state.Diff.Loading {
+		spinner := m.renderDiffLoadingSpinner()
+		// Center the spinner overlay in the available space
+		centeredSpinner := lipgloss.Place(m.state.Terminal.Cols, totalHeight, lipgloss.Center, lipgloss.Center, spinner)
+		return centeredSpinner
 	}
 
 	return baseView
@@ -1873,4 +1879,21 @@ func (m Model) renderConnectionErrorView() string {
 	content := strings.Join(sections, "\n")
 	totalHeight := m.state.Terminal.Rows - 1
 	return mainContainerStyle.Height(totalHeight).Render(content)
+}
+
+// renderDiffLoadingSpinner displays a centered loading spinner for diff operations
+func (m Model) renderDiffLoadingSpinner() string {
+	// Create spinner content with message
+	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
+	
+	// Style the spinner with a small bordered box
+	spinnerStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(yellowBright).
+		Background(lipgloss.Color("0")).
+		Foreground(whiteBright).
+		Padding(1, 2).
+		Bold(true)
+
+	return spinnerStyle.Render(spinnerContent)
 }

@@ -386,8 +386,11 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			if target == "" {
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
 			}
-			// Start diff loading
-			m.state.Mode = model.ModeDiffLoading
+			// Initialize diff state with loading
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = true
 			return m, m.startDiffSession(target)
 		case "cluster", "clusters", "cls":
 			// Switch to clusters view

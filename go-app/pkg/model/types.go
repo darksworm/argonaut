@@ -28,7 +28,6 @@ const (
 	ModeRollback     Mode = "rollback"
     ModeExternal     Mode = "external"
     ModeDiff         Mode = "diff"
-    ModeDiffLoading  Mode = "diff-loading"
     ModeResources    Mode = "resources"
 	ModeAuthRequired Mode = "auth-required"
 	ModeRulerLine    Mode = "rulerline"

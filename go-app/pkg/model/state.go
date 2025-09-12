@@ -133,6 +133,7 @@ type DiffState struct {
     Filtered    []int    `json:"filtered"`
     Offset      int      `json:"offset"`
     SearchQuery string   `json:"searchQuery"`
+    Loading     bool     `json:"loading"`
 }
 
 // SaveNavigationState saves current navigation and selection state

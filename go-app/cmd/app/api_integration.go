@@ -190,7 +190,7 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 			return model.StatusChangeMsg{Status: "No differences"}
 		}
 		lines := strings.Split(cleaned, "\n")
-		m.state.Diff = &model.DiffState{Title: fmt.Sprintf("%s - Live vs Desired (Cleaned)", appName), Content: lines, Offset: 0}
+		m.state.Diff = &model.DiffState{Title: fmt.Sprintf("%s - Live vs Desired (Cleaned)", appName), Content: lines, Offset: 0, Loading: false}
 		return model.SetModeMsg{Mode: model.ModeDiff}
 	})
 }

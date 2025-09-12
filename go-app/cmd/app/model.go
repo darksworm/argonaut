@@ -328,6 +328,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.StatusChangeMsg:
 		// Now safe to log since we're using file logging
 		m.statusService.Set(msg.Status)
+		
+		// Clear diff loading state for diff-related status messages
+		if (msg.Status == "No diffs" || msg.Status == "No differences") && m.state.Diff != nil {
+			m.state.Diff.Loading = false
+		}
+		
 		return m, m.consumeWatchEvent()
 
 	case ResourcesLoadedMsg:
@@ -355,6 +361,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fullErrorMsg = fmt.Sprintf("API Error (%d): %s", msg.StatusCode, msg.Message)
 		}
 		m.statusService.Error(fullErrorMsg)
+		
+		// Clear any loading states that might be active
+		if m.state.Diff != nil {
+			m.state.Diff.Loading = false
+		}
 		
 		// Store structured error information in state
 		m.state.CurrentError = &model.ApiError{
