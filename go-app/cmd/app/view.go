@@ -1904,7 +1904,12 @@ func (m Model) renderRollbackModal() string {
 
 	// Check if rollback state is available
 	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
-		content := "No rollback data available"
+		var content string
+		if m.state.Modals.RollbackAppName == nil {
+			content = "No app selected for rollback"
+		} else {
+			content = fmt.Sprintf("Loading deployment history for %s...\n\n%s", *m.state.Modals.RollbackAppName, m.spinner.View())
+		}
 		return m.renderSimpleModal("Rollback", content)
 	}
 

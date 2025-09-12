@@ -367,6 +367,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Diff.Loading = false
 		}
 		
+		// Handle rollback-specific errors
+		if m.state.Mode == model.ModeRollback {
+			// Initialize rollback state with error if not exists
+			if m.state.Rollback == nil && m.state.Modals.RollbackAppName != nil {
+				m.state.Rollback = &model.RollbackState{
+					AppName: *m.state.Modals.RollbackAppName,
+					Loading: false,
+					Error:   msg.Message,
+					Mode:    "list",
+				}
+			} else if m.state.Rollback != nil {
+				// Update existing rollback state with error
+				m.state.Rollback.Loading = false
+				m.state.Rollback.Error = msg.Message
+			}
+			// Stay in rollback mode to show the error
+			return m, nil
+		}
+		
 		// Store structured error information in state
 		m.state.CurrentError = &model.ApiError{
 			Message:    msg.Message,
@@ -384,6 +403,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Log error to file and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
+		
+		// Handle rollback-specific auth errors
+		if m.state.Mode == model.ModeRollback {
+			// Initialize rollback state with error if not exists
+			if m.state.Rollback == nil && m.state.Modals.RollbackAppName != nil {
+				m.state.Rollback = &model.RollbackState{
+					AppName: *m.state.Modals.RollbackAppName,
+					Loading: false,
+					Error:   "Authentication required: " + msg.Error.Error(),
+					Mode:    "list",
+				}
+			} else if m.state.Rollback != nil {
+				// Update existing rollback state with auth error
+				m.state.Rollback.Loading = false
+				m.state.Rollback.Error = "Authentication required: " + msg.Error.Error()
+			}
+			// Stay in rollback mode to show the error
+			return m, nil
+		}
+		
 		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeAuthRequired} })
 
 	// Navigation update messages
