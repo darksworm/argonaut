@@ -1,13 +1,14 @@
 package main
 
 import (
-    "fmt"
-    "net/url"
-    "os"
-    "strings"
+	"fmt"
+	"net/url"
+	"os"
+	"strings"
+	"time"
 
-    "github.com/a9s/go-app/pkg/model"
-    "github.com/charmbracelet/lipgloss"
+	"github.com/a9s/go-app/pkg/model"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -33,13 +34,13 @@ var (
 				PaddingLeft(1).
 				PaddingRight(1)
 
-    // Border style for main content area (matches ListView container)
-    // Add inner padding for readability; width calculations account for it
-    contentBorderStyle = lipgloss.NewStyle().
-                        Border(lipgloss.RoundedBorder()).
-                        BorderForeground(magentaBright).
-                        PaddingLeft(1).
-                        PaddingRight(1)
+	// Border style for main content area (matches ListView container)
+	// Add inner padding for readability; width calculations account for it
+	contentBorderStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(magentaBright).
+				PaddingLeft(1).
+				PaddingRight(1)
 
 	// Header styles (matches ListView header)
 	headerStyle = lipgloss.NewStyle().
@@ -90,6 +91,8 @@ func (m Model) View() string {
 		return m.renderOfficeSupplyManager()
 	case model.ModeLogs:
 		return m.renderLogsView()
+	case model.ModeError:
+		return m.renderErrorView()
 	default:
 		return m.renderMainLayout()
 	}
@@ -98,12 +101,12 @@ func (m Model) View() string {
 // renderMainLayout - 1:1 mapping from MainLayout.tsx
 func (m Model) renderMainLayout() string {
 	// Height calculations - dynamic based on rendered section heights
-    const (
-        BORDER_LINES       = 2 // content border top/bottom
-        TABLE_HEADER_LINES = 0 // header is inside the table itself
-        TAG_LINE           = 0 // not used
-        STATUS_LINES       = 1 // bottom status line
-    )
+	const (
+		BORDER_LINES       = 2 // content border top/bottom
+		TABLE_HEADER_LINES = 0 // header is inside the table itself
+		TAG_LINE           = 0 // not used
+		STATUS_LINES       = 1 // bottom status line
+	)
 
 	// Render header and optional bars first to measure their heights
 	header := m.renderBanner()
@@ -137,7 +140,7 @@ func (m Model) renderMainLayout() string {
 		sections = append(sections, commandBar)
 	}
 
-    // Main content area (matches MainLayout Box with border)
+	// Main content area (matches MainLayout Box with border)
 	if m.state.Mode == model.ModeResources && m.state.Server != nil && m.state.Modals.SyncViewApp != nil {
 		sections = append(sections, m.renderResourceStream(listRows))
 	} else {
@@ -147,21 +150,21 @@ func (m Model) renderMainLayout() string {
 	// Status line (matches MainLayout status Box)
 	sections = append(sections, m.renderStatusLine())
 
-    // Join with newlines and apply main container style with full width
-    content := strings.Join(sections, "\n")
-    // Render the full terminal area; padding is handled by the container style
-    totalHeight := m.state.Terminal.Rows
-    _ = totalHeight
+	// Join with newlines and apply main container style with full width
+	content := strings.Join(sections, "\n")
+	// Render the full terminal area; padding is handled by the container style
+	totalHeight := m.state.Terminal.Rows
+	_ = totalHeight
 
-    baseView := mainContainerStyle.Render(content)
+	baseView := mainContainerStyle.Render(content)
 
 	// Modal overlay (should overlay the base view, not push content down)
-    if m.state.Mode == model.ModeConfirmSync {
-        modal := m.renderConfirmSyncModal()
-        // Center the modal in the available space
-        centeredModal := lipgloss.Place(m.state.Terminal.Cols, totalHeight, lipgloss.Center, lipgloss.Center, modal)
-        return centeredModal
-    }
+	if m.state.Mode == model.ModeConfirmSync {
+		modal := m.renderConfirmSyncModal()
+		// Center the modal in the available space
+		centeredModal := lipgloss.Place(m.state.Terminal.Cols, totalHeight, lipgloss.Center, lipgloss.Center, modal)
+		return centeredModal
+	}
 
 	return baseView
 }
@@ -336,33 +339,30 @@ func joinWithRightAlignment(left, right string, totalWidth int) string {
 
 // contentInnerWidth computes inner content width inside the bordered box
 func (m Model) contentInnerWidth() int {
-    // Subtract: main padding (2) + border (2) + inner padding (2)
-    // Reduced slack to use more available space
-    return max(0, m.state.Terminal.Cols-6)
+	// Subtract: main padding (2) + border (2) + inner padding (2)
+	// Reduced slack to use more available space
+	return max(0, m.state.Terminal.Cols-6)
 }
 
 // renderListView - custom list/table rendering with fixed inner width
 func (m Model) renderListView(availableRows int) string {
-    visibleItems := m.getVisibleItems()
-    
-    // Calculate content dimensions
-    // content width is the inner width inside the bordered box (excludes border+padding)
-    // Add small slack to avoid edge wrapping in some terminals
-    contentWidth := max(0, m.contentInnerWidth()-2)
-    // Leave room for the table header row inside the bordered area
-    tableHeight := max(3, availableRows-1)
+	visibleItems := m.getVisibleItems()
 
-    // Handle empty state
-    if len(visibleItems) == 0 {
-        emptyContent := statusStyle.Render("No items.")
-        return contentBorderStyle.Render(emptyContent)
-    }
+	contentWidth := max(0, m.contentInnerWidth())
+	// Leave room for the table header row inside the bordered area
+	tableHeight := max(3, availableRows-1)
+
+	// Handle empty state
+	if len(visibleItems) == 0 {
+		emptyContent := statusStyle.Render("No items.")
+		return contentBorderStyle.Render(emptyContent)
+	}
 
 	// Prepare data and update the appropriate table directly
 	var tableView string
-	
-    switch m.state.Navigation.View {
-    case model.ViewApps:
+
+	switch m.state.Navigation.View {
+	case model.ViewApps:
 		// Custom-render apps list to restore full-row selection highlight and per-cell colors
 		// Determine viewport to keep selection visible
 		total := len(visibleItems)
@@ -403,129 +403,129 @@ func (m Model) renderListView(availableRows int) string {
 			b.WriteString("\n")
 		}
 		tableView = b.String()
-		
-    case model.ViewClusters, model.ViewNamespaces, model.ViewProjects:
-        // Custom-render single-column lists with full-row highlight
-        total := len(visibleItems)
-        visibleRows := max(0, tableHeight-1)
-        cursor := m.state.Navigation.SelectedIdx
-        if cursor < 0 {
-            cursor = 0
-        }
-        if cursor >= total {
-            cursor = max(0, total-1)
-        }
-        start := cursor - visibleRows/2
-        if start < 0 {
-            start = 0
-        }
-        if start > max(0, total-visibleRows) {
-            start = max(0, total-visibleRows)
-        }
-        end := min(total, start+visibleRows)
 
-        var b strings.Builder
-        b.WriteString(m.renderListHeader())
-        b.WriteString("\n")
-        for i := start; i < end; i++ {
-            label := fmt.Sprintf("%v", visibleItems[i])
-            isCursor := (i == cursor)
-            b.WriteString(m.renderSimpleRow(label, isCursor))
-            if i < end-1 {
-                b.WriteString("\n")
-            }
-        }
-        for pad := end - start; pad < visibleRows; pad++ {
-            b.WriteString("\n")
-        }
-        tableView = b.String()
-		
-    default:
-        // Fallback to simple empty content to avoid bubbles table
-        tableView = ""
-    }
+	case model.ViewClusters, model.ViewNamespaces, model.ViewProjects:
+		// Custom-render single-column lists with full-row highlight
+		total := len(visibleItems)
+		visibleRows := max(0, tableHeight-1)
+		cursor := m.state.Navigation.SelectedIdx
+		if cursor < 0 {
+			cursor = 0
+		}
+		if cursor >= total {
+			cursor = max(0, total-1)
+		}
+		start := cursor - visibleRows/2
+		if start < 0 {
+			start = 0
+		}
+		if start > max(0, total-visibleRows) {
+			start = max(0, total-visibleRows)
+		}
+		end := min(total, start+visibleRows)
 
-    // Render the table/content ensuring each line fits the content width
-    var content strings.Builder
-    content.WriteString(normalizeLinesToWidth(tableView, contentWidth))
+		var b strings.Builder
+		b.WriteString(m.renderListHeader())
+		b.WriteString("\n")
+		for i := start; i < end; i++ {
+			label := fmt.Sprintf("%v", visibleItems[i])
+			isCursor := (i == cursor)
+			b.WriteString(m.renderSimpleRow(label, isCursor))
+			if i < end-1 {
+				b.WriteString("\n")
+			}
+		}
+		for pad := end - start; pad < visibleRows; pad++ {
+			b.WriteString("\n")
+		}
+		tableView = b.String()
 
-    // Apply border style with proper width. Let height auto-size to content
-    // to avoid tmux line-wrapping issues.
-    return contentBorderStyle.Render(content.String())
+	default:
+		// Fallback to simple empty content to avoid bubbles table
+		tableView = ""
+	}
+
+	// Render the table/content ensuring each line fits the content width
+	var content strings.Builder
+	content.WriteString(normalizeLinesToWidth(tableView, contentWidth))
+
+	// Apply border style with proper width. Let height auto-size to content
+	// to avoid tmux line-wrapping issues.
+	return contentBorderStyle.Render(content.String())
 }
 
 // renderListHeader - matches ListView header row with responsive widths
 func (m Model) renderListHeader() string {
-    if m.state.Navigation.View == model.ViewApps {
-        // Fixed-width columns with full text headers
-        contentWidth := m.contentInnerWidth()
-        syncWidth := 12
-        healthWidth := 15
-        nameWidth := max(10, contentWidth-syncWidth-healthWidth-2)
+	if m.state.Navigation.View == model.ViewApps {
+		// Fixed-width columns with full text headers
+		contentWidth := m.contentInnerWidth()
+		syncWidth := 12
+		healthWidth := 15
+		nameWidth := max(10, contentWidth-syncWidth-healthWidth-2)
 
-        nameHeader := headerStyle.Render("NAME")
-        syncHeader := headerStyle.Render("SYNC")
-        healthHeader := headerStyle.Render("HEALTH")
+		nameHeader := headerStyle.Render("NAME")
+		syncHeader := headerStyle.Render("SYNC")
+		healthHeader := headerStyle.Render("HEALTH")
 
-        nameCell := padRight(clipAnsiToWidth(nameHeader, nameWidth), nameWidth)
-        syncCell := padLeft(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
-        healthCell := padLeft(clipAnsiToWidth(healthHeader, healthWidth), healthWidth)
+		nameCell := padRight(clipAnsiToWidth(nameHeader, nameWidth), nameWidth)
+		syncCell := padLeft(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
+		healthCell := padLeft(clipAnsiToWidth(healthHeader, healthWidth), healthWidth)
 
-        header := fmt.Sprintf("%s %s %s", nameCell, syncCell, healthCell)
-        // Guarantee exact width to prevent underline overflow
-        if lipgloss.Width(header) < contentWidth {
-            header = padRight(header, contentWidth)
-        } else if lipgloss.Width(header) > contentWidth {
-            header = clipAnsiToWidth(header, contentWidth)
-        }
-        return header
-    }
+		header := fmt.Sprintf("%s %s %s", nameCell, syncCell, healthCell)
+		// Guarantee exact width to prevent underline overflow
+		if lipgloss.Width(header) < contentWidth {
+			header = padRight(header, contentWidth)
+		} else if lipgloss.Width(header) > contentWidth {
+			header = clipAnsiToWidth(header, contentWidth)
+		}
+		return header
+	}
 
-    // Simple header for other views padded to full content width
-    contentWidth := m.contentInnerWidth()
-    hdr := headerStyle.Render("NAME")
-    if lipgloss.Width(hdr) < contentWidth {
-        hdr = padRight(hdr, contentWidth)
-    } else if lipgloss.Width(hdr) > contentWidth {
-        hdr = clipAnsiToWidth(hdr, contentWidth)
-    }
-    return hdr
+	// Simple header for other views padded to full content width
+	contentWidth := m.contentInnerWidth()
+	hdr := headerStyle.Render("NAME")
+	if lipgloss.Width(hdr) < contentWidth {
+		hdr = padRight(hdr, contentWidth)
+	} else if lipgloss.Width(hdr) > contentWidth {
+		hdr = clipAnsiToWidth(hdr, contentWidth)
+	}
+	return hdr
 }
 
 // clipAnsiToWidth trims a styled string to the given display width (ANSI-aware)
 func clipAnsiToWidth(s string, width int) string {
-    if width <= 0 {
-        return ""
-    }
-    if lipgloss.Width(s) <= width {
-        return s
-    }
-    var b strings.Builder
-    for _, r := range s {
-        candidate := b.String() + string(r)
-        if lipgloss.Width(candidate) > width {
-            break
-        }
-        b.WriteRune(r)
-    }
-    return b.String()
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		candidate := b.String() + string(r)
+		if lipgloss.Width(candidate) > width {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // normalizeLinesToWidth pads or trims each line to an exact width (ANSI-aware)
 func normalizeLinesToWidth(s string, width int) string {
-    if width <= 0 || s == "" {
-        return s
-    }
-    lines := strings.Split(s, "\n")
-    for i, line := range lines {
-        w := lipgloss.Width(line)
-        if w < width {
-            lines[i] = padRight(line, width)
-        } else if w > width {
-            lines[i] = clipAnsiToWidth(line, width)
-        }
-    }
-    return strings.Join(lines, "\n")
+	if width <= 0 || s == "" {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		w := lipgloss.Width(line)
+		if w < width {
+			lines[i] = padRight(line, width)
+		} else if w > width {
+			lines[i] = clipAnsiToWidth(line, width)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // renderAppRow - matches ListView app row rendering
@@ -544,63 +544,63 @@ func (m Model) renderAppRow(app model.App, isCursor bool) string {
 	syncIcon := m.getSyncIcon(app.Sync)
 	healthIcon := m.getHealthIcon(app.Health)
 
-    contentWidth := m.contentInnerWidth() // Match header/content inner width
+	contentWidth := m.contentInnerWidth() // Match header/content inner width
 	nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
 
 	// Generate text based on available width (either full text or icons only)
-    // Colored status strings with icons (as before)
-    syncText := fmt.Sprintf("%s %s", syncIcon, app.Sync)
-    healthText := fmt.Sprintf("%s %s", healthIcon, app.Health)
+	// Colored status strings with icons (as before)
+	syncText := fmt.Sprintf("%s %s", syncIcon, app.Sync)
+	healthText := fmt.Sprintf("%s %s", healthIcon, app.Health)
 
 	// Truncate app name with ellipsis if it's too long
 	truncatedName := truncateWithEllipsis(app.Name, nameWidth)
 
 	var nameCell, syncCell, healthCell string
-    // Build cells with clipping to assigned widths to prevent wrapping
-    nameCell = padRight(truncateWithEllipsis(truncatedName, nameWidth), nameWidth)
+	// Build cells with clipping to assigned widths to prevent wrapping
+	nameCell = padRight(truncateWithEllipsis(truncatedName, nameWidth), nameWidth)
 
-    if isCursor || isSelected {
-        // Active row: avoid inner color styles so background highlight spans the whole row
-        if lipgloss.Width(syncText) > syncWidth {
-            syncText = clipAnsiToWidth(syncText, syncWidth)
-        }
-        if lipgloss.Width(healthText) > healthWidth {
-            healthText = clipAnsiToWidth(healthText, healthWidth)
-        }
-        syncCell = padLeft(syncText, syncWidth)
-        healthCell = padLeft(healthText, healthWidth)
-    } else {
-        // Inactive row: apply color styles to sync/health then clip if needed
-        syncStyled := m.getColorForStatus(app.Sync).Render(syncText)
-        healthStyled := m.getColorForStatus(app.Health).Render(healthText)
-        if lipgloss.Width(syncStyled) > syncWidth {
-            syncStyled = clipAnsiToWidth(syncStyled, syncWidth)
-        }
-        if lipgloss.Width(healthStyled) > healthWidth {
-            healthStyled = clipAnsiToWidth(healthStyled, healthWidth)
-        }
-        syncCell = padLeft(syncStyled, syncWidth)
-        healthCell = padLeft(healthStyled, healthWidth)
-    }
+	if isCursor || isSelected {
+		// Active row: avoid inner color styles so background highlight spans the whole row
+		if lipgloss.Width(syncText) > syncWidth {
+			syncText = clipAnsiToWidth(syncText, syncWidth)
+		}
+		if lipgloss.Width(healthText) > healthWidth {
+			healthText = clipAnsiToWidth(healthText, healthWidth)
+		}
+		syncCell = padLeft(syncText, syncWidth)
+		healthCell = padLeft(healthText, healthWidth)
+	} else {
+		// Inactive row: apply color styles to sync/health then clip if needed
+		syncStyled := m.getColorForStatus(app.Sync).Render(syncText)
+		healthStyled := m.getColorForStatus(app.Health).Render(healthText)
+		if lipgloss.Width(syncStyled) > syncWidth {
+			syncStyled = clipAnsiToWidth(syncStyled, syncWidth)
+		}
+		if lipgloss.Width(healthStyled) > healthWidth {
+			healthStyled = clipAnsiToWidth(healthStyled, healthWidth)
+		}
+		syncCell = padLeft(syncStyled, syncWidth)
+		healthCell = padLeft(healthStyled, healthWidth)
+	}
 
 	row := fmt.Sprintf("%s %s %s", nameCell, syncCell, healthCell)
 
-    // Ensure row is exactly the content width to avoid wrapping
-    fullRowWidth := nameWidth + syncWidth + healthWidth + 2 // +2 for separators
-    if lipgloss.Width(row) < fullRowWidth {
-        row = padRight(row, fullRowWidth)
-    } else if lipgloss.Width(row) > fullRowWidth {
-        row = clipAnsiToWidth(row, fullRowWidth)
-    }
+	// Ensure row is exactly the content width to avoid wrapping
+	fullRowWidth := nameWidth + syncWidth + healthWidth + 2 // +2 for separators
+	if lipgloss.Width(row) < fullRowWidth {
+		row = padRight(row, fullRowWidth)
+	} else if lipgloss.Width(row) > fullRowWidth {
+		row = clipAnsiToWidth(row, fullRowWidth)
+	}
 
-    // Apply selection highlight (matches ListView backgroundColor)
-    if active {
-        row = selectedStyle.Render(row)
-        // After styling, clip again defensively (some terminals render bold differently)
-        if lipgloss.Width(row) > fullRowWidth {
-            row = clipAnsiToWidth(row, fullRowWidth)
-        }
-    }
+	// Apply selection highlight (matches ListView backgroundColor)
+	if active {
+		row = selectedStyle.Render(row)
+		// After styling, clip again defensively (some terminals render bold differently)
+		if lipgloss.Width(row) > fullRowWidth {
+			row = clipAnsiToWidth(row, fullRowWidth)
+		}
+	}
 
 	return row
 }
@@ -639,17 +639,17 @@ func (m Model) renderSimpleRow(label string, isCursor bool) string {
 	active := isCursor || isSelected
 
 	// Calculate available width for simple rows (full content width minus padding)
-    contentWidth := m.contentInnerWidth()
+	contentWidth := m.contentInnerWidth()
 
-    // Truncate and pad label to full width
-    truncatedLabel := truncateWithEllipsis(label, contentWidth)
-    row := padRight(truncatedLabel, contentWidth)
+	// Truncate and pad label to full width
+	truncatedLabel := truncateWithEllipsis(label, contentWidth)
+	row := padRight(truncatedLabel, contentWidth)
 
-    // Apply selection highlight if active
-    if active {
-        return selectedStyle.Render(row)
-    }
-    return row
+	// Apply selection highlight if active
+	if active {
+		return selectedStyle.Render(row)
+	}
+	return row
 }
 
 // renderStatusLine - 1:1 mapping from MainLayout status Box
@@ -677,24 +677,24 @@ func (m Model) renderStatusLine() string {
 	leftStyled := statusStyle.Render(leftText)
 	rightStyled := statusStyle.Render(rightText)
 
-    // Available width inside main container (accounts for its padding)
-    available := max(0, m.state.Terminal.Cols-2)
-    // Use lipgloss.Width for accurate spacing
-    gap := max(0, available-lipgloss.Width(leftText)-lipgloss.Width(rightText))
-    line := lipgloss.JoinHorizontal(
-        lipgloss.Center,
-        leftStyled,
-        strings.Repeat(" ", gap),
-        rightStyled,
-    )
-    // Ensure the status line exactly fits the available width
-    w := lipgloss.Width(line)
-    if w < available {
-        line = padRight(line, available)
-    } else if w > available {
-        line = clipAnsiToWidth(line, available)
-    }
-    return line
+	// Available width inside main container (accounts for its padding)
+	available := max(0, m.state.Terminal.Cols-2)
+	// Use lipgloss.Width for accurate spacing
+	gap := max(0, available-lipgloss.Width(leftText)-lipgloss.Width(rightText))
+	line := lipgloss.JoinHorizontal(
+		lipgloss.Center,
+		leftStyled,
+		strings.Repeat(" ", gap),
+		rightStyled,
+	)
+	// Ensure the status line exactly fits the available width
+	w := lipgloss.Width(line)
+	if w < available {
+		line = padRight(line, available)
+	} else if w > available {
+		line = clipAnsiToWidth(line, available)
+	}
+	return line
 }
 
 // Helper functions matching TypeScript utilities
@@ -951,11 +951,11 @@ func (m Model) renderLoadingView() string {
 	// Status section (matches LoadingView bottom)
 	sections = append(sections, statusStyle.Render("Starting…"))
 
-    // Join content and apply border (matches LoadingView Box with border)
-    content := strings.Join(sections, "\n")
-    // Use inner content width for bordered area
-    totalWidth := m.contentInnerWidth()
-    return contentBorderStyle.Width(totalWidth).Render(content)
+	// Join content and apply border (matches LoadingView Box with border)
+	content := strings.Join(sections, "\n")
+	// Use inner content width for bordered area
+	totalWidth := m.contentInnerWidth()
+	return contentBorderStyle.Width(totalWidth).Render(content)
 }
 
 func (m Model) renderAuthRequiredView() string {
@@ -986,7 +986,7 @@ func (m Model) renderAuthRequiredView() string {
 
 	// Center the content vertically
 	contentSections = append(contentSections, "")
-	
+
 	// Apply background only to text, then center within full width
 	authHeaderStyled := lipgloss.NewStyle().
 		Background(outOfSyncColor).
@@ -998,7 +998,7 @@ func (m Model) renderAuthRequiredView() string {
 		Align(lipgloss.Center).
 		Render(authHeaderStyled)
 	contentSections = append(contentSections, authHeaderCentered)
-	
+
 	contentSections = append(contentSections, "")
 	contentSections = append(contentSections, lipgloss.NewStyle().
 		Foreground(outOfSyncColor).
@@ -1013,15 +1013,15 @@ func (m Model) renderAuthRequiredView() string {
 		contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("- "+instruction))
 	}
 	contentSections = append(contentSections, "")
-	if (serverText != "—") {
-	    contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Current context: "+serverText))
+	if serverText != "—" {
+		contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Current context: "+serverText))
 	}
 	contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Press l to view logs, q to quit."))
 
 	// Calculate available height for auth box (total - banner - status line)
 	bannerHeight := strings.Count(banner, "\n") + 1
-	statusHeight := 1 // status line is always 1 line
-	availableAuthHeight := max(5, m.state.Terminal.Rows - bannerHeight - statusHeight - 2) // -2 for some padding
+	statusHeight := 1                                                                // status line is always 1 line
+	availableAuthHeight := max(5, m.state.Terminal.Rows-bannerHeight-statusHeight-2) // -2 for some padding
 
 	// Apply border with red color, full width and height (matches AuthRequiredView borderColor="red")
 	authBoxStyle := lipgloss.NewStyle().
@@ -1040,9 +1040,9 @@ func (m Model) renderAuthRequiredView() string {
 
 	// Join with newlines and apply main container style with full width
 	content := strings.Join(sections, "\n")
-    totalHeight := m.state.Terminal.Rows - 1
+	totalHeight := m.state.Terminal.Rows - 1
 
-    return mainContainerStyle.Height(totalHeight).Render(content)
+	return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 func (m Model) renderHelpModal() string {
@@ -1093,7 +1093,7 @@ func (m Model) renderRollbackModal() string {
 	// Rollback functionality - integrate with real rollback implementation
 	appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
 	highlightedAppName := appNameStyle.Render(*m.state.Modals.RollbackAppName)
-	
+
 	rollbackContent := fmt.Sprintf("Rollback Application: %s\n\nRollback functionality ready for integration.\n\nPress Esc to close.", highlightedAppName)
 	sections = append(sections, contentBorderStyle.Render(rollbackContent))
 
@@ -1225,12 +1225,12 @@ func (m Model) renderConfirmSyncModal() string {
 	// Target with highlight box
 	targetStyle := lipgloss.NewStyle().
 		Foreground(whiteBright).
-		Background(lipgloss.Color("24")). // Blue background  
+		Background(lipgloss.Color("24")). // Blue background
 		Bold(true).
 		PaddingLeft(1).
 		PaddingRight(1).
 		Align(lipgloss.Center)
-	
+
 	messageText := fmt.Sprintf("%s: %s", message, targetText)
 	content.WriteString(targetStyle.Render(fmt.Sprintf(" %s ", messageText)))
 	content.WriteString("\n\n")
@@ -1246,7 +1246,7 @@ func (m Model) renderConfirmSyncModal() string {
 	optionStyle := lipgloss.NewStyle().
 		Foreground(cyanBright).
 		Bold(true)
-	
+
 	pruneText := fmt.Sprintf(" [p] %s Prune resources", pruneStatus)
 	content.WriteString(optionStyle.Render(pruneText))
 	content.WriteString("\n")
@@ -1267,14 +1267,14 @@ func (m Model) renderConfirmSyncModal() string {
 	content.WriteString(separatorStyle.Render("─────────────────────────"))
 	content.WriteString("\n")
 
-	// Enhanced instructions 
+	// Enhanced instructions
 	instructionStyle := lipgloss.NewStyle().
 		Foreground(yellowBright).
 		Bold(true).
 		Align(lipgloss.Center)
 	content.WriteString(instructionStyle.Render("ENTER to confirm"))
 	content.WriteString("\n")
-	
+
 	cancelStyle := lipgloss.NewStyle().
 		Foreground(dimColor).
 		Align(lipgloss.Center)
@@ -1284,161 +1284,161 @@ func (m Model) renderConfirmSyncModal() string {
 }
 
 func (m Model) renderResourceStream(availableRows int) string {
-    // Calculate dimensions for consistent full-height layout
-    containerWidth := max(0, m.state.Terminal.Cols-2)
-    contentWidth := max(0, containerWidth-4) // Account for border and padding
-    contentHeight := max(3, availableRows)
+	// Calculate dimensions for consistent full-height layout
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4) // Account for border and padding
+	contentHeight := max(3, availableRows)
 
-    if m.state.Resources == nil {
-        return m.renderFullHeightContent("Loading resources...", contentWidth, contentHeight, containerWidth)
-    }
+	if m.state.Resources == nil {
+		return m.renderFullHeightContent("Loading resources...", contentWidth, contentHeight, containerWidth)
+	}
 
-    if m.state.Resources.Error != "" {
-        errorContent := fmt.Sprintf("Error loading resources:\n%s\n\nPress q to return", m.state.Resources.Error)
-        return m.renderFullHeightContent(errorContent, contentWidth, contentHeight, containerWidth)
-    }
+	if m.state.Resources.Error != "" {
+		errorContent := fmt.Sprintf("Error loading resources:\n%s\n\nPress q to return", m.state.Resources.Error)
+		return m.renderFullHeightContent(errorContent, contentWidth, contentHeight, containerWidth)
+	}
 
-    if m.state.Resources.Loading {
-        loadingContent := fmt.Sprintf("Loading resources for %s...\n\nPress q to return", m.state.Resources.AppName)
-        return m.renderFullHeightContent(loadingContent, contentWidth, contentHeight, containerWidth)
-    }
+	if m.state.Resources.Loading {
+		loadingContent := fmt.Sprintf("Loading resources for %s...\n\nPress q to return", m.state.Resources.AppName)
+		return m.renderFullHeightContent(loadingContent, contentWidth, contentHeight, containerWidth)
+	}
 
-    resources := m.state.Resources.Resources
-    if len(resources) == 0 {
-        // Create single bordered box (no double border) with app name highlighted
-        resourcesStyle := lipgloss.NewStyle().
-            Border(lipgloss.RoundedBorder()).
-            BorderForeground(magentaBright).
-            Width(contentWidth).
-            Height(contentHeight).
-            AlignVertical(lipgloss.Top).
-            PaddingLeft(1).
-            PaddingRight(1)
-        
-        // Highlight the app name in cyan
-        appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-        highlightedAppName := appNameStyle.Render(m.state.Resources.AppName)
-        
-        emptyContent := fmt.Sprintf("No resources found for application: %s\n\nPress q to return", highlightedAppName)
-        return resourcesStyle.Render(emptyContent)
-    }
+	resources := m.state.Resources.Resources
+	if len(resources) == 0 {
+		// Create single bordered box (no double border) with app name highlighted
+		resourcesStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(magentaBright).
+			Width(contentWidth).
+			Height(contentHeight).
+			AlignVertical(lipgloss.Top).
+			PaddingLeft(1).
+			PaddingRight(1)
 
-    // Calculate content dimensions matching main layout pattern
-    // Container uses Cols-2, so content inside must be more conservative to prevent overflow
-    boxContentWidth := max(0, m.state.Terminal.Cols-8) // More padding to prevent overflow
-    // Use the more conservative boxContentWidth for table content
-    tableContentWidth := boxContentWidth
-    // Leave one line for the table header
-    tableHeight := max(3, availableRows-1)
+		// Highlight the app name in cyan
+		appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+		highlightedAppName := appNameStyle.Render(m.state.Resources.AppName)
 
-    // Column widths calculation is now handled by calculateResourceColumnWidths
-    // Remove unused leftWidth variable since we're using proper column widths
+		emptyContent := fmt.Sprintf("No resources found for application: %s\n\nPress q to return", highlightedAppName)
+		return resourcesStyle.Render(emptyContent)
+	}
 
-    // Determine viewport based on Offset
-    total := len(resources)
-    cursor := m.state.Resources.Offset
-    if cursor < 0 {
-        cursor = 0
-    }
-    if cursor >= total {
-        cursor = max(0, total-1)
-    }
-    visibleRows := max(0, tableHeight)
-    start := cursor - visibleRows/2
-    if start < 0 {
-        start = 0
-    }
-    if start > max(0, total-visibleRows) {
-        start = max(0, total-visibleRows)
-    }
-    end := min(total, start+visibleRows)
+	// Calculate content dimensions matching main layout pattern
+	// Container uses Cols-2, so content inside must be more conservative to prevent overflow
+	boxContentWidth := max(0, m.state.Terminal.Cols-8) // More padding to prevent overflow
+	// Use the more conservative boxContentWidth for table content
+	tableContentWidth := boxContentWidth
+	// Leave one line for the table header
+	tableHeight := max(3, availableRows-1)
 
-    // Calculate proper column widths for a single-line table format
-    kindWidth, nameWidth, statusWidthCalc := calculateResourceColumnWidths(tableContentWidth)
-    
-    // Build single-line header with proper column alignment
-    kindHeader := padRight(headerStyle.Render("KIND"), kindWidth)
-    nameHeader := padRight(headerStyle.Render("NAME"), nameWidth)  
-    statusHeader := padRight(headerStyle.Render("STATUS"), statusWidthCalc)
-    headerLine := fmt.Sprintf("%s %s %s", kindHeader, nameHeader, statusHeader)
-    headerLine = clipAnsiToWidth(headerLine, tableContentWidth)
+	// Column widths calculation is now handled by calculateResourceColumnWidths
+	// Remove unused leftWidth variable since we're using proper column widths
 
-    // Build rows
-    var b strings.Builder
-    b.WriteString(headerLine)
-    b.WriteString("\n")
+	// Determine viewport based on Offset
+	total := len(resources)
+	cursor := m.state.Resources.Offset
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor >= total {
+		cursor = max(0, total-1)
+	}
+	visibleRows := max(0, tableHeight)
+	start := cursor - visibleRows/2
+	if start < 0 {
+		start = 0
+	}
+	if start > max(0, total-visibleRows) {
+		start = max(0, total-visibleRows)
+	}
+	end := min(total, start+visibleRows)
 
-    for i := start; i < end; i++ {
-        r := resources[i]
-        name := r.Name
-        if r.Namespace != nil && *r.Namespace != "" {
-            name = fmt.Sprintf("%s.%s", *r.Namespace, r.Name)
-        }
+	// Calculate proper column widths for a single-line table format
+	kindWidth, nameWidth, statusWidthCalc := calculateResourceColumnWidths(tableContentWidth)
 
-        healthStatus := "Unknown"
-        if r.Health != nil && r.Health.Status != nil {
-            healthStatus = *r.Health.Status
-        }
+	// Build single-line header with proper column alignment
+	kindHeader := padRight(headerStyle.Render("KIND"), kindWidth)
+	nameHeader := padRight(headerStyle.Render("NAME"), nameWidth)
+	statusHeader := padRight(headerStyle.Render("STATUS"), statusWidthCalc)
+	headerLine := fmt.Sprintf("%s %s %s", kindHeader, nameHeader, statusHeader)
+	headerLine = clipAnsiToWidth(headerLine, tableContentWidth)
 
-        // Single-line row: kind + name + status in proper columns
-        kindText := truncateWithEllipsis(r.Kind, kindWidth)
-        nameText := truncateWithEllipsis(name, nameWidth)
-        statusText := fmt.Sprintf("%s %s", m.getHealthIcon(healthStatus), healthStatus)
-        statusText = truncateWithEllipsis(statusText, statusWidthCalc)
-        
-        // Build the row with proper column alignment
-        kindCell := padRight(kindText, kindWidth)
-        nameCell := padRight(nameText, nameWidth)
-        statusCell := m.getColorForStatus(healthStatus).Render(padRight(statusText, statusWidthCalc))
-        
-        rowLine := fmt.Sprintf("%s %s %s", kindCell, nameCell, statusCell)
-        rowLine = clipAnsiToWidth(rowLine, tableContentWidth)
-        
-        if i == cursor {
-            rowLine = selectedStyle.Render(rowLine)
-        }
+	// Build rows
+	var b strings.Builder
+	b.WriteString(headerLine)
+	b.WriteString("\n")
 
-        b.WriteString(rowLine)
-        if i < end-1 {
-            b.WriteString("\n")
-        }
-    }
+	for i := start; i < end; i++ {
+		r := resources[i]
+		name := r.Name
+		if r.Namespace != nil && *r.Namespace != "" {
+			name = fmt.Sprintf("%s.%s", *r.Namespace, r.Name)
+		}
 
-    // Pad remaining lines to keep fixed height (1 line per item)
-    // Only pad if we have space - don't exceed available rows
-    usedLines := (end - start) + 1 // +1 for header line
-    if usedLines < visibleRows && usedLines < availableRows-4 { // Reserve space for title and footer
-        for pad := usedLines; pad < min(visibleRows, availableRows-4); pad++ {
-            b.WriteString("\n")
-        }
-    }
+		healthStatus := "Unknown"
+		if r.Health != nil && r.Health.Status != nil {
+			healthStatus = *r.Health.Status
+		}
 
-    // Footer
-    visibleStart := start + 1
-    visibleEnd := end
-    footerText := fmt.Sprintf(
-        "Showing %d-%d of %d resources • j/k to scroll • g/G jump • q to return",
-        visibleStart, visibleEnd, total,
-    )
+		// Single-line row: kind + name + status in proper columns
+		kindText := truncateWithEllipsis(r.Kind, kindWidth)
+		nameText := truncateWithEllipsis(name, nameWidth)
+		statusText := fmt.Sprintf("%s %s", m.getHealthIcon(healthStatus), healthStatus)
+		statusText = truncateWithEllipsis(statusText, statusWidthCalc)
 
-    // Compose content; clip each section to inner content width
-    var content strings.Builder
-    title := fmt.Sprintf("Resources for %s", m.state.Resources.AppName)
-    titleLine := clipAnsiToWidth(headerStyle.Render(title), tableContentWidth)
-    tableBody := b.String()
-    footerLine := clipAnsiToWidth(statusStyle.Render(footerText), tableContentWidth)
+		// Build the row with proper column alignment
+		kindCell := padRight(kindText, kindWidth)
+		nameCell := padRight(nameText, nameWidth)
+		statusCell := m.getColorForStatus(healthStatus).Render(padRight(statusText, statusWidthCalc))
 
-    content.WriteString(titleLine)
-    content.WriteString("\n\n")
-    content.WriteString(normalizeLinesToWidth(tableBody, tableContentWidth))
-    content.WriteString("\n")
-    content.WriteString(footerLine)
+		rowLine := fmt.Sprintf("%s %s %s", kindCell, nameCell, statusCell)
+		rowLine = clipAnsiToWidth(rowLine, tableContentWidth)
 
-    // Fix border width to full container width so the box fills the row
-    // container width = cols - main container padding (2)
-    tableContainerWidth := max(0, m.state.Terminal.Cols-2)
-    normalized := normalizeLinesToWidth(content.String(), tableContentWidth)
-    return contentBorderStyle.Width(tableContainerWidth).Render(normalized)
+		if i == cursor {
+			rowLine = selectedStyle.Render(rowLine)
+		}
+
+		b.WriteString(rowLine)
+		if i < end-1 {
+			b.WriteString("\n")
+		}
+	}
+
+	// Pad remaining lines to keep fixed height (1 line per item)
+	// Only pad if we have space - don't exceed available rows
+	usedLines := (end - start) + 1                              // +1 for header line
+	if usedLines < visibleRows && usedLines < availableRows-4 { // Reserve space for title and footer
+		for pad := usedLines; pad < min(visibleRows, availableRows-4); pad++ {
+			b.WriteString("\n")
+		}
+	}
+
+	// Footer
+	visibleStart := start + 1
+	visibleEnd := end
+	footerText := fmt.Sprintf(
+		"Showing %d-%d of %d resources • j/k to scroll • g/G jump • q to return",
+		visibleStart, visibleEnd, total,
+	)
+
+	// Compose content; clip each section to inner content width
+	var content strings.Builder
+	title := fmt.Sprintf("Resources for %s", m.state.Resources.AppName)
+	titleLine := clipAnsiToWidth(headerStyle.Render(title), tableContentWidth)
+	tableBody := b.String()
+	footerLine := clipAnsiToWidth(statusStyle.Render(footerText), tableContentWidth)
+
+	content.WriteString(titleLine)
+	content.WriteString("\n\n")
+	content.WriteString(normalizeLinesToWidth(tableBody, tableContentWidth))
+	content.WriteString("\n")
+	content.WriteString(footerLine)
+
+	// Fix border width to full container width so the box fills the row
+	// container width = cols - main container padding (2)
+	tableContainerWidth := max(0, m.state.Terminal.Cols-2)
+	normalized := normalizeLinesToWidth(content.String(), tableContentWidth)
+	return contentBorderStyle.Width(tableContainerWidth).Render(normalized)
 }
 
 // renderDiffView - simple pager for diff content
@@ -1485,7 +1485,7 @@ func (m Model) renderDiffView() string {
 	status := statusStyle.Render(fmt.Sprintf("%d-%d/%d  j/k, g/G, / search, esc/q back", start+1, end, len(lines)))
 
 	// Width should account for main container padding (2) and content border padding (2)
-    contentWidth := max(0, m.state.Terminal.Cols-4)
+	contentWidth := max(0, m.state.Terminal.Cols-4)
 
 	// Don't set a fixed height on the content border - let it size naturally
 	content := contentBorderStyle.Width(contentWidth).Render(body)
@@ -1593,140 +1593,208 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 
 // calculateColumnWidths returns responsive column widths based on available space
 func calculateColumnWidths(availableWidth int) (nameWidth, syncWidth, healthWidth int) {
-    // Account for separators between the 3 columns (2 separators, 1 char each)
-    const sep = 2
+	// Account for separators between the 3 columns (2 separators, 1 char each)
+	const sep = 2
 
-    if availableWidth < 45 {
-        // Very narrow: minimal widths (icons only)
-        syncWidth = 2   // Just icon
-        healthWidth = 2 // Just icon
-        nameWidth = max(8, availableWidth-syncWidth-healthWidth-sep)
-    } else {
-        // Wide: full widths
-        syncWidth = 12   // SYNC column
-        healthWidth = 15 // HEALTH column
-        nameWidth = max(10, availableWidth-syncWidth-healthWidth-sep)
-    }
+	if availableWidth < 45 {
+		// Very narrow: minimal widths (icons only)
+		syncWidth = 2   // Just icon
+		healthWidth = 2 // Just icon
+		nameWidth = max(8, availableWidth-syncWidth-healthWidth-sep)
+	} else {
+		// Wide: full widths
+		syncWidth = 12   // SYNC column
+		healthWidth = 15 // HEALTH column
+		nameWidth = max(10, availableWidth-syncWidth-healthWidth-sep)
+	}
 
-    // Make sure columns exactly fill the available width including separators
-    totalUsed := nameWidth + syncWidth + healthWidth + sep
-    if totalUsed < availableWidth {
-        nameWidth += (availableWidth - totalUsed)
-    } else if totalUsed > availableWidth {
-        overflow := totalUsed - availableWidth
-        nameWidth = max(1, nameWidth-overflow)
-    }
+	// Make sure columns exactly fill the available width including separators
+	totalUsed := nameWidth + syncWidth + healthWidth + sep
+	if totalUsed < availableWidth {
+		nameWidth += (availableWidth - totalUsed)
+	} else if totalUsed > availableWidth {
+		overflow := totalUsed - availableWidth
+		nameWidth = max(1, nameWidth-overflow)
+	}
 
-    return nameWidth, syncWidth, healthWidth
+	return nameWidth, syncWidth, healthWidth
 }
 
 // calculateResourceColumnWidths returns responsive column widths for resources table
 func calculateResourceColumnWidths(availableWidth int) (kindWidth, nameWidth, statusWidth int) {
-    // Account for separators between the 3 columns (2 separators, 1 char each)
-    const sep = 2
+	// Account for separators between the 3 columns (2 separators, 1 char each)
+	const sep = 2
 
-    switch {
-    case availableWidth <= 0:
-        return 0, 0, 0
-    case availableWidth < 30:
-        // Ultra-narrow: icon-only status, tiny kind
-        kindWidth = 6
-        statusWidth = 2
-        nameWidth = max(10, availableWidth-kindWidth-statusWidth-sep)
-    case availableWidth < 45:
-        // Narrow: minimized columns
-        kindWidth = 8
-        statusWidth = 6
-        nameWidth = max(12, availableWidth-kindWidth-statusWidth-sep)
-    default:
-        // Wide: full widths
-        kindWidth = 20
-        statusWidth = 15
-        nameWidth = max(15, availableWidth-kindWidth-statusWidth-sep)
-    }
+	switch {
+	case availableWidth <= 0:
+		return 0, 0, 0
+	case availableWidth < 30:
+		// Ultra-narrow: icon-only status, tiny kind
+		kindWidth = 6
+		statusWidth = 2
+		nameWidth = max(10, availableWidth-kindWidth-statusWidth-sep)
+	case availableWidth < 45:
+		// Narrow: minimized columns
+		kindWidth = 8
+		statusWidth = 6
+		nameWidth = max(12, availableWidth-kindWidth-statusWidth-sep)
+	default:
+		// Wide: full widths
+		kindWidth = 20
+		statusWidth = 15
+		nameWidth = max(15, availableWidth-kindWidth-statusWidth-sep)
+	}
 
-    // Ensure exact fit including separators
-    totalUsed := kindWidth + nameWidth + statusWidth + sep
-    if totalUsed < availableWidth {
-        nameWidth += (availableWidth - totalUsed)
-    } else if totalUsed > availableWidth {
-        overflow := totalUsed - availableWidth
-        // Take overflow from name first, then kind if needed
-        if nameWidth > overflow {
-            nameWidth -= overflow
-        } else {
-            overflow -= nameWidth
-            nameWidth = 1
-            if kindWidth > overflow {
-                kindWidth -= overflow
-            } else {
-                kindWidth = max(1, kindWidth-overflow)
-            }
-        }
-    }
+	// Ensure exact fit including separators
+	totalUsed := kindWidth + nameWidth + statusWidth + sep
+	if totalUsed < availableWidth {
+		nameWidth += (availableWidth - totalUsed)
+	} else if totalUsed > availableWidth {
+		overflow := totalUsed - availableWidth
+		// Take overflow from name first, then kind if needed
+		if nameWidth > overflow {
+			nameWidth -= overflow
+		} else {
+			overflow -= nameWidth
+			nameWidth = 1
+			if kindWidth > overflow {
+				kindWidth -= overflow
+			} else {
+				kindWidth = max(1, kindWidth-overflow)
+			}
+		}
+	}
 
-    return kindWidth, nameWidth, statusWidth
+	return kindWidth, nameWidth, statusWidth
 }
 
 // renderLogsView renders the logs view with full-height layout
 func (m Model) renderLogsView() string {
-    // Calculate dimensions for consistent full-height layout
-    containerWidth := max(0, m.state.Terminal.Cols-2)
-    contentWidth := max(0, containerWidth-4) // Account for border and padding
-    contentHeight := max(10, m.state.Terminal.Rows-6) // Reserve space for header/footer
+	// Calculate dimensions for consistent full-height layout
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4)          // Account for border and padding
+	contentHeight := max(10, m.state.Terminal.Rows-6) // Reserve space for header/footer
 
-    // Read actual log file content
-    logContent := m.readLogContent()
-    
-    // Create single bordered box (no double border)
-    logStyle := lipgloss.NewStyle().
-        Border(lipgloss.RoundedBorder()).
-        BorderForeground(magentaBright).
-        Width(contentWidth).
-        Height(contentHeight).
-        AlignVertical(lipgloss.Top). // Align to top for log content
-        PaddingLeft(1).
-        PaddingRight(1)
+	// Read actual log file content
+	logContent := m.readLogContent()
 
-    return logStyle.Render(logContent)
+	// Create single bordered box (no double border)
+	logStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(magentaBright).
+		Width(contentWidth).
+		Height(contentHeight).
+		AlignVertical(lipgloss.Top). // Align to top for log content
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	return logStyle.Render(logContent)
 }
 
 // readLogContent reads the actual log file content
 func (m Model) readLogContent() string {
-    // Try to read the log file that we write to in main.go
-    logFile := "logs/a9s.log"
-    content, err := os.ReadFile(logFile)
-    if err != nil {
-        return fmt.Sprintf("ArgoCD Application Logs\n\nError reading log file: %v\n\nPress q to return to main view.", err)
-    }
-    
-    // Convert to string and add instructions
-    logText := string(content)
-    if logText == "" {
-        return "ArgoCD Application Logs\n\nNo log entries found.\n\nPress q to return to main view."
-    }
-    
-    // Add header and instructions
-    header := "ArgoCD Application Logs\n\nPress q to return to main view.\n\n"
-    return header + "--- Log Content ---\n\n" + logText
+	// Try to read the log file that we write to in main.go
+	logFile := "logs/a9s.log"
+	content, err := os.ReadFile(logFile)
+	if err != nil {
+		return fmt.Sprintf("ArgoCD Application Logs\n\nError reading log file: %v\n\nPress q to return to main view.", err)
+	}
+
+	// Convert to string and add instructions
+	logText := string(content)
+	if logText == "" {
+		return "ArgoCD Application Logs\n\nNo log entries found.\n\nPress q to return to main view."
+	}
+
+	// Add header and instructions
+	header := "ArgoCD Application Logs\n\nPress q to return to main view.\n\n"
+	return header + "--- Log Content ---\n\n" + logText
 }
 
 // renderFullHeightContent renders content with consistent full-height layout
 func (m Model) renderFullHeightContent(content string, contentWidth, contentHeight, containerWidth int) string {
-    // Create a full-height bordered box with vertically centered content
-    fullHeightStyle := lipgloss.NewStyle().
-        Border(lipgloss.RoundedBorder()).
-        BorderForeground(magentaBright).
-        Width(contentWidth).
-        Height(contentHeight).
-        AlignVertical(lipgloss.Center).
-        AlignHorizontal(lipgloss.Center).
-        PaddingLeft(1).
-        PaddingRight(1)
+	// Create a full-height bordered box with vertically centered content
+	fullHeightStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(magentaBright).
+		Width(contentWidth).
+		Height(contentHeight).
+		AlignVertical(lipgloss.Center).
+		AlignHorizontal(lipgloss.Center).
+		PaddingLeft(1).
+		PaddingRight(1)
 
-    styledContent := fullHeightStyle.Render(content)
-    
-    // Apply container width for consistency with other views
-    return contentBorderStyle.Width(containerWidth).Render(styledContent)
+	styledContent := fullHeightStyle.Render(content)
+
+	// Apply container width for consistency with other views
+	return contentBorderStyle.Width(containerWidth).Render(styledContent)
 }
 
+// renderErrorView displays API errors in a user-friendly format
+func (m Model) renderErrorView() string {
+	var sections []string
+
+	// ArgoNaut Banner
+	sections = append(sections, m.renderBanner())
+
+	// Error content
+	errorContent := ""
+	if m.state.CurrentError != nil {
+		err := m.state.CurrentError
+
+		// Title with error type styling
+		titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+		errorContent += titleStyle.Render("API Error") + "\n\n"
+
+		// Status code (if available)
+		if err.StatusCode > 0 {
+			codeStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+			errorContent += fmt.Sprintf("Status Code: %s\n", codeStyle.Render(fmt.Sprintf("%d", err.StatusCode)))
+		}
+
+		// Error code (if available)
+		if err.ErrorCode > 0 {
+			codeStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+			errorContent += fmt.Sprintf("Error Code: %s\n", codeStyle.Render(fmt.Sprintf("%d", err.ErrorCode)))
+		}
+
+		// Main error message
+		messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+		errorContent += fmt.Sprintf("\nMessage:\n%s\n", messageStyle.Render(err.Message))
+
+		// Additional details (if available)
+		if err.Details != "" {
+			detailStyle := lipgloss.NewStyle().Foreground(unknownColor)
+			errorContent += fmt.Sprintf("\nDetails:\n%s\n", detailStyle.Render(err.Details))
+		}
+
+		// Timestamp
+		timeStyle := lipgloss.NewStyle().Foreground(unknownColor)
+		timeStr := time.Unix(err.Timestamp, 0).Format("2006-01-02 15:04:05")
+		errorContent += fmt.Sprintf("\nTime: %s\n", timeStyle.Render(timeStr))
+	} else {
+		// Fallback error message
+		errorContent = "An unknown error occurred."
+	}
+
+	// Instructions
+	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	errorContent += fmt.Sprintf("\n%s", instructStyle.Render("Press Esc to return to main view"))
+
+	// Apply consistent styling
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4)
+
+	errorStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Width(contentWidth).
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	sections = append(sections, errorStyle.Render(errorContent))
+
+	content := strings.Join(sections, "\n")
+	totalHeight := m.state.Terminal.Rows - 1
+	return mainContainerStyle.Height(totalHeight).Render(content)
+}

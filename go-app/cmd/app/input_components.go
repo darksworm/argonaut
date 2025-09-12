@@ -117,9 +117,8 @@ func (m Model) renderEnhancedSearchBar() string {
 	// Compute widths to make input fill the full row (no trailing help text)
 	totalWidth := m.state.Terminal.Cols
 	// style.Width() sets the content width; border(2) + padding(2) are added on top.
-	// Main container adds 1 space padding on both sides, so available inner width = totalWidth-2.
-	// Therefore, to fit exactly, content width must be (totalWidth-2) - (border+padding)= totalWidth-6.
-	styleWidth := maxInt(0, totalWidth-6)
+	// Therefore, to fit exactly, content width must be totalWidth - (border+padding)= totalWidth-4.
+	styleWidth := maxInt(0, totalWidth-4)
 	innerWidth := styleWidth
 
 	// Allocate remaining width to the input field
@@ -308,7 +307,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 						}
 					}
 				} else {
-					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for rollback"} }
+					return m, func() tea.Msg {
+						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for rollback"}
+					}
 				}
 			}
 			if target == "" {
@@ -329,7 +330,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 						}
 					}
 				} else {
-					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"} }
+					return m, func() tea.Msg {
+						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
+					}
 				}
 			}
 			if target == "" {
@@ -337,7 +340,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 			// Save current navigation state before entering resources view
 			m.state.SaveNavigationState()
-			
+
 			m.state.Modals.SyncViewApp = &target
 			m.state.Mode = model.ModeResources
 
@@ -375,7 +378,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 						}
 					}
 				} else {
-					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"} }
+					return m, func() tea.Msg {
+						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"}
+					}
 				}
 			}
 			if target == "" {

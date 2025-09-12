@@ -113,6 +113,17 @@ type AppState struct {
     // Store previous navigation state for restoration
     SavedNavigation *NavigationState `json:"savedNavigation,omitempty"`
     SavedSelections *SelectionState  `json:"savedSelections,omitempty"`
+    // Store current error information for error screen display
+    CurrentError    *ApiError        `json:"currentError,omitempty"`
+}
+
+// ApiError holds structured error information for display
+type ApiError struct {
+    Message    string `json:"message"`
+    StatusCode int    `json:"statusCode,omitempty"`
+    ErrorCode  int    `json:"errorCode,omitempty"`
+    Details    string `json:"details,omitempty"`
+    Timestamp  int64  `json:"timestamp"`
 }
 
 // DiffState holds state for the diff pager view

@@ -476,6 +476,18 @@ func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleErrorModeKeys handles input when in error mode
+func (m Model) handleErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		// Clear error state and return to normal mode
+		m.state.CurrentError = nil
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+	return m, nil
+}
+
 // Helper function to get visible items for current view
 func (m Model) getVisibleItemsForCurrentView() []interface{} {
 	// Delegate to shared computation used by the view

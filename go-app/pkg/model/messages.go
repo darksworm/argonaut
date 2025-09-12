@@ -174,7 +174,10 @@ type AuthErrorMsg struct {
 
 // ApiErrorMsg is sent when there's an API error
 type ApiErrorMsg struct {
-	Message string
+	Message    string
+	StatusCode int    `json:"statusCode,omitempty"` // HTTP status code if available
+	ErrorCode  int    `json:"errorCode,omitempty"`  // API error code if available
+	Details    string `json:"details,omitempty"`    // Additional error details
 }
 
 // StatusChangeMsg is sent when status changes

@@ -336,9 +336,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Old spinner TickMsg removed - now using bubbles spinner
 
 	case model.ApiErrorMsg:
-		// Log error to file and store in model for display
-		m.statusService.Error(msg.Message)
-		m.err = fmt.Errorf(msg.Message)
+		// Log error to file and store structured error in state for display
+		fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
+		if msg.StatusCode > 0 {
+			fullErrorMsg = fmt.Sprintf("API Error (%d): %s", msg.StatusCode, msg.Message)
+		}
+		m.statusService.Error(fullErrorMsg)
+		
+		// Store structured error information in state
+		m.state.CurrentError = &model.ApiError{
+			Message:    msg.Message,
+			StatusCode: msg.StatusCode,
+			ErrorCode:  msg.ErrorCode,
+			Details:    msg.Details,
+			Timestamp:  time.Now().Unix(),
+		}
+		
 		return m, func() tea.Msg {
 			return model.SetModeMsg{Mode: model.ModeError}
 		}
@@ -436,6 +449,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleLogsModeKeys(msg)
 	case model.ModeAuthRequired:
 		return m.handleAuthRequiredModeKeys(msg)
+	case model.ModeError:
+		return m.handleErrorModeKeys(msg)
 	}
 
 	// Global key handling for normal mode
@@ -578,5 +593,6 @@ func convertApiToModelResourceNode(apiNode api.ResourceNode) model.ResourceNode 
 		NetworkingInfo: networkingInfo,
 	}
 }
+
 
 // Duplicate sync functions removed - using existing ones from api_integration.go
