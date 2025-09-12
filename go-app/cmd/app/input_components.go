@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/a9s/go-app/pkg/model"
@@ -116,10 +117,10 @@ func (m Model) renderEnhancedSearchBar() string {
 	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
 
 	// Compute widths to make input fill the full row (no trailing help text)
-    totalWidth := m.state.Terminal.Cols
-    // main container adds 1 space padding on each side, and this box has
-    // border(2) + padding(2). Content width must be total - (2+2+2) = total-6
-    styleWidth := maxInt(0, totalWidth-6)
+	totalWidth := m.state.Terminal.Cols
+	// main container adds 1 space padding on each side, and this box has
+	// border(2) + padding(2). Content width must be total - (2+2+2) = total-6
+	styleWidth := maxInt(0, totalWidth-6)
 	innerWidth := styleWidth
 
 	// Allocate remaining width to the input field
@@ -155,9 +156,9 @@ func (m Model) renderEnhancedCommandBar() string {
 	// Removed colon prefix from command prompt
 
 	// Compute widths for full-row input (no trailing help text)
-    totalWidth := m.state.Terminal.Cols
-    // Same full-row rule as search bar: content width = cols - 6
-    styleWidth := maxInt(0, totalWidth-6)
+	totalWidth := m.state.Terminal.Cols
+	// Same full-row rule as search bar: content width = cols - 6
+	styleWidth := maxInt(0, totalWidth-6)
 	innerWidth := styleWidth
 	baseUsed := lipgloss.Width(cmdLabel) + 1 /*space*/
 	minInput := 5
@@ -290,15 +291,15 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.state.UI.SearchQuery = ""
 
 		switch cmd {
-        case "logs":
-            // Open logs in external pager (oviewer)
-            data, err := os.ReadFile("logs/a9s.log")
-            if err != nil {
-                return m, func() tea.Msg { return model.ApiErrorMsg{Message: "No logs available"} }
-            }
-            title := "Logs"
-            body := string(data)
-            return m, m.openTextPager(title, body)
+		case "logs":
+			// Open logs in external pager (oviewer)
+			data, err := os.ReadFile("logs/a9s.log")
+			if err != nil {
+				return m, func() tea.Msg { return model.ApiErrorMsg{Message: "No logs available"} }
+			}
+			title := "Logs"
+			body := string(data)
+			return m, m.openTextPager(title, body)
 		case "sync":
 			model, cmd := m.handleSyncModal()
 			return model, cmd
@@ -322,19 +323,19 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			if target == "" {
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for rollback"} }
 			}
-			
+
 			// Use the same rollback logic as the R key
 			log.Printf(":rollback command for app: %s", target)
 			m.state.Modals.RollbackAppName = &target
 			m.state.Mode = model.ModeRollback
-			
+
 			// Initialize rollback state with loading
 			m.state.Rollback = &model.RollbackState{
 				AppName: target,
 				Loading: true,
 				Mode:    "list",
 			}
-			
+
 			// Start loading rollback history using the same function as R key
 			return m, m.startRollbackSession(target)
 		case "resources":

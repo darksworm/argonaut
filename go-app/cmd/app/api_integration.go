@@ -149,9 +149,7 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
-		
-		
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
@@ -351,13 +349,13 @@ func isAuthenticationError(errMsg string) bool {
 
 // startLogsSession opens application logs in pager
 func (m Model) startLogsSession() tea.Cmd {
-    return tea.Cmd(func() tea.Msg {
-        data, err := os.ReadFile("logs/a9s.log")
-        if err != nil {
-            return model.ApiErrorMsg{Message: "No logs available"}
-        }
-        return m.openTextPager("Logs", string(data))()
-    })
+	return tea.Cmd(func() tea.Msg {
+		data, err := os.ReadFile("logs/a9s.log")
+		if err != nil {
+			return model.ApiErrorMsg{Message: "No logs available"}
+		}
+		return m.openTextPager("Logs", string(data))()
+	})
 }
 
 // startRollbackSession loads deployment history for rollback
@@ -387,7 +385,7 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 
 		// Convert history to rollback rows
 		rows := api.ConvertDeploymentHistoryToRollbackRows(app.Status.History)
-		
+
 		// Get current revision from sync status
 		currentRevision := ""
 		if app.Status.Sync.Revision != "" {
@@ -400,7 +398,7 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 
 		return model.RollbackHistoryLoadedMsg{
 			AppName:         appName,
-			Rows:           rows,
+			Rows:            rows,
 			CurrentRevision: currentRevision,
 		}
 	})
@@ -474,13 +472,12 @@ func (m Model) startRollbackDiffSession(appName string, revision string) tea.Cmd
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
-		
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
-		
+
 		// Get diff between current and target revision
 		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
 		if err != nil {
@@ -517,12 +514,12 @@ func (m Model) startRollbackDiffSession(appName string, revision string) tea.Cmd
 		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
 			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
 		}
-		
+
 		cleaned := stripDiffHeader(string(out))
 		if strings.TrimSpace(cleaned) == "" {
 			return model.StatusChangeMsg{Status: "No differences"}
 		}
-		
+
 		lines := strings.Split(cleaned, "\n")
 		m.state.Diff = &model.DiffState{
 			Title:   fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),

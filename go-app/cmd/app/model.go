@@ -1,20 +1,20 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"log"
+	"strings"
+	"time"
 
-    "github.com/a9s/go-app/pkg/api"
-    "github.com/a9s/go-app/pkg/model"
-    "github.com/a9s/go-app/pkg/services"
-    "github.com/noborus/ov/oviewer"
-    "github.com/charmbracelet/bubbles/v2/spinner"
-    "github.com/charmbracelet/bubbles/v2/table"
-    tea "github.com/charmbracelet/bubbletea/v2"
-    "github.com/charmbracelet/lipgloss/v2"
+	"github.com/a9s/go-app/pkg/api"
+	"github.com/a9s/go-app/pkg/model"
+	"github.com/a9s/go-app/pkg/services"
+	"github.com/charmbracelet/bubbles/v2/spinner"
+	"github.com/charmbracelet/bubbles/v2/table"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/noborus/ov/oviewer"
 )
 
 // Model represents the main Bubbletea model containing all application state
@@ -39,17 +39,17 @@ type Model struct {
 
 	// bubbles spinner for loading
 	spinner spinner.Model
-	
-	// bubbles tables for all views
-	resourcesTable table.Model
-	appsTable      table.Model
-	clustersTable  table.Model
-	namespacesTable table.Model
-    projectsTable  table.Model
 
-    // Bubble Tea program reference for terminal hand-off (pager integration)
-    program *tea.Program
-    inPager bool
+	// bubbles tables for all views
+	resourcesTable  table.Model
+	appsTable       table.Model
+	clustersTable   table.Model
+	namespacesTable table.Model
+	projectsTable   table.Model
+
+	// Bubble Tea program reference for terminal hand-off (pager integration)
+	program *tea.Program
+	inPager bool
 }
 
 // NewModel creates a new Model with default state and services
@@ -57,7 +57,7 @@ func NewModel() *Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	
+
 	// Create a function to get standard table styles
 	getTableStyle := func() table.Styles {
 		s := table.DefaultStyles()
@@ -86,7 +86,7 @@ func NewModel() *Model {
 	)
 	resourcesTable.SetStyles(getTableStyle())
 
-	// Initialize apps table  
+	// Initialize apps table
 	appsColumns := []table.Column{
 		{Title: "NAME", Width: 40},
 		{Title: "SYNC", Width: 12},
@@ -103,7 +103,7 @@ func NewModel() *Model {
 	simpleColumns := []table.Column{
 		{Title: "NAME", Width: 60},
 	}
-	
+
 	clustersTable := table.New(
 		table.WithColumns(simpleColumns),
 		table.WithFocused(true),
@@ -124,8 +124,8 @@ func NewModel() *Model {
 		table.WithHeight(10),
 	)
 	projectsTable.SetStyles(getTableStyle())
-	
-    return &Model{
+
+	return &Model{
 		state:             model.NewAppState(),
 		argoService:       services.NewArgoApiService(nil), // Will be configured when server is available
 		navigationService: services.NewNavigationService(),
@@ -133,27 +133,29 @@ func NewModel() *Model {
 			Handler:      createFileStatusHandler(), // Log to file instead of stdout
 			DebugEnabled: true,
 		}),
-		inputComponents:  NewInputComponents(),
-		ready:            false,
-		err:              nil,
-		spinner:          s,
-		resourcesTable:   resourcesTable,
-		appsTable:        appsTable,
-		clustersTable:    clustersTable,
-		namespacesTable:  namespacesTable,
-        projectsTable:    projectsTable,
-        program:          nil,
-        inPager:          false,
-    }
+		inputComponents: NewInputComponents(),
+		ready:           false,
+		err:             nil,
+		spinner:         s,
+		resourcesTable:  resourcesTable,
+		appsTable:       appsTable,
+		clustersTable:   clustersTable,
+		namespacesTable: namespacesTable,
+		projectsTable:   projectsTable,
+		program:         nil,
+		inPager:         false,
+	}
 }
 
 // SetProgram stores the Bubble Tea program pointer for terminal hand-off
 func (m *Model) SetProgram(p *tea.Program) {
-    m.program = p
+	m.program = p
 }
 
 // pagerDoneMsg signals that an external pager has closed
 type pagerDoneMsg struct{ Err error }
+type pauseRenderingMsg struct{}
+type resumeRenderingMsg struct{}
 
 // Init implements tea.Model.Init
 func (m Model) Init() tea.Cmd {
@@ -185,17 +187,17 @@ func (m Model) validateAuthentication() tea.Cmd {
 		// Validate user info (similar to TypeScript getUserInfo call)
 		if err := appService.GetUserInfo(ctx); err != nil {
 			log.Printf("Authentication validation failed: %v", err)
-			
+
 			// Check if this is a connection error rather than authentication error
 			errStr := err.Error()
 			if strings.Contains(errStr, "connection refused") ||
-			   strings.Contains(errStr, "no such host") ||
-			   strings.Contains(errStr, "network is unreachable") ||
-			   strings.Contains(errStr, "timeout") ||
-			   strings.Contains(errStr, "dial tcp") {
+				strings.Contains(errStr, "no such host") ||
+				strings.Contains(errStr, "network is unreachable") ||
+				strings.Contains(errStr, "timeout") ||
+				strings.Contains(errStr, "dial tcp") {
 				return model.SetModeMsg{Mode: model.ModeConnectionError}
 			}
-			
+
 			// Otherwise, it's likely an authentication issue
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
@@ -207,38 +209,40 @@ func (m Model) validateAuthentication() tea.Cmd {
 
 // openTextPager releases the terminal and runs an oviewer pager with the given text
 func (m Model) openTextPager(title, text string) tea.Cmd {
-    return func() tea.Msg {
-        if m.program != nil {
-            _ = m.program.ReleaseTerminal()
-        }
-        m.inPager = true
-        defer func() {
-            // Clear screen and restore terminal to Bubble Tea
-            fmt.Print("\x1b[2J\x1b[H")
-            time.Sleep(150 * time.Millisecond)
-            if m.program != nil {
-                _ = m.program.RestoreTerminal()
-            }
-        }()
+	return func() tea.Msg {
+		if m.program != nil {
+			m.program.Send(pauseRenderingMsg{})
+			_ = m.program.ReleaseTerminal()
+		}
+		defer func() {
+			// Clear screen and restore terminal to Bubble Tea
+			fmt.Print("\x1b[2J\x1b[H")
+			time.Sleep(150 * time.Millisecond)
+			if m.program != nil {
+				_ = m.program.RestoreTerminal()
+				m.program.Send(resumeRenderingMsg{})
+			}
+		}()
 
-        // Prepare pager root
-        r := strings.NewReader(text)
-        root, err := oviewer.NewRoot(r)
-        if err != nil {
-            return pagerDoneMsg{Err: err}
-        }
-        cfg := oviewer.NewConfig()
-        cfg.IsWriteOnExit = false
-        cfg.IsWriteOriginal = false
-        root.SetConfig(cfg)
-        root.Doc.Title = title
-        _ = root.Run()
-        return pagerDoneMsg{Err: nil}
-    }
+		// Prepare pager root
+		r := strings.NewReader(text)
+		root, err := oviewer.NewRoot(r)
+		if err != nil {
+			return pagerDoneMsg{Err: err}
+		}
+		cfg := oviewer.NewConfig()
+		cfg.IsWriteOnExit = false
+		cfg.IsWriteOriginal = false
+		root.SetConfig(cfg)
+		root.Doc.FileName = title
+		_ = root.Run()
+		return pagerDoneMsg{Err: nil}
+	}
 }
+
 // Update implements tea.Model.Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
+	switch msg := msg.(type) {
 
 	// Terminal/System messages
 	case tea.WindowSizeMsg:
@@ -254,16 +258,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
-	
-	// Spinner messages
-    case spinner.TickMsg:
-        if m.inPager {
-            // Suspend spinner updates while pager owns the terminal
-            return m, nil
-        }
-        var cmd tea.Cmd
-        m.spinner, cmd = m.spinner.Update(msg)
-        return m, cmd
+
+		// Spinner messages
+	case spinner.TickMsg:
+		if m.inPager {
+			// Suspend spinner updates while pager owns the terminal
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 
 	// Navigation messages
 	case model.SetViewMsg:
@@ -316,27 +320,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.APIVersion = msg.Version
 		return m, nil
 
-	// Mode messages
-    case model.SetModeMsg:
-        oldMode := m.state.Mode
-        m.state.Mode = msg.Mode
+		// Mode messages
+	case model.SetModeMsg:
+		oldMode := m.state.Mode
+		m.state.Mode = msg.Mode
 		// [MODE] Switching from %s to %s - removed printf to avoid TUI interference
 
 		// Handle mode transitions
-        if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
-            // Start loading applications from API
-            // [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
-            return m, m.startLoadingApplications()
-        }
+		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
+			// Start loading applications from API
+			// [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
+			return m, m.startLoadingApplications()
+		}
 
-        // If entering diff mode with content available, show in external pager
-        if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
-            title := m.state.Diff.Title
-            body := strings.Join(m.state.Diff.Content, "\n")
-            return m, m.openTextPager(title, body)
-        }
+		// If entering diff mode with content available, show in external pager
+		if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
+			title := m.state.Diff.Title
+			body := strings.Join(m.state.Diff.Content, "\n")
+			return m, m.openTextPager(title, body)
+		}
 
-        return m, nil
+		return m, nil
 
 	// Data messages
 	case model.SetAppsMsg:
@@ -385,15 +389,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.StatusChangeMsg:
 		// Now safe to log since we're using file logging
 		m.statusService.Set(msg.Status)
-		
+
 		// Clear diff loading state for diff-related status messages
 		if (msg.Status == "No diffs" || msg.Status == "No differences") && m.state.Diff != nil {
 			m.state.Diff.Loading = false
 		}
-		
+
 		return m, m.consumeWatchEvent()
 
-    case ResourcesLoadedMsg:
+	case ResourcesLoadedMsg:
 		log.Printf("Received ResourcesLoadedMsg for app: %s", msg.AppName)
 		if m.state.Resources != nil && m.state.Resources.AppName == msg.AppName {
 			if msg.Error != "" {
@@ -409,28 +413,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	// Old spinner TickMsg removed - now using bubbles spinner
+		// Old spinner TickMsg removed - now using bubbles spinner
 
-case model.ApiErrorMsg:
+	case model.ApiErrorMsg:
 		// Log error to file and store structured error in state for display
 		fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
 		if msg.StatusCode > 0 {
 			fullErrorMsg = fmt.Sprintf("API Error (%d): %s", msg.StatusCode, msg.Message)
 		}
 		m.statusService.Error(fullErrorMsg)
-		
-        // Clear any loading states that might be active
-        if m.state.Diff != nil {
-            m.state.Diff.Loading = false
-        }
-        if m.state.Modals.ConfirmSyncLoading {
-            m.state.Modals.ConfirmSyncLoading = false
-            m.state.Modals.ConfirmTarget = nil
-            if m.state.Mode == model.ModeConfirmSync {
-                m.state.Mode = model.ModeNormal
-            }
-        }
-		
+
+		// Clear any loading states that might be active
+		if m.state.Diff != nil {
+			m.state.Diff.Loading = false
+		}
+		if m.state.Modals.ConfirmSyncLoading {
+			m.state.Modals.ConfirmSyncLoading = false
+			m.state.Modals.ConfirmTarget = nil
+			if m.state.Mode == model.ModeConfirmSync {
+				m.state.Mode = model.ModeNormal
+			}
+		}
+
 		// Handle rollback-specific errors
 		if m.state.Mode == model.ModeRollback {
 			// If we're not in an active rollback execution (i.e., not loading), keep error in modal
@@ -453,7 +457,7 @@ case model.ApiErrorMsg:
 			}
 			// else: in active rollback execution, fall through to generic error screen below
 		}
-		
+
 		// Store structured error information in state
 		m.state.CurrentError = &model.ApiError{
 			Message:    msg.Message,
@@ -462,23 +466,29 @@ case model.ApiErrorMsg:
 			Details:    msg.Details,
 			Timestamp:  time.Now().Unix(),
 		}
-		
-        return m, func() tea.Msg {
-            return model.SetModeMsg{Mode: model.ModeError}
-        }
 
-    case pagerDoneMsg:
-        // Restore UI after pager exits
-        m.inPager = false
-        // After pager, default back to normal mode
-        m.state.Mode = model.ModeNormal
-        return m, nil
+		return m, func() tea.Msg {
+			return model.SetModeMsg{Mode: model.ModeError}
+		}
+
+	case pauseRenderingMsg:
+		m.inPager = true
+		return m, nil
+
+	case resumeRenderingMsg:
+		m.inPager = false
+		return m, nil
+
+	case pagerDoneMsg:
+		// After pager, default back to normal mode
+		m.state.Mode = model.ModeNormal
+		return m, nil
 
 	case model.AuthErrorMsg:
 		// Log error to file and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
-		
+
 		// Handle rollback-specific auth errors
 		if m.state.Mode == model.ModeRollback {
 			// Initialize rollback state with error if not exists
@@ -497,7 +507,7 @@ case model.ApiErrorMsg:
 			// Stay in rollback mode to show the error
 			return m, nil
 		}
-		
+
 		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeAuthRequired} })
 
 	// Navigation update messages
@@ -523,16 +533,16 @@ case model.ApiErrorMsg:
 		// m.ui.UpdateListItems(m.state)
 		return m, nil
 
-case model.SyncCompletedMsg:
+	case model.SyncCompletedMsg:
 		// Handle single app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
-			
+
 			// Show resource stream if watch is enabled (matching TypeScript behavior)
 			if m.state.Modals.ConfirmSyncWatch {
 				m.state.Modals.SyncViewApp = &msg.AppName
 				m.state.Mode = model.ModeResources
-				
+
 				// Initialize resource state and start loading
 				m.state.Resources = &model.ResourceState{
 					AppName:   msg.AppName,
@@ -541,34 +551,34 @@ case model.SyncCompletedMsg:
 					Error:     "",
 					Offset:    0,
 				}
-				
+
 				return m, m.loadResourcesForApp(msg.AppName)
 			}
 		} else {
 			m.statusService.Set("Sync cancelled")
 		}
-        // Close confirm modal/loading state if open
-        m.state.Modals.ConfirmTarget = nil
-        m.state.Modals.ConfirmSyncLoading = false
-        if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
-            m.state.Mode = model.ModeNormal
-        }
-        return m, nil
+		// Close confirm modal/loading state if open
+		m.state.Modals.ConfirmTarget = nil
+		m.state.Modals.ConfirmSyncLoading = false
+		if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
+			m.state.Mode = model.ModeNormal
+		}
+		return m, nil
 
-case model.MultiSyncCompletedMsg:
+	case model.MultiSyncCompletedMsg:
 		// Handle multiple app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
 			// Clear selections after multi-sync (matching TypeScript behavior)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 		}
-        // Close confirm modal/loading state if open
-        m.state.Modals.ConfirmTarget = nil
-        m.state.Modals.ConfirmSyncLoading = false
-        if m.state.Mode == model.ModeConfirmSync {
-            m.state.Mode = model.ModeNormal
-        }
-        return m, nil
+		// Close confirm modal/loading state if open
+		m.state.Modals.ConfirmTarget = nil
+		m.state.Modals.ConfirmSyncLoading = false
+		if m.state.Mode == model.ModeConfirmSync {
+			m.state.Mode = model.ModeNormal
+		}
+		return m, nil
 
 	// Rollback Messages
 	case model.RollbackHistoryLoadedMsg:
@@ -579,20 +589,20 @@ case model.MultiSyncCompletedMsg:
 			CurrentRevision: msg.CurrentRevision,
 			SelectedIdx:     0,
 			Loading:         false,
-			Mode:           "list",
-			Prune:          false,
-			Watch:          true,
-			DryRun:         false,
+			Mode:            "list",
+			Prune:           false,
+			Watch:           true,
+			DryRun:          false,
 		}
-		
-        // Start loading metadata for the first visible chunk (up to 10)
-        var cmds []tea.Cmd
-        preload := min(10, len(msg.Rows))
-        for i := 0; i < preload; i++ {
-            cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
-        }
-        
-        return m, tea.Batch(cmds...)
+
+		// Start loading metadata for the first visible chunk (up to 10)
+		var cmds []tea.Cmd
+		preload := min(10, len(msg.Rows))
+		for i := 0; i < preload; i++ {
+			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
+		}
+
+		return m, tea.Batch(cmds...)
 
 	case model.RollbackMetadataLoadedMsg:
 		// Update rollback row with loaded metadata
@@ -616,12 +626,12 @@ case model.MultiSyncCompletedMsg:
 		// Handle rollback completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Rollback initiated for %s", msg.AppName))
-			
+
 			// Clear rollback state and return to normal mode
 			m.state.Rollback = nil
 			m.state.Modals.RollbackAppName = nil
 			m.state.Mode = model.ModeNormal
-			
+
 			// Start watching resources if requested
 			if msg.Watch {
 				m.state.Modals.SyncViewApp = &msg.AppName
@@ -645,31 +655,31 @@ case model.MultiSyncCompletedMsg:
 						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
 					}
 				}
-        case "down":
-            if m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows)-1 {
-                m.state.Rollback.SelectedIdx++
-                // Load metadata for newly selected row if not loaded
-                row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-                var cmds []tea.Cmd
-                if row.Author == nil && row.MetaError == nil {
-                    cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision))
-                }
-                // Opportunistically preload the next two rows' metadata to reduce "loading" gaps
-                for j := 1; j <= 2; j++ {
-                    idx := m.state.Rollback.SelectedIdx + j
-                    if idx < len(m.state.Rollback.Rows) {
-                        r := m.state.Rollback.Rows[idx]
-                        if r.Author == nil && r.MetaError == nil {
-                            cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision))
-                        }
-                    }
-                }
-                return m, tea.Batch(cmds...)
-            }
-            case "top":
-                m.state.Rollback.SelectedIdx = 0
-            case "bottom":
-                m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+			case "down":
+				if m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows)-1 {
+					m.state.Rollback.SelectedIdx++
+					// Load metadata for newly selected row if not loaded
+					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+					var cmds []tea.Cmd
+					if row.Author == nil && row.MetaError == nil {
+						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision))
+					}
+					// Opportunistically preload the next two rows' metadata to reduce "loading" gaps
+					for j := 1; j <= 2; j++ {
+						idx := m.state.Rollback.SelectedIdx + j
+						if idx < len(m.state.Rollback.Rows) {
+							r := m.state.Rollback.Rows[idx]
+							if r.Author == nil && r.MetaError == nil {
+								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision))
+							}
+						}
+					}
+					return m, tea.Batch(cmds...)
+				}
+			case "top":
+				m.state.Rollback.SelectedIdx = 0
+			case "bottom":
+				m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
 			}
 		}
 		return m, nil
@@ -893,7 +903,6 @@ func convertApiToModelResourceNode(apiNode api.ResourceNode) model.ResourceNode 
 		NetworkingInfo: networkingInfo,
 	}
 }
-
 
 // Duplicate sync functions removed - using existing ones from api_integration.go
 
