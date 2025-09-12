@@ -260,7 +260,7 @@ func configureVimKeyBindings(cfg *oviewer.Config) {
 
 	// Jump to position
 	cfg.Keybind["top"] = append(cfg.Keybind["top"], "g")
-	cfg.Keybind["bottom"] = append(cfg.Keybind["bottom"], "shift+g")
+	cfg.Keybind["bottom"] = append(cfg.Keybind["bottom"], "G")
 
 	// Line navigation
 	cfg.Keybind["begin_left"] = append(cfg.Keybind["begin_left"], "0", "^")
