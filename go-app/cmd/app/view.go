@@ -1898,18 +1898,21 @@ func (m Model) renderConnectionErrorView() string {
 
 // renderDiffLoadingSpinner displays a centered loading spinner for diff operations
 func (m Model) renderDiffLoadingSpinner() string {
-	// Create spinner content with message
-	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
+	// Create eye-catching spinner content with message
+	spinnerContent := fmt.Sprintf("🔄 %s LOADING DIFF...", m.spinner.View())
 
-	// Style the spinner with a small bordered box and semi-transparent background
+	// Make it super attention-grabbing with bright colors and effects
 	spinnerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		Background(lipgloss.Color("0")). // Dark background
-		Foreground(whiteBright).
-		Padding(1, 2).
+		Border(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("196")). // Bright red border
+		Background(lipgloss.Color("21")).        // Bright blue background
+		Foreground(lipgloss.Color("226")).       // Bright yellow text
+		Padding(2, 4).                          // More padding for prominence
 		Bold(true).
-		Align(lipgloss.Center)
+		Blink(true).                            // Blinking effect
+		Align(lipgloss.Center).
+		Width(30).                              // Fixed width for consistency
+		Italic(true)                            // Add italic styling
 
 	return spinnerStyle.Render(spinnerContent)
 }
