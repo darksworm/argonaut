@@ -488,6 +488,20 @@ func (m Model) handleErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleConnectionErrorModeKeys handles input when in connection error mode
+func (m Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		// Exit application when there's no connection
+		return m, func() tea.Msg { return model.QuitMsg{} }
+	case "esc":
+		// Return to normal mode from connection error (for retry attempts)
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+	return m, nil
+}
+
 // Helper function to get visible items for current view
 func (m Model) getVisibleItemsForCurrentView() []interface{} {
 	// Delegate to shared computation used by the view

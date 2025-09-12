@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/a9s/go-app/pkg/api"
@@ -169,6 +170,18 @@ func (m Model) validateAuthentication() tea.Cmd {
 		// Validate user info (similar to TypeScript getUserInfo call)
 		if err := appService.GetUserInfo(ctx); err != nil {
 			log.Printf("Authentication validation failed: %v", err)
+			
+			// Check if this is a connection error rather than authentication error
+			errStr := err.Error()
+			if strings.Contains(errStr, "connection refused") ||
+			   strings.Contains(errStr, "no such host") ||
+			   strings.Contains(errStr, "network is unreachable") ||
+			   strings.Contains(errStr, "timeout") ||
+			   strings.Contains(errStr, "dial tcp") {
+				return model.SetModeMsg{Mode: model.ModeConnectionError}
+			}
+			
+			// Otherwise, it's likely an authentication issue
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
 
@@ -451,6 +464,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleAuthRequiredModeKeys(msg)
 	case model.ModeError:
 		return m.handleErrorModeKeys(msg)
+	case model.ModeConnectionError:
+		return m.handleConnectionErrorModeKeys(msg)
 	}
 
 	// Global key handling for normal mode

@@ -33,6 +33,7 @@ const (
 	ModeAuthRequired Mode = "auth-required"
 	ModeRulerLine    Mode = "rulerline"
 	ModeError        Mode = "error"
+	ModeConnectionError Mode = "connection-error"
 	ModeLogs         Mode = "logs"
 )
 

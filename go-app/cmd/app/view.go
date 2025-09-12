@@ -31,29 +31,29 @@ var (
 var (
 	// Main container style (matches MainLayout Box)
 	mainContainerStyle = lipgloss.NewStyle().
-				PaddingLeft(1).
-				PaddingRight(1)
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	// Border style for main content area (matches ListView container)
 	// Add inner padding for readability; width calculations account for it
 	contentBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(magentaBright).
-				PaddingLeft(1).
-				PaddingRight(1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(magentaBright).
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	// Header styles (matches ListView header)
 	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(yellowBright)
+		Bold(true).
+		Foreground(yellowBright)
 
 	// Selection highlight style (matches ListView active items)
 	selectedStyle = lipgloss.NewStyle().
-			Background(magentaBright)
+		Background(magentaBright)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().
-			Foreground(dimColor)
+		Foreground(dimColor)
 )
 
 // ASCII icons matching React ListView
@@ -93,6 +93,8 @@ func (m Model) View() string {
 		return m.renderLogsView()
 	case model.ModeError:
 		return m.renderErrorView()
+	case model.ModeConnectionError:
+		return m.renderConnectionErrorView()
 	default:
 		return m.renderMainLayout()
 	}
@@ -1285,7 +1287,7 @@ func (m Model) renderConfirmSyncModal() string {
 
 func (m Model) renderResourceStream(availableRows int) string {
 	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
+	containerWidth := max(0, m.state.Terminal.Cols-8)
 	contentWidth := max(0, containerWidth-4) // Account for border and padding
 	contentHeight := max(3, availableRows)
 
@@ -1325,7 +1327,7 @@ func (m Model) renderResourceStream(availableRows int) string {
 
 	// Calculate content dimensions matching main layout pattern
 	// Container uses Cols-2, so content inside must be more conservative to prevent overflow
-	boxContentWidth := max(0, m.state.Terminal.Cols-8) // More padding to prevent overflow
+	boxContentWidth := max(0, m.state.Terminal.Cols-10) // More padding to prevent overflow
 	// Use the more conservative boxContentWidth for table content
 	tableContentWidth := boxContentWidth
 	// Leave one line for the table header
@@ -1732,12 +1734,22 @@ func (m Model) renderFullHeightContent(content string, contentWidth, contentHeig
 
 // renderErrorView displays API errors in a user-friendly format
 func (m Model) renderErrorView() string {
-	var sections []string
+	// Calculate available space using the same pattern as other views
+	header := m.renderBanner()
+	headerLines := countLines(header)
 
-	// ArgoNaut Banner
-	sections = append(sections, m.renderBanner())
+	// Error view doesn't have search/command bars, so overhead is just banner + borders + status
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	overhead := BORDER_LINES + headerLines + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
-	// Error content
+	// Calculate dimensions for consistent full-height layout
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4) // Account for border and padding
+	contentHeight := max(3, availableRows)
+
+	// Build error content
 	errorContent := ""
 	if m.state.CurrentError != nil {
 		err := m.state.CurrentError
@@ -1781,18 +1793,82 @@ func (m Model) renderErrorView() string {
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
 	errorContent += fmt.Sprintf("\n%s", instructStyle.Render("Press Esc to return to main view"))
 
-	// Apply consistent styling
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4)
-
+	// Create a full-height bordered box directly to avoid double borders
 	errorStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
 		Width(contentWidth).
+		Height(contentHeight).
+		AlignVertical(lipgloss.Top).
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	sections = append(sections, errorStyle.Render(errorContent))
+	styledErrorContent := errorStyle.Render(errorContent)
+
+	// Combine with header
+	var sections []string
+	sections = append(sections, header)
+	sections = append(sections, styledErrorContent)
+
+	content := strings.Join(sections, "\n")
+	totalHeight := m.state.Terminal.Rows - 1
+	return mainContainerStyle.Height(totalHeight).Render(content)
+}
+
+// renderConnectionErrorView displays connection error in a user-friendly format
+func (m Model) renderConnectionErrorView() string {
+	// Calculate available space using the same pattern as other views
+	header := m.renderBanner()
+	headerLines := countLines(header)
+	
+	// Connection error view doesn't have search/command bars, so overhead is just banner + borders + status
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	overhead := BORDER_LINES + headerLines + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
+	
+	// Calculate dimensions for consistent full-height layout
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4) // Account for border and padding
+	contentHeight := max(3, availableRows)
+
+	// Build connection error content
+	errorContent := ""
+	
+	// Title with connection error styling
+	titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+	errorContent += titleStyle.Render("Connection Error") + "\n\n"
+
+	// Server info if available
+	if m.state.Server != nil {
+		serverStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+		errorContent += fmt.Sprintf("ArgoCD Server: %s\n\n", serverStyle.Render(m.state.Server.BaseURL))
+	}
+
+	// Main error message
+	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	errorContent += messageStyle.Render("Unable to connect to ArgoCD server.\n\nPlease check that:\n• ArgoCD server is running\n• Network connection is available\n• Server URL and port are correct") + "\n\n"
+
+	// Instructions
+	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	errorContent += instructStyle.Render("Press q to exit • Press Esc to retry")
+
+	// Create a full-height bordered box directly to avoid double borders
+	errorStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Width(contentWidth).
+		Height(contentHeight).
+		AlignVertical(lipgloss.Top).
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	styledErrorContent := errorStyle.Render(errorContent)
+
+	// Combine with header
+	var sections []string
+	sections = append(sections, header)
+	sections = append(sections, styledErrorContent)
 
 	content := strings.Join(sections, "\n")
 	totalHeight := m.state.Terminal.Rows - 1
