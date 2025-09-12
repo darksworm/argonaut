@@ -609,6 +609,37 @@ func desaturateANSI(s string) string {
     return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(plain)
 }
 
+// wrapAnsiToWidth wraps a string into visual lines that fit the given width (ANSI-aware)
+func wrapAnsiToWidth(s string, width int) []string {
+    if width <= 0 {
+        return []string{""}
+    }
+    // Fast path if it already fits
+    if lipgloss.Width(s) <= width {
+        return []string{s}
+    }
+    var lines []string
+    var b strings.Builder
+    for _, r := range s {
+        ch := string(r)
+        next := b.String() + ch
+        if lipgloss.Width(next) > width {
+            lines = append(lines, b.String())
+            b.Reset()
+            b.WriteString(ch)
+        } else {
+            b.WriteString(ch)
+        }
+    }
+    if b.Len() > 0 {
+        lines = append(lines, b.String())
+    }
+    if len(lines) == 0 {
+        lines = []string{""}
+    }
+    return lines
+}
+
 // renderAppRow - matches ListView app row rendering
 func (m Model) renderAppRow(app model.App, isCursor bool) string {
 	// Selection checking (matches ListView isChecked logic)
@@ -1707,25 +1738,40 @@ func calculateResourceColumnWidths(availableWidth int) (kindWidth, nameWidth, st
 
 // renderLogsView renders the logs view with full-height layout
 func (m Model) renderLogsView() string {
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4)          // Account for border and padding
-	contentHeight := max(10, m.state.Terminal.Rows-6) // Reserve space for header/footer
+    // Dimensions
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    contentWidth := max(0, containerWidth-4)
+    contentHeight := max(10, m.state.Terminal.Rows-6)
 
-	// Read actual log file content
-	logContent := m.readLogContent()
+    // Build wrapped log lines (header + file content), clipped to viewport using offset
+    wrapped := m.buildWrappedLogLines(contentWidth)
+    // Ensure diff state exists for offset bookkeeping
+    if m.state.Diff == nil {
+        m.state.Diff = &model.DiffState{Title: "Logs", Content: []string{}, Offset: 0}
+    }
+    // Clamp offset to available range
+    maxStart := max(0, len(wrapped)-contentHeight)
+    if m.state.Diff.Offset < 0 {
+        m.state.Diff.Offset = 0
+    }
+    if m.state.Diff.Offset > maxStart {
+        m.state.Diff.Offset = maxStart
+    }
+    start := m.state.Diff.Offset
+    end := min(len(wrapped), start+contentHeight)
+    body := strings.Join(wrapped[start:end], "\n")
 
-	// Create single bordered box (no double border)
-	logStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top). // Align to top for log content
-		PaddingLeft(1).
-		PaddingRight(1)
+    // Render in a fixed-height bordered box; body is already clipped to avoid overflow
+    logStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(magentaBright).
+        Width(contentWidth).
+        Height(contentHeight).
+        AlignVertical(lipgloss.Top).
+        PaddingLeft(1).
+        PaddingRight(1)
 
-	return logStyle.Render(logContent)
+    return logStyle.Render(body)
 }
 
 // readLogContent reads the actual log file content
@@ -1746,6 +1792,23 @@ func (m Model) readLogContent() string {
 	// Add header and instructions
 	header := "ArgoCD Application Logs\n\nPress q to return to main view.\n\n"
 	return header + "--- Log Content ---\n\n" + logText
+}
+
+// buildWrappedLogLines returns header + log content lines wrapped to contentWidth
+func (m Model) buildWrappedLogLines(contentWidth int) []string {
+    text := m.readLogContent()
+    // Split into logical lines, then wrap into visual lines
+    logical := strings.Split(text, "\n")
+    visual := make([]string, 0, len(logical))
+    for _, ln := range logical {
+        parts := wrapAnsiToWidth(ln, contentWidth)
+        for _, p := range parts {
+            // Ensure each visual line fits exactly (avoid residual wrap)
+            visual = append(visual, clipAnsiToWidth(p, contentWidth))
+        }
+    }
+    // Guarantee we have at least contentHeight lines to keep the box height consistent
+    return visual
 }
 
 // renderFullHeightContent renders content with consistent full-height layout

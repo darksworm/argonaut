@@ -1,11 +1,12 @@
 package main
 
 import (
-	"log"
-	"time"
+    "log"
+    "time"
+    "os"
 
-	"github.com/a9s/go-app/pkg/model"
-	tea "github.com/charmbracelet/bubbletea/v2"
+    "github.com/a9s/go-app/pkg/model"
+    tea "github.com/charmbracelet/bubbletea/v2"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -625,8 +626,8 @@ func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleLogsModeKeys handles input when in logs mode
 func (m Model) handleLogsModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "esc":
+    switch msg.String() {
+    case "q", "esc":
 		// Restore navigation state and clear selections when returning from logs
 		m.state.RestoreNavigationState()
 		m.state.ClearSelectionsAfterDetailView()
@@ -639,21 +640,51 @@ func (m Model) handleLogsModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			len(visibleItems),
 		)
 		return m, nil
-	}
-	return m, nil
+    case "j", "down":
+        if m.state.Diff == nil {
+            m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
+        }
+        m.state.Diff.Offset++
+        return m, nil
+    case "k", "up":
+        if m.state.Diff == nil {
+            m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
+        }
+        if m.state.Diff.Offset > 0 {
+            m.state.Diff.Offset--
+        }
+        return m, nil
+    case "g":
+        if m.state.Diff == nil {
+            m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
+        }
+        m.state.Diff.Offset = 0
+        return m, nil
+    case "G":
+        // Will be clamped in the view according to current height
+        if m.state.Diff == nil {
+            m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
+        }
+        m.state.Diff.Offset = 1<<30 // large number; view clamps
+        return m, nil
+    }
+    return m, nil
 }
 
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "ctrl+c":
-		return m, func() tea.Msg { return model.QuitMsg{} }
-	case "l":
-		// Open logs view (matching TypeScript behavior)
-		m.state.Mode = model.ModeLogs
-		return m, nil
-	}
-	return m, nil
+    switch msg.String() {
+    case "q", "ctrl+c":
+        return m, func() tea.Msg { return model.QuitMsg{} }
+    case "l":
+        // Open logs pager directly
+        data, err := os.ReadFile("logs/a9s.log")
+        if err != nil {
+            return m, func() tea.Msg { return model.ApiErrorMsg{Message: "No logs available"} }
+        }
+        return m, m.openTextPager("Logs", string(data))
+    }
+    return m, nil
 }
 
 // handleErrorModeKeys handles input when in error mode

@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/bubbles/v2 v2.0.0-beta.1
 	github.com/charmbracelet/bubbletea/v2 v2.0.0-beta.2
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta.2
+	github.com/noborus/ov/oviewer v0.43.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -1,19 +1,20 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "log"
+    "strings"
+    "time"
 
-	"github.com/a9s/go-app/pkg/api"
-	"github.com/a9s/go-app/pkg/model"
-	"github.com/a9s/go-app/pkg/services"
-	"github.com/charmbracelet/bubbles/v2/spinner"
-	"github.com/charmbracelet/bubbles/v2/table"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+    "github.com/a9s/go-app/pkg/api"
+    "github.com/a9s/go-app/pkg/model"
+    "github.com/a9s/go-app/pkg/services"
+    "github.com/noborus/ov/oviewer"
+    "github.com/charmbracelet/bubbles/v2/spinner"
+    "github.com/charmbracelet/bubbles/v2/table"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    "github.com/charmbracelet/lipgloss/v2"
 )
 
 // Model represents the main Bubbletea model containing all application state
@@ -44,7 +45,11 @@ type Model struct {
 	appsTable      table.Model
 	clustersTable  table.Model
 	namespacesTable table.Model
-	projectsTable  table.Model
+    projectsTable  table.Model
+
+    // Bubble Tea program reference for terminal hand-off (pager integration)
+    program *tea.Program
+    inPager bool
 }
 
 // NewModel creates a new Model with default state and services
@@ -120,7 +125,7 @@ func NewModel() *Model {
 	)
 	projectsTable.SetStyles(getTableStyle())
 	
-	return &Model{
+    return &Model{
 		state:             model.NewAppState(),
 		argoService:       services.NewArgoApiService(nil), // Will be configured when server is available
 		navigationService: services.NewNavigationService(),
@@ -136,9 +141,19 @@ func NewModel() *Model {
 		appsTable:        appsTable,
 		clustersTable:    clustersTable,
 		namespacesTable:  namespacesTable,
-		projectsTable:    projectsTable,
-	}
+        projectsTable:    projectsTable,
+        program:          nil,
+        inPager:          false,
+    }
 }
+
+// SetProgram stores the Bubble Tea program pointer for terminal hand-off
+func (m *Model) SetProgram(p *tea.Program) {
+    m.program = p
+}
+
+// pagerDoneMsg signals that an external pager has closed
+type pagerDoneMsg struct{ Err error }
 
 // Init implements tea.Model.Init
 func (m Model) Init() tea.Cmd {
@@ -190,9 +205,40 @@ func (m Model) validateAuthentication() tea.Cmd {
 	}
 }
 
+// openTextPager releases the terminal and runs an oviewer pager with the given text
+func (m Model) openTextPager(title, text string) tea.Cmd {
+    return func() tea.Msg {
+        if m.program != nil {
+            _ = m.program.ReleaseTerminal()
+        }
+        m.inPager = true
+        defer func() {
+            // Clear screen and restore terminal to Bubble Tea
+            fmt.Print("\x1b[2J\x1b[H")
+            time.Sleep(150 * time.Millisecond)
+            if m.program != nil {
+                _ = m.program.RestoreTerminal()
+            }
+        }()
+
+        // Prepare pager root
+        r := strings.NewReader(text)
+        root, err := oviewer.NewRoot(r)
+        if err != nil {
+            return pagerDoneMsg{Err: err}
+        }
+        cfg := oviewer.NewConfig()
+        cfg.IsWriteOnExit = false
+        cfg.IsWriteOriginal = false
+        root.SetConfig(cfg)
+        root.Doc.Title = title
+        _ = root.Run()
+        return pagerDoneMsg{Err: nil}
+    }
+}
 // Update implements tea.Model.Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+    switch msg := msg.(type) {
 
 	// Terminal/System messages
 	case tea.WindowSizeMsg:
@@ -210,10 +256,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 	
 	// Spinner messages
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+    case spinner.TickMsg:
+        if m.inPager {
+            // Suspend spinner updates while pager owns the terminal
+            return m, nil
+        }
+        var cmd tea.Cmd
+        m.spinner, cmd = m.spinner.Update(msg)
+        return m, cmd
 
 	// Navigation messages
 	case model.SetViewMsg:
@@ -267,19 +317,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// Mode messages
-	case model.SetModeMsg:
-		oldMode := m.state.Mode
-		m.state.Mode = msg.Mode
+    case model.SetModeMsg:
+        oldMode := m.state.Mode
+        m.state.Mode = msg.Mode
 		// [MODE] Switching from %s to %s - removed printf to avoid TUI interference
 
 		// Handle mode transitions
-		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
-			// Start loading applications from API
-			// [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
-			return m, m.startLoadingApplications()
-		}
+        if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
+            // Start loading applications from API
+            // [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
+            return m, m.startLoadingApplications()
+        }
 
-		return m, nil
+        // If entering diff mode with content available, show in external pager
+        if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
+            title := m.state.Diff.Title
+            body := strings.Join(m.state.Diff.Content, "\n")
+            return m, m.openTextPager(title, body)
+        }
+
+        return m, nil
 
 	// Data messages
 	case model.SetAppsMsg:
@@ -336,7 +393,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		return m, m.consumeWatchEvent()
 
-	case ResourcesLoadedMsg:
+    case ResourcesLoadedMsg:
 		log.Printf("Received ResourcesLoadedMsg for app: %s", msg.AppName)
 		if m.state.Resources != nil && m.state.Resources.AppName == msg.AppName {
 			if msg.Error != "" {
@@ -406,9 +463,16 @@ case model.ApiErrorMsg:
 			Timestamp:  time.Now().Unix(),
 		}
 		
-		return m, func() tea.Msg {
-			return model.SetModeMsg{Mode: model.ModeError}
-		}
+        return m, func() tea.Msg {
+            return model.SetModeMsg{Mode: model.ModeError}
+        }
+
+    case pagerDoneMsg:
+        // Restore UI after pager exits
+        m.inPager = false
+        // After pager, default back to normal mode
+        m.state.Mode = model.ModeNormal
+        return m, nil
 
 	case model.AuthErrorMsg:
 		// Log error to file and store in model for display
