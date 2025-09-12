@@ -172,3 +172,46 @@ type ResourceState struct {
 	Error     string         `json:"error"`
 	Offset    int            `json:"offset"`
 }
+
+// RollbackRow represents a deployment history entry for rollback selection
+type RollbackRow struct {
+	ID          int        `json:"id"`          // Deployment ID
+	Revision    string     `json:"revision"`    // Git SHA/revision
+	DeployedAt  *time.Time `json:"deployedAt"`  // Deployment timestamp
+	Author      *string    `json:"author"`      // Git author (loaded async)
+	Date        *time.Time `json:"date"`        // Git commit date
+	Message     *string    `json:"message"`     // Git commit message
+	MetaError   *string    `json:"metaError"`   // Error loading metadata
+}
+
+// RollbackState holds the state for rollback operations
+type RollbackState struct {
+	AppName       string        `json:"appName"`       // App being rolled back
+	AppNamespace  *string       `json:"appNamespace"`  // App namespace
+	Rows          []RollbackRow `json:"rows"`          // Deployment history
+	SelectedIdx   int           `json:"selectedIdx"`   // Currently selected row
+	CurrentRevision string      `json:"currentRevision"` // Current deployment revision
+	Loading       bool          `json:"loading"`       // Loading state
+	Error         string        `json:"error"`         // Error message
+	Mode          string        `json:"mode"`          // "list" or "confirm"
+	Prune         bool          `json:"prune"`         // Prune option
+	Watch         bool          `json:"watch"`         // Watch option after rollback
+	DryRun        bool          `json:"dryRun"`        // Dry run option
+}
+
+// RevisionMetadata represents git commit metadata for a revision
+type RevisionMetadata struct {
+	Author    string     `json:"author"`
+	Date      time.Time  `json:"date"`
+	Message   string     `json:"message"`
+	Tags      []string   `json:"tags,omitempty"`
+}
+
+// RollbackRequest represents a rollback API request
+type RollbackRequest struct {
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	DryRun       bool    `json:"dryRun,omitempty"`
+	Prune        bool    `json:"prune,omitempty"`
+	AppNamespace *string `json:"appNamespace,omitempty"`
+}

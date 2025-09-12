@@ -211,6 +211,49 @@ func (m Model) handleRefresh() (Model, tea.Cmd) {
 	}
 }
 
+// handleRollback initiates rollback for selected or current app
+func (m Model) handleRollback() (Model, tea.Cmd) {
+	if m.state.Navigation.View != model.ViewApps {
+		// Rollback only available in apps view
+		return m, nil
+	}
+
+	var appName string
+	
+	// Check if we have a single app selected
+	if len(m.state.Selections.SelectedApps) == 1 {
+		// Use the selected app
+		for name := range m.state.Selections.SelectedApps {
+			appName = name
+			break
+		}
+	} else if len(m.state.Selections.SelectedApps) == 0 {
+		// No selection, use current app under cursor
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if len(visibleItems) > 0 && m.state.Navigation.SelectedIdx < len(visibleItems) {
+			if app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App); ok {
+				appName = app.Name
+			}
+		}
+	} else {
+		// Multiple apps selected - rollback not supported for multiple apps
+		m.statusService.Set("Rollback not supported for multiple apps")
+		return m, nil
+	}
+
+	if appName == "" {
+		m.statusService.Set("No app selected for rollback")
+		return m, nil
+	}
+
+	// Set rollback app name and switch to rollback mode
+	m.state.Modals.RollbackAppName = &appName
+	m.state.Mode = model.ModeRollback
+	
+	// Start loading rollback history
+	return m, m.startRollbackSession(appName)
+}
+
 // handleEscape handles escape key (clear filters, exit modes) with debounce
 func (m Model) handleEscape() (Model, tea.Cmd) {
 	// Debounce escape key to prevent rapid multiple exits
@@ -434,10 +477,97 @@ func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleRollbackModeKeys handles input when in rollback mode
 func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if m.state.Rollback == nil {
+		return m, nil
+	}
+
 	switch msg.String() {
 	case "esc", "q":
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.RollbackAppName = nil
+		m.state.Rollback = nil
+		return m, nil
+	case "j", "down":
+		// Navigate down in rollback history
+		if len(m.state.Rollback.Rows) > 0 {
+			newIdx := m.state.Rollback.SelectedIdx + 1
+			if newIdx >= len(m.state.Rollback.Rows) {
+				newIdx = len(m.state.Rollback.Rows) - 1
+			}
+			m.state.Rollback.SelectedIdx = newIdx
+		}
+		return m, nil
+	case "k", "up":
+		// Navigate up in rollback history
+		if len(m.state.Rollback.Rows) > 0 {
+			newIdx := m.state.Rollback.SelectedIdx - 1
+			if newIdx < 0 {
+				newIdx = 0
+			}
+			m.state.Rollback.SelectedIdx = newIdx
+		}
+		return m, nil
+	case "g":
+		// Double-g check for go to top
+		now := time.Now().UnixMilli()
+		if now-m.state.Navigation.LastGPressed < 500 {
+			// Go to top
+			m.state.Rollback.SelectedIdx = 0
+			m.state.Navigation.LastGPressed = 0
+		} else {
+			m.state.Navigation.LastGPressed = now
+		}
+		return m, nil
+	case "G":
+		// Go to bottom
+		if len(m.state.Rollback.Rows) > 0 {
+			m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+		}
+		return m, nil
+	case "p":
+		// Toggle prune option
+		if m.state.Rollback.Mode == "list" {
+			m.state.Rollback.Prune = !m.state.Rollback.Prune
+		}
+		return m, nil
+	case "w":
+		// Toggle watch option
+		if m.state.Rollback.Mode == "list" {
+			m.state.Rollback.Watch = !m.state.Rollback.Watch
+		}
+		return m, nil
+	case "enter":
+		// Confirm rollback or execute rollback
+		if m.state.Rollback.Mode == "list" {
+			// Switch to confirmation mode
+			m.state.Rollback.Mode = "confirm"
+		} else if m.state.Rollback.Mode == "confirm" {
+			// Execute rollback
+			if len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
+				selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+				request := model.RollbackRequest{
+					ID:           selectedRow.ID,
+					Name:         m.state.Rollback.AppName,
+					AppNamespace: m.state.Rollback.AppNamespace,
+					Prune:        m.state.Rollback.Prune,
+					DryRun:       m.state.Rollback.DryRun,
+				}
+				
+				// Set loading state
+				m.state.Rollback.Loading = true
+				m.state.Rollback.Error = ""
+				
+				return m, m.executeRollback(request)
+			}
+		}
+		return m, nil
+	case "d":
+		// Show diff for selected revision (if we want to implement this later)
+		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
+			selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+			// Could implement diff viewing here later
+			_ = selectedRow
+		}
 		return m, nil
 	}
 	return m, nil

@@ -444,6 +444,133 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	// Rollback Messages
+	case model.RollbackHistoryLoadedMsg:
+		// Initialize rollback state with deployment history
+		m.state.Rollback = &model.RollbackState{
+			AppName:         msg.AppName,
+			Rows:            msg.Rows,
+			CurrentRevision: msg.CurrentRevision,
+			SelectedIdx:     0,
+			Loading:         false,
+			Mode:           "list",
+			Prune:          false,
+			Watch:          true,
+			DryRun:         false,
+		}
+		
+		// Start loading metadata for the first few rows
+		var cmds []tea.Cmd
+		for i := 0; i < min(3, len(msg.Rows)); i++ {
+			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
+		}
+		
+		return m, tea.Batch(cmds...)
+
+	case model.RollbackMetadataLoadedMsg:
+		// Update rollback row with loaded metadata
+		if m.state.Rollback != nil && msg.RowIndex < len(m.state.Rollback.Rows) {
+			row := &m.state.Rollback.Rows[msg.RowIndex]
+			row.Author = &msg.Metadata.Author
+			row.Date = &msg.Metadata.Date
+			row.Message = &msg.Metadata.Message
+		}
+		return m, nil
+
+	case model.RollbackMetadataErrorMsg:
+		// Handle metadata loading error
+		if m.state.Rollback != nil && msg.RowIndex < len(m.state.Rollback.Rows) {
+			row := &m.state.Rollback.Rows[msg.RowIndex]
+			row.MetaError = &msg.Error
+		}
+		return m, nil
+
+	case model.RollbackExecutedMsg:
+		// Handle rollback completion
+		if msg.Success {
+			m.statusService.Set(fmt.Sprintf("Rollback initiated for %s", msg.AppName))
+			
+			// Clear rollback state and return to normal mode
+			m.state.Rollback = nil
+			m.state.Modals.RollbackAppName = nil
+			m.state.Mode = model.ModeNormal
+			
+			// Start watching resources if requested
+			if msg.Watch {
+				m.state.Modals.SyncViewApp = &msg.AppName
+				return m, m.loadResourcesForApp(msg.AppName)
+			}
+		} else {
+			m.statusService.Error(fmt.Sprintf("Rollback failed for %s", msg.AppName))
+		}
+		return m, nil
+
+	case model.RollbackNavigationMsg:
+		// Handle rollback navigation
+		if m.state.Rollback != nil {
+			switch msg.Direction {
+			case "up":
+				if m.state.Rollback.SelectedIdx > 0 {
+					m.state.Rollback.SelectedIdx--
+					// Load metadata for newly selected row if not loaded
+					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+					if row.Author == nil && row.MetaError == nil {
+						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
+					}
+				}
+			case "down":
+				if m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows)-1 {
+					m.state.Rollback.SelectedIdx++
+					// Load metadata for newly selected row if not loaded
+					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+					if row.Author == nil && row.MetaError == nil {
+						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
+					}
+				}
+			case "top":
+				m.state.Rollback.SelectedIdx = 0
+			case "bottom":
+				m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+			}
+		}
+		return m, nil
+
+	case model.RollbackToggleOptionMsg:
+		// Handle rollback option toggling
+		if m.state.Rollback != nil {
+			switch msg.Option {
+			case "prune":
+				m.state.Rollback.Prune = !m.state.Rollback.Prune
+			case "watch":
+				m.state.Rollback.Watch = !m.state.Rollback.Watch
+			case "dryrun":
+				m.state.Rollback.DryRun = !m.state.Rollback.DryRun
+			}
+		}
+		return m, nil
+
+	case model.RollbackConfirmMsg:
+		// Handle rollback confirmation
+		if m.state.Rollback != nil && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
+			// Switch to confirmation mode
+			m.state.Rollback.Mode = "confirm"
+		}
+		return m, nil
+
+	case model.RollbackCancelMsg:
+		// Handle rollback cancellation
+		m.state.Rollback = nil
+		m.state.Modals.RollbackAppName = nil
+		m.state.Mode = model.ModeNormal
+		return m, nil
+
+	case model.RollbackShowDiffMsg:
+		// Handle rollback diff request
+		if m.state.Rollback != nil {
+			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, msg.Revision)
+		}
+		return m, nil
+
 	case model.QuitMsg:
 		return m, tea.Quit
 	}
@@ -511,6 +638,10 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 	case "r":
 		return m.handleRefresh()
+	case "R":
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleRollback()
+		}
 
 	// Clear/escape functionality
 	case "esc":
@@ -622,3 +753,13 @@ func convertApiToModelResourceNode(apiNode api.ResourceNode) model.ResourceNode 
 
 
 // Duplicate sync functions removed - using existing ones from api_integration.go
+
+// Helper functions
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

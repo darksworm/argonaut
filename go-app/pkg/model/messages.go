@@ -264,3 +264,52 @@ type MultiSyncCompletedMsg struct {
 	AppCount int
 	Success  bool
 }
+
+// Rollback Messages - for rollback functionality
+
+// RollbackHistoryLoadedMsg is sent when rollback history is loaded
+type RollbackHistoryLoadedMsg struct {
+	AppName         string
+	Rows            []RollbackRow
+	CurrentRevision string
+}
+
+// RollbackMetadataLoadedMsg is sent when git metadata is loaded for a revision
+type RollbackMetadataLoadedMsg struct {
+	RowIndex int
+	Metadata RevisionMetadata
+}
+
+// RollbackMetadataErrorMsg is sent when metadata loading fails
+type RollbackMetadataErrorMsg struct {
+	RowIndex int
+	Error    string
+}
+
+// RollbackExecutedMsg is sent when rollback is executed
+type RollbackExecutedMsg struct {
+	AppName string
+	Success bool
+	Watch   bool // Whether to start watching after rollback
+}
+
+// RollbackNavigationMsg is sent to change rollback navigation
+type RollbackNavigationMsg struct {
+	Direction string // "up", "down", "top", "bottom"
+}
+
+// RollbackToggleOptionMsg is sent to toggle rollback options
+type RollbackToggleOptionMsg struct {
+	Option string // "prune", "watch", "dryrun"
+}
+
+// RollbackConfirmMsg is sent to confirm rollback
+type RollbackConfirmMsg struct{}
+
+// RollbackCancelMsg is sent to cancel rollback
+type RollbackCancelMsg struct{}
+
+// RollbackShowDiffMsg is sent to show diff for selected revision
+type RollbackShowDiffMsg struct {
+	Revision string
+}

@@ -30,6 +30,15 @@ type ArgoApiService interface {
     // GetAPIVersion fetches the ArgoCD API server version string
     GetAPIVersion(ctx context.Context, server *model.Server) (string, error)
 
+    // GetApplication fetches a single application with full details including history
+    GetApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string) (*api.ArgoApplication, error)
+
+    // GetRevisionMetadata fetches git metadata for a specific revision
+    GetRevisionMetadata(ctx context.Context, server *model.Server, appName string, revision string, appNamespace *string) (*model.RevisionMetadata, error)
+
+    // RollbackApplication performs a rollback operation
+    RollbackApplication(ctx context.Context, server *model.Server, request model.RollbackRequest) error
+
 	// Cleanup stops all watchers and cleans up resources
 	Cleanup()
 }
@@ -291,6 +300,21 @@ func (s *ArgoApiServiceImpl) handleWatchEvent(event api.ApplicationWatchEvent, e
 			App:  &app,
 		}
 	}
+}
+
+// GetApplication fetches a single application with full details including history
+func (s *ArgoApiServiceImpl) GetApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string) (*api.ArgoApplication, error) {
+	return s.appService.GetApplication(ctx, appName, appNamespace)
+}
+
+// GetRevisionMetadata fetches git metadata for a specific revision
+func (s *ArgoApiServiceImpl) GetRevisionMetadata(ctx context.Context, server *model.Server, appName string, revision string, appNamespace *string) (*model.RevisionMetadata, error) {
+	return s.appService.GetRevisionMetadata(ctx, appName, revision, appNamespace)
+}
+
+// RollbackApplication performs a rollback operation
+func (s *ArgoApiServiceImpl) RollbackApplication(ctx context.Context, server *model.Server, request model.RollbackRequest) error {
+	return s.appService.RollbackApplication(ctx, request)
 }
 
 // isAuthError checks if an error indicates authentication issues

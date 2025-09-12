@@ -1102,29 +1102,6 @@ func (m Model) renderHelpModal() string {
 	return contentBorderStyle.PaddingTop(1).PaddingBottom(1).Render(content)
 }
 
-func (m Model) renderRollbackModal() string {
-	// 1:1 mapping from RollbackModal.tsx
-	if m.state.Modals.RollbackAppName == nil {
-		return ""
-	}
-
-	var sections []string
-
-	// ArgoNaut Banner (matches RollbackModal ArgoNautBanner)
-	sections = append(sections, m.renderBanner())
-
-	// Rollback functionality - integrate with real rollback implementation
-	appNameStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-	highlightedAppName := appNameStyle.Render(*m.state.Modals.RollbackAppName)
-
-	rollbackContent := fmt.Sprintf("Rollback Application: %s\n\nRollback functionality ready for integration.\n\nPress Esc to close.", highlightedAppName)
-	sections = append(sections, contentBorderStyle.Render(rollbackContent))
-
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-
-	return mainContainerStyle.Height(totalHeight).Render(content)
-}
 
 func (m Model) renderOfficeSupplyManager() string {
 	return statusStyle.Render("Office supply manager - TODO: implement 1:1")
@@ -1550,12 +1527,6 @@ func max(a, b int) int {
 	return b
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 // abbreviateStatus shortens status text for narrow displays
 func abbreviateStatus(status string) string {
@@ -1912,5 +1883,263 @@ func (m Model) renderDiffLoadingSpinner() string {
 		Align(lipgloss.Center)
 
 	return spinnerStyle.Render(spinnerContent)
+}
+
+// renderRollbackModal displays the rollback modal with deployment history
+func (m Model) renderRollbackModal() string {
+	// Calculate available space using the same pattern as other modals
+	header := m.renderBanner()
+	headerLines := countLines(header)
+
+	// Rollback modal doesn't have search/command bars, so overhead is just banner + borders + status
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	overhead := BORDER_LINES + headerLines + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
+
+	// Calculate dimensions for consistent full-height layout
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4) // Account for border and padding
+	contentHeight := max(3, availableRows)
+
+	// Check if rollback state is available
+	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
+		content := "No rollback data available"
+		return m.renderSimpleModal("Rollback", content)
+	}
+
+	rollback := m.state.Rollback
+	var modalContent string
+
+	if rollback.Loading {
+		// Loading state
+		modalContent = fmt.Sprintf("%s Loading deployment history for %s...", m.spinner.View(), *m.state.Modals.RollbackAppName)
+	} else if rollback.Error != "" {
+		// Error state
+		errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
+		modalContent = errorStyle.Render(fmt.Sprintf("Error loading rollback history:\n%s", rollback.Error))
+	} else if rollback.Mode == "confirm" {
+		// Confirmation mode
+		modalContent = m.renderRollbackConfirmation(rollback)
+	} else {
+		// List mode - show deployment history
+		modalContent = m.renderRollbackHistory(rollback)
+	}
+
+	// Add instructions at the bottom
+	instructionStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	var instructions string
+	if rollback.Mode == "confirm" {
+		instructions = "Enter: Execute Rollback • Esc: Cancel"
+	} else {
+		instructions = "j/k: Navigate • Enter: Select • p: Toggle Prune • w: Toggle Watch • Esc: Cancel"
+	}
+	modalContent += "\n\n" + instructionStyle.Render(instructions)
+
+	// Create a full-height bordered box
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Width(contentWidth).
+		Height(contentHeight).
+		AlignVertical(lipgloss.Top).
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	styledContent := modalStyle.Render(modalContent)
+
+	// Combine with header
+	var sections []string
+	sections = append(sections, header)
+	sections = append(sections, styledContent)
+
+	content := strings.Join(sections, "\n")
+	totalHeight := m.state.Terminal.Rows - 1
+	return mainContainerStyle.Height(totalHeight).Render(content)
+}
+
+// renderRollbackHistory renders the deployment history list
+func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
+	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	content := titleStyle.Render(fmt.Sprintf("Rollback %s", rollback.AppName)) + "\n\n"
+
+	if len(rollback.Rows) == 0 {
+		content += "No deployment history available"
+		return content
+	}
+
+	// Show current revision info
+	if rollback.CurrentRevision != "" {
+		currentStyle := lipgloss.NewStyle().Foreground(syncedColor)
+		content += currentStyle.Render(fmt.Sprintf("Current: %s", rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))])) + "\n\n"
+	}
+
+	// Show deployment history table
+	content += "Deployment History:\n\n"
+
+	for i, row := range rollback.Rows {
+		var line string
+		
+		// Selection indicator
+		if i == rollback.SelectedIdx {
+			line += "> "
+		} else {
+			line += "  "
+		}
+		
+		// Deployment ID and revision
+		idStyle := lipgloss.NewStyle().Foreground(whiteBright)
+		revisionStyle := lipgloss.NewStyle().Foreground(cyanBright)
+		line += fmt.Sprintf("%s %s", 
+			idStyle.Render(fmt.Sprintf("#%d", row.ID)),
+			revisionStyle.Render(row.Revision[:min(8, len(row.Revision))]))
+
+		// Deployment date
+		if row.DeployedAt != nil {
+			dateStyle := lipgloss.NewStyle().Foreground(unknownColor)
+			line += " " + dateStyle.Render(row.DeployedAt.Format("2006-01-02 15:04"))
+		}
+
+		// Git metadata (if loaded)
+		if row.Author != nil && row.Message != nil {
+			authorStyle := lipgloss.NewStyle().Foreground(yellowBright)
+			messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+			line += fmt.Sprintf(" %s: %s", 
+				authorStyle.Render(*row.Author),
+				messageStyle.Render(truncateString(*row.Message, 40)))
+		} else if row.MetaError != nil {
+			errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
+			line += " " + errorStyle.Render("(metadata unavailable)")
+		} else {
+			loadingStyle := lipgloss.NewStyle().Foreground(unknownColor)
+			line += " " + loadingStyle.Render("(loading metadata...)")
+		}
+
+		content += line + "\n"
+	}
+
+	// Show options
+	content += "\n"
+	optionsStyle := lipgloss.NewStyle().Foreground(yellowBright)
+	
+	pruneStatus := "false"
+	if rollback.Prune {
+		pruneStatus = "true"
+	}
+	watchStatus := "false"
+	if rollback.Watch {
+		watchStatus = "true"
+	}
+	
+	content += optionsStyle.Render(fmt.Sprintf("Options: Prune=%s, Watch=%s", pruneStatus, watchStatus))
+
+	return content
+}
+
+// renderRollbackConfirmation renders the confirmation screen
+func (m Model) renderRollbackConfirmation(rollback *model.RollbackState) string {
+	titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+	content := titleStyle.Render("Confirm Rollback") + "\n\n"
+
+	if len(rollback.Rows) == 0 || rollback.SelectedIdx >= len(rollback.Rows) {
+		return content + "Invalid selection"
+	}
+
+	selectedRow := rollback.Rows[rollback.SelectedIdx]
+	
+	// App info
+	appStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	content += fmt.Sprintf("Application: %s\n", appStyle.Render(rollback.AppName))
+	
+	// Current revision
+	currentStyle := lipgloss.NewStyle().Foreground(syncedColor)
+	content += fmt.Sprintf("Current: %s\n", currentStyle.Render(rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))]))
+	
+	// Target revision
+	targetStyle := lipgloss.NewStyle().Foreground(yellowBright)
+	content += fmt.Sprintf("Rollback to: %s\n", targetStyle.Render(selectedRow.Revision[:min(8, len(selectedRow.Revision))]))
+	
+	// Git metadata if available
+	if selectedRow.Author != nil && selectedRow.Message != nil {
+		content += fmt.Sprintf("Author: %s\n", *selectedRow.Author)
+		content += fmt.Sprintf("Message: %s\n", *selectedRow.Message)
+		if selectedRow.Date != nil {
+			content += fmt.Sprintf("Date: %s\n", selectedRow.Date.Format("2006-01-02 15:04:05"))
+		}
+	}
+	
+	// Options
+	content += "\n"
+	optionsStyle := lipgloss.NewStyle().Foreground(yellowBright)
+	
+	pruneStatus := "No"
+	if rollback.Prune {
+		pruneStatus = "Yes"
+	}
+	watchStatus := "No"
+	if rollback.Watch {
+		watchStatus = "Yes"
+	}
+	dryRunStatus := "No"
+	if rollback.DryRun {
+		dryRunStatus = "Yes"
+	}
+	
+	content += optionsStyle.Render(fmt.Sprintf("Prune: %s\nWatch: %s\nDry Run: %s", pruneStatus, watchStatus, dryRunStatus))
+	
+	// Warning
+	content += "\n\n"
+	warningStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+	content += warningStyle.Render("⚠️  This will rollback the application to the selected revision.")
+
+	return content
+}
+
+// renderSimpleModal renders a simple modal with title and content
+func (m Model) renderSimpleModal(title, content string) string {
+	header := m.renderBanner()
+	headerLines := countLines(header)
+
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	overhead := BORDER_LINES + headerLines + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
+
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4)
+	contentHeight := max(3, availableRows)
+
+	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	modalContent := titleStyle.Render(title) + "\n\n" + content
+
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Width(contentWidth).
+		Height(contentHeight).
+		AlignVertical(lipgloss.Top).
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	styledContent := modalStyle.Render(modalContent)
+
+	var sections []string
+	sections = append(sections, header)
+	sections = append(sections, styledContent)
+
+	content = strings.Join(sections, "\n")
+	totalHeight := m.state.Terminal.Rows - 1
+	return mainContainerStyle.Height(totalHeight).Render(content)
+}
+
+// truncateString truncates a string to the specified length with ellipsis
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return "..."
+	}
+	return s[:maxLen-3] + "..."
 }
 

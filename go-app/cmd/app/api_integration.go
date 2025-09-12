@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/a9s/go-app/pkg/api"
 	"github.com/a9s/go-app/pkg/model"
 	"github.com/a9s/go-app/pkg/services"
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -149,8 +150,6 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		}
 		
 		
-		// Add delay to demonstrate the attention-grabbing spinner overlay
-		time.Sleep(3 * time.Second)
 		
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
@@ -362,6 +361,175 @@ func (m Model) startLogsSession() tea.Cmd {
 			offset = 0
 		}
 		m.state.Diff = &model.DiffState{Title: "Logs", Content: lines, Offset: offset}
+		return model.SetModeMsg{Mode: model.ModeDiff}
+	})
+}
+
+// startRollbackSession loads deployment history for rollback
+func (m Model) startRollbackSession(appName string) tea.Cmd {
+	return tea.Cmd(func() tea.Msg {
+		if m.state.Server == nil {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		apiService := services.NewArgoApiService(m.state.Server)
+
+		// Get application with history
+		app, err := apiService.GetApplication(ctx, m.state.Server, appName, nil)
+		if err != nil {
+			errMsg := err.Error()
+			if isAuthenticationError(errMsg) {
+				return model.AuthErrorMsg{Error: err}
+			}
+			return model.ApiErrorMsg{Message: "Failed to load application: " + err.Error()}
+		}
+
+		// Convert history to rollback rows
+		rows := api.ConvertDeploymentHistoryToRollbackRows(app.Status.History)
+		
+		// Get current revision from sync status
+		currentRevision := ""
+		if app.Status.Sync.Revision != "" {
+			currentRevision = app.Status.Sync.Revision
+		} else if len(app.Status.Sync.Revisions) > 0 {
+			currentRevision = app.Status.Sync.Revisions[0]
+		}
+
+		return model.RollbackHistoryLoadedMsg{
+			AppName:         appName,
+			Rows:           rows,
+			CurrentRevision: currentRevision,
+		}
+	})
+}
+
+// loadRevisionMetadata loads git metadata for a specific rollback row
+func (m Model) loadRevisionMetadata(appName string, rowIndex int, revision string) tea.Cmd {
+	return tea.Cmd(func() tea.Msg {
+		if m.state.Server == nil {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		apiService := services.NewArgoApiService(m.state.Server)
+
+		metadata, err := apiService.GetRevisionMetadata(ctx, m.state.Server, appName, revision, nil)
+		if err != nil {
+			return model.RollbackMetadataErrorMsg{
+				RowIndex: rowIndex,
+				Error:    err.Error(),
+			}
+		}
+
+		return model.RollbackMetadataLoadedMsg{
+			RowIndex: rowIndex,
+			Metadata: *metadata,
+		}
+	})
+}
+
+// executeRollback performs the actual rollback operation
+func (m Model) executeRollback(request model.RollbackRequest) tea.Cmd {
+	return tea.Cmd(func() tea.Msg {
+		if m.state.Server == nil {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		apiService := services.NewArgoApiService(m.state.Server)
+
+		err := apiService.RollbackApplication(ctx, m.state.Server, request)
+		if err != nil {
+			errMsg := err.Error()
+			if isAuthenticationError(errMsg) {
+				return model.AuthErrorMsg{Error: err}
+			}
+			return model.ApiErrorMsg{Message: "Failed to rollback application: " + err.Error()}
+		}
+
+		// Determine if we should watch after rollback
+		watchAfter := false
+		if m.state.Rollback != nil {
+			watchAfter = m.state.Rollback.Watch
+		}
+
+		return model.RollbackExecutedMsg{
+			AppName: request.Name,
+			Success: true,
+			Watch:   watchAfter,
+		}
+	})
+}
+
+// startRollbackDiffSession shows diff between current and selected revision
+func (m Model) startRollbackDiffSession(appName string, revision string) tea.Cmd {
+	return tea.Cmd(func() tea.Msg {
+		if m.state.Server == nil {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+		
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		apiService := services.NewArgoApiService(m.state.Server)
+		
+		// Get diff between current and target revision
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		if err != nil {
+			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
+		}
+
+		// Process diffs (same logic as regular diff)
+		desiredDocs := make([]string, 0)
+		liveDocs := make([]string, 0)
+		for _, d := range diffs {
+			if d.TargetState != "" {
+				s := cleanManifestToYAML(d.TargetState)
+				if s != "" {
+					desiredDocs = append(desiredDocs, s)
+				}
+			}
+			if d.LiveState != "" {
+				s := cleanManifestToYAML(d.LiveState)
+				if s != "" {
+					liveDocs = append(liveDocs, s)
+				}
+			}
+		}
+
+		if len(desiredDocs) == 0 && len(liveDocs) == 0 {
+			return model.StatusChangeMsg{Status: "No diffs to show"}
+		}
+
+		leftFile, _ := writeTempYAML("live-", liveDocs)
+		rightFile, _ := writeTempYAML("rollback-", desiredDocs)
+
+		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
+		out, err := cmd.CombinedOutput()
+		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
+			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
+		}
+		
+		cleaned := stripDiffHeader(string(out))
+		if strings.TrimSpace(cleaned) == "" {
+			return model.StatusChangeMsg{Status: "No differences"}
+		}
+		
+		lines := strings.Split(cleaned, "\n")
+		m.state.Diff = &model.DiffState{
+			Title:   fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),
+			Content: lines,
+			Offset:  0,
+			Loading: false,
+		}
 		return model.SetModeMsg{Mode: model.ModeDiff}
 	})
 }

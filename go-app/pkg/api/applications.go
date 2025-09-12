@@ -65,6 +65,7 @@ type ArgoApplication struct {
 			StartedAt time.Time `json:"startedAt,omitempty"`
 			FinishedAt time.Time `json:"finishedAt,omitempty"`
 		} `json:"operationState,omitempty"`
+		History []DeploymentHistory `json:"history,omitempty"`
 	} `json:"status"`
 }
 
@@ -82,6 +83,26 @@ type WatchEventResult struct {
 // ListApplicationsResponse represents the response from listing applications
 type ListApplicationsResponse struct {
     Items []ArgoApplication `json:"items"`
+}
+
+// DeploymentHistory represents a deployment history entry from ArgoCD API
+type DeploymentHistory struct {
+	ID         int        `json:"id"`
+	Revision   string     `json:"revision"`
+	DeployedAt time.Time  `json:"deployedAt"`
+	Source     *struct {
+		RepoURL        string `json:"repoURL,omitempty"`
+		Path           string `json:"path,omitempty"`
+		TargetRevision string `json:"targetRevision,omitempty"`
+	} `json:"source,omitempty"`
+}
+
+// RevisionMetadataResponse represents git metadata response from ArgoCD API
+type RevisionMetadataResponse struct {
+	Author  string    `json:"author"`
+	Date    time.Time `json:"date"`
+	Message string    `json:"message"`
+	Tags    []string  `json:"tags,omitempty"`
 }
 
 // ManagedResourceDiff represents ArgoCD managed resource diff item
@@ -462,4 +483,104 @@ func (s *ApplicationService) GetUserInfo(ctx context.Context) error {
 	_ = resp // Acknowledge we received the response
 
 	return nil
+}
+
+// GetApplication fetches a single application with full details including history
+func (s *ApplicationService) GetApplication(ctx context.Context, name string, appNamespace *string) (*ArgoApplication, error) {
+	endpoint := fmt.Sprintf("/api/v1/applications/%s", name)
+	if appNamespace != nil && *appNamespace != "" {
+		endpoint += "?appNamespace=" + url.QueryEscape(*appNamespace)
+	}
+
+	resp, err := s.client.Get(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get application %s: %w", name, err)
+	}
+
+	var app ArgoApplication
+	if err := json.Unmarshal(resp, &app); err != nil {
+		return nil, fmt.Errorf("failed to decode application response: %w", err)
+	}
+
+	return &app, nil
+}
+
+// GetRevisionMetadata fetches git metadata for a specific revision
+func (s *ApplicationService) GetRevisionMetadata(ctx context.Context, name string, revision string, appNamespace *string) (*model.RevisionMetadata, error) {
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/revisions/%s/metadata", name, revision)
+	if appNamespace != nil && *appNamespace != "" {
+		endpoint += "?appNamespace=" + url.QueryEscape(*appNamespace)
+	}
+
+	resp, err := s.client.Get(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get revision metadata for %s@%s: %w", name, revision, err)
+	}
+
+	var metadata RevisionMetadataResponse
+	if err := json.Unmarshal(resp, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to decode revision metadata response: %w", err)
+	}
+
+	return &model.RevisionMetadata{
+		Author:  metadata.Author,
+		Date:    metadata.Date,
+		Message: metadata.Message,
+		Tags:    metadata.Tags,
+	}, nil
+}
+
+// RollbackApplication performs a rollback operation
+func (s *ApplicationService) RollbackApplication(ctx context.Context, request model.RollbackRequest) error {
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/rollback", request.Name)
+	if request.AppNamespace != nil && *request.AppNamespace != "" {
+		endpoint += "?appNamespace=" + url.QueryEscape(*request.AppNamespace)
+	}
+
+	body := map[string]interface{}{
+		"id":   request.ID,
+		"name": request.Name,
+	}
+	
+	if request.DryRun {
+		body["dryRun"] = true
+	}
+	if request.Prune {
+		body["prune"] = true
+	}
+	if request.AppNamespace != nil {
+		body["appNamespace"] = *request.AppNamespace
+	}
+
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal rollback request: %w", err)
+	}
+
+	_, err = s.client.Post(ctx, endpoint, bodyJSON)
+	if err != nil {
+		return fmt.Errorf("failed to rollback application %s to deployment %d: %w", request.Name, request.ID, err)
+	}
+
+	return nil
+}
+
+// ConvertDeploymentHistoryToRollbackRows converts ArgoCD deployment history to rollback rows
+func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model.RollbackRow {
+	rows := make([]model.RollbackRow, 0, len(history))
+	
+	for _, deployment := range history {
+		row := model.RollbackRow{
+			ID:         deployment.ID,
+			Revision:   deployment.Revision,
+			DeployedAt: &deployment.DeployedAt,
+			Author:     nil, // Will be loaded asynchronously
+			Date:       nil, // Will be loaded asynchronously
+			Message:    nil, // Will be loaded asynchronously
+			MetaError:  nil,
+		}
+		rows = append(rows, row)
+	}
+	
+	return rows
 }
