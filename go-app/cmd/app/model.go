@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log"
 	"strings"
@@ -15,7 +16,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/noborus/ov/oviewer"
+	"gopkg.in/yaml.v3"
 )
+
+//go:embed ov-less.yaml
+var ovLessYAML []byte
 
 // Model represents the main Bubbletea model containing all application state
 type Model struct {
@@ -230,54 +235,17 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 		if err != nil {
 			return pagerDoneMsg{Err: err}
 		}
-		cfg := oviewer.NewConfig()
+		var cfg oviewer.Config
+		if err := yaml.Unmarshal(ovLessYAML, &cfg); err != nil {
+			return pagerDoneMsg{Err: err}
+		}
 		cfg.IsWriteOnExit = false
 		cfg.IsWriteOriginal = false
-		configureVimKeyBindings(&cfg)
 		root.SetConfig(cfg)
 		root.Doc.FileName = title
 		_ = root.Run()
 		return pagerDoneMsg{Err: nil}
 	}
-}
-
-// configureVimKeyBindings adds vim-like key bindings to the oviewer config
-func configureVimKeyBindings(config *oviewer.Config) {
-	// Clear existing key bindings to avoid conflicts
-	config.Keybind = make(map[string][]string)
-
-	// Basic movement
-	config.Keybind["down"] = append(config.Keybind["down"], "j")
-	config.Keybind["up"] = append(config.Keybind["up"], "k")
-	config.Keybind["left"] = append(config.Keybind["left"], "h")
-	config.Keybind["right"] = append(config.Keybind["right"], "l")
-
-	// Page movement (vim-style)
-	config.Keybind["page_down"] = append(config.Keybind["page_down"], "ctrl+f")
-	config.Keybind["page_up"] = append(config.Keybind["page_up"], "ctrl+b")
-	config.Keybind["page_half_down"] = append(config.Keybind["page_half_down"], "ctrl+d")
-	config.Keybind["page_half_up"] = append(config.Keybind["page_half_up"], "ctrl+u")
-
-	// Jump to position
-	config.Keybind["top"] = append(config.Keybind["top"], "g", "g")
-	config.Keybind["bottom"] = append(config.Keybind["bottom"], "G")
-
-	// Line navigation
-	config.Keybind["begin_left"] = append(config.Keybind["begin_left"], "0", "^")
-	config.Keybind["end_right"] = append(config.Keybind["end_right"], "$")
-
-	// Word navigation - using existing half_left/half_right for word movement
-	config.Keybind["half_left"] = append(config.Keybind["half_left"], "b")
-	config.Keybind["half_right"] = append(config.Keybind["half_right"], "w")
-
-	// Search
-	config.Keybind["search"] = append(config.Keybind["search"], "/")
-	config.Keybind["backsearch"] = append(config.Keybind["backsearch"], "?")
-	config.Keybind["next_search"] = append(config.Keybind["next_search"], "n")
-	config.Keybind["next_backsearch"] = append(config.Keybind["next_backsearch"], "N")
-
-	// Quit
-	config.Keybind["exit"] = append(config.Keybind["exit"], "q", "ctrl+c")
 }
 
 // Update implements tea.Model.Update

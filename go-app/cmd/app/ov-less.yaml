@@ -1,0 +1,128 @@
+# This is a file with less key bindings set.
+# Copy it to ~/.ov.yaml or start it with `ov --config ov-less.yaml`.
+# Thanks to hupfdule (Marco Herrn) for the less keybinding information.
+
+# TabWidth is the tab width number.
+TabWidth: 4
+# Style
+# String of the color name: Foreground, Background
+# Boolean: Bold, Blink, Dim, Italic, Underline
+StyleAlternate:
+  Background: "gray"
+StyleHeader:
+  Bold: true
+StyleOverStrike:
+  Bold: true
+StyleOverLine:
+  Underline: true
+
+# Keybind
+# Special key
+#   "Enter","Backspace","Tab","Backtab","Esc",
+#   "Backspace2", "Delete", "Insert",
+#   "Up", "Down", "Left", "Right", "Home", "End",
+#   "F1...F64"
+# Modifier key
+#   "ctrl", "alt", "meta", "shift"
+# Connect with modifier key + key
+#   "ctrl+c"
+KeyBind:
+    exit:
+        - "Escape"
+        - "q"
+    cancel:
+        - "ctrl+c"
+    write_exit:
+        - "Q"
+    sync:
+        - "r"
+        - "R"
+        - "ctrl+l"
+        - "ctrl+r"
+    help:
+        - "h"
+        - "ctrl+alt+c"
+    logdoc:
+        - "ctrl+alt+e"
+    down:
+        - "e"
+        - "ctrl+e"
+        - "j"
+        - "J"
+        - "ctrl+j"
+        - "Enter"
+        - "Down"
+    up:
+        - "y"
+        - "Y"
+        - "ctrl+y"
+        - "k"
+        - "K"
+        - "ctrl+K"
+        - "Up"
+    top:
+        - "Home"
+        - "g"
+    bottom:
+        - "End"
+        - "shift+g"
+    left:
+        - "left"
+    right:
+        - "right"
+    half_left:
+        - "ctrl+left"
+    half_right:
+        - "ctrl+right"
+    page_up:
+        - "PageUp"
+        - "b"
+        - "alt+v"
+    page_down:
+        - "PageDown"
+        - "ctrl+v"
+        - "space"
+        - "alt+space"
+        - "f"
+        - "z"
+    page_half_up:
+        - "u"
+        - "ctrl+u"
+    page_half_down:
+        - "d"
+        - "ctrl+d"
+    mark:
+        - "m"
+    next_mark:
+        - ">"
+    previous_mark:
+        - "<"
+    alter_rows_mode:
+        - "C"
+    line_number_mode:
+        - "G"
+    search:
+        - "/"
+    wrap_mode:
+        - "w"
+        - "W"
+    column_mode:
+        - "c"
+    backsearch:
+        - "?"
+    delimiter:
+        - "d"
+    header:
+        - "H"
+    tabwidth:
+        - "t"
+    next_search:
+        - "n"
+    next_backsearch:
+        - "N"
+    next_doc:
+        - "]"
+    previous_doc:
+        - "["
+    toggle_mouse:
+        - "ctrl+alt+r"
