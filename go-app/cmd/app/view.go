@@ -973,8 +973,13 @@ func (m Model) renderAuthRequiredView() string {
 
 	var sections []string
 
-	// ArgoNaut Banner (matches AuthRequiredView ArgoNautBanner)
-	sections = append(sections, m.renderBanner())
+	// Calculate consistent width for all components
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	contentWidth := max(0, containerWidth-4) // Account for padding
+
+	// ArgoNaut Banner with consistent width (matches AuthRequiredView ArgoNautBanner)
+	banner := m.renderBanner()
+	sections = append(sections, banner)
 
 	// Main content area with auth message (matches AuthRequiredView main Box)
 	var contentSections []string
@@ -985,26 +990,31 @@ func (m Model) renderAuthRequiredView() string {
 		Background(outOfSyncColor).
 		Foreground(lipgloss.Color("15")).
 		Bold(true).
+		Width(contentWidth).
+		Align(lipgloss.Center).
 		Render(" AUTHENTICATION REQUIRED "))
 	contentSections = append(contentSections, "")
 	contentSections = append(contentSections, lipgloss.NewStyle().
 		Foreground(outOfSyncColor).
 		Bold(true).
+		Width(contentWidth).
+		Align(lipgloss.Center).
 		Render("Please login to ArgoCD before running argonaut."))
 	contentSections = append(contentSections, "")
 
 	// Add instructions (matches AuthRequiredView instructions map)
 	for _, instruction := range instructions {
-		contentSections = append(contentSections, statusStyle.Render("- "+instruction))
+		contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("- "+instruction))
 	}
 	contentSections = append(contentSections, "")
-	contentSections = append(contentSections, statusStyle.Render("Current context: "+serverText))
-	contentSections = append(contentSections, statusStyle.Render("Press l to view logs, q to quit."))
+	contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Current context: "+serverText))
+	contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Press l to view logs, q to quit."))
 
-	// Apply border with red color (matches AuthRequiredView borderColor="red")
+	// Apply border with red color and full width (matches AuthRequiredView borderColor="red")
 	authBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Width(contentWidth).
 		PaddingLeft(2).
 		PaddingRight(2).
 		PaddingTop(1).
@@ -1014,7 +1024,7 @@ func (m Model) renderAuthRequiredView() string {
 	sections = append(sections, authContent)
 
 	// Status line (matches AuthRequiredView bottom Box)
-    gap := max(0, m.state.Terminal.Cols-lipgloss.Width(headerMsg)-lipgloss.Width("Ready")-6)
+    gap := max(0, containerWidth-lipgloss.Width(headerMsg)-lipgloss.Width("Ready")-4)
     statusLine := lipgloss.JoinHorizontal(
         lipgloss.Center,
         statusStyle.Render(headerMsg),
@@ -1026,9 +1036,8 @@ func (m Model) renderAuthRequiredView() string {
 	// Join with newlines and apply main container style with full width
 	content := strings.Join(sections, "\n")
     totalHeight := m.state.Terminal.Rows - 1
-    containerContentWidth := max(0, m.state.Terminal.Cols-2)
 
-    return mainContainerStyle.Height(totalHeight).Width(containerContentWidth).Render(content)
+    return mainContainerStyle.Height(totalHeight).Width(containerWidth).Render(content)
 }
 
 func (m Model) renderHelpModal() string {
