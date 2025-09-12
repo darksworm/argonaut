@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/a9s/go-app/pkg/model"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"time"
 )
 

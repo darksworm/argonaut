@@ -1,6 +1,6 @@
 package model
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "github.com/charmbracelet/bubbletea/v2"
 
 // Navigation Messages - correspond to TypeScript navigation actions
 

@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/a9s/go-app/pkg/config"
 	"github.com/a9s/go-app/pkg/model"
 	"github.com/a9s/go-app/pkg/services"
@@ -47,8 +47,8 @@ func main() {
 		tea.WithMouseCellMotion(),
 	)
 
-	// Start the program
-	if err := p.Start(); err != nil {
+	// Run the program  
+	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running program: %v\n", err)
 		os.Exit(1)
 	}

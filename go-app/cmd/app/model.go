@@ -10,10 +10,10 @@ import (
 	"github.com/a9s/go-app/pkg/api"
 	"github.com/a9s/go-app/pkg/model"
 	"github.com/a9s/go-app/pkg/services"
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/v2/spinner"
+	"github.com/charmbracelet/bubbles/v2/table"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // Model represents the main Bubbletea model containing all application state

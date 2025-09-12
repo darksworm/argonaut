@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/a9s/go-app/pkg/model"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/v2/textinput"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // InputComponentState manages interactive input components
@@ -22,13 +22,13 @@ func NewInputComponents() *InputComponentState {
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search..."
 	searchInput.CharLimit = 200
-	searchInput.Width = 50
+	searchInput.SetWidth(50)
 
 	// Create command input
 	commandInput := textinput.New()
 	commandInput.Placeholder = "Enter command..."
 	commandInput.CharLimit = 200
-	commandInput.Width = 50
+	commandInput.SetWidth(50)
 
 	return &InputComponentState{
 		searchInput:  searchInput,
@@ -125,8 +125,8 @@ func (m Model) renderEnhancedSearchBar() string {
 	baseUsed := lipgloss.Width(searchLabel) + 1 /*space*/
 	minInput := 5
 	inputWidth := maxInt(minInput, innerWidth-baseUsed)
-	if inputWidth != m.inputComponents.searchInput.Width {
-		m.inputComponents.searchInput.Width = inputWidth
+	if inputWidth != m.inputComponents.searchInput.Width() {
+		m.inputComponents.searchInput.SetWidth(inputWidth)
 	}
 
 	// Render
@@ -160,8 +160,8 @@ func (m Model) renderEnhancedCommandBar() string {
 	baseUsed := lipgloss.Width(cmdLabel) + 1 /*space*/
 	minInput := 5
 	inputWidth := maxInt(minInput, innerWidth-baseUsed)
-	if inputWidth != m.inputComponents.commandInput.Width {
-		m.inputComponents.commandInput.Width = inputWidth
+	if inputWidth != m.inputComponents.commandInput.Width() {
+		m.inputComponents.commandInput.SetWidth(inputWidth)
 	}
 
 	// Render

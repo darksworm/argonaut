@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/a9s/go-app/pkg/model"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -166,11 +166,27 @@ func (m Model) renderMainLayout() string {
 		return centeredModal
 	}
 
-	// Add diff loading spinner as an overlay if loading
+	// Add diff loading spinner as an overlay if loading using lipgloss v2 layer/canvas system
 	if m.state.Diff != nil && m.state.Diff.Loading {
+		// Create spinner overlay using lipgloss v2 layer composition
 		spinner := m.renderDiffLoadingSpinner()
-		// Create overlay by placing spinner over the base view using string manipulation
-		return m.overlaySpinnerOnBaseView(baseView, spinner)
+		
+		// Create base layer with the existing view content
+		baseLayer := lipgloss.NewLayer(baseView)
+		
+		// Create spinner layer positioned in center with higher Z-index
+		spinnerLayer := lipgloss.NewLayer(spinner).
+			X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
+			Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
+			Z(1) // Place spinner above base content
+		
+		// Create canvas with both layers
+		canvas := lipgloss.NewCanvas(
+			baseLayer,      // Base view content at Z=0
+			spinnerLayer,   // Spinner overlay at Z=1
+		)
+		
+		return canvas.Render()
 	}
 
 	return baseView
@@ -1825,13 +1841,13 @@ func (m Model) renderConnectionErrorView() string {
 	// Calculate available space using the same pattern as other views
 	header := m.renderBanner()
 	headerLines := countLines(header)
-	
+
 	// Connection error view doesn't have search/command bars, so overhead is just banner + borders + status
 	const BORDER_LINES = 2
 	const STATUS_LINES = 1
 	overhead := BORDER_LINES + headerLines + STATUS_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
-	
+
 	// Calculate dimensions for consistent full-height layout
 	containerWidth := max(0, m.state.Terminal.Cols-2)
 	contentWidth := max(0, containerWidth-4) // Account for border and padding
@@ -1839,7 +1855,7 @@ func (m Model) renderConnectionErrorView() string {
 
 	// Build connection error content
 	errorContent := ""
-	
+
 	// Title with connection error styling
 	titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
 	errorContent += titleStyle.Render("Connection Error") + "\n\n"
@@ -1884,64 +1900,17 @@ func (m Model) renderConnectionErrorView() string {
 func (m Model) renderDiffLoadingSpinner() string {
 	// Create spinner content with message
 	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
-	
+
 	// Style the spinner with a small bordered box and semi-transparent background
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
-		Background(lipgloss.Color("0")).  // Dark background
+		Background(lipgloss.Color("0")). // Dark background
 		Foreground(whiteBright).
 		Padding(1, 2).
 		Bold(true).
-		Width(20).  // Fixed width for consistency
 		Align(lipgloss.Center)
 
 	return spinnerStyle.Render(spinnerContent)
-}
-
-// overlaySpinnerOnBaseView places a spinner in the center of the base view
-func (m Model) overlaySpinnerOnBaseView(baseView string, spinner string) string {
-	baseLines := strings.Split(baseView, "\n")
-	spinnerLines := strings.Split(spinner, "\n")
-	
-	// Calculate center position for spinner
-	termHeight := len(baseLines)
-	termWidth := m.state.Terminal.Cols
-	
-	spinnerHeight := len(spinnerLines)
-	spinnerWidth := 0
-	for _, line := range spinnerLines {
-		if len(line) > spinnerWidth {
-			spinnerWidth = len(line)
-		}
-	}
-	
-	startRow := (termHeight - spinnerHeight) / 2
-	startCol := (termWidth - spinnerWidth) / 2
-	
-	// Create result with base view
-	result := make([]string, len(baseLines))
-	copy(result, baseLines)
-	
-	// Overlay spinner lines
-	for i, spinnerLine := range spinnerLines {
-		rowIndex := startRow + i
-		if rowIndex >= 0 && rowIndex < len(result) {
-			baseLine := result[rowIndex]
-			// Ensure base line is long enough
-			for len(baseLine) < termWidth {
-				baseLine += " "
-			}
-			
-			if startCol >= 0 && startCol+len(spinnerLine) <= len(baseLine) {
-				// Replace the middle part with spinner content
-				before := baseLine[:startCol]
-				after := baseLine[startCol+len(spinnerLine):]
-				result[rowIndex] = before + spinnerLine + after
-			}
-		}
-	}
-	
-	return strings.Join(result, "\n")
 }
 

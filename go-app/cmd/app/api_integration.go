@@ -11,7 +11,7 @@ import (
 
 	"github.com/a9s/go-app/pkg/model"
 	"github.com/a9s/go-app/pkg/services"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -147,6 +147,10 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
+		
+		// Add artificial delay to demonstrate spinner overlay
+		time.Sleep(2 * time.Second)
+		
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
@@ -174,6 +178,8 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		}
 
 		if len(desiredDocs) == 0 && len(liveDocs) == 0 {
+			// Add delay even for "No diffs" case to demonstrate spinner
+			time.Sleep(1 * time.Second)
 			return model.StatusChangeMsg{Status: "No diffs"}
 		}
 
