@@ -149,6 +149,9 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		}
 		
 		
+		// Add delay to demonstrate the attention-grabbing spinner overlay
+		time.Sleep(3 * time.Second)
+		
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
