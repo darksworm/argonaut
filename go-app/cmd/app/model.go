@@ -343,67 +343,41 @@ func shellEscape(s string) string {
 
 // configureVimKeyBindings adds vim-like key bindings to the oviewer config
 func configureVimKeyBindings(cfg *oviewer.Config) error {
-    // Make sure the map exists
-    if cfg.Keybind == nil {
-        cfg.Keybind = make(map[string][]string)
-    }
+    // Disable OV's default key bindings so our map is authoritative.
+    cfg.DefaultKeyBind = "disable"
+    // Hard reset keybindings to avoid duplicates from library defaults.
+    // We'll assign a minimal, deterministic set.
+    cfg.Keybind = make(map[string][]string)
 
-    // Remove duplicate/conflicting bindings for keys we want to own exclusively.
-    // These keys sometimes have defaults in ov (e.g., 'h' for help, 'g' for goto),
-    // causing flakiness. We purge them from all actions first, then assign.
-    exclusiveKeys := map[string]bool{
-        "h": true, // left
-        "j": true, // down
-        "k": true, // up
-        "l": true, // right
-        "g": true, // top
-        "G": true, // bottom
-        "/": true, // search
-        "q": true, // exit
-    }
-
-    for action, keys := range cfg.Keybind {
-        // Filter out any of our exclusive keys from existing actions
+    // Helper to set a binding list without duplicates
+    set := func(action string, keys ...string) {
+        uniq := make(map[string]struct{})
         out := make([]string, 0, len(keys))
         for _, k := range keys {
-            if !exclusiveKeys[k] {
-                // Keep non-exclusive keys as-is
-                // Also avoid duplicates while we're here
-                already := false
-                for _, ex := range out {
-                    if ex == k {
-                        already = true
-                        break
-                    }
-                }
-                if !already {
-                    out = append(out, k)
-                }
+            if _, ok := uniq[k]; ok {
+                continue
             }
+            uniq[k] = struct{}{}
+            out = append(out, k)
         }
         cfg.Keybind[action] = out
     }
 
-    // Helper to append a key to a given action if missing
-    add := func(action, key string) {
-        lst := cfg.Keybind[action]
-        for _, k := range lst {
-            if k == key {
-                return
-            }
-        }
-        cfg.Keybind[action] = append(lst, key)
-    }
+    // Vim-like navigation
+    set("left", "h")
+    set("right", "l")
+    set("up", "k")
+    set("down", "j")
+    set("top", "g")
+    set("bottom", "G")
+    set("search", "/")
+    set("exit", "q")
 
-    // Assign our vim-style bindings exclusively
-    add("left", "h")
-    add("right", "l")
-    add("up", "k")
-    add("down", "j")
-    add("top", "g")
-    add("bottom", "G")
-    add("search", "/")
-    add("exit", "q")
+    // Additional quality-of-life bindings that don't conflict
+    // Page navigation (space/down: page down, b: page up) if supported
+    // These actions might be ignored if oviewer doesn't map them; harmless otherwise.
+    set("page_down", " ")
+    set("page_up", "b")
 
     return nil
 }

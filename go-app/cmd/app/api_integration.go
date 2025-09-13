@@ -194,6 +194,12 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
             return model.StatusChangeMsg{Status: "No differences"}
         }
 
+        // Clear loading spinner before handing off to viewer/formatter
+        if m.state.Diff == nil {
+            m.state.Diff = &model.DiffState{}
+        }
+        m.state.Diff.Loading = false
+
         // 1) Interactive diff viewer: replace the terminal (e.g., vimdiff, meld)
         if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
             return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
