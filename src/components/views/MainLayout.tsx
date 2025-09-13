@@ -80,6 +80,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         termRows={availableRows}
         apiVersion={apiVersion}
         argonautVersion={packageJson.version}
+        isBackdropGrayscale={Boolean(modal)}
       />
 
       {/* Input bars between header and main content */}

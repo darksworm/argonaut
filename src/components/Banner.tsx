@@ -11,6 +11,8 @@ interface ArgoNautBannerProps {
   termRows?: number;
   apiVersion?: string;
   argonautVersion?: string;
+  // When background is grayscaled (e.g., modal overlay)
+  isBackdropGrayscale?: boolean;
 }
 
 interface ContextProps {
@@ -125,6 +127,7 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
   termCols = 80,
   apiVersion,
   argonautVersion,
+  isBackdropGrayscale = false,
 }) => {
   const isNarrow = termCols <= 100; // stack vertically
 
@@ -133,7 +136,11 @@ const ArgoNautBanner: React.FC<ArgoNautBannerProps> = ({
     return (
       <Box flexDirection="column" paddingTop={1}>
         <Box>
-          <Text backgroundColor="cyan" color="white" bold>
+          <Text
+            backgroundColor={isBackdropGrayscale ? ("gray" as any) : "cyan"}
+            color={isBackdropGrayscale ? ("black" as any) : "white"}
+            bold
+          >
             {" "}
             Argonaut {argonautVersion && `${argonautVersion}`}
           </Text>

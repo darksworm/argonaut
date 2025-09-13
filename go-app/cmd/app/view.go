@@ -176,6 +176,19 @@ func (m Model) renderMainLayout() string {
         modalY := (totalHeight - mh) / 2
 
         baseLayer := lipgloss.NewLayer(grayBase)
+
+        // If the terminal is narrow (small banner badge), overlay an inverted badge
+        if m.state.Terminal.Cols <= 100 {
+            badge := m.renderSmallBadge(true)
+            // The small badge is rendered after 1 empty line and inside main container padding X=1
+            badgeLayer := lipgloss.NewLayer(badge).X(1).Y(1).Z(1)
+            // Put modal above everything
+            modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(2)
+            canvas := lipgloss.NewCanvas(baseLayer, badgeLayer, modalLayer)
+            return canvas.Render()
+        }
+
+        // Put modal above base when not narrow
         modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
         canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
         return canvas.Render()
@@ -217,18 +230,12 @@ func countLines(s string) int {
 
 // renderBanner - 1:1 mapping from Banner.tsx
 func (m Model) renderBanner() string {
-	// Determine narrow layout threshold similar to TS
-	isNarrow := m.state.Terminal.Cols <= 100
+    // Determine narrow layout threshold similar to TS
+    isNarrow := m.state.Terminal.Cols <= 100
 
-	// Cyan badge for very narrow terminals
+    // Cyan badge for very narrow terminals
     if isNarrow {
-        badge := lipgloss.NewStyle().
-            Background(cyanBright).
-            Foreground(whiteBright).
-            Bold(true).
-            PaddingLeft(1).
-            PaddingRight(1).
-            Render("Argonaut " + appVersion)
+        badge := m.renderSmallBadge(false)
 
 		// Add spacing before and after the badge, and after Project line
 		var sections []string
@@ -262,6 +269,24 @@ func (m Model) renderBanner() string {
 	// Compute full row width inside main container (account for main container padding of 1 on each side)
 	total := max(0, m.state.Terminal.Cols-2)
 	return joinWithRightAlignment(left, right, total)
+}
+
+// renderSmallBadge renders the compact "Argonaut <version>" badge used in narrow terminals.
+// If grayscale is true, it uses a gray background with dark text so it stays readable when
+// the base layer is desaturated for modal backdrops.
+func (m Model) renderSmallBadge(grayscale bool) string {
+    st := lipgloss.NewStyle().
+        Bold(true).
+        PaddingLeft(1).
+        PaddingRight(1)
+
+    if grayscale {
+        // Medium gray background with near-black foreground for contrast
+        st = st.Background(lipgloss.Color("243")).Foreground(lipgloss.Color("16"))
+    } else {
+        st = st.Background(cyanBright).Foreground(whiteBright)
+    }
+    return st.Render("Argonaut " + appVersion)
 }
 
 // renderContextBlock renders the left-side context (labels + values)
@@ -1331,7 +1356,9 @@ func (m Model) renderConfirmSyncModal() string {
     // introduce asymmetric trailing padding.
     body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
 
-    return wrapper.Render(body)
+    // Add outer whitespace so the modal doesn't sit directly on top of content
+    outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right
+    return outer.Render(wrapper.Render(body))
 }
 
 func (m Model) renderResourceStream(availableRows int) string {
@@ -1987,7 +2014,9 @@ func (m Model) renderDiffLoadingSpinner() string {
 		Bold(true).
 		Align(lipgloss.Center)
 
-	return spinnerStyle.Render(spinnerContent)
+    // Add outer whitespace so overlay doesn't butt up against background text
+    outer := lipgloss.NewStyle().Padding(1, 1)
+    return outer.Render(spinnerStyle.Render(spinnerContent))
 }
 
 // renderSyncLoadingModal displays a compact centered modal with a spinner during sync start
@@ -2003,7 +2032,9 @@ func (m Model) renderSyncLoadingModal() string {
     minW := 24
     w := max(minW, lipgloss.Width(content)+4)
     wrapper = wrapper.Width(w)
-    return wrapper.Render(content)
+    // Add outer whitespace: one space left/right and one blank line top/bottom
+    outer := lipgloss.NewStyle().Padding(1, 1)
+    return outer.Render(wrapper.Render(content))
 }
 
 // renderRollbackModal displays the rollback modal with deployment history
