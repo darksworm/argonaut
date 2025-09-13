@@ -117,11 +117,11 @@ func (m Model) renderEnhancedSearchBar() string {
 	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
 
 	// Compute widths to make input fill the full row (no trailing help text)
-	totalWidth := m.state.Terminal.Cols
-	// main container adds 1 space padding on each side, and this box has
-	// border(2) + padding(2). Content width must be total - (2+2+2) = total-6
-	styleWidth := maxInt(0, totalWidth-6)
-	innerWidth := styleWidth
+    totalWidth := m.state.Terminal.Cols
+    // Make the OUTER width match the main bordered box outer width (cols-2)
+    // Inner content width is then outer - borders(2) - padding(2) = cols-6
+    styleWidth := maxInt(0, totalWidth-2)
+    innerWidth := maxInt(0, styleWidth-4)
 
 	// Allocate remaining width to the input field
 	baseUsed := lipgloss.Width(searchLabel) + 1 /*space*/
@@ -156,10 +156,10 @@ func (m Model) renderEnhancedCommandBar() string {
 	// Removed colon prefix from command prompt
 
 	// Compute widths for full-row input (no trailing help text)
-	totalWidth := m.state.Terminal.Cols
-	// Same full-row rule as search bar: content width = cols - 6
-	styleWidth := maxInt(0, totalWidth-6)
-	innerWidth := styleWidth
+    totalWidth := m.state.Terminal.Cols
+    // Match OUTER width of main content border (cols-2); inner width = cols-6
+    styleWidth := maxInt(0, totalWidth-2)
+    innerWidth := maxInt(0, styleWidth-4)
 	baseUsed := lipgloss.Width(cmdLabel) + 1 /*space*/
 	minInput := 5
 	inputWidth := maxInt(minInput, innerWidth-baseUsed)

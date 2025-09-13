@@ -1228,11 +1228,13 @@ func (m Model) renderSearchBar() string {
 	}
 
 	// Search bar with border (matches SearchBar Box with borderStyle="round" borderColor="yellow")
-	searchBarStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		PaddingLeft(1).
-		PaddingRight(1)
+    searchBarStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(yellowBright).
+        PaddingLeft(1).
+        PaddingRight(1).
+        // Ensure width matches the main bordered content box
+        Width(m.contentInnerWidth())
 
 	// Content matching SearchBar layout
 	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
@@ -1248,7 +1250,9 @@ func (m Model) renderSearchBar() string {
 
 	content := fmt.Sprintf("%s %s  %s", searchLabel, searchValue, statusStyle.Render("("+helpText+")"))
 
-	return searchBarStyle.Render(content)
+    // Clip content to inner width to avoid stretching the box
+    content = clipAnsiToWidth(content, m.contentInnerWidth())
+    return searchBarStyle.Render(content)
 }
 
 func (m Model) renderCommandBar() string {
@@ -1258,11 +1262,13 @@ func (m Model) renderCommandBar() string {
 	}
 
 	// Command bar with border (matches CommandBar Box with borderStyle="round" borderColor="yellow")
-	commandBarStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		PaddingLeft(1).
-		PaddingRight(1)
+    commandBarStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(yellowBright).
+        PaddingLeft(1).
+        PaddingRight(1).
+        // Match main content width
+        Width(m.contentInnerWidth())
 
 	// Content matching CommandBar layout
 	cmdLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("CMD")
@@ -1275,7 +1281,8 @@ func (m Model) renderCommandBar() string {
 
 	content := fmt.Sprintf("%s %s  %s", cmdLabel, commandValue, statusStyle.Render(helpText))
 
-	return commandBarStyle.Render(content)
+    content = clipAnsiToWidth(content, m.contentInnerWidth())
+    return commandBarStyle.Render(content)
 }
 
 func (m Model) renderConfirmSyncModal() string {

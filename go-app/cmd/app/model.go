@@ -228,56 +228,65 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 		r := strings.NewReader(text)
 		root, err := oviewer.NewRoot(r)
 		if err != nil {
+			log.Printf("ERROR: Failed to create oviewer root: %v", err)
 			return pagerDoneMsg{Err: err}
 		}
+		
 		cfg := oviewer.NewConfig()
 		cfg.IsWriteOnExit = false
 		cfg.IsWriteOriginal = false
-		configureVimKeyBindings(&cfg)
+		
+		// Ensure ov starts in normal view mode, not input/command mode
+		cfg.ViewMode = "" // Use default normal view mode
+		
+		// Try to configure keybindings and catch any errors
+		configErr := configureVimKeyBindings(&cfg)
+		if configErr != nil {
+			log.Printf("ERROR: Failed to configure vim keybindings: %v", configErr)
+			return pagerDoneMsg{Err: configErr}
+		}
+		
 		root.SetConfig(cfg)
-		root.Doc.FileName = title
-		_ = root.Run()
+		// Don't set FileName as it might trigger input mode
+		// root.Doc.FileName = title
+		
+		// Capture any error from Run()
+		runErr := root.Run()
+		if runErr != nil {
+			log.Printf("ERROR: Failed to run oviewer: %v", runErr)
+			return pagerDoneMsg{Err: runErr}
+		}
+		
 		return pagerDoneMsg{Err: nil}
 	}
 }
 
 // configureVimKeyBindings adds vim-like key bindings to the oviewer config
-func configureVimKeyBindings(cfg *oviewer.Config) {
-	// Clear existing key bindings to avoid conflicts
-	cfg.Keybind = make(map[string][]string)
+func configureVimKeyBindings(cfg *oviewer.Config) error {
+	// Don't replace the entire keybind map - just add vim keys to existing defaults
+	// This preserves all the essential default functionality
+	
+	if cfg.Keybind == nil {
+		cfg.Keybind = make(map[string][]string)
+	}
 
-	// Basic movement
+	// Only add the essential vim navigation keys that we need
+	// Add to existing keybindings rather than replace
 	cfg.Keybind["down"] = append(cfg.Keybind["down"], "j")
 	cfg.Keybind["up"] = append(cfg.Keybind["up"], "k")
 	cfg.Keybind["left"] = append(cfg.Keybind["left"], "h")
 	cfg.Keybind["right"] = append(cfg.Keybind["right"], "l")
 
-	// Page movement (vim-style)
-	cfg.Keybind["page_down"] = append(cfg.Keybind["page_down"], "ctrl+f")
-	cfg.Keybind["page_up"] = append(cfg.Keybind["page_up"], "ctrl+b")
-	cfg.Keybind["page_half_down"] = append(cfg.Keybind["page_half_down"], "ctrl+d")
-	cfg.Keybind["page_half_up"] = append(cfg.Keybind["page_half_up"], "ctrl+u")
-
-	// Jump to position
+	// The main fix: ensure g and G work for top/bottom
+	// Note: In most pagers (including less), single 'g' goes to top, not 'gg'
 	cfg.Keybind["top"] = append(cfg.Keybind["top"], "g")
 	cfg.Keybind["bottom"] = append(cfg.Keybind["bottom"], "G")
 
-	// Line navigation
-	cfg.Keybind["begin_left"] = append(cfg.Keybind["begin_left"], "0", "^")
-	cfg.Keybind["end_right"] = append(cfg.Keybind["end_right"], "$")
-
-	// Word navigation - using existing half_left/half_right for word movement
-	cfg.Keybind["half_left"] = append(cfg.Keybind["half_left"], "b")
-	cfg.Keybind["half_right"] = append(cfg.Keybind["half_right"], "w")
-
-	// Search
+	// Basic search (likely already exists but ensure it's there)
 	cfg.Keybind["search"] = append(cfg.Keybind["search"], "/")
-	cfg.Keybind["backsearch"] = append(cfg.Keybind["backsearch"], "?")
-	cfg.Keybind["next_search"] = append(cfg.Keybind["next_search"], "n")
-	cfg.Keybind["next_backsearch"] = append(cfg.Keybind["next_backsearch"], "N")
-
-	// Quit
-	cfg.Keybind["exit"] = append(cfg.Keybind["exit"], "q", "ctrl+c")
+	cfg.Keybind["exit"] = append(cfg.Keybind["exit"], "q")
+	
+	return nil
 }
 
 // Update implements tea.Model.Update
@@ -520,7 +529,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case pagerDoneMsg:
-		// After pager, default back to normal mode
+		// Restore pager state
+		m.inPager = false
+		
+		// If there was an error, display it
+		if msg.Err != nil {
+			log.Printf("PAGER ERROR: %v", msg.Err)
+			// Set error state and display the error on screen
+			m.state.CurrentError = &model.ApiError{
+				Message:    "Pager Error: " + msg.Err.Error(),
+				StatusCode: 0,
+				ErrorCode:  1001, // Custom error code for pager errors
+				Details:    "Failed to open text pager",
+				Timestamp:  time.Now().Unix(),
+			}
+			return m, func() tea.Msg {
+				return model.SetModeMsg{Mode: model.ModeError}
+			}
+		}
+		
+		// No error, go back to normal mode
 		m.state.Mode = model.ModeNormal
 		return m, nil
 
@@ -842,13 +870,14 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	// Quick navigation (matching TypeScript app)
 	case "g":
-		if m.state.Navigation.LastGPressed > 0 &&
-			time.Since(time.Unix(m.state.Navigation.LastGPressed, 0)) < 500*time.Millisecond {
+		// Double-g check for go to top
+		now := time.Now().UnixMilli()
+		if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
 			// Double-g: go to top
 			return m.handleGoToTop()
 		} else {
 			// Single g: record timestamp
-			m.state.Navigation.LastGPressed = time.Now().Unix()
+			m.state.Navigation.LastGPressed = now
 			return m, nil
 		}
 	case "G":
