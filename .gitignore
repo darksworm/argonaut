@@ -8,6 +8,14 @@ out/
 argonaut-cli
 ./main
 main
+app
+bin/
+a9s
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 junit.xml
 
 
