@@ -267,19 +267,10 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 // 1) Command string with placeholders {left} and {right} for file paths (e.g. "vimdiff {left} {right}")
 // 2) Pager that reads unified diff from stdin (e.g. "delta --side-by-side"). In that case we pipe
 //    the diff text to the process.
-func (m Model) openExternalDiffPager(leftFile, rightFile, diffText string) tea.Msg {
-    // Prefer ARGONAUT_DIFF_PAGER, then ARGONAUT_PAGER, then delta if present
-    cmdStr := os.Getenv("ARGONAUT_DIFF_PAGER")
-    if cmdStr == "" {
-        cmdStr = os.Getenv("ARGONAUT_PAGER")
-    }
-    if cmdStr == "" && inPath("delta") {
-        cmdStr = "delta --side-by-side --line-numbers --navigate --paging=always"
-    }
-    if cmdStr == "" {
-        return pagerDoneMsg{Err: fmt.Errorf("no external pager configured")}
-    }
-
+// openInteractiveDiffViewer replaces the terminal with an interactive diff tool
+// configured via ARGONAUT_DIFF_VIEWER. The command may include {left} and {right}
+// placeholders for file paths.
+func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea.Msg {
     if m.program != nil {
         m.program.Send(pauseRenderingMsg{})
         _ = m.program.ReleaseTerminal()
@@ -293,31 +284,37 @@ func (m Model) openExternalDiffPager(leftFile, rightFile, diffText string) tea.M
         }
     }()
 
-    // Placeholder substitution mode
-    if strings.Contains(cmdStr, "{left}") || strings.Contains(cmdStr, "{right}") {
-        cmdStr = strings.ReplaceAll(cmdStr, "{left}", shellEscape(leftFile))
-        cmdStr = strings.ReplaceAll(cmdStr, "{right}", shellEscape(rightFile))
-        c := exec.Command("sh", "-lc", cmdStr)
-        c.Stdin = os.Stdin
-        c.Stdout = os.Stdout
-        c.Stderr = os.Stderr
-        if err := c.Run(); err != nil {
-            log.Printf("external diff pager failed: %v", err)
-            return pagerDoneMsg{Err: err}
-        }
-        return pagerDoneMsg{Err: nil}
-    }
-
-    // Otherwise, pipe diff to stdin
+    cmdStr = strings.ReplaceAll(cmdStr, "{left}", shellEscape(leftFile))
+    cmdStr = strings.ReplaceAll(cmdStr, "{right}", shellEscape(rightFile))
     c := exec.Command("sh", "-lc", cmdStr)
-    c.Stdin = strings.NewReader(diffText)
+    c.Stdin = os.Stdin
     c.Stdout = os.Stdout
     c.Stderr = os.Stderr
     if err := c.Run(); err != nil {
-        log.Printf("external diff pager failed: %v", err)
+        log.Printf("interactive diff viewer failed: %v", err)
         return pagerDoneMsg{Err: err}
     }
     return pagerDoneMsg{Err: nil}
+}
+
+// runDiffFormatter runs a non-interactive diff formatter on diffText and returns its output.
+// Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
+func (m Model) runDiffFormatter(diffText string) (string, error) {
+    cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
+    if cmdStr == "" && inPath("delta") {
+        // Ensure delta does not page; we want raw output to feed our pager
+        cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
+    }
+    if cmdStr == "" {
+        return diffText, nil
+    }
+    c := exec.Command("sh", "-lc", cmdStr)
+    c.Stdin = strings.NewReader(diffText)
+    out, err := c.CombinedOutput()
+    if err != nil {
+        return diffText, err
+    }
+    return string(out), nil
 }
 
 func inPath(name string) bool {

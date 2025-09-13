@@ -183,7 +183,7 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		leftFile, _ := writeTempYAML("live-", liveDocs)
 		rightFile, _ := writeTempYAML("desired-", desiredDocs)
 
-        // Build raw diff via git to feed an external pager (delta) or our internal viewer
+        // Build raw unified diff via git
         cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
         out, err := cmd.CombinedOutput()
         if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
@@ -194,15 +194,18 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
             return model.StatusChangeMsg{Status: "No differences"}
         }
 
-        // Determine external diff pager
-        if os.Getenv("ARGONAUT_DIFF_PAGER") != "" || os.Getenv("ARGONAUT_PAGER") != "" || inPath("delta") {
-            return m.openExternalDiffPager(leftFile, rightFile, cleaned)
+        // 1) Interactive diff viewer: replace the terminal (e.g., vimdiff, meld)
+        if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
+            return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
         }
 
-        // Fallback to built-in diff view
-        lines := strings.Split(cleaned, "\n")
-        m.state.Diff = &model.DiffState{Title: fmt.Sprintf("%s - Live vs Desired", appName), Content: lines, Offset: 0, Loading: false}
-        return model.SetModeMsg{Mode: model.ModeDiff}
+        // 2) Non-interactive formatter: pipe to tool (e.g., delta) and then show via built-in pager (ov)
+        formatted := cleaned
+        if formattedOut, ferr := m.runDiffFormatter(cleaned); ferr == nil && strings.TrimSpace(formattedOut) != "" {
+            formatted = formattedOut
+        }
+        title := fmt.Sprintf("%s - Live vs Desired", appName)
+        return m.openTextPager(title, formatted)()
     })
 }
 
