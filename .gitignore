@@ -8,8 +8,8 @@ out/
 argonaut-cli
 ./main
 main
-app
-bin/
+/app
+/bin/
 a9s
 *.exe
 *.exe~
