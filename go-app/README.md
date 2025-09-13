@@ -1,121 +1,84 @@
-# ArgoCD Apps - Go Implementation
+# 🐙 Argonaut — Argo CD TUI (Go)
 
-This is the Go port of the TypeScript React+Ink ArgoCD application, built using Bubbletea and Lipgloss.
+This is the Go (Bubble Tea) port of Argonaut. It mirrors the UX and features of the TypeScript Ink app, with a native terminal implementation and some Go‑specific enhancements.
 
-## Phase 2 Status: ✅ COMPLETE
+Below is a copy of the main README for quick reference, followed by Go‑specific notes and configuration for the diff toolchain.
 
-### Architecture Overview
+---
 
-The Go implementation follows the same "screaming architecture" principles as the TypeScript version:
+## 📦 Prerequisites
 
-```
-go-app/
-├── cmd/app/              # Main application entry point
-│   ├── main.go          # Application bootstrap
-│   ├── model.go         # Bubbletea Model with MVU pattern
-│   └── view.go          # Bubbletea View rendering
-├── pkg/
-│   ├── model/           # Core domain types and state
-│   │   ├── types.go     # Domain types (App, View, Mode, etc.)
-│   │   ├── state.go     # Application state structures
-│   │   └── messages.go  # Bubbletea message types
-│   └── services/        # Business logic services
-│       ├── argo.go      # ArgoCD API service interface
-│       ├── navigation.go # Navigation logic service
-│       └── status.go    # Status/logging service
-└── go.mod               # Go module dependencies
-```
+- Argo CD CLI installed
+- (Optional) delta for enhanced diffs
 
-### Key Features Implemented
-
-- ✅ **MVU Pattern**: Full Model-View-Update architecture with Bubbletea
-- ✅ **Service Abstraction**: Clean interfaces matching TypeScript services
-- ✅ **Type Safety**: Complete Go type system mapping from TypeScript
-- ✅ **Message Handling**: All TypeScript actions converted to Go messages
-- ✅ **Navigation Logic**: Drill-down and selection behaviors
-- ✅ **Keyboard Handling**: Vi-style navigation (hjkl, enter, space, esc)
-- ✅ **Terminal UI**: Styled rendering with Lipgloss
-
-### Services Architecture
-
-#### ArgoApiService
-- Interface-based design for ArgoCD API interactions
-- Event-driven architecture with channels
-- Mock implementation with placeholder for real API calls
-
-#### NavigationService  
-- Pure functions for navigation logic
-- Drill-down hierarchy: Clusters → Namespaces → Projects → Apps
-- Selection toggling with set operations
-
-#### StatusService
-- Configurable logging with different levels (info, warn, error, debug)
-- Pluggable handlers for different output destinations
-- Current status tracking
-
-### Message System
-
-All TypeScript Redux actions are mapped to Go Bubbletea messages:
-
-- **Navigation**: `SetViewMsg`, `SetSelectedIdxMsg`, `ResetNavigationMsg`
-- **Selection**: `SetSelectedAppsMsg`, `ClearAllSelectionsMsg`
-- **UI State**: `SetSearchQueryMsg`, `SetCommandMsg`, `ClearFiltersMsg`
-- **Data**: `SetAppsMsg`, `SetServerMsg`, `AppsLoadedMsg`
-- **System**: `WindowSizeMsg`, `KeyMsg`, `QuitMsg`
-
-### Build & Run
+## ⚡ Quickstart
 
 ```bash
-# Build the application
-go build -o bin/a9s ./cmd/app
+# Log in to your Argo CD server
+argocd login
 
-# Run the application
-./bin/a9s
+# Start Argonaut (Go)
+go-app/app
 ```
 
-### Dependencies
+---
 
-- **bubbletea**: TUI framework for Go
-- **lipgloss**: Style definitions and rendering
+## ✨ Highlights
 
-### Controls
+- Instant app browsing with live updates
+- Scoped navigation: clusters → namespaces → projects → apps
+- Command palette (`:`) for actions: `sync`, `diff`, `rollback`, `resources`, etc.
+- Live resources view per app with health & sync status
+- Diff integration with configurable formatter/viewer (see below)
+- Guided rollback with revision metadata and progress streaming
+- Keyboard‑only workflow with Vim‑style navigation
 
-- `↑/k`: Move up
-- `↓/j`: Move down
-- `Enter`: Drill down / Select
-- `Space`: Toggle selection (apps view only)
-- `Esc`: Back / Clear filters
-- `/`: Search mode (placeholder)
-- `:`: Command mode (placeholder)
-- `r`: Refresh (placeholder)
-- `q/Ctrl+C`: Quit
+---
 
-### Type Mappings
+## Diff Formatter and Interactive Viewer
 
-Complete mapping from TypeScript to Go types:
+You can control how diffs are displayed using two environment variables. This separates non‑interactive “formatting” (pretty printing unified diffs) from interactive visual tools that take over the terminal.
 
-- `Set<string>` → `map[string]bool`
-- `string?` → `*string`
-- `Promise<T>` → channels or `(T, error)` tuple
-- `Result<T, Error>` → `(T, error)` tuple
-- Redux actions → Bubbletea messages
+- `ARGONAUT_DIFF_FORMATTER` (non‑interactive)
+  - A command that reads unified diff from stdin and writes formatted output to stdout.
+  - The formatted output is then displayed via Argonaut’s built‑in pager (ov).
+  - Defaults to `delta --side-by-side --line-numbers --navigate --paging=never --width=$COLUMNS` if `delta` is available.
+  - Example values:
+    - `delta --side-by-side --line-numbers --paging=never`
+    - `diff-so-fancy`
 
-### Mock Data
+- `ARGONAUT_DIFF_VIEWER` (interactive)
+  - An interactive command that replaces the terminal temporarily. Use `{left}` and `{right}` placeholders for the temp file paths containing live/desired manifests.
+  - Examples:
+    - `vimdiff {left} {right}`
+    - `meld {left} {right}` (GUI, when available)
 
-The application includes sample data for demonstration:
-- 3 mock applications with different sync/health states  
-- Server configuration pointing to example ArgoCD instance
-- Placeholder clusters, namespaces, and projects
+Behavior:
+- If `ARGONAUT_DIFF_VIEWER` is set, Argonaut runs it and restores the TTY on exit.
+- Otherwise Argonaut pipes the unified diff through `ARGONAUT_DIFF_FORMATTER` (or delta, if present) and shows formatted output in ov.
+- Width is propagated to the formatter via `--width=$COLUMNS` and the `COLUMNS` env var to ensure full‑width output when piping.
 
-### Next Steps (Phase 3)
+Notes:
+- The internal pager uses deterministic Vim‑style keys. To avoid conflicts, OV defaults are disabled and Argonaut installs its own keymap: `h/j/k/l`, `g`/`G`, `/`, `q`.
 
-The foundation is now ready for:
+---
 
-1. **Real API Integration**: Replace mock ArgoApiService with actual ArgoCD client
-2. **Advanced UI Features**: Search, filtering, command mode implementation  
-3. **Application Operations**: Sync, rollback, resource viewing
-4. **Configuration**: CLI args, config files, authentication
-5. **Error Handling**: Robust error states and recovery
-6. **Testing**: Unit tests for services and integration tests
+## Keyboard Shortcuts (Go pager/OV)
 
-This Go implementation maintains full feature parity with the TypeScript version's architecture while leveraging Go's type system and Bubbletea's MVU pattern.
+- `j`/`k` → down/up
+- `h`/`l` → left/right
+- `g`/`G` → top/bottom
+- `/` → search, `n`/`N` to navigate results (OV built‑in)
+- `q` → exit pager
+
+---
+
+## Docker
+
+Build locally and run:
+
+```bash
+docker build -t argonaut-go .
+docker run --rm -it -v ~/.config/argocd:/root/.config/argocd:ro argonaut-go
+```
+
