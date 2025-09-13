@@ -301,14 +301,29 @@ func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea
 // Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
 func (m Model) runDiffFormatter(diffText string) (string, error) {
     cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
+    cols := 0
+    if m.state != nil {
+        cols = m.state.Terminal.Cols
+    }
     if cmdStr == "" && inPath("delta") {
-        // Ensure delta does not page; we want raw output to feed our pager
-        cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
+        // Ensure delta does not page; we want raw output to feed our pager.
+        // Also force width so piping to OV uses full terminal width.
+        if cols > 0 {
+            cmdStr = fmt.Sprintf("delta --side-by-side --line-numbers --navigate --paging=never --width=%d", cols)
+        } else {
+            cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
+        }
     }
     if cmdStr == "" {
         return diffText, nil
     }
     c := exec.Command("sh", "-lc", cmdStr)
+    // Help tools detect width when stdout is a pipe
+    if cols > 0 {
+        c.Env = append(os.Environ(), fmt.Sprintf("COLUMNS=%d", cols))
+    } else {
+        c.Env = os.Environ()
+    }
     c.Stdin = strings.NewReader(diffText)
     out, err := c.CombinedOutput()
     if err != nil {
@@ -328,30 +343,69 @@ func shellEscape(s string) string {
 
 // configureVimKeyBindings adds vim-like key bindings to the oviewer config
 func configureVimKeyBindings(cfg *oviewer.Config) error {
-	// Don't replace the entire keybind map - just add vim keys to existing defaults
-	// This preserves all the essential default functionality
-	
-	if cfg.Keybind == nil {
-		cfg.Keybind = make(map[string][]string)
-	}
+    // Make sure the map exists
+    if cfg.Keybind == nil {
+        cfg.Keybind = make(map[string][]string)
+    }
 
-	// Only add the essential vim navigation keys that we need
-	// Add to existing keybindings rather than replace
-	cfg.Keybind["down"] = append(cfg.Keybind["down"], "j")
-	cfg.Keybind["up"] = append(cfg.Keybind["up"], "k")
-	cfg.Keybind["left"] = append(cfg.Keybind["left"], "h")
-	cfg.Keybind["right"] = append(cfg.Keybind["right"], "l")
+    // Remove duplicate/conflicting bindings for keys we want to own exclusively.
+    // These keys sometimes have defaults in ov (e.g., 'h' for help, 'g' for goto),
+    // causing flakiness. We purge them from all actions first, then assign.
+    exclusiveKeys := map[string]bool{
+        "h": true, // left
+        "j": true, // down
+        "k": true, // up
+        "l": true, // right
+        "g": true, // top
+        "G": true, // bottom
+        "/": true, // search
+        "q": true, // exit
+    }
 
-	// The main fix: ensure g and G work for top/bottom
-	// Note: In most pagers (including less), single 'g' goes to top, not 'gg'
-	cfg.Keybind["top"] = append(cfg.Keybind["top"], "g")
-	cfg.Keybind["bottom"] = append(cfg.Keybind["bottom"], "G")
+    for action, keys := range cfg.Keybind {
+        // Filter out any of our exclusive keys from existing actions
+        out := make([]string, 0, len(keys))
+        for _, k := range keys {
+            if !exclusiveKeys[k] {
+                // Keep non-exclusive keys as-is
+                // Also avoid duplicates while we're here
+                already := false
+                for _, ex := range out {
+                    if ex == k {
+                        already = true
+                        break
+                    }
+                }
+                if !already {
+                    out = append(out, k)
+                }
+            }
+        }
+        cfg.Keybind[action] = out
+    }
 
-	// Basic search (likely already exists but ensure it's there)
-	cfg.Keybind["search"] = append(cfg.Keybind["search"], "/")
-	cfg.Keybind["exit"] = append(cfg.Keybind["exit"], "q")
-	
-	return nil
+    // Helper to append a key to a given action if missing
+    add := func(action, key string) {
+        lst := cfg.Keybind[action]
+        for _, k := range lst {
+            if k == key {
+                return
+            }
+        }
+        cfg.Keybind[action] = append(lst, key)
+    }
+
+    // Assign our vim-style bindings exclusively
+    add("left", "h")
+    add("right", "l")
+    add("up", "k")
+    add("down", "j")
+    add("top", "g")
+    add("bottom", "G")
+    add("search", "/")
+    add("exit", "q")
+
+    return nil
 }
 
 // Update implements tea.Model.Update
