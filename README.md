@@ -1,169 +1,84 @@
-# 🐙 Argonaut — Argo CD TUI
+# 🐙 Argonaut — Argo CD TUI (Go)
 
-[![NPM Downloads](https://img.shields.io/npm/dm/argonaut-cli?style=flat-square&label=npm+downloads)](https://www.npmjs.com/package/argonaut-cli)
-[![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)
-[![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
-[![codecov](https://img.shields.io/codecov/c/github/darksworm/argonaut?token=4MYA3DR30R&style=flat-square)](https://codecov.io/github/darksworm/argonaut)
-[![Mutation testing badge](https://img.shields.io/endpoint?style=flat-square&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fdarksworm%2Fargonaut%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/darksworm/argonaut/main)
+This is the Go (Bubble Tea) port of Argonaut. It mirrors the UX and features of the TypeScript Ink app, with a native terminal implementation and some Go‑specific enhancements.
 
-Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + Ink**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
-
-> ❤️ 🐶
-> &nbsp;Inspired by the great UX of [k9s](https://k9scli.io) — but for Argo CD.
+Below is a copy of the main README for quick reference, followed by Go‑specific notes and configuration for the diff toolchain.
 
 ---
 
 ## 📦 Prerequisites
 
-- [**Argo CD CLI**](https://argo-cd.readthedocs.io/en/stable/cli_installation/) installed
-- [**Delta**](https://dandavison.github.io/delta/installation.html) installed for enhanced diffs (optional, falls back to `git`)
-
----
-
-## 🚀 Installation methods
-
-<details>
-  <summary><strong>Install Script (Linux/macOS)</strong></summary>
-
-```bash
-curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh
-```
-
-The install script automatically detects your system (including musl vs glibc on Linux) and downloads the appropriate binary from the latest release.
-
-You can also install a specific version:
-```bash
-curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh -s -- v1.13.0
-```
-</details>
-
-<details>
-  <summary><strong>npm (Linux/macOS)</strong></summary>
-
-```bash
-npm i --global argonaut-cli
-```
-</details>
-
-<details>
-  <summary><strong>Homebrew (Linux/MacOS)</strong></summary>
-
-```bash
-brew tap darksworm/homebrew-tap
-brew install darksworm/tap/argonaut
-```
-</details>
-
-<details>
-  <summary><strong>AUR (Arch User Repository)</strong></summary>
-
-```bash
-yay -S argonaut-bin
-```
-</details>
-
-<details>
-  <summary><strong>Docker</strong></summary>
-
-Pull the image:
-```bash
-docker pull ghcr.io/darksworm/argonaut:latest
-```
-
-Run with mounted Argo CD config:
-```bash
-docker run -it --rm \
-  -v ~/.config/argocd:/root/.config/argocd:ro \
-  ghcr.io/darksworm/argonaut:latest
-```
-
-The container needs access to your Argo CD configuration for authentication. The `:ro` flag mounts it as read-only for security.
-</details>
-
-[//]: # (</details>)
-
-[//]: # (<details>)
-
-[//]: # (  <summary><strong>NUR &#40;Nix User Repository&#41;</strong></summary>)
-
-[//]: # ()
-[//]: # (```bash)
-
-[//]: # (nix-env -iA nur.repos.darksworm.argonaut)
-
-[//]: # (```)
-
-[//]: # (</details>)
-
-<details>
-  <summary><strong>Download a binary</strong></summary>
-
-You can download binaries and packages in from the [**latest release**](https://github.com/darksworm/argonaut/releases/latest).
-
-</details>
-
+- Argo CD CLI installed
+- (Optional) delta for enhanced diffs
 
 ## ⚡ Quickstart
+
 ```bash
 # Log in to your Argo CD server
 argocd login
 
-# Start Argonaut
-argonaut
+# Start Argonaut (Go)
+go-app/app
 ```
 
 ---
 
 ## ✨ Highlights
 
-- **Instant app browsing** with live updates (NDJSON streams)
-- **Scoped navigation**: clusters → namespaces → projects → apps
-- **Command palette** (`:`) for actions: `sync`, `diff`, `rollback`, `resources`, etc.
-- **Live resources view** per app with health & sync status
-- **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
-- **Guided rollback** with revision metadata and progress streaming
-- **Keyboard-only workflow** with Vim-like navigation
+- Instant app browsing with live updates
+- Scoped navigation: clusters → namespaces → projects → apps
+- Command palette (`:`) for actions: `sync`, `diff`, `rollback`, `resources`, etc.
+- Live resources view per app with health & sync status
+- Diff integration with configurable formatter/viewer (see below)
+- Guided rollback with revision metadata and progress streaming
+- Keyboard‑only workflow with Vim‑style navigation
 
 ---
 
-## 📸 Screenshots
+## Diff Formatter and Interactive Viewer
 
-### **Apps**  
-<img src="assets/argonaut_apps.png" alt="Apps list"/>
+You can control how diffs are displayed using two environment variables. This separates non‑interactive “formatting” (pretty printing unified diffs) from interactive visual tools that take over the terminal.
 
-### **Resources**  
-<img src="assets/argonaut_resources.png" alt="Resources view"/>
+- `ARGONAUT_DIFF_FORMATTER` (non‑interactive)
+  - A command that reads unified diff from stdin and writes formatted output to stdout.
+  - The formatted output is then displayed via Argonaut’s built‑in pager (ov).
+  - Defaults to `delta --side-by-side --line-numbers --navigate --paging=never --width=$COLUMNS` if `delta` is available.
+  - Example values:
+    - `delta --side-by-side --line-numbers --paging=never`
+    - `diff-so-fancy`
 
-### **Diff**  
-<img src="assets/argonaut_diff.png" alt="External diff"/>
+- `ARGONAUT_DIFF_VIEWER` (interactive)
+  - An interactive command that replaces the terminal temporarily. Use `{left}` and `{right}` placeholders for the temp file paths containing live/desired manifests.
+  - Examples:
+    - `vimdiff {left} {right}`
+    - `meld {left} {right}` (GUI, when available)
 
-### **Rollback**  
-<img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
+Behavior:
+- If `ARGONAUT_DIFF_VIEWER` is set, Argonaut runs it and restores the TTY on exit.
+- Otherwise Argonaut pipes the unified diff through `ARGONAUT_DIFF_FORMATTER` (or delta, if present) and shows formatted output in ov.
+- Width is propagated to the formatter via `--width=$COLUMNS` and the `COLUMNS` env var to ensure full‑width output when piping.
+
+Notes:
+- The internal pager uses deterministic Vim‑style keys. To avoid conflicts, OV defaults are disabled and Argonaut installs its own keymap: `h/j/k/l`, `g`/`G`, `/`, `q`.
+
+---
+
+## Keyboard Shortcuts (Go pager/OV)
+
+- `j`/`k` → down/up
+- `h`/`l` → left/right
+- `g`/`G` → top/bottom
+- `/` → search, `n`/`N` to navigate results (OV built‑in)
+- `q` → exit pager
+
+---
 
 ## Docker
-- Prebuilt images are published for releases to `ghcr.io/darksworm/argonaut`.
-- Local builds work cross-platform via a multi-stage Dockerfile.
-
-Pull and run:
-
-```bash
-docker run --rm -it ghcr.io/darksworm/argonaut:latest
-```
 
 Build locally and run:
 
 ```bash
-# Build (uses buildx automatically if enabled)
-bun run docker:build
-
-# Run (pass CLI flags after image name)
-bun run docker:run
+docker build -t argonaut-go .
+docker run --rm -it -v ~/.config/argocd:/root/.config/argocd:ro argonaut-go
 ```
 
-Multi-arch build with buildx (optional):
-
-```bash
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/darksworm/argonaut:dev .
-```

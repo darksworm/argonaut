@@ -1,21 +1,20 @@
 ###########
 # Builder #
 ###########
-# Build a static Linux binary with Bun in an Alpine (musl) environment
-FROM oven/bun:alpine AS builder
-WORKDIR /app
+# Build a static Linux binary with Go
+FROM golang:1.23-alpine AS builder
+WORKDIR /src
 
-# Install dependencies first for better layer caching
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+RUN apk add --no-cache git
 
-# Copy the rest of the sources
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
-
-# Compile to a single binary
-# Output directly to /out to avoid copying node_modules into the final image
-RUN mkdir -p /out \
- && bun build --compile --minify --sourcemap src/main.tsx --outfile /out/argonaut
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd cmd/app && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=$(go env GOARCH) go build -ldflags "-s -w" -o /out/argonaut
 
 #############
 # Runtime   #
@@ -27,9 +26,8 @@ ARG TARGETARCH
 
 # Add required runtimes and tools for the compiled binary
 # - ca-certificates: HTTPS requests
-# - libstdc++, libgcc: C++ runtime and unwinder needed by the bun-compiled binary
 # - curl, git: fetch Argo CD CLI and provide git diff fallback
-RUN apk add --no-cache ca-certificates libstdc++ libgcc curl git \
+RUN apk add --no-cache ca-certificates curl git \
   && curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${TARGETARCH} \
   && chmod +x /usr/local/bin/argocd \
   && adduser -D -u 10001 appuser
