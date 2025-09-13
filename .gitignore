@@ -40,32 +40,36 @@ stryker-tmp/
 CLAUDE.md
 TODO-tests.md
 
-# Claude Flow runtime data
+# Claude Flow runtime data  
 .claude-flow/
+.swarm/
+.hive-mind/
+coordination/
+memory/
 
 # Claude Flow generated files
 .claude/settings.local.json
 .mcp.json
 claude-flow.config.json
-.swarm/
-.hive-mind/
-memory/claude-flow-data.json
-memory/sessions/*
-!memory/sessions/README.md
-memory/agents/*
-!memory/agents/README.md
-coordination/memory_bank/*
-coordination/subtasks/*
-coordination/orchestration/*
+claude-flow
+claude-flow.bat
+claude-flow.ps1
+hive-mind-prompt-*.txt
+
+# AI automation databases
 *.db
 *.db-journal
 *.db-wal
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
-claude-flow
-claude-flow.bat
-claude-flow.ps1
-hive-mind-prompt-*.txt
+
+# IDE files
+*.iml
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
 \n# Ignore downloaded Argo CD manifest\nargocd/install.yaml
 logs/
