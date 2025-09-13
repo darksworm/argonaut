@@ -9,7 +9,7 @@ interface SearchBarProps {
 
 export const SearchBar: React.FC<SearchBarProps> = ({ onSubmit }) => {
   const { state, dispatch } = useAppState();
-  const { navigation, ui } = state;
+  const { navigation, ui, terminal } = state;
 
   if (state.mode !== "search") {
     return null;
@@ -26,8 +26,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSubmit }) => {
     }
   };
 
+  const fullWidth = Math.max(0, (terminal?.cols ?? 0) - 2);
+
   return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+    <Box
+      borderStyle="round"
+      borderColor="yellow"
+      paddingX={1}
+      width={fullWidth || undefined}
+    >
       <Text bold color="cyan">
         Search
       </Text>

@@ -127,11 +127,14 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     return <Text dimColor>({cmd?.description ?? "Unknown command"})</Text>;
   })();
 
+  const fullWidth = Math.max(0, (state.terminal?.cols ?? 0) - 2);
+
   return (
     <Box
       borderStyle="round"
       borderColor={error ? "red" : "yellow"}
       paddingX={1}
+      width={fullWidth || undefined}
     >
       <Text bold color="cyan">
         CMD
