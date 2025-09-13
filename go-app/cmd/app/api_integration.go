@@ -1,14 +1,14 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "log"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
 	"github.com/a9s/go-app/pkg/api"
 	"github.com/a9s/go-app/pkg/model"
@@ -145,7 +145,7 @@ func (m Model) consumeWatchEvent() tea.Cmd {
 
 // startDiffSession loads diffs and opens the diff pager
 func (m Model) startDiffSession(appName string) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+    return tea.Cmd(func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -183,19 +183,27 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		leftFile, _ := writeTempYAML("live-", liveDocs)
 		rightFile, _ := writeTempYAML("desired-", desiredDocs)
 
-		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
-		out, err := cmd.CombinedOutput()
-		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
-			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
-		}
-		cleaned := stripDiffHeader(string(out))
-		if strings.TrimSpace(cleaned) == "" {
-			return model.StatusChangeMsg{Status: "No differences"}
-		}
-		lines := strings.Split(cleaned, "\n")
-		m.state.Diff = &model.DiffState{Title: fmt.Sprintf("%s - Live vs Desired (Cleaned)", appName), Content: lines, Offset: 0, Loading: false}
-		return model.SetModeMsg{Mode: model.ModeDiff}
-	})
+        // Build raw diff via git to feed an external pager (delta) or our internal viewer
+        cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
+        out, err := cmd.CombinedOutput()
+        if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
+            return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
+        }
+        cleaned := stripDiffHeader(string(out))
+        if strings.TrimSpace(cleaned) == "" {
+            return model.StatusChangeMsg{Status: "No differences"}
+        }
+
+        // Determine external diff pager
+        if os.Getenv("ARGONAUT_DIFF_PAGER") != "" || os.Getenv("ARGONAUT_PAGER") != "" || inPath("delta") {
+            return m.openExternalDiffPager(leftFile, rightFile, cleaned)
+        }
+
+        // Fallback to built-in diff view
+        lines := strings.Split(cleaned, "\n")
+        m.state.Diff = &model.DiffState{Title: fmt.Sprintf("%s - Live vs Desired", appName), Content: lines, Offset: 0, Loading: false}
+        return model.SetModeMsg{Mode: model.ModeDiff}
+    })
 }
 
 func writeTempYAML(prefix string, docs []string) (string, error) {

@@ -1,11 +1,13 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "log"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
 	"github.com/a9s/go-app/pkg/api"
 	"github.com/a9s/go-app/pkg/model"
@@ -259,6 +261,72 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 		
 		return pagerDoneMsg{Err: nil}
 	}
+}
+
+// openExternalDiffPager runs an external diff viewer/pager. It supports two modes:
+// 1) Command string with placeholders {left} and {right} for file paths (e.g. "vimdiff {left} {right}")
+// 2) Pager that reads unified diff from stdin (e.g. "delta --side-by-side"). In that case we pipe
+//    the diff text to the process.
+func (m Model) openExternalDiffPager(leftFile, rightFile, diffText string) tea.Msg {
+    // Prefer ARGONAUT_DIFF_PAGER, then ARGONAUT_PAGER, then delta if present
+    cmdStr := os.Getenv("ARGONAUT_DIFF_PAGER")
+    if cmdStr == "" {
+        cmdStr = os.Getenv("ARGONAUT_PAGER")
+    }
+    if cmdStr == "" && inPath("delta") {
+        cmdStr = "delta --side-by-side --line-numbers --navigate --paging=always"
+    }
+    if cmdStr == "" {
+        return pagerDoneMsg{Err: fmt.Errorf("no external pager configured")}
+    }
+
+    if m.program != nil {
+        m.program.Send(pauseRenderingMsg{})
+        _ = m.program.ReleaseTerminal()
+    }
+    defer func() {
+        fmt.Print("\x1b[2J\x1b[H")
+        time.Sleep(150 * time.Millisecond)
+        if m.program != nil {
+            _ = m.program.RestoreTerminal()
+            m.program.Send(resumeRenderingMsg{})
+        }
+    }()
+
+    // Placeholder substitution mode
+    if strings.Contains(cmdStr, "{left}") || strings.Contains(cmdStr, "{right}") {
+        cmdStr = strings.ReplaceAll(cmdStr, "{left}", shellEscape(leftFile))
+        cmdStr = strings.ReplaceAll(cmdStr, "{right}", shellEscape(rightFile))
+        c := exec.Command("sh", "-lc", cmdStr)
+        c.Stdin = os.Stdin
+        c.Stdout = os.Stdout
+        c.Stderr = os.Stderr
+        if err := c.Run(); err != nil {
+            log.Printf("external diff pager failed: %v", err)
+            return pagerDoneMsg{Err: err}
+        }
+        return pagerDoneMsg{Err: nil}
+    }
+
+    // Otherwise, pipe diff to stdin
+    c := exec.Command("sh", "-lc", cmdStr)
+    c.Stdin = strings.NewReader(diffText)
+    c.Stdout = os.Stdout
+    c.Stderr = os.Stderr
+    if err := c.Run(); err != nil {
+        log.Printf("external diff pager failed: %v", err)
+        return pagerDoneMsg{Err: err}
+    }
+    return pagerDoneMsg{Err: nil}
+}
+
+func inPath(name string) bool {
+    _, err := exec.LookPath(name)
+    return err == nil
+}
+
+func shellEscape(s string) string {
+    return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 // configureVimKeyBindings adds vim-like key bindings to the oviewer config
