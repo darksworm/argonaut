@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"net/url"
 	"os"
 	"regexp"
@@ -32,29 +33,29 @@ var (
 var (
 	// Main container style (matches MainLayout Box)
 	mainContainerStyle = lipgloss.NewStyle().
-				PaddingLeft(1).
-				PaddingRight(1)
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	// Border style for main content area (matches ListView container)
 	// Add inner padding for readability; width calculations account for it
 	contentBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(magentaBright).
-				PaddingLeft(1).
-				PaddingRight(1)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(magentaBright).
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	// Header styles (matches ListView header)
 	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(yellowBright)
+		Bold(true).
+		Foreground(yellowBright)
 
 	// Selection highlight style (matches ListView active items)
 	selectedStyle = lipgloss.NewStyle().
-			Background(magentaBright)
+		Background(magentaBright)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().
-			Foreground(dimColor)
+		Foreground(dimColor)
 )
 
 // ASCII icons matching React ListView
@@ -517,8 +518,15 @@ func (m Model) renderListView(availableRows int) string {
 	var content strings.Builder
 	content.WriteString(normalizeLinesToWidth(tableView, contentWidth))
 
-	// Apply border style with proper width. Let height auto-size to content
-	// to avoid tmux line-wrapping issues.
+	// Apply border style with proper width. For empty content, set fixed height to fill space
+	if tableView == "" {
+		// Empty state: use fixed height to fill available space like other views
+		// Adjust width to properly fill horizontal space
+		adjustedWidth := max(0, m.state.Terminal.Cols-2) // Expand width to fill space
+		return contentBorderStyle.Width(adjustedWidth).Height(availableRows + 1).AlignVertical(lipgloss.Center).Render(content.String())
+	}
+
+	// Non-empty content: let height auto-size to content to avoid tmux line-wrapping issues
 	return contentBorderStyle.Render(content.String())
 }
 
@@ -577,6 +585,78 @@ func clipAnsiToWidth(s string, width int) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// Layout Helper Functions - Centralized layout management to ensure consistency
+
+// FullScreenViewOptions configures the full-screen layout
+type FullScreenViewOptions struct {
+	ContentBordered bool
+	BorderColor     color.Color // Optional: override border color (defaults to magentaBright)
+}
+
+// renderFullScreenView provides the standard full-terminal layout used by most views:
+// header + content (optionally bordered) + status, with consistent height management
+func (m Model) renderFullScreenView(header, content, status string, contentBordered bool) string {
+	return m.renderFullScreenViewWithOptions(header, content, status, FullScreenViewOptions{
+		ContentBordered: contentBordered,
+		BorderColor:     magentaBright, // default
+	})
+}
+
+// renderFullScreenViewWithOptions provides the full-screen layout with customizable options
+func (m Model) renderFullScreenViewWithOptions(header, content, status string, opts FullScreenViewOptions) string {
+	var sections []string
+
+	// Header section
+	if header != "" {
+		sections = append(sections, header)
+	}
+
+	// Content section - apply border if requested
+	if opts.ContentBordered {
+		// Calculate available space for bordered content
+		const (
+			BORDER_LINES = 2 // content border top/bottom
+			STATUS_LINES = 1 // bottom status line
+		)
+
+		headerLines := countLines(header)
+		statusLines := countLines(status)
+		overhead := BORDER_LINES + headerLines + statusLines
+		availableRows := max(1, m.state.Terminal.Rows-overhead)
+
+		// Apply bordered styling with custom color if specified
+		contentWidth := max(0, m.state.Terminal.Cols-2) // Adjusted to fill space properly
+		borderStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(opts.BorderColor).
+			Width(contentWidth).
+			Height(availableRows + 1). // Add 1 to properly fill vertical space
+			PaddingLeft(1).
+			PaddingRight(1).
+			AlignVertical(lipgloss.Center) // Center content within the bordered area
+
+		content = borderStyle.Render(content)
+	}
+
+	sections = append(sections, content)
+
+	// Status section
+	if status != "" {
+		sections = append(sections, status)
+	}
+
+	// Apply main container with full height
+	finalContent := strings.Join(sections, "\n")
+	totalHeight := m.state.Terminal.Rows - 1
+	return mainContainerStyle.Height(totalHeight).Render(finalContent)
+}
+
+// renderModalContent provides simple modal content styling (used by help modal)
+// Returns only the styled content without full-screen layout
+func (m Model) renderModalContent(content string) string {
+	return contentBorderStyle.PaddingTop(1).PaddingBottom(1).Render(content)
 }
 
 // renderBackdropBlock returns a patterned, dim block for modal backdrops
@@ -1063,59 +1143,17 @@ func (m Model) renderLoadingView() string {
 	}
 
 	// Header matching LoadingView.tsx
-	loadingHeader := fmt.Sprintf("View: LOADING • Context: %s", serverText)
+	header := headerStyle.Render(fmt.Sprintf("View: LOADING • Context: %s", serverText))
 
-	// Main content with bubbles spinner (matches LoadingView center box)
-	loadingMessage := fmt.Sprintf("%s Connecting & fetching applications…", m.spinner.View())
+	// Main content with bubbles spinner - let the layout helper handle centering
+	loadingMessage := fmt.Sprintf("%s Loading...", m.spinner.View())
+	content := lipgloss.NewStyle().Foreground(progressColor).Render(loadingMessage)
 
-	// Calculate available space for the bordered content area (same as main layout)
-	const (
-		BORDER_LINES = 2 // content border top/bottom
-		STATUS_LINES = 1 // bottom status line
-	)
+	// Status section
+	status := statusStyle.Render("Starting…")
 
-	headerLines := countLines(loadingHeader)
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(1, m.state.Terminal.Rows-overhead)
-
-	// Create centered content within the bordered area
-	contentRows := make([]string, availableRows)
-	centerRow := availableRows / 2
-
-	// Fill all rows with empty strings first
-	for i := range contentRows {
-		contentRows[i] = ""
-	}
-
-	// Place the loading message in the center
-	if centerRow < len(contentRows) {
-		contentRows[centerRow] = lipgloss.NewStyle().
-			Foreground(progressColor).
-			Render(loadingMessage)
-	}
-
-	// Join the content rows
-	centeredContent := strings.Join(contentRows, "\n")
-
-	// Apply the same bordered style as the main layout
-	contentWidth := max(0, m.state.Terminal.Cols-4) // Account for main container padding
-	borderedContent := contentBorderStyle.
-		Width(contentWidth).
-		Height(availableRows).
-		Render(centeredContent)
-
-	var sections []string
-	// Header section
-	sections = append(sections, headerStyle.Render(loadingHeader))
-	// Bordered content area
-	sections = append(sections, borderedContent)
-	// Status section (matches LoadingView bottom)
-	sections = append(sections, statusStyle.Render("Starting…"))
-
-	// Join content and apply full-height layout (like main layout)
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
+	// Use the new layout helper with bordered content
+	return m.renderFullScreenView(header, content, status, true)
 }
 
 func (m Model) renderAuthRequiredView() string {
@@ -1131,30 +1169,20 @@ func (m Model) renderAuthRequiredView() string {
 		"3. Re-run argonaut",
 	}
 
-	var sections []string
+	// Header - ArgoNaut Banner
+	header := m.renderBanner()
 
-	// Calculate widths: banner needs full width, auth box needs constrained width
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-1) // Account for auth box padding
-
-	// ArgoNaut Banner needs full container width to render properly
-	banner := m.renderBanner()
-	sections = append(sections, banner)
-
-	// Main content area with auth message (matches AuthRequiredView main Box)
+	// Build content sections
 	var contentSections []string
-
-	// Center the content vertically
 	contentSections = append(contentSections, "")
 
-	// Apply background only to text, then center within full width
+	// Auth header with background styling
 	authHeaderStyled := lipgloss.NewStyle().
 		Background(outOfSyncColor).
 		Foreground(lipgloss.Color("15")).
 		Bold(true).
 		Render(" AUTHENTICATION REQUIRED ")
 	authHeaderCentered := lipgloss.NewStyle().
-		Width(contentWidth).
 		Align(lipgloss.Center).
 		Render(authHeaderStyled)
 	contentSections = append(contentSections, authHeaderCentered)
@@ -1163,46 +1191,30 @@ func (m Model) renderAuthRequiredView() string {
 	contentSections = append(contentSections, lipgloss.NewStyle().
 		Foreground(outOfSyncColor).
 		Bold(true).
-		Width(contentWidth).
 		Align(lipgloss.Center).
 		Render("Please login to ArgoCD before running argonaut."))
 	contentSections = append(contentSections, "")
 
-	// Add instructions (matches AuthRequiredView instructions map)
+	// Add instructions
 	for _, instruction := range instructions {
-		contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("- "+instruction))
+		contentSections = append(contentSections, statusStyle.Render("- "+instruction))
 	}
 	contentSections = append(contentSections, "")
 	if serverText != "—" {
-		contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Current context: "+serverText))
+		contentSections = append(contentSections, statusStyle.Render("Current context: "+serverText))
 	}
-	contentSections = append(contentSections, statusStyle.Width(contentWidth).Render("Press l to view logs, q to quit."))
 
-	// Calculate available height for auth box (total - banner - status line)
-	bannerHeight := strings.Count(banner, "\n") + 1
-	statusHeight := 1                                                                // status line is always 1 line
-	availableAuthHeight := max(5, m.state.Terminal.Rows-bannerHeight-statusHeight-2) // -2 for some padding
+	// Join content sections
+	content := strings.Join(contentSections, "\n")
 
-	// Apply border with red color, full width and height (matches AuthRequiredView borderColor="red")
-	authBoxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Width(contentWidth).
-		Height(availableAuthHeight).
-		PaddingLeft(2).
-		PaddingRight(2).
-		PaddingTop(1).
-		PaddingBottom(1).
-		AlignVertical(lipgloss.Center) // Center content vertically in the full-height box
+	// Status
+	status := statusStyle.Render("Press l to view logs, q to quit.")
 
-	authContent := authBoxStyle.Render(strings.Join(contentSections, "\n"))
-	sections = append(sections, authContent)
-
-	// Join with newlines and apply main container style with full width
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-
-	return mainContainerStyle.Height(totalHeight).Render(content)
+	// Use the new layout helper with red border (matches AuthRequiredView borderColor="red")
+	return m.renderFullScreenViewWithOptions(header, content, status, FullScreenViewOptions{
+		ContentBordered: true,
+		BorderColor:     outOfSyncColor, // red border for auth error
+	})
 }
 
 func (m Model) renderHelpModal() string {
@@ -1236,7 +1248,9 @@ func (m Model) renderHelpModal() string {
 	sections = append(sections, statusStyle.Render("Press ?, q or Esc to close"))
 
 	content := strings.Join(sections, "\n")
-	return contentBorderStyle.PaddingTop(1).PaddingBottom(1).Render(content)
+
+	// Use the new modal content helper
+	return m.renderModalContent(content)
 }
 
 func (m Model) renderOfficeSupplyManager() string {
@@ -1897,20 +1911,8 @@ func (m Model) renderFullHeightContent(content string, contentWidth, contentHeig
 
 // renderErrorView displays API errors in a user-friendly format
 func (m Model) renderErrorView() string {
-	// Calculate available space using the same pattern as other views
+	// Header
 	header := m.renderBanner()
-	headerLines := countLines(header)
-
-	// Error view doesn't have search/command bars, so overhead is just banner + borders + status
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	// Calculate dimensions for consistent full-height layout
-	// Use full available width inside the main container
-	containerWidth := max(0, m.state.Terminal.Cols-2) // main container has 1 char padding on each side
-	contentHeight := max(3, availableRows)
 
 	// Build error content
 	errorContent := ""
@@ -1999,43 +2001,20 @@ func (m Model) renderErrorView() string {
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
 	errorContent += fmt.Sprintf("\n%s", instructStyle.Render("Press Esc to return to main view"))
 
-	// Create a full-height bordered box directly to avoid double borders
-	errorStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Width(containerWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
+	// Status (empty for error views)
+	status := ""
 
-	styledErrorContent := errorStyle.Render(errorContent)
-
-	// Combine with header
-	var sections []string
-	sections = append(sections, header)
-	sections = append(sections, styledErrorContent)
-
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
+	// Use the new layout helper with red border (matching error styling)
+	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
+		ContentBordered: true,
+		BorderColor:     outOfSyncColor, // red border for errors
+	})
 }
 
 // renderConnectionErrorView displays connection error in a user-friendly format
 func (m Model) renderConnectionErrorView() string {
-	// Calculate available space using the same pattern as other views
+	// Header
 	header := m.renderBanner()
-	headerLines := countLines(header)
-
-	// Connection error view doesn't have search/command bars, so overhead is just banner + borders + status
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentHeight := max(3, availableRows)
 
 	// Build connection error content
 	errorContent := ""
@@ -2058,26 +2037,14 @@ func (m Model) renderConnectionErrorView() string {
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
 	errorContent += instructStyle.Render("Press q to exit • Press Esc to retry")
 
-	// Create a full-height bordered box directly to avoid double borders
-	errorStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Width(containerWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
+	// Status (empty for error views)
+	status := ""
 
-	styledErrorContent := errorStyle.Render(errorContent)
-
-	// Combine with header
-	var sections []string
-	sections = append(sections, header)
-	sections = append(sections, styledErrorContent)
-
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
+	// Use the new layout helper with red border (matching connection error styling)
+	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
+		ContentBordered: true,
+		BorderColor:     outOfSyncColor, // red border for connection errors
+	})
 }
 
 // renderDiffLoadingSpinner displays a centered loading spinner for diff operations
@@ -2120,7 +2087,7 @@ func (m Model) renderSyncLoadingModal() string {
 
 // renderInitialLoadingModal displays a compact centered modal with a spinner during initial app load
 func (m Model) renderInitialLoadingModal() string {
-	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Connecting & fetching applications…"))
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading..."))
 	content := msg
 	// Compact wrapper with magenta border to match the app theme
 	wrapper := lipgloss.NewStyle().
