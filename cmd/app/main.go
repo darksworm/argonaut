@@ -1,9 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
+    "fmt"
+    "flag"
+    "io"
+    "log"
+    "os"
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/darksworm/argonaut/pkg/config"
@@ -16,17 +18,26 @@ import (
 var appVersion = "dev"
 
 func main() {
-	// Set up logging to file
-	setupLogging()
+    // Set up logging to file
+    setupLogging()
 
-	// Create the initial model
-	m := NewModel()
+    // Flags: allow overriding ArgoCD config path for tests and custom setups
+    var cfgPathFlag string
+    fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+    fs.SetOutput(io.Discard)
+    fs.StringVar(&cfgPathFlag, "argocd-config", "", "Path to ArgoCD CLI config file")
+    // Alias
+    fs.StringVar(&cfgPathFlag, "config", "", "Path to ArgoCD CLI config file (alias)")
+    _ = fs.Parse(os.Args[1:])
+
+    // Create the initial model
+    m := NewModel()
 
 	// Load ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
 	log.Println("Loading ArgoCD config…")
 
 	// Try to read the ArgoCD CLI config file
-	server, err := loadArgoConfig()
+    server, err := loadArgoConfig(cfgPathFlag)
 	if err != nil {
 		log.Printf("Could not load ArgoCD config: %v", err)
 		log.Println("Please run 'argocd login' to configure and authenticate")
@@ -86,12 +97,21 @@ func setupLogging() {
 }
 
 // loadArgoConfig loads ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
-func loadArgoConfig() (*model.Server, error) {
-	// Read CLI config file
-	cfg, err := config.ReadCLIConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CLI config: %w", err)
-	}
+func loadArgoConfig(overridePath string) (*model.Server, error) {
+    // Read CLI config file (override path if specified)
+    var (
+        cfg *config.ArgoCLIConfig
+        err error
+    )
+    if overridePath != "" {
+        cfg, err = config.ReadCLIConfigFromPath(overridePath)
+    } else {
+        // Still respect ARGOCD_CONFIG environment variable via ReadCLIConfig()
+        cfg, err = config.ReadCLIConfig()
+    }
+    if err != nil {
+        return nil, fmt.Errorf("failed to read CLI config: %w", err)
+    }
 
 	// Convert to server config
 	server, err := cfg.ToServerConfig()

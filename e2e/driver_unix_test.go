@@ -4,7 +4,6 @@ package main
 
 import (
     "bytes"
-    "fmt"
     "net/http"
     "net/http/httptest"
     "os"
@@ -84,6 +83,29 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
     return nil
 }
 
+// StartAppArgs starts the app with explicit CLI args and optional env
+func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) error {
+    tf.t.Helper()
+    tf.cmd = exec.Command(binPath, args...)
+    p, t, err := pty.Open()
+    if err != nil { return err }
+    tf.pty, tf.tty = p, t
+    tf.cmd.Stdout, tf.cmd.Stdin, tf.cmd.Stderr = t, t, t
+    env := append(os.Environ(),
+        "TERM=xterm-256color",
+        "LC_ALL=C",
+        "LANG=C",
+        "HOME="+tf.workspace,
+    )
+    env = append(env, extraEnv...)
+    tf.cmd.Env = env
+    ws := struct{ Row, Col, X, Y uint16 }{40, 120, 0, 0}
+    syscall.Syscall(syscall.SYS_IOCTL, p.Fd(), uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(&ws)))
+    if err := tf.cmd.Start(); err != nil { _ = p.Close(); _ = t.Close(); return err }
+    go tf.readLoop()
+    return nil
+}
+
 func (tf *TUITestFramework) readLoop() {
     buf := make([]byte, 8192)
     for {
@@ -137,7 +159,7 @@ func MockArgoServer() (*httptest.Server, error) {
     mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
         // return one simple app
         w.Header().Set("Content-Type", "application/json")
-        _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"destination":{"namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}"))
+        _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"destination":{"namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
     })
     mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
     mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -168,4 +190,3 @@ func WriteArgoConfig(path, baseURL string) error {
     y.WriteString("current-context: default\n")
     return os.WriteFile(path, y.Bytes(), 0o644)
 }
-

@@ -62,19 +62,22 @@ func GetConfigPath() string {
 
 // ReadCLIConfig reads and parses the ArgoCD CLI configuration
 func ReadCLIConfig() (*ArgoCLIConfig, error) {
-	configPath := GetConfigPath()
-	
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read ArgoCD config from %s: %w", configPath, err)
-	}
-	
-	var config ArgoCLIConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse ArgoCD config: %w", err)
-	}
-	
-	return &config, nil
+    return ReadCLIConfigFromPath(GetConfigPath())
+}
+
+// ReadCLIConfigFromPath reads the ArgoCD CLI configuration from a specific path
+func ReadCLIConfigFromPath(configPath string) (*ArgoCLIConfig, error) {
+    data, err := os.ReadFile(configPath)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read ArgoCD config from %s: %w", configPath, err)
+    }
+
+    var config ArgoCLIConfig
+    if err := yaml.Unmarshal(data, &config); err != nil {
+        return nil, fmt.Errorf("failed to parse ArgoCD config: %w", err)
+    }
+
+    return &config, nil
 }
 
 // GetCurrentServer returns the server URL for the current context

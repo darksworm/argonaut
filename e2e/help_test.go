@@ -19,7 +19,7 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
     if err != nil { t.Fatalf("setup workspace: %v", err) }
     if err := WriteArgoConfig(cfgPath, srv.URL); err != nil { t.Fatalf("write config: %v", err) }
 
-    if err := tf.StartApp("ARGOCD_CONFIG="+cfgPath); err != nil {
+    if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
         t.Fatalf("start app: %v", err)
     }
 
@@ -40,4 +40,3 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
     _ = tf.Send("q")
     _ = tf.CtrlC()
 }
-
