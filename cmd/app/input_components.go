@@ -167,11 +167,76 @@ func (m Model) renderEnhancedCommandBar() string {
 		m.inputComponents.commandInput.SetWidth(inputWidth)
 	}
 
-	// Render
-	commandInputView := m.inputComponents.commandInput.View()
+	// Render with autocomplete suggestions
+	commandInputView := m.renderCommandInputWithAutocomplete(inputWidth)
 	content := fmt.Sprintf("%s %s", cmdLabel, commandInputView)
 
 	return commandBarStyle.Width(styleWidth).Render(content)
+}
+
+// renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
+func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
+	currentInput := m.inputComponents.GetCommandValue()
+
+	// DEBUG: Log what we're working with
+
+	// If input is empty or doesn't start with ":", just show normal input
+	if currentInput == "" || !strings.HasPrefix(currentInput, ":") {
+		return m.inputComponents.commandInput.View()
+	}
+
+	// Get autocomplete suggestions
+	suggestions := m.autocompleteEngine.GetCommandAutocomplete(currentInput, m.state)
+
+	// DEBUG: Log suggestions
+
+	// If no suggestions, show normal input
+	if len(suggestions) == 0 {
+		return m.inputComponents.commandInput.View()
+	}
+
+	// Get the first suggestion for inline completion
+	firstSuggestion := suggestions[0]
+
+	// Find the part that should be shown as dim text
+	if len(firstSuggestion) > len(currentInput) {
+		// Calculate remaining text to show as dim
+		suggestionSuffix := firstSuggestion[len(currentInput):]
+
+		// Create a custom render that doesn't use the full textinput width
+		// We need to manually construct the input view to control spacing
+
+		// Get the prompt style (similar to textinput default)
+		promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // Light gray
+		prompt := promptStyle.Render("> ")
+
+		// Style the current input text
+		inputText := currentInput
+
+		// Style the suggestion suffix as dim
+		dimSuggestion := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
+
+		// Show cursor if input is focused
+		cursor := ""
+		if m.inputComponents.commandInput.Focused() {
+			cursor = lipgloss.NewStyle().Reverse(true).Render(" ")
+		}
+
+		// Combine: prompt + input text + dim suggestion + cursor
+		content := prompt + inputText + dimSuggestion + cursor
+
+		// Add padding to fill the maxWidth if needed
+		contentWidth := lipgloss.Width(content)
+		if contentWidth < maxWidth {
+			padding := strings.Repeat(" ", maxWidth-contentWidth)
+			content += padding
+		}
+
+		return content
+	}
+
+	// Fallback to normal input if no completion available
+	return m.inputComponents.commandInput.View()
 }
 
 // Enhanced input handling for bubbles integration
@@ -265,6 +330,18 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.inputComponents.ClearCommandInput()
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
+		return m, nil
+	case "tab":
+		// Tab completion - accept the first autocomplete suggestion
+		currentInput := m.inputComponents.GetCommandValue()
+		if strings.HasPrefix(currentInput, ":") {
+			suggestions := m.autocompleteEngine.GetCommandAutocomplete(currentInput, m.state)
+			if len(suggestions) > 0 {
+				// Set the first suggestion as the current input
+				m.inputComponents.SetCommandValue(suggestions[0])
+				m.state.UI.Command = suggestions[0]
+			}
+		}
 		return m, nil
 	case "enter":
 		// Execute simple navigation commands (clusters/namespaces/projects/apps) with aliases
@@ -414,18 +491,18 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 			m.state.Diff.Loading = true
 			return m, m.startDiffSession(target)
-		case "cluster", "clusters", "cls":
-			// Switch to clusters view
-			m.state.Navigation.View = model.ViewClusters
-			m.state.Selections.SelectedApps = model.NewStringSet()
-			if arg != "" {
-				// Set cluster scope and advance to namespaces
-				m.state.Selections.ScopeClusters = model.StringSetFromSlice([]string{arg})
-				m.state.Navigation.View = model.ViewNamespaces
-			} else {
-				m.state.Selections.ScopeClusters = model.NewStringSet()
-			}
-			return m, nil
+        case "cluster", "clusters", "cls", "context", "ctx":
+            // Switch to clusters view
+            m.state.Navigation.View = model.ViewClusters
+            m.state.Selections.SelectedApps = model.NewStringSet()
+            if arg != "" {
+                // Set cluster scope and advance to namespaces
+                m.state.Selections.ScopeClusters = model.StringSetFromSlice([]string{arg})
+                m.state.Navigation.View = model.ViewNamespaces
+            } else {
+                m.state.Selections.ScopeClusters = model.NewStringSet()
+            }
+            return m, nil
 		case "namespace", "namespaces", "ns":
 			m.state.Navigation.View = model.ViewNamespaces
 			m.state.Selections.SelectedApps = model.NewStringSet()
