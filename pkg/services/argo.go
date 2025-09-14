@@ -11,6 +11,7 @@ import (
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/retry"
 )
 
 // ArgoApiService interface defines operations for interacting with ArgoCD API
@@ -95,7 +96,14 @@ func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model
 	ctx, cancel := appcontext.WithResourceTimeout(ctx)
 	defer cancel()
 
-	apps, err := s.appService.ListApplications(ctx)
+	// Use retry mechanism for network operations
+	var apps []model.App
+	err := retry.RetryAPIOperation(ctx, "ListApplications", func(attempt int) error {
+		var opErr error
+		apps, opErr = s.appService.ListApplications(ctx)
+		return opErr
+	})
+
 	if err != nil {
 		// Convert API errors to structured format if needed
 		if argErr, ok := err.(*apperrors.ArgonautError); ok {
@@ -141,7 +149,7 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
 			Status: "Loading…",
 		}
 
-		// Send initial apps loaded event
+		// Send initial apps loaded event (no retry for initial watch load to avoid delays)
 		apps, err := s.ListApplications(watchCtx, server)
 		if err != nil {
 			if isAuthError(err.Error()) {
@@ -217,7 +225,11 @@ func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.
 		Prune: prune,
 	}
 
-	err := s.appService.SyncApplication(ctx, appName, opts)
+	// Use retry mechanism for sync operations
+	err := retry.RetryAPIOperation(ctx, "SyncApplication", func(attempt int) error {
+		return s.appService.SyncApplication(ctx, appName, opts)
+	})
+
 	if err != nil {
 		// Convert API errors to structured format if needed
 		if argErr, ok := err.(*apperrors.ArgonautError); ok {
@@ -256,9 +268,23 @@ func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model
         s.appService = api.NewApplicationService(server)
     }
 
-    diffs, err := s.appService.GetManagedResourceDiffs(ctx, appName)
+    // Use retry mechanism for API calls
+    var diffs []api.ManagedResourceDiff
+    err := retry.RetryAPIOperation(ctx, "GetManagedResourceDiffs", func(attempt int) error {
+        var opErr error
+        diffs, opErr = s.appService.GetManagedResourceDiffs(ctx, appName)
+        return opErr
+    })
     if err != nil {
-        return nil, err
+        if argErr, ok := err.(*apperrors.ArgonautError); ok {
+            return nil, argErr.WithContext("operation", "GetManagedResourceDiffs").
+                WithContext("appName", appName)
+        }
+        return nil, apperrors.Wrap(err, apperrors.ErrorAPI, "GET_DIFFS_FAILED",
+            "Failed to get resource diffs").
+            WithContext("appName", appName).
+            AsRecoverable().
+            WithUserAction("Check the application exists and try again")
     }
     // Map to service layer struct
     out := make([]ResourceDiff, len(diffs))
@@ -279,8 +305,22 @@ func (s *ArgoApiServiceImpl) GetAPIVersion(ctx context.Context, server *model.Se
             WithUserAction("Please run 'argocd login' to configure the server")
     }
     client := api.NewClient(server)
-    data, err := client.Get(ctx, "/api/version")
-    if err != nil { return "", err }
+    var data []byte
+    err := retry.RetryAPIOperation(ctx, "GetAPIVersion", func(attempt int) error {
+        var opErr error
+        data, opErr = client.Get(ctx, "/api/version")
+        return opErr
+    })
+    if err != nil {
+        if argErr, ok := err.(*apperrors.ArgonautError); ok {
+            return "", argErr.WithContext("operation", "GetAPIVersion")
+        }
+        return "", apperrors.Wrap(err, apperrors.ErrorAPI, "GET_VERSION_FAILED",
+            "Failed to get API version").
+            WithContext("server", server.BaseURL).
+            AsRecoverable().
+            WithUserAction("Check ArgoCD server connectivity")
+    }
     // Accept {Version:"..."} or {version:"..."}
     var anyMap map[string]interface{}
     if err := json.Unmarshal(data, &anyMap); err == nil {

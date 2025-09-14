@@ -14,6 +14,7 @@ import (
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/retry"
 )
 
 // Client represents an HTTP client for ArgoCD API
@@ -48,36 +49,64 @@ func NewClient(server *model.Server) *Client {
 	}
 }
 
-// Get performs a GET request
+// Get performs a GET request with retry logic
 func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 	ctx, cancel := appcontext.WithAPITimeout(ctx)
 	defer cancel()
 
-	return c.request(ctx, "GET", path, nil)
+	var result []byte
+	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("GET %s", path), func(attempt int) error {
+		var opErr error
+		result, opErr = c.request(ctx, "GET", path, nil)
+		return opErr
+	})
+
+	return result, err
 }
 
-// Post performs a POST request
+// Post performs a POST request with retry logic
 func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
 	ctx, cancel := appcontext.WithAPITimeout(ctx)
 	defer cancel()
 
-	return c.request(ctx, "POST", path, body)
+	var result []byte
+	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("POST %s", path), func(attempt int) error {
+		var opErr error
+		result, opErr = c.request(ctx, "POST", path, body)
+		return opErr
+	})
+
+	return result, err
 }
 
-// Put performs a PUT request
+// Put performs a PUT request with retry logic
 func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte, error) {
 	ctx, cancel := appcontext.WithAPITimeout(ctx)
 	defer cancel()
 
-	return c.request(ctx, "PUT", path, body)
+	var result []byte
+	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("PUT %s", path), func(attempt int) error {
+		var opErr error
+		result, opErr = c.request(ctx, "PUT", path, body)
+		return opErr
+	})
+
+	return result, err
 }
 
-// Delete performs a DELETE request
+// Delete performs a DELETE request with retry logic
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
 	ctx, cancel := appcontext.WithAPITimeout(ctx)
 	defer cancel()
 
-	return c.request(ctx, "DELETE", path, nil)
+	var result []byte
+	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("DELETE %s", path), func(attempt int) error {
+		var opErr error
+		result, opErr = c.request(ctx, "DELETE", path, nil)
+		return opErr
+	})
+
+	return result, err
 }
 
 // Stream performs a streaming GET request for Server-Sent Events

@@ -1,6 +1,9 @@
 package model
 
-import tea "github.com/charmbracelet/bubbletea/v2"
+import (
+	tea "github.com/charmbracelet/bubbletea/v2"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+)
 
 // Navigation Messages - correspond to TypeScript navigation actions
 
@@ -172,12 +175,33 @@ type AuthErrorMsg struct {
 	Error error
 }
 
-// ApiErrorMsg is sent when there's an API error
+// ApiErrorMsg is sent when there's an API error - DEPRECATED: Use StructuredErrorMsg
 type ApiErrorMsg struct {
 	Message    string
 	StatusCode int    `json:"statusCode,omitempty"` // HTTP status code if available
 	ErrorCode  int    `json:"errorCode,omitempty"`  // API error code if available
 	Details    string `json:"details,omitempty"`    // Additional error details
+}
+
+// StructuredErrorMsg represents a structured error message for the TUI
+type StructuredErrorMsg struct {
+	Error    *apperrors.ArgonautError   `json:"error"`
+	Context  map[string]interface{}     `json:"context,omitempty"`
+	Retry    bool                       `json:"retry,omitempty"`
+	AutoHide bool                       `json:"autoHide,omitempty"`
+}
+
+// ErrorRecoveredMsg indicates that an error has been automatically recovered
+type ErrorRecoveredMsg struct {
+	OriginalError *apperrors.ArgonautError `json:"originalError"`
+	RecoveryInfo  string                   `json:"recoveryInfo"`
+}
+
+// RetryOperationMsg triggers a retry of a failed operation
+type RetryOperationMsg struct {
+	Operation string                 `json:"operation"`
+	Context   map[string]interface{} `json:"context"`
+	Attempt   int                    `json:"attempt"`
 }
 
 // StatusChangeMsg is sent when status changes

@@ -1,5 +1,10 @@
 package model
 
+import (
+	"time"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+)
+
 // NavigationState holds navigation-related state
 type NavigationState struct {
 	View           View  `json:"view"`
@@ -119,16 +124,27 @@ type AppState struct {
     SavedNavigation *NavigationState `json:"savedNavigation,omitempty"`
     SavedSelections *SelectionState  `json:"savedSelections,omitempty"`
     // Store current error information for error screen display
-    CurrentError    *ApiError        `json:"currentError,omitempty"`
+    CurrentError    *ApiError        `json:"currentError,omitempty"`     // DEPRECATED: Use ErrorState
+    ErrorState      *ErrorState      `json:"errorState,omitempty"`
 }
 
-// ApiError holds structured error information for display
+// ApiError holds structured error information for display - DEPRECATED: Use ErrorState
 type ApiError struct {
     Message    string `json:"message"`
     StatusCode int    `json:"statusCode,omitempty"`
     ErrorCode  int    `json:"errorCode,omitempty"`
     Details    string `json:"details,omitempty"`
     Timestamp  int64  `json:"timestamp"`
+}
+
+// ErrorState holds comprehensive error state information
+type ErrorState struct {
+    Current          *apperrors.ArgonautError   `json:"current"`
+    History          []apperrors.ArgonautError  `json:"history"`
+    RetryCount       int                        `json:"retryCount"`
+    LastRetryAt      *time.Time                 `json:"lastRetryAt,omitempty"`
+    AutoHideAt       *time.Time                 `json:"autoHideAt,omitempty"`
+    RecoveryAttempts int                        `json:"recoveryAttempts"`
 }
 
 // DiffState holds state for the diff pager view
