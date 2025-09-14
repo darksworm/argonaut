@@ -29,6 +29,51 @@ archives:
       - README*
       - CHANGELOG*
 
+aurs:
+  - name: argonaut-bin
+    description: A GitOps CLI tool for managing ArgoCD applications
+    homepage: https://github.com/darksworm/argonaut
+    private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
+    git_url: ssh://aur@aur.archlinux.org/argonaut-bin.git
+    provides: [argonaut]
+    conflicts: [argonaut]
+    skip_upload: false
+    commit_msg_template: "upgpkg: {{ .ProjectName }} {{ .Version }}"
+    package: |
+      _binname="argonaut"
+      install -Dm755 "./${_binname}" "${pkgdir}/usr/bin/argonaut"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/argonaut/LICENSE"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/argonaut/README.md"
+      install -Dm644 "./CHANGELOG.md" "${pkgdir}/usr/share/doc/argonaut/CHANGELOG.md"
+    commit_author:
+      name: goreleaser
+      email: bot@goreleaser.com
+
+nix:
+  - name: argonaut
+    ids: [go-archives]
+    goamd64: v1
+    repository:
+      owner: darksworm
+      name: nur-packages
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+nfpms:
+  - id: linux-packages-standard
+    ids: [go-standard]
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    maintainer: "darksworm <bot@goreleaser.com>"
+    homepage: "https://github.com/darksworm/argonaut"
+    description: "A CLI tool for managing Argo CD applications"
+    license: GPL-3.0-or-later
+    section: utils
+    priority: optional
+    provides: [argonaut]
+    conflicts: [argonaut]
+
 homebrew_casks:
   - name: argonaut
     description: A GitOps CLI tool for managing ArgoCD applications
@@ -96,7 +141,9 @@ dockers_v2:
     tags:
       - "{{ .Version }}"
       - latest
-    platforms: [linux/amd64, linux/arm64]
+    platforms:
+      - linux/amd64
+      - linux/arm64
     labels:
       org.opencontainers.image.created: "{{ .Date }}"
       org.opencontainers.image.title: "{{ .ProjectName }}"
