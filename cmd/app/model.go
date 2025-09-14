@@ -15,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/autocomplete"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -35,6 +36,9 @@ type Model struct {
 
 	// Interactive input components using bubbles
 	inputComponents *InputComponentState
+
+	// Autocomplete engine for command suggestions
+	autocompleteEngine *autocomplete.AutocompleteEngine
 
 	// Internal flags
 	ready bool
@@ -145,8 +149,9 @@ func NewModel() *Model {
 			Handler:      createFileStatusHandler(), // Log to file instead of stdout
 			DebugEnabled: true,
 		}),
-		inputComponents: NewInputComponents(),
-		ready:           false,
+		inputComponents:    NewInputComponents(),
+		autocompleteEngine: autocomplete.NewAutocompleteEngine(),
+		ready:              false,
 		err:             nil,
 		spinner:         s,
 		resourcesTable:  resourcesTable,
@@ -201,6 +206,20 @@ func (m Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
     select {
     case m.treeStream <- msg:
     default:
+    }
+}
+
+// consumeTreeEvent reads a single tree stream event and returns it as a tea message
+func (m Model) consumeTreeEvent() tea.Cmd {
+    return func() tea.Msg {
+        if m.treeStream == nil {
+            return nil
+        }
+        ev, ok := <-m.treeStream
+        if !ok {
+            return nil
+        }
+        return ev
     }
 }
 
@@ -444,7 +463,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                 m.treeView.SetData(&tree)
             }
         }
-        return m, nil
+        return m, m.consumeTreeEvent()
 
 		// Spinner messages
 	case spinner.TickMsg:
@@ -820,7 +839,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if a.Name == msg.AppName { appObj = a; found = true; break }
 				}
 				if !found { appObj = model.App{Name: msg.AppName} }
-				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj))
+                return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
 			m.statusService.Set("Sync cancelled")
@@ -908,7 +927,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				found := false
 				for _, a := range m.state.Apps { if a.Name == msg.AppName { appObj = a; found = true; break } }
 				if !found { appObj = model.App{Name: msg.AppName} }
-				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj))
+                return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
 			m.statusService.Error(fmt.Sprintf("Rollback failed for %s", msg.AppName))

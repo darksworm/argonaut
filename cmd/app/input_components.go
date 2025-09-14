@@ -376,7 +376,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			// Switch to tree view and load
 			m.state.Navigation.View = model.ViewTree
 			m.state.UI.TreeAppName = &target
-			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp))
+			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
 		case "license", "licenses":
 			m.state.Mode = model.ModeLicense
 			return m, nil
@@ -465,6 +465,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 				m.state.Selections.SelectedApps = model.NewStringSet()
 			}
 			return m, nil
+		case "quit", "q", "q!", "exit":
+			// Exit the application
+			return m, func() tea.Msg { return model.QuitMsg{} }
 		default:
 			// Unknown: set status for feedback
 			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown command: " + raw} }
