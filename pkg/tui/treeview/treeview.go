@@ -290,8 +290,27 @@ func (v *TreeView) View() string {
         }
         prefix := strings.Join(prefixParts, "") + conn
 
+        // Disclosure indicator for nodes with children
+        disc := ""
+        if len(n.children) > 0 {
+            if v.expanded[n.uid] {
+                disc = "▾ "
+            } else {
+                disc = "▸ "
+            }
+        }
+
         label := v.renderLabel(n)
-        line := prefix + label
+        line := prefix + disc + label
+
+        // If collapsed, hint how many items are hidden
+        if len(n.children) > 0 && !v.expanded[n.uid] {
+            hidden := countDescendants(n)
+            if hidden > 0 {
+                hint := lipgloss.NewStyle().Foreground(colorGray).Render(fmt.Sprintf(" (+%d)", hidden))
+                line += hint
+            }
+        }
         if i == v.selIdx {
             line = lipgloss.NewStyle().Background(selectBG).Render(padRight(line, v.innerWidth()))
         }
@@ -338,4 +357,15 @@ func (v *TreeView) SetAppMeta(name, health, sync string) {
     v.appName = name
     v.appHealth = health
     v.appSync = sync
+}
+
+// countDescendants returns the number of nodes under n (deep)
+func countDescendants(n *treeNode) int {
+    if n == nil || len(n.children) == 0 { return 0 }
+    total := 0
+    for _, c := range n.children {
+        total++
+        total += countDescendants(c)
+    }
+    return total
 }
