@@ -101,6 +101,8 @@ type ModalState struct {
     ConfirmSyncSelected int `json:"confirmSyncSelected"`
     // When true, show a small syncing overlay instead of the confirm UI
     ConfirmSyncLoading  bool `json:"confirmSyncLoading"`
+    // When true, show initial loading modal overlay during app startup
+    InitialLoading      bool `json:"initialLoading"`
     RollbackAppName  *string `json:"rollbackAppName,omitempty"`
     SyncViewApp      *string `json:"syncViewApp,omitempty"`
 }
@@ -232,6 +234,7 @@ func NewAppState() *AppState {
 			ConfirmSyncWatch: true,
 			ConfirmSyncSelected: 0,
 			ConfirmSyncLoading:  false,
+			InitialLoading:      false,
 			RollbackAppName:  nil,
 			SyncViewApp:      nil,
 		},

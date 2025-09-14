@@ -238,6 +238,11 @@ type KeyMsg tea.KeyMsg
 // QuitMsg is sent to quit the application
 type QuitMsg struct{}
 
+// SetInitialLoadingMsg controls the initial loading modal display
+type SetInitialLoadingMsg struct {
+	Loading bool `json:"loading"`
+}
+
 // TickMsg is sent on timer ticks
 type TickMsg struct{}
 

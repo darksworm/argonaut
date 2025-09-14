@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/darksworm/argonaut/pkg/model"
 	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -207,8 +207,7 @@ func (m Model) handleSyncModal() (Model, tea.Cmd) {
 // handleRefresh refreshes the current view data
 func (m Model) handleRefresh() (Model, tea.Cmd) {
 	if m.state.Server != nil {
-		m.state.Mode = model.ModeLoading
-		return m, m.startLoadingApplications()
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeLoading} }
 	}
 	return m, func() tea.Msg {
 		return model.StatusChangeMsg{Status: "No server configured"}
@@ -691,8 +690,17 @@ func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 func (m Model) handleErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "esc":
+		// If no apps have been loaded (initial load failed), exit the application
+		// Otherwise, clear error state and return to normal mode
+		if len(m.state.Apps) == 0 {
+			return m, func() tea.Msg { return model.QuitMsg{} }
+		}
+
 		// Clear error state and return to normal mode
 		m.state.CurrentError = nil
+		if m.state.ErrorState != nil {
+			m.state.ErrorState.Current = nil
+		}
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	}

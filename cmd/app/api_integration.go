@@ -1,20 +1,20 @@
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "log"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
-	tea "github.com/charmbracelet/bubbletea/v2"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -30,8 +30,8 @@ func (m Model) startLoadingApplications() tea.Cmd {
 		// Log the API call attempt
 		// [API] Starting to load applications - removed printf to avoid TUI interference
 
-		// Create context with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// Create context with timeout (shorter timeout for initial loading)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		// Create a new ArgoApiService with the current server
@@ -146,7 +146,7 @@ func (m Model) consumeWatchEvent() tea.Cmd {
 
 // startDiffSession loads diffs and opens the diff pager
 func (m Model) startDiffSession(appName string) tea.Cmd {
-    return tea.Cmd(func() tea.Msg {
+	return tea.Cmd(func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -184,36 +184,36 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		leftFile, _ := writeTempYAML("live-", liveDocs)
 		rightFile, _ := writeTempYAML("desired-", desiredDocs)
 
-        // Build raw unified diff via git
-        cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
-        out, err := cmd.CombinedOutput()
-        if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
-            return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
-        }
-        cleaned := stripDiffHeader(string(out))
-        if strings.TrimSpace(cleaned) == "" {
-            return model.StatusChangeMsg{Status: "No differences"}
-        }
+		// Build raw unified diff via git
+		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
+		out, err := cmd.CombinedOutput()
+		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
+			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
+		}
+		cleaned := stripDiffHeader(string(out))
+		if strings.TrimSpace(cleaned) == "" {
+			return model.StatusChangeMsg{Status: "No differences"}
+		}
 
-        // Clear loading spinner before handing off to viewer/formatter
-        if m.state.Diff == nil {
-            m.state.Diff = &model.DiffState{}
-        }
-        m.state.Diff.Loading = false
+		// Clear loading spinner before handing off to viewer/formatter
+		if m.state.Diff == nil {
+			m.state.Diff = &model.DiffState{}
+		}
+		m.state.Diff.Loading = false
 
-        // 1) Interactive diff viewer: replace the terminal (e.g., vimdiff, meld)
-        if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
-            return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
-        }
+		// 1) Interactive diff viewer: replace the terminal (e.g., vimdiff, meld)
+		if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
+			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
+		}
 
-        // 2) Non-interactive formatter: pipe to tool (e.g., delta) and then show via built-in pager (ov)
-        formatted := cleaned
-        if formattedOut, ferr := m.runDiffFormatter(cleaned); ferr == nil && strings.TrimSpace(formattedOut) != "" {
-            formatted = formattedOut
-        }
-        title := fmt.Sprintf("%s - Live vs Desired", appName)
-        return m.openTextPager(title, formatted)()
-    })
+		// 2) Non-interactive formatter: pipe to tool (e.g., delta) and then show via built-in pager (ov)
+		formatted := cleaned
+		if formattedOut, ferr := m.runDiffFormatter(cleaned); ferr == nil && strings.TrimSpace(formattedOut) != "" {
+			formatted = formattedOut
+		}
+		title := fmt.Sprintf("%s - Live vs Desired", appName)
+		return m.openTextPager(title, formatted)()
+	})
 }
 
 func writeTempYAML(prefix string, docs []string) (string, error) {

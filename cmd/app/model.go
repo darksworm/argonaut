@@ -1,23 +1,23 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
+	"github.com/charmbracelet/bubbles/v2/spinner"
+	"github.com/charmbracelet/bubbles/v2/table"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui"
-	"github.com/charmbracelet/bubbles/v2/spinner"
-	"github.com/charmbracelet/bubbles/v2/table"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/noborus/ov/oviewer"
 )
 
@@ -164,15 +164,25 @@ type resumeRenderingMsg struct{}
 // Init implements tea.Model.Init
 func (m Model) Init() tea.Cmd {
 	// Initialize with terminal size request and startup commands
-	return tea.Batch(
-		tea.EnterAltScreen,
-		m.spinner.Tick,
+	var cmds []tea.Cmd
+	cmds = append(cmds, tea.EnterAltScreen, m.spinner.Tick)
+
+	// Show initial loading modal immediately if server is configured
+	if m.state.Server != nil {
+		cmds = append(cmds, func() tea.Msg {
+			return model.SetInitialLoadingMsg{Loading: true}
+		})
+	}
+
+	cmds = append(cmds,
 		func() tea.Msg {
 			return model.StatusChangeMsg{Status: "Initializing..."}
 		},
 		// Validate authentication if server is configured
 		m.validateAuthentication(),
 	)
+
+	return tea.Batch(cmds...)
 }
 
 // validateAuthentication checks if authentication is valid (matches TypeScript app-orchestrator.ts)
@@ -235,153 +245,154 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 			log.Printf("ERROR: Failed to create oviewer root: %v", err)
 			return pagerDoneMsg{Err: err}
 		}
-		
+
 		cfg := oviewer.NewConfig()
 		cfg.IsWriteOnExit = false
 		cfg.IsWriteOriginal = false
-		
+
 		// Ensure ov starts in normal view mode, not input/command mode
 		cfg.ViewMode = "" // Use default normal view mode
-		
+
 		// Try to configure keybindings and catch any errors
 		configErr := configureVimKeyBindings(&cfg)
 		if configErr != nil {
 			log.Printf("ERROR: Failed to configure vim keybindings: %v", configErr)
 			return pagerDoneMsg{Err: configErr}
 		}
-		
+
 		root.SetConfig(cfg)
 		// Don't set FileName as it might trigger input mode
 		// root.Doc.FileName = title
-		
+
 		// Capture any error from Run()
 		runErr := root.Run()
 		if runErr != nil {
 			log.Printf("ERROR: Failed to run oviewer: %v", runErr)
 			return pagerDoneMsg{Err: runErr}
 		}
-		
+
 		return pagerDoneMsg{Err: nil}
 	}
 }
 
 // openExternalDiffPager runs an external diff viewer/pager. It supports two modes:
-// 1) Command string with placeholders {left} and {right} for file paths (e.g. "vimdiff {left} {right}")
-// 2) Pager that reads unified diff from stdin (e.g. "delta --side-by-side"). In that case we pipe
-//    the diff text to the process.
+//  1. Command string with placeholders {left} and {right} for file paths (e.g. "vimdiff {left} {right}")
+//  2. Pager that reads unified diff from stdin (e.g. "delta --side-by-side"). In that case we pipe
+//     the diff text to the process.
+//
 // openInteractiveDiffViewer replaces the terminal with an interactive diff tool
 // configured via ARGONAUT_DIFF_VIEWER. The command may include {left} and {right}
 // placeholders for file paths.
 func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea.Msg {
-    if m.program != nil {
-        m.program.Send(pauseRenderingMsg{})
-        _ = m.program.ReleaseTerminal()
-    }
-    defer func() {
-        fmt.Print("\x1b[2J\x1b[H")
-        time.Sleep(150 * time.Millisecond)
-        if m.program != nil {
-            _ = m.program.RestoreTerminal()
-            m.program.Send(resumeRenderingMsg{})
-        }
-    }()
+	if m.program != nil {
+		m.program.Send(pauseRenderingMsg{})
+		_ = m.program.ReleaseTerminal()
+	}
+	defer func() {
+		fmt.Print("\x1b[2J\x1b[H")
+		time.Sleep(150 * time.Millisecond)
+		if m.program != nil {
+			_ = m.program.RestoreTerminal()
+			m.program.Send(resumeRenderingMsg{})
+		}
+	}()
 
-    cmdStr = strings.ReplaceAll(cmdStr, "{left}", shellEscape(leftFile))
-    cmdStr = strings.ReplaceAll(cmdStr, "{right}", shellEscape(rightFile))
-    c := exec.Command("sh", "-lc", cmdStr)
-    c.Stdin = os.Stdin
-    c.Stdout = os.Stdout
-    c.Stderr = os.Stderr
-    if err := c.Run(); err != nil {
-        log.Printf("interactive diff viewer failed: %v", err)
-        return pagerDoneMsg{Err: err}
-    }
-    return pagerDoneMsg{Err: nil}
+	cmdStr = strings.ReplaceAll(cmdStr, "{left}", shellEscape(leftFile))
+	cmdStr = strings.ReplaceAll(cmdStr, "{right}", shellEscape(rightFile))
+	c := exec.Command("sh", "-lc", cmdStr)
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	if err := c.Run(); err != nil {
+		log.Printf("interactive diff viewer failed: %v", err)
+		return pagerDoneMsg{Err: err}
+	}
+	return pagerDoneMsg{Err: nil}
 }
 
 // runDiffFormatter runs a non-interactive diff formatter on diffText and returns its output.
 // Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
 func (m Model) runDiffFormatter(diffText string) (string, error) {
-    cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
-    cols := 0
-    if m.state != nil {
-        cols = m.state.Terminal.Cols
-    }
-    if cmdStr == "" && inPath("delta") {
-        // Ensure delta does not page; we want raw output to feed our pager.
-        // Also force width so piping to OV uses full terminal width.
-        if cols > 0 {
-            cmdStr = fmt.Sprintf("delta --side-by-side --line-numbers --navigate --paging=never --width=%d", cols)
-        } else {
-            cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
-        }
-    }
-    if cmdStr == "" {
-        return diffText, nil
-    }
-    c := exec.Command("sh", "-lc", cmdStr)
-    // Help tools detect width when stdout is a pipe
-    if cols > 0 {
-        c.Env = append(os.Environ(), fmt.Sprintf("COLUMNS=%d", cols))
-    } else {
-        c.Env = os.Environ()
-    }
-    c.Stdin = strings.NewReader(diffText)
-    out, err := c.CombinedOutput()
-    if err != nil {
-        return diffText, err
-    }
-    return string(out), nil
+	cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
+	cols := 0
+	if m.state != nil {
+		cols = m.state.Terminal.Cols
+	}
+	if cmdStr == "" && inPath("delta") {
+		// Ensure delta does not page; we want raw output to feed our pager.
+		// Also force width so piping to OV uses full terminal width.
+		if cols > 0 {
+			cmdStr = fmt.Sprintf("delta --side-by-side --line-numbers --navigate --paging=never --width=%d", cols)
+		} else {
+			cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
+		}
+	}
+	if cmdStr == "" {
+		return diffText, nil
+	}
+	c := exec.Command("sh", "-lc", cmdStr)
+	// Help tools detect width when stdout is a pipe
+	if cols > 0 {
+		c.Env = append(os.Environ(), fmt.Sprintf("COLUMNS=%d", cols))
+	} else {
+		c.Env = os.Environ()
+	}
+	c.Stdin = strings.NewReader(diffText)
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return diffText, err
+	}
+	return string(out), nil
 }
 
 func inPath(name string) bool {
-    _, err := exec.LookPath(name)
-    return err == nil
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 func shellEscape(s string) string {
-    return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 // configureVimKeyBindings adds vim-like key bindings to the oviewer config
 func configureVimKeyBindings(cfg *oviewer.Config) error {
-    // Disable OV's default key bindings so our map is authoritative.
-    cfg.DefaultKeyBind = "disable"
-    // Hard reset keybindings to avoid duplicates from library defaults.
-    // We'll assign a minimal, deterministic set.
-    cfg.Keybind = make(map[string][]string)
+	// Disable OV's default key bindings so our map is authoritative.
+	cfg.DefaultKeyBind = "disable"
+	// Hard reset keybindings to avoid duplicates from library defaults.
+	// We'll assign a minimal, deterministic set.
+	cfg.Keybind = make(map[string][]string)
 
-    // Helper to set a binding list without duplicates
-    set := func(action string, keys ...string) {
-        uniq := make(map[string]struct{})
-        out := make([]string, 0, len(keys))
-        for _, k := range keys {
-            if _, ok := uniq[k]; ok {
-                continue
-            }
-            uniq[k] = struct{}{}
-            out = append(out, k)
-        }
-        cfg.Keybind[action] = out
-    }
+	// Helper to set a binding list without duplicates
+	set := func(action string, keys ...string) {
+		uniq := make(map[string]struct{})
+		out := make([]string, 0, len(keys))
+		for _, k := range keys {
+			if _, ok := uniq[k]; ok {
+				continue
+			}
+			uniq[k] = struct{}{}
+			out = append(out, k)
+		}
+		cfg.Keybind[action] = out
+	}
 
-    // Vim-like navigation
-    set("left", "h")
-    set("right", "l")
-    set("up", "k")
-    set("down", "j")
-    set("top", "g")
-    set("bottom", "G")
-    set("search", "/")
-    set("exit", "q")
+	// Vim-like navigation
+	set("left", "h")
+	set("right", "l")
+	set("up", "k")
+	set("down", "j")
+	set("top", "g")
+	set("bottom", "G")
+	set("search", "/")
+	set("exit", "q")
 
-    // Additional quality-of-life bindings that don't conflict
-    // Page navigation (space/down: page down, b: page up) if supported
-    // These actions might be ignored if oviewer doesn't map them; harmless otherwise.
-    set("page_down", " ")
-    set("page_up", "b")
+	// Additional quality-of-life bindings that don't conflict
+	// Page navigation (space/down: page down, b: page up) if supported
+	// These actions might be ignored if oviewer doesn't map them; harmless otherwise.
+	set("page_down", " ")
+	set("page_up", "b")
 
-    return nil
+	return nil
 }
 
 // Update implements tea.Model.Update
@@ -472,7 +483,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle mode transitions
 		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
-			// Start loading applications from API
+			// Start loading applications from API when transitioning to loading mode
 			// [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
 			return m, m.startLoadingApplications()
 		}
@@ -500,6 +511,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// API Event messages
 	case model.AppsLoadedMsg:
 		m.state.Apps = msg.Apps
+		// Turn off initial loading modal if it was active
+		m.state.Modals.InitialLoading = false
 		// m.ui.UpdateListItems(m.state)
 		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }, m.consumeWatchEvent())
 
@@ -617,6 +630,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state.Mode = model.ModeNormal
 			}
 		}
+		// Turn off initial loading modal if it was active
+		m.state.Modals.InitialLoading = false
 
 		// Handle rollback-specific errors
 		if m.state.Mode == model.ModeRollback {
@@ -665,7 +680,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pagerDoneMsg:
 		// Restore pager state
 		m.inPager = false
-		
+
 		// If there was an error, display it
 		if msg.Err != nil {
 			log.Printf("PAGER ERROR: %v", msg.Err)
@@ -681,7 +696,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return model.SetModeMsg{Mode: model.ModeError}
 			}
 		}
-		
+
 		// No error, go back to normal mode
 		m.state.Mode = model.ModeNormal
 		return m, nil
@@ -690,6 +705,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Log error to file and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
+
+		// Turn off initial loading modal if it was active
+		m.state.Modals.InitialLoading = false
 
 		// Handle rollback-specific auth errors
 		if m.state.Mode == model.ModeRollback {
@@ -924,6 +942,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.QuitMsg:
 		return m, tea.Quit
+
+	case model.SetInitialLoadingMsg:
+		// Control the initial loading modal display
+		m.state.Modals.InitialLoading = msg.Loading
+
+		// If turning on initial loading, also trigger the API load
+		if msg.Loading && m.state.Server != nil {
+			return m, m.startLoadingApplications()
+		}
+
+		return m, nil
 	}
 
 	return m, nil

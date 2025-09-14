@@ -24,7 +24,7 @@ func main() {
 
 	// Load ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
 	log.Println("Loading ArgoCD config…")
-	
+
 	// Try to read the ArgoCD CLI config file
 	server, err := loadArgoConfig()
 	if err != nil {
@@ -35,24 +35,23 @@ func main() {
 	} else {
 		log.Printf("Successfully loaded ArgoCD config for server: %s", server.BaseURL)
 		m.state.Server = server
-		// Set initial mode to loading when server is configured
-		m.state.Mode = model.ModeLoading
+		// Server is configured - the Init() method will handle showing loading screen
 	}
 
 	// Start with empty apps - they will be loaded from API
 	m.state.Apps = []model.App{}
 
-    // Create the Bubbletea program
-    p := tea.NewProgram(
-        m,
-        tea.WithAltScreen(),
-        tea.WithMouseCellMotion(),
-    )
+	// Create the Bubbletea program
+	p := tea.NewProgram(
+		m,
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 
-    // Store program pointer for terminal hand-off (pager integration)
-    m.SetProgram(p)
+	// Store program pointer for terminal hand-off (pager integration)
+	m.SetProgram(p)
 
-	// Run the program  
+	// Run the program
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running program: %v\n", err)
 		os.Exit(1)
@@ -82,7 +81,7 @@ func setupLogging() {
 	// Set log output to file
 	log.SetOutput(logFile)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	
+
 	log.Println("ArgoCD Apps started")
 }
 
@@ -93,13 +92,13 @@ func loadArgoConfig() (*model.Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CLI config: %w", err)
 	}
-	
+
 	// Convert to server config
 	server, err := cfg.ToServerConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse server config: %w", err)
 	}
-	
+
 	return server, nil
 }
 
