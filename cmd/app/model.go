@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui"
+	"github.com/darksworm/argonaut/pkg/tui/treeview"
 	"github.com/noborus/ov/oviewer"
 )
 
@@ -54,6 +56,12 @@ type Model struct {
 	// Bubble Tea program reference for terminal hand-off (pager integration)
 	program *tea.Program
 	inPager bool
+
+    // Tree view component
+    treeView *treeview.TreeView
+
+    // Tree watch internal channel delivery
+    treeStream chan model.ResourceTreeStreamMsg
 }
 
 // NewModel creates a new Model with default state and services
@@ -147,8 +155,10 @@ func NewModel() *Model {
 		namespacesTable: namespacesTable,
 		projectsTable:   projectsTable,
 		program:         nil,
-		inPager:         false,
-	}
+        inPager:         false,
+        treeView:        treeview.NewTreeView(0, 0),
+        treeStream:      make(chan model.ResourceTreeStreamMsg, 64),
+    }
 }
 
 // SetProgram stores the Bubble Tea program pointer for terminal hand-off
@@ -167,7 +177,7 @@ func (m Model) Init() tea.Cmd {
 	var cmds []tea.Cmd
 	cmds = append(cmds, tea.EnterAltScreen, m.spinner.Tick)
 
-	// Show initial loading modal immediately if server is configured
+    // Show initial loading modal immediately if server is configured
 	if m.state.Server != nil {
 		cmds = append(cmds, func() tea.Msg {
 			return model.SetInitialLoadingMsg{Loading: true}
@@ -183,6 +193,15 @@ func (m Model) Init() tea.Cmd {
 	)
 
 	return tea.Batch(cmds...)
+}
+
+// watchTreeDeliver is used by the watcher goroutine to send messages into Bubble Tea
+func (m Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
+    // Non-blocking send; if full, drop to avoid blocking
+    select {
+    case m.treeStream <- msg:
+    default:
+    }
 }
 
 // validateAuthentication checks if authentication is valid (matches TypeScript app-orchestrator.ts)
@@ -397,12 +416,15 @@ func configureVimKeyBindings(cfg *oviewer.Config) error {
 
 // Update implements tea.Model.Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+    switch msg := msg.(type) {
 
 	// Terminal/System messages
 	case tea.WindowSizeMsg:
 		m.state.Terminal.Rows = msg.Height
 		m.state.Terminal.Cols = msg.Width
+		if m.treeView != nil {
+			m.treeView.SetSize(msg.Width, msg.Height)
+		}
 		if !m.ready {
 			m.ready = true
 			return m, func() tea.Msg {
@@ -411,8 +433,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
-		return m.handleKeyMsg(msg)
+    case tea.KeyMsg:
+        return m.handleKeyMsg(msg)
+
+    // Tree stream messages from watcher goroutine
+    case model.ResourceTreeStreamMsg:
+        if m.state.Navigation.View == model.ViewTree && m.treeView != nil && len(msg.TreeJSON) > 0 {
+            var tree api.ResourceTree
+            if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
+                m.treeView.SetData(&tree)
+            }
+        }
+        return m, nil
 
 		// Spinner messages
 	case spinner.TickMsg:
@@ -554,6 +586,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, m.consumeWatchEvent()
 
+    case model.ResourceTreeLoadedMsg:
+		// Populate tree view with loaded data
+		if m.treeView != nil && len(msg.TreeJSON) > 0 {
+			var tree api.ResourceTree
+			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
+				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
+				m.treeView.SetData(&tree)
+			}
+			// Reset cursor for tree view
+			m.state.Navigation.SelectedIdx = 0
+			m.statusService.Set("Tree loaded")
+		}
+		return m, nil
+
 	case ResourcesLoadedMsg:
 		log.Printf("Received ResourcesLoadedMsg for app: %s", msg.AppName)
 		if m.state.Resources != nil && m.state.Resources.AppName == msg.AppName {
@@ -632,6 +678,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
+
+		// If we were loading tree view, return to apps view
+		if m.state.Navigation.View == model.ViewTree {
+			m.state.Navigation.View = model.ViewApps
+		}
 
 		// Handle rollback-specific errors
 		if m.state.Mode == model.ModeRollback {
@@ -758,21 +809,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
 
-			// Show resource stream if watch is enabled (matching TypeScript behavior)
+			// Show tree view if watch is enabled
 			if m.state.Modals.ConfirmSyncWatch {
-				m.state.Modals.SyncViewApp = &msg.AppName
-				m.state.Mode = model.ModeResources
-
-				// Initialize resource state and start loading
-				m.state.Resources = &model.ResourceState{
-					AppName:   msg.AppName,
-					Resources: nil,
-					Loading:   true,
-					Error:     "",
-					Offset:    0,
+				m.state.Navigation.View = model.ViewTree
+				m.state.UI.TreeAppName = &msg.AppName
+				// find app
+				var appObj model.App
+				found := false
+				for _, a := range m.state.Apps {
+					if a.Name == msg.AppName { appObj = a; found = true; break }
 				}
-
-				return m, m.loadResourcesForApp(msg.AppName)
+				if !found { appObj = model.App{Name: msg.AppName} }
+				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj))
 			}
 		} else {
 			m.statusService.Set("Sync cancelled")
@@ -852,10 +900,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Modals.RollbackAppName = nil
 			m.state.Mode = model.ModeNormal
 
-			// Start watching resources if requested
+			// Start watching tree if requested
 			if msg.Watch {
-				m.state.Modals.SyncViewApp = &msg.AppName
-				return m, m.loadResourcesForApp(msg.AppName)
+				m.state.Navigation.View = model.ViewTree
+				m.state.UI.TreeAppName = &msg.AppName
+				var appObj model.App
+				found := false
+				for _, a := range m.state.Apps { if a.Name == msg.AppName { appObj = a; found = true; break } }
+				if !found { appObj = model.App{Name: msg.AppName} }
+				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj))
 			}
 		} else {
 			m.statusService.Error(fmt.Sprintf("Rollback failed for %s", msg.AppName))
@@ -960,8 +1013,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyMsg handles keyboard input with 1:1 mapping to TypeScript functionality
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
-	// Handle mode-specific input first
-	switch m.state.Mode {
+    // Global kill: always quit on Ctrl+C
+    if msg.String() == "ctrl+c" {
+        return m, func() tea.Msg { return model.QuitMsg{} }
+    }
+    // Handle mode-specific input first
+    switch m.state.Mode {
 	case model.ModeSearch:
 		return m.handleSearchModeKeys(msg)
 	case model.ModeCommand:
@@ -984,9 +1041,33 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleErrorModeKeys(msg)
 	case model.ModeConnectionError:
 		return m.handleConnectionErrorModeKeys(msg)
-	}
+    }
 
-	// Global key handling for normal mode
+    // Tree view key handling (operates in normal mode but separate view)
+    if m.state.Navigation.View == model.ViewTree {
+        switch msg.String() {
+        case "q", "esc":
+            // Return to apps view, preserve previous cursor
+            m.state.Navigation.View = model.ViewApps
+            // Stop any ongoing tree watch by ignoring future messages (goroutine continues harmlessly)
+            // Validate bounds in case list changed
+            visibleItems := m.getVisibleItemsForCurrentView()
+            m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+                m.state.Navigation.SelectedIdx,
+                len(visibleItems),
+            )
+            return m, nil
+        default:
+            if m.treeView != nil {
+                // Forward to tree view
+                _, cmd := m.treeView.Update(msg)
+                return m, cmd
+            }
+            return m, nil
+        }
+    }
+
+    // Global key handling for normal mode
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, func() tea.Msg { return model.QuitMsg{} }
@@ -1006,10 +1087,11 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 	// Mode switching keys
 	case "/":
 		return m.handleEnterSearchMode()
-	case ":":
-		return m.handleEnterCommandMode()
-	case "?":
-		return m.handleShowHelp()
+    case ":":
+        return m.handleEnterCommandMode()
+    case "?":
+        return m.handleShowHelp()
+        
 
 	// Quick actions
 	case "s":

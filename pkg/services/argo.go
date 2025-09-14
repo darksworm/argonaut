@@ -41,8 +41,14 @@ type ArgoApiService interface {
     // RollbackApplication performs a rollback operation
     RollbackApplication(ctx context.Context, server *model.Server, request model.RollbackRequest) error
 
-	// Cleanup stops all watchers and cleans up resources
-	Cleanup()
+    // GetResourceTree fetches the resource tree for an application
+    GetResourceTree(ctx context.Context, server *model.Server, appName string, appNamespace string) (*api.ResourceTree, error)
+
+    // WatchResourceTree streams resource tree updates for an application
+    WatchResourceTree(ctx context.Context, server *model.Server, appName string, appNamespace string) (<-chan *api.ResourceTree, func(), error)
+
+    // Cleanup stops all watchers and cleans up resources
+    Cleanup()
 }
 
 // ArgoApiEvent represents events from the ArgoCD API
@@ -404,7 +410,92 @@ func (s *ArgoApiServiceImpl) GetRevisionMetadata(ctx context.Context, server *mo
 
 // RollbackApplication performs a rollback operation
 func (s *ArgoApiServiceImpl) RollbackApplication(ctx context.Context, server *model.Server, request model.RollbackRequest) error {
-	return s.appService.RollbackApplication(ctx, request)
+    return s.appService.RollbackApplication(ctx, request)
+}
+
+// GetResourceTree implements ArgoApiService.GetResourceTree
+func (s *ArgoApiServiceImpl) GetResourceTree(ctx context.Context, server *model.Server, appName string, appNamespace string) (*api.ResourceTree, error) {
+    if server == nil {
+        return nil, apperrors.ConfigError("SERVER_MISSING",
+            "Server configuration is required").
+            WithUserAction("Please run 'argocd login' to configure the server")
+    }
+    if appName == "" {
+        return nil, apperrors.ValidationError("APP_NAME_MISSING",
+            "Application name is required").
+            WithUserAction("Specify an application name to load the resource tree")
+    }
+
+    if s.appService == nil {
+        s.appService = api.NewApplicationService(server)
+    }
+
+    // Respect resource timeout
+    ctx, cancel := appcontext.WithResourceTimeout(ctx)
+    defer cancel()
+
+    var tree *api.ResourceTree
+    err := retry.RetryAPIOperation(ctx, "GetResourceTree", func(attempt int) error {
+        var opErr error
+        tree, opErr = s.appService.GetResourceTree(ctx, appName, appNamespace)
+        return opErr
+    })
+    if err != nil {
+        if argErr, ok := err.(*apperrors.ArgonautError); ok {
+            return nil, argErr.WithContext("operation", "GetResourceTree").
+                WithContext("appName", appName).
+                WithContext("appNamespace", appNamespace)
+        }
+        return nil, apperrors.Wrap(err, apperrors.ErrorAPI, "GET_RESOURCE_TREE_FAILED",
+            "Failed to load resource tree").
+            WithContext("appName", appName).
+            WithContext("appNamespace", appNamespace).
+            AsRecoverable().
+            WithUserAction("Check the application exists and try again")
+    }
+    return tree, nil
+}
+
+// WatchResourceTree implements ArgoApiService.WatchResourceTree
+func (s *ArgoApiServiceImpl) WatchResourceTree(ctx context.Context, server *model.Server, appName string, appNamespace string) (<-chan *api.ResourceTree, func(), error) {
+    if server == nil {
+        return nil, nil, apperrors.ConfigError("SERVER_MISSING",
+            "Server configuration is required").
+            WithUserAction("Please run 'argocd login' to configure the server")
+    }
+    if appName == "" {
+        return nil, nil, apperrors.ValidationError("APP_NAME_MISSING",
+            "Application name is required").
+            WithUserAction("Specify an application name to watch the resource tree")
+    }
+    if s.appService == nil { s.appService = api.NewApplicationService(server) }
+
+    out := make(chan *api.ResourceTree, 32)
+    watchCtx, cancel := appcontext.WithCancel(ctx)
+
+    go func() {
+        defer close(out)
+        // internal channel of plain ResourceTree values from api
+        ch := make(chan api.ResourceTree, 32)
+        go func() {
+            defer close(ch)
+            _ = s.appService.WatchResourceTree(watchCtx, appName, appNamespace, ch)
+        }()
+        for {
+            select {
+            case <-watchCtx.Done():
+                return
+            case t, ok := <-ch:
+                if !ok { return }
+                // copy to heap pointer
+                tt := t
+                out <- &tt
+            }
+        }
+    }()
+
+    cleanup := func() { cancel() }
+    return out, cleanup, nil
 }
 
 // isAuthError checks if an error indicates authentication issues

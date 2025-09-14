@@ -8,10 +8,11 @@ import (
 type View string
 
 const (
-	ViewClusters   View = "clusters"
-	ViewNamespaces View = "namespaces"
-	ViewProjects   View = "projects"
-	ViewApps       View = "apps"
+    ViewClusters   View = "clusters"
+    ViewNamespaces View = "namespaces"
+    ViewProjects   View = "projects"
+    ViewApps       View = "apps"
+    ViewTree       View = "tree"
 )
 
 // Mode represents the current application mode

@@ -1,22 +1,22 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "log"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/darksworm/argonaut/pkg/api"
-	apperrors "github.com/darksworm/argonaut/pkg/errors"
-	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/neat"
-	"github.com/darksworm/argonaut/pkg/services"
-	yaml "gopkg.in/yaml.v3"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    "github.com/darksworm/argonaut/pkg/api"
+    apperrors "github.com/darksworm/argonaut/pkg/errors"
+    "github.com/darksworm/argonaut/pkg/model"
+    "github.com/darksworm/argonaut/pkg/neat"
+    "github.com/darksworm/argonaut/pkg/services"
+    yaml "gopkg.in/yaml.v3"
 )
 
 // startLoadingApplications initiates loading applications from ArgoCD API
@@ -250,6 +250,52 @@ func cleanManifestToYAML(jsonOrYaml string) string {
 	}
 
 	return string(yamlBytes)
+}
+
+// startLoadingResourceTree loads the resource tree for the given app
+func (m Model) startLoadingResourceTree(app model.App) tea.Cmd {
+    return tea.Cmd(func() tea.Msg {
+        if m.state.Server == nil {
+            return model.ApiErrorMsg{Message: "No server configured"}
+        }
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+
+        argo := services.NewArgoApiService(m.state.Server)
+        appNamespace := ""
+        if app.AppNamespace != nil { appNamespace = *app.AppNamespace }
+        tree, err := argo.GetResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+        if err != nil {
+            return model.ApiErrorMsg{Message: err.Error()}
+        }
+        // Marshal to JSON to avoid import cycle in model messages
+        data, merr := json.Marshal(tree)
+        if merr != nil {
+            return model.ApiErrorMsg{Message: merr.Error()}
+        }
+        return model.ResourceTreeLoadedMsg{AppName: app.Name, Health: app.Health, Sync: app.Sync, TreeJSON: data}
+    })
+}
+
+// startWatchingResourceTree starts a streaming watcher for resource tree updates
+func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
+    return tea.Cmd(func() tea.Msg {
+        if m.state.Server == nil { return nil }
+        ctx := context.Background()
+        apiService := services.NewArgoApiService(m.state.Server)
+        appNamespace := ""
+        if app.AppNamespace != nil { appNamespace = *app.AppNamespace }
+        ch, _, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+        if err != nil { return model.StatusChangeMsg{Status: "Tree watch failed: "+err.Error()} }
+        go func() {
+            for t := range ch {
+                if t == nil { continue }
+                data, _ := json.Marshal(t)
+                m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
+            }
+        }()
+        return model.StatusChangeMsg{Status: "Watching tree…"}
+    })
 }
 
 func stripDiffHeader(out string) string {

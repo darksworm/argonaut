@@ -84,12 +84,13 @@ func (s *SelectionState) ToggleSelectedApp(app string) {
 
 // UIState holds UI-related state
 type UIState struct {
-	SearchQuery       string  `json:"searchQuery"`
-	ActiveFilter      string  `json:"activeFilter"`
-	Command           string  `json:"command"`
-	IsVersionOutdated bool    `json:"isVersionOutdated"`
-	LatestVersion     *string `json:"latestVersion,omitempty"`
-	CommandInputKey   int     `json:"commandInputKey"`
+    SearchQuery       string  `json:"searchQuery"`
+    ActiveFilter      string  `json:"activeFilter"`
+    Command           string  `json:"command"`
+    IsVersionOutdated bool    `json:"isVersionOutdated"`
+    LatestVersion     *string `json:"latestVersion,omitempty"`
+    CommandInputKey   int     `json:"commandInputKey"`
+    TreeAppName       *string `json:"treeAppName,omitempty"`
 }
 
 // ModalState holds modal-related state

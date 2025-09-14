@@ -448,7 +448,7 @@ type ResourceInfo struct {
 
 // ResourceTree represents the resource tree response from ArgoCD API
 type ResourceTree struct {
-	Nodes []ResourceNode `json:"nodes"`
+    Nodes []ResourceNode `json:"nodes"`
 }
 
 // GetResourceTree retrieves the resource tree for an application
@@ -469,6 +469,49 @@ func (s *ApplicationService) GetResourceTree(ctx context.Context, appName, appNa
 	}
 
 	return &tree, nil
+}
+
+// ResourceTreeStreamResult wraps streaming responses for resource tree
+type ResourceTreeStreamResult struct {
+    Result ResourceTree `json:"result"`
+}
+
+// WatchResourceTree starts a streaming watch for an application's resource tree
+func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, appNamespace string, out chan<- ResourceTree) error {
+    if appName == "" {
+        return fmt.Errorf("application name is required")
+    }
+    path := fmt.Sprintf("/api/v1/stream/applications/%s/resource-tree", url.PathEscape(appName))
+    if appNamespace != "" {
+        path += "?appNamespace=" + url.QueryEscape(appNamespace)
+    }
+    stream, err := s.client.Stream(ctx, path)
+    if err != nil {
+        return fmt.Errorf("failed to start resource tree watch: %w", err)
+    }
+    defer stream.Close()
+
+    scanner := bufio.NewScanner(stream)
+    for scanner.Scan() {
+        if ctx.Err() != nil {
+            return ctx.Err()
+        }
+        line := strings.TrimSpace(scanner.Text())
+        if line == "" { continue }
+        var res ResourceTreeStreamResult
+        if err := json.Unmarshal([]byte(line), &res); err != nil {
+            continue
+        }
+        select {
+        case out <- res.Result:
+        case <-ctx.Done():
+            return ctx.Err()
+        }
+    }
+    if err := scanner.Err(); err != nil {
+        return fmt.Errorf("stream scanning error: %w", err)
+    }
+    return nil
 }
 
 // GetUserInfo validates user authentication by checking session info

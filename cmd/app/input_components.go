@@ -358,23 +358,25 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			if target == "" {
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
 			}
-			// Save current navigation state before entering resources view
+			// Save current navigation state before entering tree view
 			m.state.SaveNavigationState()
 
-			m.state.Modals.SyncViewApp = &target
-			m.state.Mode = model.ModeResources
-
-			// Initialize resource state and start loading
-			m.state.Resources = &model.ResourceState{
-				AppName:   target,
-				Resources: nil,
-				Loading:   true,
-				Error:     "",
-				Offset:    0,
+			// Find app struct by name if available
+			var selectedApp *model.App
+			for i := range m.state.Apps {
+				if m.state.Apps[i].Name == target {
+					selectedApp = &m.state.Apps[i]
+					break
+				}
+			}
+			if selectedApp == nil {
+				selectedApp = &model.App{Name: target}
 			}
 
-			// Return command to load resources
-			return m, m.loadResourcesForApp(target)
+			// Switch to tree view and load
+			m.state.Navigation.View = model.ViewTree
+			m.state.UI.TreeAppName = &target
+			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp))
 		case "license", "licenses":
 			m.state.Mode = model.ModeLicense
 			return m, nil

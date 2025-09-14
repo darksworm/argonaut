@@ -143,7 +143,9 @@ func (m Model) renderMainLayout() string {
 	}
 
 	// Main content area (matches MainLayout Box with border)
-	if m.state.Mode == model.ModeResources && m.state.Server != nil && m.state.Modals.SyncViewApp != nil {
+	if m.state.Navigation.View == model.ViewTree {
+		sections = append(sections, m.renderTreePanel(listRows))
+	} else if m.state.Mode == model.ModeResources && m.state.Server != nil && m.state.Modals.SyncViewApp != nil {
 		sections = append(sections, m.renderResourceStream(listRows))
 	} else {
 		sections = append(sections, m.renderListView(listRows))
@@ -528,6 +530,22 @@ func (m Model) renderListView(availableRows int) string {
 
 	// Non-empty content: let height auto-size to content to avoid tmux line-wrapping issues
 	return contentBorderStyle.Render(content.String())
+}
+
+// renderTreePanel renders the resource tree view inside a bordered container
+func (m Model) renderTreePanel(availableRows int) string {
+    contentWidth := max(0, m.contentInnerWidth())
+    // Use the underlying tree view content
+    treeContent := "(no data)"
+    if m.treeView != nil {
+        treeContent = m.treeView.View()
+    }
+    // Normalize width to avoid wrapping
+    treeContent = normalizeLinesToWidth(treeContent, contentWidth)
+
+    // Apply border style with fixed height similar to list view
+    adjustedWidth := max(0, m.state.Terminal.Cols-2)
+    return contentBorderStyle.Width(adjustedWidth).Height(availableRows + 1).AlignVertical(lipgloss.Top).Render(treeContent)
 }
 
 // renderListHeader - matches ListView header row with responsive widths
