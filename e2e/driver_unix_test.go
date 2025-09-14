@@ -4,6 +4,8 @@ package main
 
 import (
     "bytes"
+    "io"
+    "encoding/json"
     "net/http"
     "net/http/httptest"
     "os"
@@ -157,9 +159,9 @@ func MockArgoServer() (*httptest.Server, error) {
     mux := http.NewServeMux()
     mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte(`{}`)) })
     mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
-        // return one simple app
+        // return one simple app with cluster and project metadata
         w.Header().Set("Content-Type", "application/json")
-        _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"destination":{"namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+        _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
     })
     mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
     mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -180,13 +182,144 @@ func MockArgoServer() (*httptest.Server, error) {
 
 // WriteArgoConfig writes an argocd CLI config pointing to our test server
 func WriteArgoConfig(path, baseURL string) error {
+    return WriteArgoConfigWithToken(path, baseURL, "test-token")
+}
+
+// MockArgoServerAuth requires Authorization: Bearer <validToken> or returns 401
+func MockArgoServerAuth(validToken string) (*httptest.Server, error) {
+    mux := http.NewServeMux()
+    requireAuth := func(w http.ResponseWriter, r *http.Request) bool {
+        got := r.Header.Get("Authorization")
+        if got != "Bearer "+validToken {
+            w.WriteHeader(http.StatusUnauthorized)
+            _, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+            return false
+        }
+        return true
+    }
+    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        w.WriteHeader(200)
+        _, _ = w.Write([]byte(`{}`))
+    })
+    mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        w.Header().Set("Content-Type", "application/json")
+        _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+    })
+    mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        _, _ = w.Write([]byte(`{"version":"e2e"}`))
+    })
+    mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        _, _ = w.Write([]byte(`{"nodes":[]}`))
+    })
+    mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        fl, _ := w.(http.Flusher)
+        w.Header().Set("Content-Type", "application/json")
+        _, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo"}}}}\n`))
+        if fl != nil { fl.Flush() }
+    })
+    srv := httptest.NewServer(mux)
+    return srv, nil
+}
+
+// WriteArgoConfigWithToken writes a CLI config using a specific token
+func WriteArgoConfigWithToken(path, baseURL, token string) error {
     var y bytes.Buffer
     y.WriteString("contexts:\n")
     y.WriteString("  - name: default\n    server: "+baseURL+"\n    user: default-user\n")
     y.WriteString("servers:\n")
     y.WriteString("  - server: "+baseURL+"\n    insecure: true\n")
     y.WriteString("users:\n")
-    y.WriteString("  - name: default-user\n    auth-token: test-token\n")
+    y.WriteString("  - name: default-user\n    auth-token: "+token+"\n")
     y.WriteString("current-context: default\n")
     return os.WriteFile(path, y.Bytes(), 0o644)
+}
+
+// ---- Sync capturing mock server ----
+
+type SyncCall struct {
+    Name  string
+    Body  string
+}
+
+type SyncRecorder struct {
+    mu    sync.Mutex
+    Calls []SyncCall
+}
+
+func (sr *SyncRecorder) add(call SyncCall) {
+    sr.mu.Lock(); defer sr.mu.Unlock()
+    sr.Calls = append(sr.Calls, call)
+}
+
+func (sr *SyncRecorder) len() int {
+    sr.mu.Lock(); defer sr.mu.Unlock()
+    return len(sr.Calls)
+}
+
+// MockArgoServerSync returns an auth-checking server and a recorder for /sync calls
+func MockArgoServerSync(validToken string) (*httptest.Server, *SyncRecorder, error) {
+    rec := &SyncRecorder{}
+    mux := http.NewServeMux()
+    requireAuth := func(w http.ResponseWriter, r *http.Request) bool {
+        got := r.Header.Get("Authorization")
+        if got != "Bearer "+validToken {
+            w.WriteHeader(http.StatusUnauthorized)
+            _, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+            return false
+        }
+        return true
+    }
+    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) { if !requireAuth(w, r) { return }; w.WriteHeader(200); _, _ = w.Write([]byte(`{}`)) })
+    mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { if !requireAuth(w, r) { return }; _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
+    mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        w.Header().Set("Content-Type", "application/json")
+        // Two apps for multi-select scenario
+        _, _ = w.Write([]byte(`{"items":[
+            {"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}},
+            {"metadata":{"name":"demo2","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}
+        ]}`))
+    })
+    mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) { if !requireAuth(w, r) { return }; _, _ = w.Write([]byte(`{"nodes":[]}`)) })
+    mux.HandleFunc("/api/v1/applications/demo2/resource-tree", func(w http.ResponseWriter, r *http.Request) { if !requireAuth(w, r) { return }; _, _ = w.Write([]byte(`{"nodes":[]}`)) })
+
+    // Diffs for :diff
+    mux.HandleFunc("/api/v1/applications/demo/managed-resources", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        w.Header().Set("Content-Type", "application/json")
+        // One resource with different image tag
+        live := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"demo","namespace":"default"},"data":{"IMAGE":"nginx:1.25"}}`
+        desired := `{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"demo","namespace":"default"},"data":{"IMAGE":"nginx:1.26"}}`
+        _, _ = w.Write([]byte(`{"items":[{"kind":"ConfigMap","namespace":"default","name":"demo","liveState":` + jsonEscape(live) + `,"targetState":` + jsonEscape(desired) + `}]}`))
+    })
+
+    // Prefix handler for sync
+    mux.HandleFunc("/api/v1/applications/", func(w http.ResponseWriter, r *http.Request) {
+        if r.Method != http.MethodPost { http.NotFound(w, r); return }
+        if !requireAuth(w, r) { return }
+        // Expect path like /api/v1/applications/<name>/sync
+        p := r.URL.Path
+        if !strings.HasSuffix(p, "/sync") { http.NotFound(w, r); return }
+        segs := strings.Split(p, "/")
+        if len(segs) < 6 { http.NotFound(w, r); return }
+        name := segs[4]
+        body, _ := io.ReadAll(r.Body)
+        rec.add(SyncCall{Name: name, Body: string(body)})
+        w.WriteHeader(200)
+        _, _ = w.Write([]byte(`{}`))
+    })
+
+    srv := httptest.NewServer(mux)
+    return srv, rec, nil
+}
+
+// jsonEscape returns a JSON string literal for a raw string (quoted)
+func jsonEscape(s string) string {
+    b, _ := json.Marshal(s)
+    return string(b)
 }
