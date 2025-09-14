@@ -358,8 +358,10 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
+		log.Printf("Starting sync for app: %s", appName)
 		err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
 		if err != nil {
+			log.Printf("Sync failed for app %s: %v", appName, err)
 			// Convert to structured error and return via TUI error handling
 			if argErr, ok := err.(*apperrors.ArgonautError); ok {
 				return model.StructuredErrorMsg{
@@ -380,6 +382,7 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 			}
 		}
 
+		log.Printf("Sync completed successfully for app: %s", appName)
 		return model.SyncCompletedMsg{AppName: appName, Success: true}
 	})
 }

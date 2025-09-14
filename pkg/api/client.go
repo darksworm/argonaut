@@ -201,9 +201,30 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		// Check for timeout
-		if timeoutErr := appcontext.HandleTimeout(ctx, appcontext.OpAPI); timeoutErr != nil {
-			return nil, timeoutErr.WithContext("method", method).WithContext("url", url)
+		// Check for timeout first - context errors have priority
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
+				"Request timed out - server may be unreachable").
+				WithContext("method", method).
+				WithContext("url", url).
+				WithContext("timeout", "5s").
+				WithUserAction("Check your connection to ArgoCD server and try again")
+		}
+
+		if ctx.Err() == context.Canceled {
+			return nil, apperrors.New(apperrors.ErrorInternal, "REQUEST_CANCELLED",
+				"Request was cancelled").
+				WithContext("method", method).
+				WithContext("url", url)
+		}
+
+		// Check if it's a network timeout from the transport layer
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return nil, apperrors.TimeoutError("NETWORK_TIMEOUT",
+				"Network connection timed out").
+				WithContext("method", method).
+				WithContext("url", url).
+				WithUserAction("Server may be unreachable - check your connection")
 		}
 
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "HTTP_REQUEST_FAILED",

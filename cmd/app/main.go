@@ -35,6 +35,8 @@ func main() {
 	} else {
 		log.Printf("Successfully loaded ArgoCD config for server: %s", server.BaseURL)
 		m.state.Server = server
+		// Set initial mode to loading when server is configured
+		m.state.Mode = model.ModeLoading
 	}
 
 	// Start with empty apps - they will be loaded from API

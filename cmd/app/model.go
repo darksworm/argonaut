@@ -10,6 +10,7 @@ import (
     "time"
 
 	"github.com/darksworm/argonaut/pkg/api"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui"
@@ -567,6 +568,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.statusService.Error(errorMsg)
 
+			// Debug: Log structured error details
+			log.Printf("StructuredErrorMsg received: Category=%s, Code=%s, Message=%s",
+				msg.Error.Category, msg.Error.Code, msg.Error.Message)
+
 			// Update error state in TUI
 			if tuiHandler := tui.GetDefaultTUIHandler(); tuiHandler != nil {
 				tuiMessages := tuiHandler.HandleError(msg.Error)
@@ -582,9 +587,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.Modals.ConfirmSyncLoading {
 			m.state.Modals.ConfirmSyncLoading = false
 			m.state.Modals.ConfirmTarget = nil
-			if m.state.Mode == model.ModeConfirmSync {
-				m.state.Mode = model.ModeNormal
-			}
+			// Set mode to error to show the error immediately
+			m.state.Mode = model.ModeError
+		}
+
+		// If we have a structured error with high severity, switch to error mode
+		if msg.Error != nil && msg.Error.Severity == apperrors.SeverityHigh {
+			m.state.Mode = model.ModeError
 		}
 
 		return m, nil

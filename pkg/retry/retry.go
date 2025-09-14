@@ -155,8 +155,11 @@ func DefaultShouldRetry(err *apperrors.ArgonautError) bool {
 	switch err.Category {
 	case apperrors.ErrorAuth, apperrors.ErrorValidation, apperrors.ErrorPermission:
 		return false
-	case apperrors.ErrorNetwork, apperrors.ErrorTimeout, apperrors.ErrorAPI:
+	case apperrors.ErrorNetwork, apperrors.ErrorAPI:
 		return true
+	case apperrors.ErrorTimeout:
+		// Don't retry user-initiated timeouts - show immediately
+		return err.IsCode("NETWORK_TIMEOUT")
 	default:
 		// Use the error's recoverable flag
 		return err.Recoverable
@@ -171,8 +174,11 @@ func NetworkShouldRetry(err *apperrors.ArgonautError) bool {
 
 	// Retry most network and timeout errors
 	switch err.Category {
-	case apperrors.ErrorNetwork, apperrors.ErrorTimeout:
+	case apperrors.ErrorNetwork:
 		return true
+	case apperrors.ErrorTimeout:
+		// Don't retry user-initiated timeouts - show immediately
+		return err.IsCode("NETWORK_TIMEOUT")
 	case apperrors.ErrorAuth, apperrors.ErrorValidation, apperrors.ErrorPermission:
 		return false
 	case apperrors.ErrorAPI:
@@ -197,8 +203,12 @@ func APIShouldRetry(err *apperrors.ArgonautError) bool {
 	switch err.Category {
 	case apperrors.ErrorAuth, apperrors.ErrorValidation, apperrors.ErrorPermission:
 		return false
-	case apperrors.ErrorNetwork, apperrors.ErrorTimeout:
+	case apperrors.ErrorNetwork:
 		return true
+	case apperrors.ErrorTimeout:
+		// Don't retry user-initiated timeouts (REQUEST_TIMEOUT) - show immediately
+		// Only retry network-level timeouts (NETWORK_TIMEOUT)
+		return err.IsCode("NETWORK_TIMEOUT")
 	case apperrors.ErrorAPI:
 		// Retry server errors and rate limits, but not client errors
 		return err.IsCode("SERVER_ERROR") ||
