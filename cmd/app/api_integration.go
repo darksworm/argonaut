@@ -11,6 +11,7 @@ import (
     "time"
 
 	"github.com/darksworm/argonaut/pkg/api"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -310,15 +311,32 @@ func (m Model) syncSelectedApplications(prune bool) tea.Cmd {
 	}
 
 	return tea.Cmd(func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 seconds max for sync operations
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
 		for _, appName := range selectedApps {
 			err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
 			if err != nil {
-				return model.ApiErrorMsg{Message: fmt.Sprintf("Failed to sync %s: %v", appName, err)}
+				// Convert to structured error and return via TUI error handling
+				if argErr, ok := err.(*apperrors.ArgonautError); ok {
+					return model.StructuredErrorMsg{
+						Error:   argErr,
+						Context: map[string]interface{}{"operation": "multi-sync", "appName": appName},
+						Retry:   argErr.Recoverable,
+					}
+				}
+				// Fallback for non-structured errors
+				errorMsg := fmt.Sprintf("Failed to sync %s: %v", appName, err)
+				return model.StructuredErrorMsg{
+					Error: apperrors.New(apperrors.ErrorAPI, "SYNC_FAILED", errorMsg).
+						WithSeverity(apperrors.SeverityHigh).
+						AsRecoverable().
+						WithUserAction("Check your connection to ArgoCD and try again"),
+					Context: map[string]interface{}{"operation": "multi-sync", "appName": appName},
+					Retry:   true,
+				}
 			}
 		}
 
@@ -335,14 +353,31 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	}
 
 	return tea.Cmd(func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 seconds max for sync operations
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
 		err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
 		if err != nil {
-			return model.ApiErrorMsg{Message: fmt.Sprintf("Failed to sync %s: %v", appName, err)}
+			// Convert to structured error and return via TUI error handling
+			if argErr, ok := err.(*apperrors.ArgonautError); ok {
+				return model.StructuredErrorMsg{
+					Error:   argErr,
+					Context: map[string]interface{}{"operation": "sync", "appName": appName},
+					Retry:   argErr.Recoverable,
+				}
+			}
+			// Fallback for non-structured errors
+			errorMsg := fmt.Sprintf("Failed to sync %s: %v", appName, err)
+			return model.StructuredErrorMsg{
+				Error: apperrors.New(apperrors.ErrorAPI, "SYNC_FAILED", errorMsg).
+					WithSeverity(apperrors.SeverityHigh).
+					AsRecoverable().
+					WithUserAction("Check your connection to ArgoCD and try again"),
+				Context: map[string]interface{}{"operation": "sync", "appName": appName},
+				Retry:   true,
+			}
 		}
 
 		return model.SyncCompletedMsg{AppName: appName, Success: true}

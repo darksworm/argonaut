@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -27,18 +28,32 @@ type Client struct {
 
 // NewClient creates a new ArgoCD API client
 func NewClient(server *model.Server) *Client {
-	// Create HTTP client with optional TLS config
-	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+	// Create HTTP transport with fast connection timeouts
+	transport := &http.Transport{
+		// Connection establishment timeout - should be very fast
+		DialContext: (&net.Dialer{
+			Timeout:   2 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   3 * time.Second,
+		ResponseHeaderTimeout: 5 * time.Second,
+		// Keep connections alive for efficiency
+		IdleConnTimeout:     30 * time.Second,
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 2,
 	}
 
 	// If insecure flag is set, skip TLS verification
 	if server.Insecure {
-		httpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
+		transport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
 		}
+	}
+
+	// Create HTTP client without a default timeout (we'll use context timeouts)
+	httpClient := &http.Client{
+		Transport: transport,
+		// No timeout here - we use context timeouts for request-specific timing
 	}
 
 	return &Client{

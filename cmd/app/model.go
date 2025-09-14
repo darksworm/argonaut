@@ -12,6 +12,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/tui"
 	"github.com/charmbracelet/bubbles/v2/spinner"
 	"github.com/charmbracelet/bubbles/v2/table"
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -556,6 +557,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 		// Old spinner TickMsg removed - now using bubbles spinner
+
+	case model.StructuredErrorMsg:
+		// Handle structured errors with proper error state management
+		if msg.Error != nil {
+			errorMsg := fmt.Sprintf("Error: %s", msg.Error.Message)
+			if msg.Error.UserAction != "" {
+				errorMsg += fmt.Sprintf(" - %s", msg.Error.UserAction)
+			}
+			m.statusService.Error(errorMsg)
+
+			// Update error state in TUI
+			if tuiHandler := tui.GetDefaultTUIHandler(); tuiHandler != nil {
+				tuiMessages := tuiHandler.HandleError(msg.Error)
+				// Process TUI messages if needed
+				_ = tuiMessages
+			}
+		}
+
+		// Clear any loading states that might be active
+		if m.state.Diff != nil {
+			m.state.Diff.Loading = false
+		}
+		if m.state.Modals.ConfirmSyncLoading {
+			m.state.Modals.ConfirmSyncLoading = false
+			m.state.Modals.ConfirmTarget = nil
+			if m.state.Mode == model.ModeConfirmSync {
+				m.state.Mode = model.ModeNormal
+			}
+		}
+
+		return m, nil
 
 	case model.ApiErrorMsg:
 		// Log error to file and store structured error in state for display

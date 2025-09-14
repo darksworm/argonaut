@@ -21,13 +21,13 @@ type TimeoutConfig struct {
 
 // DefaultTimeouts provides sensible defaults for different operation types
 var DefaultTimeouts = TimeoutConfig{
-	Default:  30 * time.Second,
-	API:      15 * time.Second,
-	Stream:   0, // No timeout for streams (handled by parent context)
-	Auth:     10 * time.Second,
-	Sync:     60 * time.Second,  // Sync operations can take longer
-	Resource: 20 * time.Second,
-	UI:       5 * time.Second,   // UI operations should be fast
+	Default:  5 * time.Second,   // Most operations should be fast
+	API:      3 * time.Second,   // API calls should be quick
+	Stream:   0,                 // No timeout for streams (handled by parent context)
+	Auth:     5 * time.Second,   // Auth should be reasonably fast
+	Sync:     10 * time.Second,  // Sync operations - max 10 seconds
+	Resource: 3 * time.Second,   // Resource queries should be fast
+	UI:       2 * time.Second,   // UI operations must be very fast
 }
 
 // OperationType represents different types of operations that need timeouts

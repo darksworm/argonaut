@@ -23,7 +23,7 @@ type EnhancedArgoApiService struct {
 }
 
 // NewEnhancedArgoApiService creates a new enhanced ArgoApiService implementation
-func NewEnhancedArgoApiService(server *model.Server) ArgoApiService {
+func NewEnhancedArgoApiService(server *model.Server) *EnhancedArgoApiService {
 	impl := &EnhancedArgoApiService{
 		recoveryManager: NewStreamRecoveryManager(DefaultStreamRecoveryConfig),
 		degradationMgr:  NewGracefulDegradationManager(),
