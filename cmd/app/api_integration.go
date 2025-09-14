@@ -14,6 +14,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/api"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/neat"
 	"github.com/darksworm/argonaut/pkg/services"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -230,49 +231,25 @@ func writeTempYAML(prefix string, docs []string) (string, error) {
 }
 
 func cleanManifestToYAML(jsonOrYaml string) string {
-	var obj map[string]interface{}
-	if err := json.Unmarshal([]byte(jsonOrYaml), &obj); err == nil {
-		if m, ok := obj["metadata"].(map[string]interface{}); ok {
-			delete(m, "creationTimestamp")
-			delete(m, "resourceVersion")
-			delete(m, "uid")
-			delete(m, "managedFields")
-			if ann, ok := m["annotations"].(map[string]interface{}); ok {
-				delete(ann, "kubectl.kubernetes.io/last-applied-configuration")
-				delete(ann, "deployment.kubernetes.io/revision")
-				if len(ann) == 0 {
-					delete(m, "annotations")
-				}
-			}
-			if len(m) == 0 {
-				delete(obj, "metadata")
-			}
-		}
-		delete(obj, "status")
-		if spec, ok := obj["spec"].(map[string]interface{}); ok {
-			delete(spec, "serviceAccount")
-			if tpl, ok := spec["template"].(map[string]interface{}); ok {
-				if ps, ok := tpl["spec"].(map[string]interface{}); ok {
-					if cs, ok := ps["containers"].([]interface{}); ok {
-						for _, c := range cs {
-							if cm, ok := c.(map[string]interface{}); ok {
-								if cm["imagePullPolicy"] == "IfNotPresent" {
-									delete(cm, "imagePullPolicy")
-								}
-								delete(cm, "terminationMessagePath")
-								delete(cm, "terminationMessagePolicy")
-							}
-						}
-					}
-				}
-			}
-		}
-		by, err := yaml.Marshal(obj)
-		if err == nil {
-			return string(by)
-		}
+	// Use kubectl-neat implementation to clean the manifest
+	cleaned, err := neat.CleanYAMLToJSON(jsonOrYaml)
+	if err != nil {
+		// If cleaning fails, return original
+		return jsonOrYaml
 	}
-	return jsonOrYaml
+
+	// Convert cleaned JSON back to YAML
+	var obj interface{}
+	if err := json.Unmarshal([]byte(cleaned), &obj); err != nil {
+		return jsonOrYaml
+	}
+
+	yamlBytes, err := yaml.Marshal(obj)
+	if err != nil {
+		return jsonOrYaml
+	}
+
+	return string(yamlBytes)
 }
 
 func stripDiffHeader(out string) string {
