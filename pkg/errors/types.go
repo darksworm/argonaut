@@ -18,6 +18,7 @@ const (
 	ErrorResource    ErrorCategory = "resource"
 	ErrorTimeout     ErrorCategory = "timeout"
 	ErrorPermission  ErrorCategory = "permission"
+	ErrorUnavailable ErrorCategory = "unavailable"
 	ErrorInternal    ErrorCategory = "internal"
 )
 
