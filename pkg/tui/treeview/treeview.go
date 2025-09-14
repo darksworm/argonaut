@@ -309,7 +309,8 @@ func (v *TreeView) renderLabel(n *treeNode) string {
     status := n.health
     if status == "" { status = n.status }
     st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
-    return fmt.Sprintf("%s [%s] %s", n.kind, name, st)
+    nameStyled := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
+    return fmt.Sprintf("%s %s %s", n.kind, nameStyled, st)
 }
 
 func (v *TreeView) innerWidth() int {
