@@ -3,12 +3,13 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"strings"
 	"sync"
 
 	"github.com/darksworm/argonaut/pkg/api"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
@@ -81,17 +82,31 @@ func NewArgoApiService(server *model.Server) ArgoApiService {
 // ListApplications implements ArgoApiService.ListApplications
 func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model.Server) ([]model.App, error) {
 	if server == nil {
-		return nil, errors.New("server configuration is required")
+		return nil, apperrors.ConfigError("SERVER_MISSING",
+			"Server configuration is required").
+			WithUserAction("Please run 'argocd login' to configure the server")
 	}
 
-	// Use the real API service
+	// Use the real API service with resource timeout
 	if s.appService == nil {
 		s.appService = api.NewApplicationService(server)
 	}
 
+	ctx, cancel := appcontext.WithResourceTimeout(ctx)
+	defer cancel()
+
 	apps, err := s.appService.ListApplications(ctx)
 	if err != nil {
-		return nil, err
+		// Convert API errors to structured format if needed
+		if argErr, ok := err.(*apperrors.ArgonautError); ok {
+			return nil, argErr.WithContext("operation", "ListApplications")
+		}
+
+		return nil, apperrors.Wrap(err, apperrors.ErrorAPI, "LIST_APPS_FAILED",
+			"Failed to list applications").
+			WithContext("server", server.BaseURL).
+			AsRecoverable().
+			WithUserAction("Check your ArgoCD server connection and try again")
 	}
 
 	return apps, nil
@@ -100,7 +115,9 @@ func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model
 // WatchApplications implements ArgoApiService.WatchApplications
 func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *model.Server) (<-chan ArgoApiEvent, func(), error) {
 	if server == nil {
-		return nil, nil, errors.New("server configuration is required")
+		return nil, nil, apperrors.ConfigError("SERVER_MISSING",
+			"Server configuration is required").
+			WithUserAction("Please run 'argocd login' to configure the server")
 	}
 
 	// Use the real API service
@@ -109,7 +126,7 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
 	}
 
 	eventChan := make(chan ArgoApiEvent, 100)
-	watchCtx, cancel := context.WithCancel(ctx)
+	watchCtx, cancel := appcontext.WithCancel(ctx) // No timeout for streams
 	s.mu.Lock()
 	s.watchCancel = cancel
 	s.mu.Unlock()
@@ -178,31 +195,60 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
 // SyncApplication implements ArgoApiService.SyncApplication
 func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error {
 	if server == nil {
-		return errors.New("server configuration is required")
+		return apperrors.ConfigError("SERVER_MISSING",
+			"Server configuration is required").
+			WithUserAction("Please run 'argocd login' to configure the server")
 	}
 	if appName == "" {
-		return errors.New("application name is required")
+		return apperrors.ValidationError("APP_NAME_MISSING",
+			"Application name is required").
+			WithUserAction("Specify an application name for the sync operation")
 	}
 
-	// Use the real API service
+	// Use the real API service with sync timeout
 	if s.appService == nil {
 		s.appService = api.NewApplicationService(server)
 	}
+
+	ctx, cancel := appcontext.WithSyncTimeout(ctx)
+	defer cancel()
 
 	opts := &api.SyncOptions{
 		Prune: prune,
 	}
 
-	return s.appService.SyncApplication(ctx, appName, opts)
+	err := s.appService.SyncApplication(ctx, appName, opts)
+	if err != nil {
+		// Convert API errors to structured format if needed
+		if argErr, ok := err.(*apperrors.ArgonautError); ok {
+			return argErr.WithContext("operation", "SyncApplication").
+				WithContext("appName", appName).
+				WithContext("prune", prune)
+		}
+
+		return apperrors.Wrap(err, apperrors.ErrorAPI, "SYNC_FAILED",
+			"Failed to sync application").
+			WithContext("server", server.BaseURL).
+			WithContext("appName", appName).
+			WithContext("prune", prune).
+			AsRecoverable().
+			WithUserAction("Check the application status and try syncing again")
+	}
+
+	return nil
 }
 
 // GetResourceDiffs implements ArgoApiService.GetResourceDiffs
 func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error) {
 	if server == nil {
-		return nil, errors.New("server configuration is required")
+		return nil, apperrors.ConfigError("SERVER_MISSING",
+			"Server configuration is required").
+			WithUserAction("Please run 'argocd login' to configure the server")
 	}
 	if appName == "" {
-		return nil, errors.New("application name is required")
+		return nil, apperrors.ValidationError("APP_NAME_MISSING",
+			"Application name is required").
+			WithUserAction("Specify an application name to get resource diffs")
 	}
 
     // Use the real API service
@@ -227,7 +273,11 @@ func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model
 
 // GetAPIVersion fetches /api/version and returns a version string
 func (s *ArgoApiServiceImpl) GetAPIVersion(ctx context.Context, server *model.Server) (string, error) {
-    if server == nil { return "", errors.New("server configuration is required") }
+    if server == nil {
+        return "", apperrors.ConfigError("SERVER_MISSING",
+            "Server configuration is required").
+            WithUserAction("Please run 'argocd login' to configure the server")
+    }
     client := api.NewClient(server)
     data, err := client.Get(ctx, "/api/version")
     if err != nil { return "", err }
