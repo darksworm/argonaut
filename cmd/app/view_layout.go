@@ -61,11 +61,12 @@ func (m Model) renderMainLayout() string {
     sections = append(sections, m.renderStatusLine())
 
     content := strings.Join(sections, "\n")
+    baseView := mainContainerStyle.Render(content)
 
     // Overlays
     if m.state.Mode == model.ModeLoading {
         modal := m.renderInitialLoadingModal()
-        grayBase := desaturateANSI(content)
+        grayBase := desaturateANSI(baseView)
         baseLayer := lipgloss.NewLayer(grayBase)
         modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
         modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
@@ -82,7 +83,7 @@ func (m Model) renderMainLayout() string {
     }
     if m.state.Diff != nil && m.state.Diff.Loading {
         spinner := m.renderDiffLoadingSpinner()
-        grayBase := desaturateANSI(content)
+        grayBase := desaturateANSI(baseView)
         baseLayer := lipgloss.NewLayer(grayBase)
         spinnerLayer := lipgloss.NewLayer(spinner).
             X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
@@ -91,5 +92,5 @@ func (m Model) renderMainLayout() string {
         canvas := lipgloss.NewCanvas(baseLayer, spinnerLayer)
         return canvas.Render()
     }
-    return content
+    return baseView
 }
