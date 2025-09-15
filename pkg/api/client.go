@@ -247,8 +247,18 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
     }
 
     if resp.StatusCode >= 400 {
-        // Debug trace for 4xx/5xx
-        logging.GetDefaultLogger().WithComponent("api").Error("HTTP %s %s -> %d (%d bytes)", method, url, resp.StatusCode, len(respBody))
+        // Log request/response metadata at error level
+        logger := logging.GetDefaultLogger().WithComponent("api").WithOperation("http").
+            WithContext(context.Background())
+        logger.Error("HTTP %s %s -> %d (len=%d)", method, url, resp.StatusCode, len(respBody))
+        // Log body content at debug level (may contain details); truncate to avoid huge logs
+        body := string(respBody)
+        const maxLen = 2048
+        if len(body) > maxLen {
+            body = body[:maxLen] + "…"
+        }
+        logging.GetDefaultLogger().WithComponent("api").Debug("Response body: %s", body)
+
         return nil, c.createAPIError(resp.StatusCode, string(respBody), url).
             WithContext("method", method).
             WithContext("path", path)
