@@ -800,7 +800,17 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
     case "s":
         if m.state.Navigation.View == model.ViewApps { return m.handleSyncModal() }
     case "r":
-        return m.handleRefresh()
+        // Open resources for selected app (apps view)
+        if m.state.Navigation.View == model.ViewApps {
+            return m.handleOpenResourcesForSelection()
+        }
+        return m, nil
+    case "d":
+        // Open diff for selected app (apps view)
+        if m.state.Navigation.View == model.ViewApps {
+            return m.handleOpenDiffForSelection()
+        }
+        return m, nil
     case "R":
         cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
         if m.state.Navigation.View == model.ViewApps {
@@ -822,4 +832,36 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
         return m.handleGoToBottom()
     }
     return m, nil
+}
+
+// handleOpenResourcesForSelection opens the resources (tree) view for the selected app
+func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
+    items := m.getVisibleItemsForCurrentView()
+    if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
+        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
+    }
+    app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
+    if !ok {
+        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"} }
+    }
+    // Save state and switch
+    m.state.SaveNavigationState()
+    m.state.Navigation.View = model.ViewTree
+    m.state.UI.TreeAppName = &app.Name
+    return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
+}
+
+// handleOpenDiffForSelection opens the diff for the selected app
+func (m Model) handleOpenDiffForSelection() (Model, tea.Cmd) {
+    items := m.getVisibleItemsForCurrentView()
+    if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
+        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
+    }
+    app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
+    if !ok {
+        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"} }
+    }
+    if m.state.Diff == nil { m.state.Diff = &model.DiffState{} }
+    m.state.Diff.Loading = true
+    return m, m.startDiffSession(app.Name)
 }
