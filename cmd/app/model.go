@@ -668,6 +668,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Set mode to error to show the error immediately
 			m.state.Mode = model.ModeError
 		}
+		// Turn off initial loading modal if it was active
+		m.state.Modals.InitialLoading = false
+
+		// If we were in the loading mode when the structured error arrived, switch to error view
+		if msg.Error != nil {
+			if msg.Error.Category == apperrors.ErrorAuth {
+				m.state.Mode = model.ModeAuthRequired
+			} else if m.state.Mode == model.ModeLoading {
+				m.state.Mode = model.ModeError
+			}
+		}
 
 		// If we have a structured error with high severity, switch to error mode
 		if msg.Error != nil && msg.Error.Severity == apperrors.SeverityHigh {
