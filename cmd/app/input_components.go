@@ -475,12 +475,12 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 			// Start loading rollback history using the same function as R key
 			return m, m.startRollbackSession(target)
-		case "resources", "res", "r":
-			target := arg
-			if target == "" {
-				// Only try to get current selection if we're in the apps view
-				if m.state.Navigation.View == model.ViewApps {
-					items := m.getVisibleItemsForCurrentView()
+        case "resources", "res", "r":
+            target := arg
+            if target == "" {
+                // Only try to get current selection if we're in the apps view
+                if m.state.Navigation.View == model.ViewApps {
+                    items := m.getVisibleItemsForCurrentView()
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
 							target = app.Name
@@ -492,25 +492,27 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 					}
 				}
 			}
-			if target == "" {
-				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
-			}
-			// Save current navigation state before entering tree view
-			m.state.SaveNavigationState()
-
-			// Find app struct by name if available
-			var selectedApp *model.App
-			for i := range m.state.Apps {
-				if m.state.Apps[i].Name == target {
-					selectedApp = &m.state.Apps[i]
-					break
-				}
-			}
-			if selectedApp == nil {
-				selectedApp = &model.App{Name: target}
-			}
-
-            // Switch to tree view and load
+            // If multiple selected apps and no explicit target, open multi resources view
+            if target == "" {
+                sel := m.state.Selections.SelectedApps
+                names := make([]string, 0, len(sel))
+                for name, ok := range sel { if ok { names = append(names, name) } }
+                if len(names) > 1 {
+                    m.state.Mode = model.ModeResources
+                    m.state.Resources = &model.ResourceState{Loading: true, Groups: []model.ResourceGroup{}, Pending: len(names), Offset: 0}
+                    var cmds []tea.Cmd
+                    for _, n := range names { cmds = append(cmds, m.loadResourcesForApp(n)) }
+                    return m, tea.Batch(cmds...)
+                }
+            }
+            if target == "" {
+                return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
+            }
+            // Single app: open tree view
+            m.state.SaveNavigationState()
+            var selectedApp *model.App
+            for i := range m.state.Apps { if m.state.Apps[i].Name == target { selectedApp = &m.state.Apps[i]; break } }
+            if selectedApp == nil { selectedApp = &model.App{Name: target} }
             m.state.Navigation.View = model.ViewTree
             m.state.UI.TreeAppName = &target
             m.treeLoading = true

@@ -315,21 +315,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         m.treeLoading = false
         return m, nil
 
-	case ResourcesLoadedMsg:
+    case ResourcesLoadedMsg:
         cblog.With("component", "tree").Info("ResourcesLoadedMsg", "app", msg.AppName)
-		if m.state.Resources != nil && m.state.Resources.AppName == msg.AppName {
-			if msg.Error != "" {
+        if m.state.Resources == nil {
+            return m, nil
+        }
+        // Multi-app accumulation
+        if len(m.state.Resources.Groups) > 0 || m.state.Resources.Pending > 0 {
+            grp := model.ResourceGroup{AppName: msg.AppName, Resources: msg.Resources, Error: msg.Error}
+            m.state.Resources.Groups = append(m.state.Resources.Groups, grp)
+            if m.state.Resources.Pending > 0 { m.state.Resources.Pending-- }
+            if m.state.Resources.Pending <= 0 { m.state.Resources.Loading = false }
+            return m, nil
+        }
+        // Single-app state update
+        if m.state.Resources.AppName == msg.AppName {
+            if msg.Error != "" {
                 cblog.With("component", "tree").Error("Resource loading failed", "app", msg.AppName, "err", msg.Error)
-				m.state.Resources.Loading = false
-				m.state.Resources.Error = msg.Error
-			} else {
+                m.state.Resources.Loading = false
+                m.state.Resources.Error = msg.Error
+            } else {
                 cblog.With("component", "tree").Info("Loaded resources", "count", len(msg.Resources), "app", msg.AppName)
-				m.state.Resources.Loading = false
-				m.state.Resources.Resources = msg.Resources
-				m.state.Resources.Error = ""
-			}
-		}
-		return m, nil
+                m.state.Resources.Loading = false
+                m.state.Resources.Resources = msg.Resources
+                m.state.Resources.Error = ""
+            }
+        }
+        return m, nil
 
 		// Old spinner TickMsg removed - now using bubbles spinner
 

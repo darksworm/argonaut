@@ -731,10 +731,10 @@ func (m Model) renderConfirmSyncModal() string {
 }
 
 func (m Model) renderResourceStream(availableRows int) string {
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-8)
-	contentWidth := max(0, containerWidth-4) // Account for border and padding
-	contentHeight := max(3, availableRows)
+    // Calculate dimensions for consistent full-height layout
+    containerWidth := max(0, m.state.Terminal.Cols-8)
+    contentWidth := max(0, containerWidth-4) // Account for border and padding
+    contentHeight := max(3, availableRows)
 
 	if m.state.Resources == nil {
 		return m.renderFullHeightContent("Loading resources...", contentWidth, contentHeight, containerWidth)
@@ -750,8 +750,26 @@ func (m Model) renderResourceStream(availableRows int) string {
 		return m.renderFullHeightContent(loadingContent, contentWidth, contentHeight, containerWidth)
 	}
 
-	resources := m.state.Resources.Resources
-	if len(resources) == 0 {
+    // If multi-app groups present, render grouped tables
+    if m.state.Resources.Groups != nil && len(m.state.Resources.Groups) > 0 {
+        lines := m.buildGroupedResourceLines(contentWidth)
+        // window using Offset as top line
+        start := max(0, m.state.Resources.Offset)
+        end := min(len(lines), start+contentHeight)
+        body := strings.Join(lines[start:end], "\n")
+        resourcesBorder := lipgloss.NewStyle().
+            Border(lipgloss.RoundedBorder()).
+            BorderForeground(magentaBright).
+            Width(contentWidth).
+            Height(contentHeight).
+            AlignVertical(lipgloss.Top).
+            PaddingLeft(1).
+            PaddingRight(1)
+        return resourcesBorder.Render(body)
+    }
+
+    resources := m.state.Resources.Resources
+    if len(resources) == 0 {
 		// Create single bordered box with standard inner padding (1 char each side)
 		resourcesStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -915,6 +933,36 @@ func (m Model) renderResourceStream(availableRows int) string {
 		Width(tableContainerWidth)
 	normalized := normalizeLinesToWidth(content.String(), tableContentWidth)
 	return resourcesBorder.Render(normalized)
+}
+
+// buildGroupedResourceLines builds visual lines for multi-app resources with blank lines between apps
+func (m Model) buildGroupedResourceLines(tableContentWidth int) []string {
+    var lines []string
+    for gi, g := range m.state.Resources.Groups {
+        // App title line
+        title := lipgloss.NewStyle().Foreground(cyanBright).Bold(true).Render(g.AppName)
+        lines = append(lines, title)
+        // Header
+        kindHeader := padRight(headerStyle.Render("KIND"), min(20, tableContentWidth/3))
+        nameHeader := padRight(headerStyle.Render("NAME"), max(10, tableContentWidth/2))
+        statusHeader := headerStyle.Render("STATUS")
+        headerLine := clipAnsiToWidth(fmt.Sprintf("%s %s %s", kindHeader, nameHeader, statusHeader), tableContentWidth)
+        lines = append(lines, headerLine)
+        // Rows
+        for _, r := range g.Resources {
+            hs := "Unknown"
+            if r.Health != nil && r.Health.Status != nil { hs = *r.Health.Status }
+            status := fmt.Sprintf("%s %s", m.getHealthIcon(hs), hs)
+            kind := padRight(clipAnsiToWidth(r.Kind, min(20, tableContentWidth/3)), min(20, tableContentWidth/3))
+            name := padRight(clipAnsiToWidth(r.Name, max(10, tableContentWidth/2)), max(10, tableContentWidth/2))
+            row := fmt.Sprintf("%s %s %s", kind, name, status)
+            lines = append(lines, clipAnsiToWidth(row, tableContentWidth))
+        }
+        if gi < len(m.state.Resources.Groups)-1 {
+            lines = append(lines, "")
+        }
+    }
+    return lines
 }
 
 // renderDiffView - simple pager for diff content

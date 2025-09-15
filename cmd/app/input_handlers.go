@@ -362,23 +362,20 @@ func (m Model) handleResourcesModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			len(visibleItems),
 		)
 		return m, nil
-	case "j", "down":
-		// Scroll down in resources list using table cursor
-		if m.state.Resources != nil && len(m.state.Resources.Resources) > 0 {
-			maxOffset := len(m.state.Resources.Resources) - 1
-			if m.state.Resources.Offset < maxOffset {
-				m.state.Resources.Offset++
-			}
-		}
-		return m, nil
-	case "k", "up":
-		// Scroll up in resources list using table cursor
-		if m.state.Resources != nil && m.state.Resources.Offset > 0 {
-			m.state.Resources.Offset--
-		}
-		return m, nil
-	case "g":
-		// Go to top of resources
+    case "j", "down":
+        // Scroll down in resources view; in grouped mode, let renderer clamp
+        if m.state.Resources != nil {
+            m.state.Resources.Offset++
+        }
+        return m, nil
+    case "k", "up":
+        // Scroll up
+        if m.state.Resources != nil && m.state.Resources.Offset > 0 {
+            m.state.Resources.Offset--
+        }
+        return m, nil
+    case "g":
+        // Go to top of resources
 		if m.state.Resources != nil {
 			m.state.Resources.Offset = 0
 		}
@@ -813,6 +810,23 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleOpenResourcesForSelection opens the resources (tree) view for the selected app
 func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
+    // If multiple apps selected, open combined resources view (ModeResources)
+    sel := m.state.Selections.SelectedApps
+    selected := make([]string, 0, len(sel))
+    for name, ok := range sel {
+        if ok { selected = append(selected, name) }
+    }
+    if len(selected) > 1 {
+        m.state.Mode = model.ModeResources
+        m.state.Resources = &model.ResourceState{Loading: true, Groups: []model.ResourceGroup{}, Pending: len(selected), Offset: 0}
+        // Launch loads for each selected app
+        var cmds []tea.Cmd
+        for _, name := range selected {
+            cmds = append(cmds, m.loadResourcesForApp(name))
+        }
+        return m, tea.Batch(cmds...)
+    }
+    // Fallback to single app tree view
     items := m.getVisibleItemsForCurrentView()
     if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
         return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
@@ -821,7 +835,6 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
     if !ok {
         return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"} }
     }
-    // Save state and switch
     m.state.SaveNavigationState()
     m.state.Navigation.View = model.ViewTree
     m.state.UI.TreeAppName = &app.Name

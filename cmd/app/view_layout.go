@@ -56,7 +56,7 @@ func (m Model) renderMainLayout() string {
 
     if m.state.Navigation.View == model.ViewTree {
         sections = append(sections, m.renderTreePanel(listRows))
-    } else if m.state.Mode == model.ModeResources && m.state.Server != nil && m.state.Modals.SyncViewApp != nil {
+    } else if m.state.Mode == model.ModeResources {
         sections = append(sections, m.renderResourceStream(listRows))
     } else {
         sections = append(sections, m.renderListView(listRows))
