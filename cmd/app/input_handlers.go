@@ -723,6 +723,103 @@ func (m Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // Helper function to get visible items for current view
 func (m Model) getVisibleItemsForCurrentView() []interface{} {
-	// Delegate to shared computation used by the view
-	return m.getVisibleItems()
+    // Delegate to shared computation used by the view
+    return m.getVisibleItems()
+}
+
+// handleKeyMsg centralizes keyboard handling and delegates to mode/view handlers
+func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
+    // Global kill: always quit on Ctrl+C
+    if msg.String() == "ctrl+c" {
+        return m, func() tea.Msg { return model.QuitMsg{} }
+    }
+    // Mode-specific handling first
+    switch m.state.Mode {
+    case model.ModeSearch:
+        return m.handleSearchModeKeys(msg)
+    case model.ModeCommand:
+        return m.handleCommandModeKeys(msg)
+    case model.ModeHelp:
+        return m.handleHelpModeKeys(msg)
+    case model.ModeConfirmSync:
+        return m.handleConfirmSyncKeys(msg)
+    case model.ModeRollback:
+        return m.handleRollbackModeKeys(msg)
+    case model.ModeDiff:
+        return m.handleDiffModeKeys(msg)
+    case model.ModeResources:
+        return m.handleResourcesModeKeys(msg)
+    case model.ModeLogs:
+        return m.handleLogsModeKeys(msg)
+    case model.ModeAuthRequired:
+        return m.handleAuthRequiredModeKeys(msg)
+    case model.ModeError:
+        return m.handleErrorModeKeys(msg)
+    case model.ModeConnectionError:
+        return m.handleConnectionErrorModeKeys(msg)
+    }
+
+    // Tree view keys when in normal mode
+    if m.state.Navigation.View == model.ViewTree {
+        switch msg.String() {
+        case "q", "esc":
+            m.state.Navigation.View = model.ViewApps
+            visibleItems := m.getVisibleItemsForCurrentView()
+            m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+                m.state.Navigation.SelectedIdx,
+                len(visibleItems),
+            )
+            return m, nil
+        default:
+            if m.treeView != nil {
+                _, cmd := m.treeView.Update(msg)
+                return m, cmd
+            }
+            return m, nil
+        }
+    }
+
+    // Normal-mode global keys
+    switch msg.String() {
+    case "q", "ctrl+c":
+        return m, func() tea.Msg { return model.QuitMsg{} }
+    case "up", "k":
+        return m.handleNavigationUp()
+    case "down", "j":
+        return m.handleNavigationDown()
+    case " ":
+        return m.handleToggleSelection()
+    case "enter":
+        return m.handleDrillDown()
+    case "/":
+        return m.handleEnterSearchMode()
+    case ":":
+        return m.handleEnterCommandMode()
+    case "?":
+        return m.handleShowHelp()
+    case "s":
+        if m.state.Navigation.View == model.ViewApps { return m.handleSyncModal() }
+    case "r":
+        return m.handleRefresh()
+    case "R":
+        cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
+        if m.state.Navigation.View == model.ViewApps {
+            cblog.With("component", "rollback").Debug("Calling handleRollback()")
+            return m.handleRollback()
+        } else {
+            cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
+        }
+    case "esc":
+        return m.handleEscape()
+    case "g":
+        now := time.Now().UnixMilli()
+        if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
+            return m.handleGoToTop()
+        }
+        m.state.Navigation.LastGPressed = now
+        return m, nil
+    case "G":
+        return m.handleGoToBottom()
+    }
+    return m, nil
 }
