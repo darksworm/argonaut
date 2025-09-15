@@ -1,0 +1,31 @@
+                                                                                                    
+  Argonaut dev                                                                                      
+                                                                                                    
+ Context: argo.example.com                                                                          
+                                                                                                    
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
+ │ Rollback demo-app                                                                              │ 
+ │                                                                                                │ 
+ │ Current: cafebabe                                                                              │ 
+ │                                                                                                │ 
+ │ Deployment History:                                                                            │ 
+ │                                                                                                │ 
+ │ #30 a1b2c3d4 2024-07-01 12:34 Jane Doe: Refactor and optimize                                  │ 
+ │ #29 11223344 2024-07-01 12:34 (loading metadata...)                                            │ 
+ │ #28 deadbeef (loading metadata...)                                                             │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │ j/k: Navigate • Enter: Select • Esc: Cancel                                                    │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+                                                                                                    
+                                                                                                    
