@@ -12,33 +12,60 @@ func (m Model) renderHelpModal() string {
     header := m.renderBanner()
     sections = append(sections, header)
 
-    isWide := m.state.Terminal.Cols >= 60
+    // Layout toggle
+    isWide := m.state.Terminal.Cols >= 72
+
+    // Small keycap style to make keys pop
+    keycap := func(s string) string {
+        return lipgloss.NewStyle().Foreground(whiteBright).Background(lipgloss.Color("238")).Padding(0, 1).Render(s)
+    }
+    mono := func(s string) string { return lipgloss.NewStyle().Foreground(cyanBright).Render(s) }
+    bullet := func() string { return lipgloss.NewStyle().Foreground(dimColor).Render("•") }
+
+    // GENERAL
+    general := strings.Join([]string{
+        mono(":"), " command ", bullet(), " ", mono("/"), " search ", bullet(), " ", mono("?"), " help",
+    }, "")
+
+    // NAV
+    nav := strings.Join([]string{
+        mono("j/k"), " up/down ", bullet(), " ", keycap("Space"), " select ", bullet(), " ", keycap("Enter"), " drill down ", bullet(), " ", keycap("Esc"), " clear/up",
+    }, "")
+
+    // VIEWS (two lines)
+    views := strings.Join([]string{
+        mono(":cls"), "|", mono(":clusters"), "|", mono(":cluster"), " ", bullet(), " ", mono(":ns"), "|", mono(":namespaces"), "|", mono(":namespace"),
+        "\n",
+        mono(":proj"), "|", mono(":projects"), "|", mono(":project"), " ", bullet(), " ", mono(":apps"),
+    }, "")
+
+    // ACTIONS (stacked for readability)
+    actions := strings.Join([]string{
+        mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app]",
+        "\n",
+        mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " go up level",
+        "\n",
+        mono("s"), " sync modal (apps view)",
+    }, "")
+
+    // MISC
+    misc := strings.Join([]string{
+        mono(":all"), " ", bullet(), " ", mono(":licenses"),
+        "\n",
+        mono(":logs"), " ", bullet(), " ", mono(":q"),
+    }, "")
+
     var helpSections []string
-
-    generalContent := ": command • / search • ? help"
-    helpSections = append(helpSections, m.renderHelpSection("GENERAL", generalContent, isWide))
-
-    navContent := "j/k up/down • Space select • Enter drill down • Esc clear/up"
-    helpSections = append(helpSections, m.renderHelpSection("NAV", navContent, isWide))
-
-    viewsContent := ":cls|:clusters|:cluster • :ns|:namespaces|:namespace\n:proj|:projects|:project • :apps"
-    helpSections = append(helpSections, m.renderHelpSection("VIEWS", viewsContent, isWide))
-
-    actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:resources [app] • :up go up level\ns sync modal • R rollback modal (apps view)"
-    helpSections = append(helpSections, m.renderHelpSection("ACTIONS", actionsContent, isWide))
-
-    miscContent := ":all • :help • :logs • :q"
-    helpSections = append(helpSections, m.renderHelpSection("MISC", miscContent, isWide))
-
+    helpSections = append(helpSections, m.renderHelpSection("GENERAL", general, isWide))
+    helpSections = append(helpSections, m.renderHelpSection("NAV", nav, isWide))
+    helpSections = append(helpSections, m.renderHelpSection("VIEWS", views, isWide))
+    helpSections = append(helpSections, m.renderHelpSection("ACTIONS", actions, isWide))
+    helpSections = append(helpSections, m.renderHelpSection("MISC", misc, isWide))
     helpSections = append(helpSections, "")
     helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
 
-    helpContent := strings.Join(helpSections, "\n")
-    body := "\n" + helpContent + "\n"
-    return m.renderFullScreenViewWithOptions(header, body, m.renderStatusLine(), FullScreenViewOptions{
-        ContentBordered: true,
-        BorderColor:     magentaBright,
-    })
+    body := "\n" + strings.Join(helpSections, "\n") + "\n"
+    return m.renderFullScreenViewWithOptions(header, body, m.renderStatusLine(), FullScreenViewOptions{ ContentBordered: true, BorderColor: magentaBright })
 }
 
 func (m Model) renderDiffLoadingSpinner() string {

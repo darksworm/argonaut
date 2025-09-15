@@ -6,17 +6,17 @@
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │                                                                                                │ 
  │ GENERAL: command • / search • ? help                                                           │ 
- │ NAVj/k up/down • Space select • Enter drill down • Esc clear/up                                │ 
+ │ NAVj/k up/down •  Space  select •  Enter  drill down •  Esc  clear/up                          │ 
  │ VIEWS:cls|:clusters|:cluster • :ns|:namespaces|:namespace                                      │ 
  │             :proj|:projects|:project • :apps                                                   │ 
  │ ACTIONS:diff [app] • :sync [app] • :rollback [app]                                             │ 
  │             :resources [app] • :up go up level                                                 │ 
- │             s sync modal • R rollback modal (apps view)                                        │ 
- │ MISC:all • :help • :logs • :q                                                                  │ 
+ │             s sync modal (apps view)                                                           │ 
+ │ MISC:all • :licenses                                                                           │ 
+ │             :logs • :q                                                                         │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
  │                                                                                                │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
