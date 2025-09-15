@@ -75,8 +75,9 @@ func (m Model) View() string {
 
 	// Map React App.tsx switch statement exactly
 	switch m.state.Mode {
-	case model.ModeLoading:
-		return m.renderLoadingView()
+    case model.ModeLoading:
+        // Show regular layout with the initial loading modal overlay instead of a separate loading view
+        return m.renderMainLayout()
 	case model.ModeAuthRequired:
 		return m.renderAuthRequiredView()
 	case model.ModeHelp:
