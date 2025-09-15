@@ -6,8 +6,10 @@ import (
     "io"
     "log"
     "os"
+    "strings"
 
-	tea "github.com/charmbracelet/bubbletea/v2"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -89,11 +91,27 @@ func setupLogging() {
 		return
 	}
 
-	// Set log output to file
-	log.SetOutput(logFile)
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+    // Set standard log output to file
+    log.SetOutput(logFile)
+    log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	log.Println("ArgoCD Apps started")
+    // Configure charmbracelet/log default logger to same file, with level from env
+    logger := cblog.NewWithOptions(logFile, cblog.Options{ReportTimestamp: true})
+    switch strings.ToUpper(os.Getenv("ARGONAUT_LOG_LEVEL")) {
+    case "DEBUG":
+        logger.SetLevel(cblog.DebugLevel)
+    case "WARN":
+        logger.SetLevel(cblog.WarnLevel)
+    case "ERROR":
+        logger.SetLevel(cblog.ErrorLevel)
+    case "FATAL":
+        logger.SetLevel(cblog.FatalLevel)
+    default:
+        logger.SetLevel(cblog.InfoLevel)
+    }
+    cblog.SetDefault(logger)
+
+    log.Println("ArgoCD Apps started")
 }
 
 // loadArgoConfig loads ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)

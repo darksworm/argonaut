@@ -16,7 +16,7 @@ import (
     appcontext "github.com/darksworm/argonaut/pkg/context"
     "github.com/darksworm/argonaut/pkg/model"
     "github.com/darksworm/argonaut/pkg/retry"
-    "github.com/darksworm/argonaut/pkg/logging"
+    cblog "github.com/charmbracelet/log"
 )
 
 // Client represents an HTTP client for ArgoCD API
@@ -248,16 +248,19 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 
     if resp.StatusCode >= 400 {
         // Log request/response metadata at error level
-        logger := logging.GetDefaultLogger().WithComponent("api").WithOperation("http").
-            WithContext(context.Background())
-        logger.Error("HTTP %s %s -> %d (len=%d)", method, url, resp.StatusCode, len(respBody))
+        cblog.With("component", "api", "op", "http").Error("http error",
+            "method", method,
+            "url", url,
+            "status", resp.StatusCode,
+            "len", len(respBody),
+        )
         // Log body content at debug level (may contain details); truncate to avoid huge logs
         body := string(respBody)
         const maxLen = 2048
         if len(body) > maxLen {
             body = body[:maxLen] + "…"
         }
-        logging.GetDefaultLogger().WithComponent("api").Debug("Response body: %s", body)
+        cblog.With("component", "api").Debug("response body", "body", body)
 
         return nil, c.createAPIError(resp.StatusCode, string(respBody), url).
             WithContext("method", method).
