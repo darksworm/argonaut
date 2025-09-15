@@ -648,14 +648,14 @@ func (m Model) renderFullScreenViewWithOptions(header, content, status string, o
 
 		// Apply bordered styling with custom color if specified
 		contentWidth := max(0, m.state.Terminal.Cols-2) // Adjusted to fill space properly
-		borderStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(opts.BorderColor).
-			Width(contentWidth).
-			Height(availableRows + 1). // Add 1 to properly fill vertical space
-			PaddingLeft(1).
-			PaddingRight(1).
-			AlignVertical(lipgloss.Center) // Center content within the bordered area
+        borderStyle := lipgloss.NewStyle().
+            Border(lipgloss.RoundedBorder()).
+            BorderForeground(opts.BorderColor).
+            Width(contentWidth).
+            Height(availableRows + 1). // Add 1 to properly fill vertical space
+            PaddingLeft(1).
+            PaddingRight(1).
+            AlignVertical(lipgloss.Top) // Align content to top for help/everywhere
 
 		content = borderStyle.Render(content)
 	}
@@ -1273,32 +1273,14 @@ func (m Model) renderHelpModal() string {
 	helpSections = append(helpSections, "")
 	helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
 
-	helpContent := strings.Join(helpSections, "\n")
+    helpContent := strings.Join(helpSections, "\n")
 
-	// Calculate available height for content
-	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	// Add bordered content with proper padding
-	styledContent := contentBorderStyle.
-		Height(availableRows).
-		Width(m.contentInnerWidth()).
-		PaddingTop(1).
-		PaddingBottom(1).
-		Render(helpContent)
-
-	sections = append(sections, styledContent)
-
-	// Add status line
-	sections = append(sections, m.renderStatusLine())
-
-	// Join sections and apply main container style
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
+    // Use standard full-screen layout with a bordered content box for consistent sizing
+    body := "\n" + helpContent + "\n"
+    return m.renderFullScreenViewWithOptions(header, body, m.renderStatusLine(), FullScreenViewOptions{
+        ContentBordered: true,
+        BorderColor:     magentaBright,
+    })
 }
 
 func (m Model) renderOfficeSupplyManager() string {
@@ -1709,16 +1691,21 @@ func (m Model) renderDiffView() string {
 
 // renderHelpSection - helper for HelpModal (matches Help.tsx HelpSection)
 func (m Model) renderHelpSection(title, content string, isWide bool) string {
-	titleStyled := lipgloss.NewStyle().Foreground(syncedColor).Bold(true).Render(title)
+    titleStyled := lipgloss.NewStyle().Foreground(syncedColor).Bold(true).Render(title)
 
-	if isWide {
-		// Wide layout: title on left (12 chars), content on right
-		titlePadded := fmt.Sprintf("%-12s", titleStyled)
-		return titlePadded + content
-	} else {
-		// Narrow layout: title above, content below
-		return titleStyled + "\n" + content
-	}
+    if isWide {
+        // Wide layout: ensure multi-line content lines are aligned with the content column
+        lines := strings.Split(content, "\n")
+        indent := strings.Repeat(" ", 12)
+        for i := 1; i < len(lines); i++ {
+            lines[i] = indent + lines[i]
+        }
+        contentAligned := strings.Join(lines, "\n")
+        titlePadded := fmt.Sprintf("%-12s", titleStyled)
+        return titlePadded + contentAligned
+    }
+    // Narrow layout: title above, content below
+    return titleStyled + "\n" + content
 }
 
 // Helper functions
