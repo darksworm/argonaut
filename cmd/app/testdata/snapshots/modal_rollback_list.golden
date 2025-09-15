@@ -1,8 +1,4 @@
-                                                                                                    
-  Argonaut dev                                                                                      
-                                                                                                    
- Context: argo.example.com                                                                          
-                                                                                                    
+ Context: argo.example.com                                                            Argonaut dev  
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Rollback demo-app                                                                              │ 
  │                                                                                                │ 
@@ -16,6 +12,10 @@
  │                                                                                                │ 
  │                                                                                                │ 
  │ j/k: Navigate • Enter: Select • Esc: Cancel                                                    │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

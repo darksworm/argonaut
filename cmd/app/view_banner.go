@@ -11,15 +11,23 @@ import (
 func (m Model) renderBanner() string {
     isNarrow := m.state.Terminal.Cols <= 100
     if isNarrow {
-        badge := m.renderSmallBadge(false)
-        var sections []string
-        sections = append(sections, "")
-        sections = append(sections, badge)
-        sections = append(sections, "")
+        // Float the small badge to the right of the first context line to save vertical space.
         ctx := m.renderContextBlock(true)
-        sections = append(sections, ctx)
-        sections = append(sections, "")
-        return strings.Join(sections, "\n")
+        ctxLines := strings.Split(ctx, "\n")
+        first := ""
+        rest := ""
+        if len(ctxLines) > 0 {
+            first = ctxLines[0]
+            if len(ctxLines) > 1 {
+                rest = strings.Join(ctxLines[1:], "\n")
+            }
+        }
+        total := max(0, m.state.Terminal.Cols-2)
+        top := joinWithRightAlignment(first, m.renderSmallBadge(false), total)
+        if rest != "" {
+            return top + "\n" + rest
+        }
+        return top
     }
 
     left := m.renderContextBlock(false)
@@ -129,4 +137,3 @@ func joinWithRightAlignment(left, right string, totalWidth int) string {
     }
     return strings.Join(out, "\n")
 }
-

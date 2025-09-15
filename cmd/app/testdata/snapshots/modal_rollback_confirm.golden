@@ -1,14 +1,14 @@
-                                                                                                    
-  Argonaut dev                                                                                      
-                                                                                                    
- Context: argo.example.com                                                                          
-                                                                                                    
+ Context: argo.example.com                                                            Argonaut dev  
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application: demo-app                                                                          │ 
  │ Current: cafebabe                                                                              │ 
  │ Rollback to: a1b2c3d4                                                                          │ 
  │ Author: Jane Doe                                                                               │ 
  │ Message: Refactor and optimize                                                                 │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

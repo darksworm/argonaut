@@ -2,7 +2,6 @@ package main
 
 import (
     "fmt"
-    "os"
     "strings"
 
     "github.com/charmbracelet/bubbles/v2/textinput"
@@ -421,15 +420,11 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.state.UI.SearchQuery = ""
 
 		switch cmd {
-		case "logs":
-			// Open logs in external pager (oviewer)
-			data, err := os.ReadFile("logs/a9s.log")
-			if err != nil {
-				return m, func() tea.Msg { return model.ApiErrorMsg{Message: "No logs available"} }
-			}
-			title := "Logs"
-			body := string(data)
-			return m, m.openTextPager(title, body)
+        case "logs":
+            // Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
+            // Reuse the view helper so behavior matches the Logs view.
+            body := m.readLogContent()
+            return m, m.openTextPager("Logs", body)
 		case "sync":
 			model, cmd := m.handleSyncModal()
 			return model, cmd
