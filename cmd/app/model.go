@@ -524,34 +524,40 @@ case model.ApiErrorMsg:
 		// m.ui.UpdateListItems(m.state)
 		return m, nil
 
-	case model.SyncCompletedMsg:
-		// Handle single app sync completion
-		if msg.Success {
-			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
+    case model.SyncCompletedMsg:
+        // Handle single app sync completion
+        if msg.Success {
+            m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
 
-			// Show tree view if watch is enabled
-			if m.state.Modals.ConfirmSyncWatch {
-				m.state.Navigation.View = model.ViewTree
-				m.state.UI.TreeAppName = &msg.AppName
-				// find app
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName { appObj = a; found = true; break }
-				}
-				if !found { appObj = model.App{Name: msg.AppName} }
+            // Show tree view if watch is enabled
+            if m.state.Modals.ConfirmSyncWatch {
+                // Close confirm modal/loading state before switching views
+                m.state.Modals.ConfirmTarget = nil
+                m.state.Modals.ConfirmSyncLoading = false
+                if m.state.Mode == model.ModeConfirmSync {
+                    m.state.Mode = model.ModeNormal
+                }
+                m.state.Navigation.View = model.ViewTree
+                m.state.UI.TreeAppName = &msg.AppName
+                // find app
+                var appObj model.App
+                found := false
+                for _, a := range m.state.Apps {
+                    if a.Name == msg.AppName { appObj = a; found = true; break }
+                }
+                if !found { appObj = model.App{Name: msg.AppName} }
                 return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
-			}
-		} else {
-			m.statusService.Set("Sync cancelled")
-		}
-		// Close confirm modal/loading state if open
-		m.state.Modals.ConfirmTarget = nil
-		m.state.Modals.ConfirmSyncLoading = false
-		if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
-			m.state.Mode = model.ModeNormal
-		}
-		return m, nil
+            }
+        } else {
+            m.statusService.Set("Sync cancelled")
+        }
+        // Close confirm modal/loading state if open (non-watch path)
+        m.state.Modals.ConfirmTarget = nil
+        m.state.Modals.ConfirmSyncLoading = false
+        if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
+            m.state.Mode = model.ModeNormal
+        }
+        return m, nil
 
 	case model.MultiSyncCompletedMsg:
 		// Handle multiple app sync completion
