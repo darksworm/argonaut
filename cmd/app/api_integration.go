@@ -113,15 +113,15 @@ func (m Model) fetchAPIVersion() tea.Cmd {
 
 // consumeWatchEvent reads a single service event and converts it to a tea message
 func (m Model) consumeWatchEvent() tea.Cmd {
-	return func() tea.Msg {
-		if m.watchChan == nil {
-			return nil
-		}
-		ev, ok := <-m.watchChan
-		if !ok {
-			return nil
-		}
-		switch ev.Type {
+    return func() tea.Msg {
+        if m.watchChan == nil {
+            return nil
+        }
+        ev, ok := <-m.watchChan
+        if !ok {
+            return nil
+        }
+        switch ev.Type {
 		case "apps-loaded":
 			if ev.Apps != nil {
 				return model.AppsLoadedMsg{Apps: ev.Apps}
@@ -142,13 +142,18 @@ func (m Model) consumeWatchEvent() tea.Cmd {
 			if ev.Error != nil {
 				return model.AuthErrorMsg{Error: ev.Error}
 			}
-		case "api-error":
-			if ev.Error != nil {
-				return model.ApiErrorMsg{Message: ev.Error.Error()}
-			}
-		}
-		return nil
-	}
+        case "api-error":
+            if ev.Error != nil {
+                // If the service emitted a generic api-error but the error is auth-related,
+                // surface it as an AuthErrorMsg so the UI switches to auth-required.
+                if isAuthenticationError(ev.Error.Error()) {
+                    return model.AuthErrorMsg{Error: ev.Error}
+                }
+                return model.ApiErrorMsg{Message: ev.Error.Error()}
+            }
+        }
+        return nil
+    }
 }
 
 // startDiffSession loads diffs and opens the diff pager
