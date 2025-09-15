@@ -4,24 +4,20 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "os"
-    "os/exec"
     "strings"
     "time"
 
     "github.com/charmbracelet/bubbles/v2/spinner"
     "github.com/charmbracelet/bubbles/v2/table"
     tea "github.com/charmbracelet/bubbletea/v2"
-    "github.com/charmbracelet/lipgloss/v2"
     cblog "github.com/charmbracelet/log"
-	"github.com/darksworm/argonaut/pkg/api"
-	"github.com/darksworm/argonaut/pkg/autocomplete"
-	apperrors "github.com/darksworm/argonaut/pkg/errors"
-	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/services"
-	"github.com/darksworm/argonaut/pkg/tui"
-	"github.com/darksworm/argonaut/pkg/tui/treeview"
-	"github.com/noborus/ov/oviewer"
+    "github.com/darksworm/argonaut/pkg/api"
+    "github.com/darksworm/argonaut/pkg/autocomplete"
+    apperrors "github.com/darksworm/argonaut/pkg/errors"
+    "github.com/darksworm/argonaut/pkg/model"
+    "github.com/darksworm/argonaut/pkg/services"
+    "github.com/darksworm/argonaut/pkg/tui"
+    "github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // Model represents the main Bubbletea model containing all application state
@@ -47,19 +43,19 @@ type Model struct {
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 
-	// bubbles spinner for loading
-	spinner spinner.Model
+    // bubbles spinner for loading
+    spinner spinner.Model
 
-	// bubbles tables for all views
-	resourcesTable  table.Model
-	appsTable       table.Model
-	clustersTable   table.Model
-	namespacesTable table.Model
-	projectsTable   table.Model
+    // bubbles tables for all views
+    resourcesTable  table.Model
+    appsTable       table.Model
+    clustersTable   table.Model
+    namespacesTable table.Model
+    projectsTable   table.Model
 
-	// Bubble Tea program reference for terminal hand-off (pager integration)
-	program *tea.Program
-	inPager bool
+    // Bubble Tea program reference for terminal hand-off (pager integration)
+    program *tea.Program
+    inPager bool
 
     // Tree view component
     treeView *treeview.TreeView
@@ -67,161 +63,7 @@ type Model struct {
     // Tree watch internal channel delivery
     treeStream chan model.ResourceTreeStreamMsg
 }
-
-// NewModel creates a new Model with default state and services
-func NewModel() *Model {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-
-	// Create a function to get standard table styles
-	getTableStyle := func() table.Styles {
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(false)
-		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("229")).
-			Background(lipgloss.Color("57")).
-			Bold(false)
-		return s
-	}
-
-	// Initialize resources table
-	resourcesColumns := []table.Column{
-		{Title: "KIND", Width: 20},
-		{Title: "NAME", Width: 40},
-		{Title: "STATUS", Width: 15},
-	}
-	resourcesTable := table.New(
-		table.WithColumns(resourcesColumns),
-		table.WithFocused(false),
-		table.WithHeight(10),
-	)
-	resourcesTable.SetStyles(getTableStyle())
-
-	// Initialize apps table
-	appsColumns := []table.Column{
-		{Title: "NAME", Width: 40},
-		{Title: "SYNC", Width: 12},
-		{Title: "HEALTH", Width: 15},
-	}
-	appsTable := table.New(
-		table.WithColumns(appsColumns),
-		table.WithFocused(true), // Apps table should be focused for navigation
-		table.WithHeight(10),
-	)
-	appsTable.SetStyles(getTableStyle())
-
-	// Initialize simple tables for other views
-	simpleColumns := []table.Column{
-		{Title: "NAME", Width: 60},
-	}
-
-	clustersTable := table.New(
-		table.WithColumns(simpleColumns),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-	clustersTable.SetStyles(getTableStyle())
-
-	namespacesTable := table.New(
-		table.WithColumns(simpleColumns),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-	namespacesTable.SetStyles(getTableStyle())
-
-	projectsTable := table.New(
-		table.WithColumns(simpleColumns),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-	projectsTable.SetStyles(getTableStyle())
-
-	return &Model{
-		state:             model.NewAppState(),
-		argoService:       services.NewArgoApiService(nil), // Will be configured when server is available
-		navigationService: services.NewNavigationService(),
-		statusService: services.NewStatusService(services.StatusServiceConfig{
-			Handler:      createFileStatusHandler(), // Log to file instead of stdout
-			DebugEnabled: true,
-		}),
-		inputComponents:    NewInputComponents(),
-		autocompleteEngine: autocomplete.NewAutocompleteEngine(),
-		ready:              false,
-		err:             nil,
-		spinner:         s,
-		resourcesTable:  resourcesTable,
-		appsTable:       appsTable,
-		clustersTable:   clustersTable,
-		namespacesTable: namespacesTable,
-		projectsTable:   projectsTable,
-		program:         nil,
-        inPager:         false,
-        treeView:        treeview.NewTreeView(0, 0),
-        treeStream:      make(chan model.ResourceTreeStreamMsg, 64),
-    }
-}
-
-// SetProgram stores the Bubble Tea program pointer for terminal hand-off
-func (m *Model) SetProgram(p *tea.Program) {
-	m.program = p
-}
-
-// pagerDoneMsg signals that an external pager has closed
-type pagerDoneMsg struct{ Err error }
-type pauseRenderingMsg struct{}
-type resumeRenderingMsg struct{}
-
-// Init implements tea.Model.Init
-func (m Model) Init() tea.Cmd {
-	// Initialize with terminal size request and startup commands
-	var cmds []tea.Cmd
-	cmds = append(cmds, tea.EnterAltScreen, m.spinner.Tick)
-
-    // Show initial loading modal immediately if server is configured
-	if m.state.Server != nil {
-		cmds = append(cmds, func() tea.Msg {
-			return model.SetInitialLoadingMsg{Loading: true}
-		})
-	}
-
-	cmds = append(cmds,
-		func() tea.Msg {
-			return model.StatusChangeMsg{Status: "Initializing..."}
-		},
-		// Validate authentication if server is configured
-		m.validateAuthentication(),
-	)
-
-	return tea.Batch(cmds...)
-}
-
-// watchTreeDeliver is used by the watcher goroutine to send messages into Bubble Tea
-func (m Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
-    // Non-blocking send; if full, drop to avoid blocking
-    select {
-    case m.treeStream <- msg:
-    default:
-    }
-}
-
-// consumeTreeEvent reads a single tree stream event and returns it as a tea message
-func (m Model) consumeTreeEvent() tea.Cmd {
-    return func() tea.Msg {
-        if m.treeStream == nil {
-            return nil
-        }
-        ev, ok := <-m.treeStream
-        if !ok {
-            return nil
-        }
-        return ev
-    }
-}
+// NewModel, Init, pager helpers, and tree stream helpers moved to dedicated files.
 
 // validateAuthentication checks if authentication is valid (matches TypeScript app-orchestrator.ts)
 func (m Model) validateAuthentication() tea.Cmd {
@@ -260,58 +102,7 @@ func (m Model) validateAuthentication() tea.Cmd {
 }
 
 // openTextPager releases the terminal and runs an oviewer pager with the given text
-func (m Model) openTextPager(title, text string) tea.Cmd {
-    return func() tea.Msg {
-        if m.program != nil {
-            m.program.Send(pauseRenderingMsg{})
-            _ = m.program.ReleaseTerminal()
-        }
-		defer func() {
-			// Clear screen and restore terminal to Bubble Tea
-			fmt.Print("\x1b[2J\x1b[H")
-			time.Sleep(150 * time.Millisecond)
-			if m.program != nil {
-				_ = m.program.RestoreTerminal()
-				m.program.Send(resumeRenderingMsg{})
-			}
-		}()
-
-		// Prepare pager root
-		r := strings.NewReader(text)
-		root, err := oviewer.NewRoot(r)
-		if err != nil {
-            cblog.With("component", "pager").Error("Failed to create oviewer root", "err", err)
-			return pagerDoneMsg{Err: err}
-		}
-
-		cfg := oviewer.NewConfig()
-		cfg.IsWriteOnExit = false
-		cfg.IsWriteOriginal = false
-
-		// Ensure ov starts in normal view mode, not input/command mode
-		cfg.ViewMode = "" // Use default normal view mode
-
-		// Try to configure keybindings and catch any errors
-		configErr := configureVimKeyBindings(&cfg)
-		if configErr != nil {
-            cblog.With("component", "pager").Error("Failed to configure vim keybindings", "err", configErr)
-			return pagerDoneMsg{Err: configErr}
-		}
-
-		root.SetConfig(cfg)
-		// Don't set FileName as it might trigger input mode
-		// root.Doc.FileName = title
-
-		// Capture any error from Run()
-		runErr := root.Run()
-		if runErr != nil {
-            cblog.With("component", "pager").Error("Failed to run oviewer", "err", runErr)
-			return pagerDoneMsg{Err: runErr}
-		}
-
-		return pagerDoneMsg{Err: nil}
-	}
-}
+// pager helpers moved
 
 // openExternalDiffPager runs an external diff viewer/pager. It supports two modes:
 //  1. Command string with placeholders {left} and {right} for file paths (e.g. "vimdiff {left} {right}")
@@ -321,117 +112,15 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 // openInteractiveDiffViewer replaces the terminal with an interactive diff tool
 // configured via ARGONAUT_DIFF_VIEWER. The command may include {left} and {right}
 // placeholders for file paths.
-func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea.Msg {
-	if m.program != nil {
-		m.program.Send(pauseRenderingMsg{})
-		_ = m.program.ReleaseTerminal()
-	}
-	defer func() {
-		fmt.Print("\x1b[2J\x1b[H")
-		time.Sleep(150 * time.Millisecond)
-		if m.program != nil {
-			_ = m.program.RestoreTerminal()
-			m.program.Send(resumeRenderingMsg{})
-		}
-	}()
-
-	cmdStr = strings.ReplaceAll(cmdStr, "{left}", shellEscape(leftFile))
-	cmdStr = strings.ReplaceAll(cmdStr, "{right}", shellEscape(rightFile))
-	c := exec.Command("sh", "-lc", cmdStr)
-	c.Stdin = os.Stdin
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	if err := c.Run(); err != nil {
-        cblog.With("component", "diff").Error("interactive diff viewer failed", "err", err)
-		return pagerDoneMsg{Err: err}
-	}
-	return pagerDoneMsg{Err: nil}
-}
+// pager helpers moved
 
 // runDiffFormatter runs a non-interactive diff formatter on diffText and returns its output.
 // Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
-func (m Model) runDiffFormatter(diffText string) (string, error) {
-	cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
-	cols := 0
-	if m.state != nil {
-		cols = m.state.Terminal.Cols
-	}
-	if cmdStr == "" && inPath("delta") {
-		// Ensure delta does not page; we want raw output to feed our pager.
-		// Also force width so piping to OV uses full terminal width.
-		if cols > 0 {
-			cmdStr = fmt.Sprintf("delta --side-by-side --line-numbers --navigate --paging=never --width=%d", cols)
-		} else {
-			cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
-		}
-	}
-	if cmdStr == "" {
-		return diffText, nil
-	}
-	c := exec.Command("sh", "-lc", cmdStr)
-	// Help tools detect width when stdout is a pipe
-	if cols > 0 {
-		c.Env = append(os.Environ(), fmt.Sprintf("COLUMNS=%d", cols))
-	} else {
-		c.Env = os.Environ()
-	}
-	c.Stdin = strings.NewReader(diffText)
-	out, err := c.CombinedOutput()
-	if err != nil {
-		return diffText, err
-	}
-	return string(out), nil
-}
+// pager helpers moved
 
-func inPath(name string) bool {
-	_, err := exec.LookPath(name)
-	return err == nil
-}
+// pager helpers moved
 
-func shellEscape(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
-}
-
-// configureVimKeyBindings adds vim-like key bindings to the oviewer config
-func configureVimKeyBindings(cfg *oviewer.Config) error {
-	// Disable OV's default key bindings so our map is authoritative.
-	cfg.DefaultKeyBind = "disable"
-	// Hard reset keybindings to avoid duplicates from library defaults.
-	// We'll assign a minimal, deterministic set.
-	cfg.Keybind = make(map[string][]string)
-
-	// Helper to set a binding list without duplicates
-	set := func(action string, keys ...string) {
-		uniq := make(map[string]struct{})
-		out := make([]string, 0, len(keys))
-		for _, k := range keys {
-			if _, ok := uniq[k]; ok {
-				continue
-			}
-			uniq[k] = struct{}{}
-			out = append(out, k)
-		}
-		cfg.Keybind[action] = out
-	}
-
-	// Vim-like navigation
-	set("left", "h")
-	set("right", "l")
-	set("up", "k")
-	set("down", "j")
-	set("top", "g")
-	set("bottom", "G")
-	set("search", "/")
-	set("exit", "q")
-
-	// Additional quality-of-life bindings that don't conflict
-	// Page navigation (space/down: page down, b: page up) if supported
-	// These actions might be ignored if oviewer doesn't map them; harmless otherwise.
-	set("page_down", " ")
-	set("page_up", "b")
-
-	return nil
-}
+// pager helpers moved
 
 // Update implements tea.Model.Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -1163,91 +852,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// loadResourcesForApp creates a command to load resources for the given app
-func (m Model) loadResourcesForApp(appName string) tea.Cmd {
-    cblog.With("component", "tree").Info("Loading resources", "app", appName)
-
-	return func() tea.Msg {
-		if m.state.Server == nil {
-            cblog.With("component", "tree").Error("Server not configured while loading resources", "app", appName)
-			return ResourcesLoadedMsg{
-				AppName: appName,
-				Error:   "Server not configured",
-			}
-		}
-
-        cblog.With("component", "tree").Debug("Creating ApplicationService", "server", m.state.Server.BaseURL)
-		appService := api.NewApplicationService(m.state.Server)
-
-        cblog.With("component", "tree").Debug("Calling GetResourceTree", "app", appName)
-		tree, err := appService.GetResourceTree(context.Background(), appName, "")
-		if err != nil {
-            cblog.With("component", "tree").Error("Failed to load resources", "app", appName, "err", err)
-			return ResourcesLoadedMsg{
-				AppName: appName,
-				Error:   err.Error(),
-			}
-		}
-
-        cblog.With("component", "tree").Info("Loaded resources", "count", len(tree.Nodes), "app", appName)
-
-		// Convert api.ResourceNode to model.ResourceNode
-		modelResources := make([]model.ResourceNode, len(tree.Nodes))
-		for i, node := range tree.Nodes {
-			modelResources[i] = convertApiToModelResourceNode(node)
-		}
-
-		return ResourcesLoadedMsg{
-			AppName:   appName,
-			Resources: modelResources,
-		}
-	}
-}
-
-// ResourcesLoadedMsg represents the result of loading resources
-type ResourcesLoadedMsg struct {
-	AppName   string
-	Resources []model.ResourceNode
-	Error     string
-}
-
-// convertApiToModelResourceNode converts api.ResourceNode to model.ResourceNode
-func convertApiToModelResourceNode(apiNode api.ResourceNode) model.ResourceNode {
-	var health *model.ResourceHealth
-	if apiNode.Health != nil {
-		health = &model.ResourceHealth{
-			Status:  apiNode.Health.Status,
-			Message: apiNode.Health.Message,
-		}
-	}
-
-	var networkingInfo *model.NetworkingInfo
-	if apiNode.NetworkingInfo != nil {
-		targetRefs := make([]model.ResourceRef, len(apiNode.NetworkingInfo.TargetRefs))
-		for i, ref := range apiNode.NetworkingInfo.TargetRefs {
-			targetRefs[i] = model.ResourceRef{
-				Group:     ref.Group,
-				Kind:      ref.Kind,
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
-			}
-		}
-		networkingInfo = &model.NetworkingInfo{
-			TargetLabels: apiNode.NetworkingInfo.TargetLabels,
-			TargetRefs:   targetRefs,
-		}
-	}
-
-	return model.ResourceNode{
-		Group:          apiNode.Group,
-		Kind:           apiNode.Kind,
-		Name:           apiNode.Name,
-		Namespace:      apiNode.Namespace,
-		Version:        apiNode.Version,
-		Health:         health,
-		NetworkingInfo: networkingInfo,
-	}
-}
+// resources helpers moved to model_resources.go
 
 // Duplicate sync functions removed - using existing ones from api_integration.go
 
