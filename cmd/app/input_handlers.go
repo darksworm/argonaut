@@ -39,49 +39,26 @@ func (m Model) handleNavigationDown() (Model, tea.Cmd) {
 
 // handleToggleSelection toggles selection of current item (space key)
 func (m Model) handleToggleSelection() (Model, tea.Cmd) {
-	visibleItems := m.getVisibleItemsForCurrentView()
-	if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
-		return m, nil
-	}
+    visibleItems := m.getVisibleItemsForCurrentView()
+    if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
+        return m, nil
+    }
 
-	selectedItem := visibleItems[m.state.Navigation.SelectedIdx]
+    selectedItem := visibleItems[m.state.Navigation.SelectedIdx]
 
-	switch m.state.Navigation.View {
-	case model.ViewApps:
-		if app, ok := selectedItem.(model.App); ok {
-			if model.HasInStringSet(m.state.Selections.SelectedApps, app.Name) {
-				model.RemoveFromStringSet(m.state.Selections.SelectedApps, app.Name)
-			} else {
-				model.AddToStringSet(m.state.Selections.SelectedApps, app.Name)
-			}
-		}
-	case model.ViewClusters:
-		if cluster, ok := selectedItem.(string); ok {
-			if model.HasInStringSet(m.state.Selections.ScopeClusters, cluster) {
-				model.RemoveFromStringSet(m.state.Selections.ScopeClusters, cluster)
-			} else {
-				model.AddToStringSet(m.state.Selections.ScopeClusters, cluster)
-			}
-		}
-	case model.ViewNamespaces:
-		if namespace, ok := selectedItem.(string); ok {
-			if model.HasInStringSet(m.state.Selections.ScopeNamespaces, namespace) {
-				model.RemoveFromStringSet(m.state.Selections.ScopeNamespaces, namespace)
-			} else {
-				model.AddToStringSet(m.state.Selections.ScopeNamespaces, namespace)
-			}
-		}
-	case model.ViewProjects:
-		if project, ok := selectedItem.(string); ok {
-			if model.HasInStringSet(m.state.Selections.ScopeProjects, project) {
-				model.RemoveFromStringSet(m.state.Selections.ScopeProjects, project)
-			} else {
-				model.AddToStringSet(m.state.Selections.ScopeProjects, project)
-			}
-		}
-	}
+    switch m.state.Navigation.View {
+    case model.ViewApps:
+        if app, ok := selectedItem.(model.App); ok {
+            if model.HasInStringSet(m.state.Selections.SelectedApps, app.Name) {
+                model.RemoveFromStringSet(m.state.Selections.SelectedApps, app.Name)
+            } else {
+                model.AddToStringSet(m.state.Selections.SelectedApps, app.Name)
+            }
+        }
+    // For clusters/namespaces/projects views, Space has no effect by design.
+    }
 
-	return m, nil
+    return m, nil
 }
 
 // handleDrillDown implements drill-down navigation (enter key)
