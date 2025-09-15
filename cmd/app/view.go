@@ -101,130 +101,7 @@ func (m Model) View() string {
 }
 
 // renderMainLayout - 1:1 mapping from MainLayout.tsx
-func (m Model) renderMainLayout() string {
-	// Height calculations - dynamic based on rendered section heights
-	const (
-		BORDER_LINES       = 2 // content border top/bottom
-		TABLE_HEADER_LINES = 0 // header is inside the table itself
-		TAG_LINE           = 0 // not used
-		STATUS_LINES       = 1 // bottom status line
-	)
-
-	// Render header and optional bars first to measure their heights
-	header := m.renderBanner()
-	searchBar := ""
-	if m.state.Mode == model.ModeSearch {
-		searchBar = m.renderEnhancedSearchBar()
-	}
-	commandBar := ""
-	if m.state.Mode == model.ModeCommand {
-		commandBar = m.renderEnhancedCommandBar()
-	}
-
-	headerLines := countLines(header)
-	searchLines := countLines(searchBar)
-	commandLines := countLines(commandBar)
-
-	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-	listRows := max(0, availableRows)
-
-	var sections []string
-
-	// ArgoNaut Banner (matches MainLayout ArgoNautBanner)
-	sections = append(sections, header)
-
-	// Search/Command bars
-	if searchBar != "" {
-		sections = append(sections, searchBar)
-	}
-	if commandBar != "" {
-		sections = append(sections, commandBar)
-	}
-
-	// Main content area (matches MainLayout Box with border)
-	if m.state.Navigation.View == model.ViewTree {
-		sections = append(sections, m.renderTreePanel(listRows))
-	} else if m.state.Mode == model.ModeResources && m.state.Server != nil && m.state.Modals.SyncViewApp != nil {
-		sections = append(sections, m.renderResourceStream(listRows))
-	} else {
-		sections = append(sections, m.renderListView(listRows))
-	}
-
-	// Status line (matches MainLayout status Box)
-	sections = append(sections, m.renderStatusLine())
-
-	// Join with newlines and apply main container style with full width
-	content := strings.Join(sections, "\n")
-	// Render the full terminal area; padding is handled by the container style
-	totalHeight := m.state.Terminal.Rows
-	_ = totalHeight
-
-	baseView := mainContainerStyle.Render(content)
-
-	// Modal overlay (render atop existing content using lipgloss v2 layers)
-	if m.state.Mode == model.ModeConfirmSync || m.state.Modals.InitialLoading {
-		modal := ""
-		if m.state.Modals.InitialLoading {
-			modal = m.renderInitialLoadingModal()
-		} else if m.state.Modals.ConfirmSyncLoading {
-			modal = m.renderSyncLoadingModal()
-		} else {
-			modal = m.renderConfirmSyncModal()
-		}
-		mw := lipgloss.Width(modal)
-		mh := lipgloss.Height(modal)
-
-		// Center modal; desaturate base layer so the modal pops
-		grayBase := desaturateANSI(baseView)
-		modalX := (m.state.Terminal.Cols - mw) / 2
-		modalY := (totalHeight - mh) / 2
-
-		baseLayer := lipgloss.NewLayer(grayBase)
-
-		// If the terminal is narrow (small banner badge), overlay an inverted badge
-		if m.state.Terminal.Cols <= 100 {
-			badge := m.renderSmallBadge(true)
-			// The small badge is rendered after 1 empty line and inside main container padding X=1
-			badgeLayer := lipgloss.NewLayer(badge).X(1).Y(1).Z(1)
-			// Put modal above everything
-			modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(2)
-			canvas := lipgloss.NewCanvas(baseLayer, badgeLayer, modalLayer)
-			return canvas.Render()
-		}
-
-		// Put modal above base when not narrow
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
-		return canvas.Render()
-	}
-
-    // Add diff loading spinner as an overlay; gray the background like other modals
-    if m.state.Diff != nil && m.state.Diff.Loading {
-        // Create spinner overlay using lipgloss v2 layer composition
-        spinner := m.renderDiffLoadingSpinner()
-
-        // Desaturate base content to draw attention to the overlay
-        grayBase := desaturateANSI(baseView)
-        baseLayer := lipgloss.NewLayer(grayBase)
-
-		// Create spinner layer positioned in center with higher Z-index
-		spinnerLayer := lipgloss.NewLayer(spinner).
-			X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
-			Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
-			Z(1) // Place spinner above base content
-
-		// Create canvas with both layers
-		canvas := lipgloss.NewCanvas(
-			baseLayer,    // Base view content at Z=0
-			spinnerLayer, // Spinner overlay at Z=1
-		)
-
-		return canvas.Render()
-	}
-
-	return baseView
-}
+// moved to view_layout.go
 
 // countLines returns the number of lines in a rendered string
 func countLines(s string) int {
@@ -258,29 +135,12 @@ func countLines(s string) int {
 // moved to view_banner.go
 
 // contentInnerWidth computes inner content width inside the bordered box
-func (m Model) contentInnerWidth() int {
-	// Subtract: main padding (2) + border (2) + inner padding (2)
-	// Reduced slack to use more available space
-	return max(0, m.state.Terminal.Cols-6)
-}
+// moved to view_layout.go
 
 // moved to view_lists.go
 
 // renderTreePanel renders the resource tree view inside a bordered container
-func (m Model) renderTreePanel(availableRows int) string {
-    contentWidth := max(0, m.contentInnerWidth())
-    // Use the underlying tree view content
-    treeContent := "(no data)"
-    if m.treeView != nil {
-        treeContent = m.treeView.View()
-    }
-    // Normalize width to avoid wrapping
-    treeContent = normalizeLinesToWidth(treeContent, contentWidth)
-
-    // Apply border style with fixed height similar to list view
-    adjustedWidth := max(0, m.state.Terminal.Cols-2)
-    return contentBorderStyle.Width(adjustedWidth).Height(availableRows + 1).AlignVertical(lipgloss.Top).Render(treeContent)
-}
+// moved to view_layout.go
 
 // renderListHeader - matches ListView header row with responsive widths
 // moved to view_lists.go
