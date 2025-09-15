@@ -17,6 +17,7 @@ import (
     "github.com/darksworm/argonaut/pkg/neat"
     "github.com/darksworm/argonaut/pkg/services"
     yaml "gopkg.in/yaml.v3"
+    stdErrors "errors"
 )
 
 // startLoadingApplications initiates loading applications from ArgoCD API
@@ -42,10 +43,11 @@ func (m Model) startLoadingApplications() tea.Cmd {
 		// [API] Calling ListApplications - removed printf to avoid TUI interference
         apps, err := apiService.ListApplications(ctx, m.state.Server)
         if err != nil {
-            // Check structured error category first
-            if argErr, ok := err.(*apperrors.ArgonautError); ok {
+            // Unwrap structured errors if wrapped
+            var argErr *apperrors.ArgonautError
+            if stdErrors.As(err, &argErr) {
                 if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" {
-                    return model.AuthErrorMsg{Error: err}
+                    return model.AuthErrorMsg{Error: argErr}
                 }
             }
             // Fallback string matching

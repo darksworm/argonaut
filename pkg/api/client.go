@@ -1,21 +1,22 @@
 package api
 
 import (
-	"bytes"
-	"context"
-	"crypto/tls"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"strings"
-	"time"
+    "bytes"
+    "context"
+    "crypto/tls"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net"
+    "net/http"
+    "strings"
+    "time"
 
-	apperrors "github.com/darksworm/argonaut/pkg/errors"
-	appcontext "github.com/darksworm/argonaut/pkg/context"
-	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/retry"
+    apperrors "github.com/darksworm/argonaut/pkg/errors"
+    appcontext "github.com/darksworm/argonaut/pkg/context"
+    "github.com/darksworm/argonaut/pkg/model"
+    "github.com/darksworm/argonaut/pkg/retry"
+    "github.com/darksworm/argonaut/pkg/logging"
 )
 
 // Client represents an HTTP client for ArgoCD API
@@ -236,20 +237,22 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "RESPONSE_READ_FAILED",
-			"Failed to read response body").
-			WithContext("method", method).
-			WithContext("url", url).
-			WithUserAction("Try the request again")
-	}
+    respBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "RESPONSE_READ_FAILED",
+            "Failed to read response body").
+            WithContext("method", method).
+            WithContext("url", url).
+            WithUserAction("Try the request again")
+    }
 
-	if resp.StatusCode >= 400 {
-		return nil, c.createAPIError(resp.StatusCode, string(respBody), url).
-			WithContext("method", method).
-			WithContext("path", path)
-	}
+    if resp.StatusCode >= 400 {
+        // Debug trace for 4xx/5xx
+        logging.GetDefaultLogger().WithComponent("api").Error("HTTP %s %s -> %d (%d bytes)", method, url, resp.StatusCode, len(respBody))
+        return nil, c.createAPIError(resp.StatusCode, string(respBody), url).
+            WithContext("method", method).
+            WithContext("path", path)
+    }
 
 	return respBody, nil
 }
