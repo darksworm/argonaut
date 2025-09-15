@@ -14,10 +14,10 @@
  │                                                                                                │ 
  │ ACTIONS      :diff [app] • :sync [app] • :rollback [app]                                       │ 
  │              :resources [app] • :up go up level                                                │ 
- │              s sync modal (apps view)                                                          │ 
- │              R rollback modal (apps view)                                                      │ 
- │              r resources (apps view)                                                           │ 
- │              d open diff (apps view)                                                           │ 
+ │               s  sync modal (apps view)                                                        │ 
+ │               R  rollback modal (apps view)                                                    │ 
+ │               r  resources (apps view)                                                         │ 
+ │               d  open diff (apps view)                                                         │ 
  │                                                                                                │ 
  │ MISC         :all • :licenses                                                                  │ 
  │              :logs • :q                                                                        │ 
