@@ -366,21 +366,61 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                 raw = applied
             }
         }
+        if raw == "" {
+            return m, nil
+        }
+
+        parts := strings.Fields(raw)
+        cmd := strings.ToLower(parts[0])
+        arg := ""
+        if len(parts) > 1 {
+            arg = parts[1]
+        }
+
+        // Pre-validate existence for arg-based commands before blurring input
+        existsIn := func(list []string, name string) bool {
+            for _, it := range list {
+                if strings.EqualFold(it, name) { return true }
+            }
+            return false
+        }
+        canonical := m.autocompleteEngine.ResolveAlias(cmd)
+        if arg != "" && (canonical == "cluster" || canonical == "namespace" || canonical == "project" || canonical == "app") {
+            switch canonical {
+            case "cluster":
+                all := m.autocompleteEngine.GetArgumentSuggestions("cluster", "", m.state)
+                names := make([]string, 0, len(all))
+                for _, s := range all { names = append(names, strings.TrimPrefix(s, ":cluster ")) }
+                if !existsIn(names, arg) {
+                    return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown cluster: "+arg} }
+                }
+            case "namespace":
+                all := m.autocompleteEngine.GetArgumentSuggestions("namespace", "", m.state)
+                names := make([]string, 0, len(all))
+                for _, s := range all { names = append(names, strings.TrimPrefix(s, ":namespace ")) }
+                if !existsIn(names, arg) {
+                    return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown namespace: "+arg} }
+                }
+            case "project":
+                all := m.autocompleteEngine.GetArgumentSuggestions("project", "", m.state)
+                names := make([]string, 0, len(all))
+                for _, s := range all { names = append(names, strings.TrimPrefix(s, ":project ")) }
+                if !existsIn(names, arg) {
+                    return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown project: "+arg} }
+                }
+            case "app":
+                ok := false
+                for _, a := range m.state.Apps { if strings.EqualFold(a.Name, arg) { ok = true; break } }
+                if !ok {
+                    return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown app: "+arg} }
+                }
+            }
+        }
+
 		m.inputComponents.BlurInputs()
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
 		m.inputComponents.ClearCommandInput()
-
-		if raw == "" {
-			return m, nil
-		}
-
-		parts := strings.Fields(raw)
-		cmd := strings.ToLower(parts[0])
-		arg := ""
-		if len(parts) > 1 {
-			arg = parts[1]
-		}
 
 		// Reset navigation basics
 		m.state.Navigation.SelectedIdx = 0
