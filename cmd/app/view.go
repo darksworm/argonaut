@@ -200,13 +200,14 @@ func (m Model) renderMainLayout() string {
 		return canvas.Render()
 	}
 
-	// Add diff loading spinner as an overlay if loading using lipgloss v2 layer/canvas system
-	if m.state.Diff != nil && m.state.Diff.Loading {
-		// Create spinner overlay using lipgloss v2 layer composition
-		spinner := m.renderDiffLoadingSpinner()
+    // Add diff loading spinner as an overlay; gray the background like other modals
+    if m.state.Diff != nil && m.state.Diff.Loading {
+        // Create spinner overlay using lipgloss v2 layer composition
+        spinner := m.renderDiffLoadingSpinner()
 
-		// Create base layer with the existing view content
-		baseLayer := lipgloss.NewLayer(baseView)
+        // Desaturate base content to draw attention to the overlay
+        grayBase := desaturateANSI(baseView)
+        baseLayer := lipgloss.NewLayer(grayBase)
 
 		// Create spinner layer positioned in center with higher Z-index
 		spinnerLayer := lipgloss.NewLayer(spinner).
@@ -1237,39 +1238,67 @@ func (m Model) renderAuthRequiredView() string {
 }
 
 func (m Model) renderHelpModal() string {
-	// 1:1 mapping from HelpModal.tsx + Help.tsx
-	isWide := m.state.Terminal.Cols >= 60
-
+	// Build sections for the help modal
 	var sections []string
+
+	// Add header
+	header := m.renderBanner()
+	sections = append(sections, header)
+
+	// Build help content
+	isWide := m.state.Terminal.Cols >= 60
+	var helpSections []string
 
 	// GENERAL section
 	generalContent := ": command • / search • ? help"
-	sections = append(sections, m.renderHelpSection("GENERAL", generalContent, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("GENERAL", generalContent, isWide))
 
 	// NAV section
 	navContent := "j/k up/down • Space select • Enter drill down • Esc clear/up"
-	sections = append(sections, m.renderHelpSection("NAV", navContent, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("NAV", navContent, isWide))
 
 	// VIEWS section
 	viewsContent := ":cls|:clusters|:cluster • :ns|:namespaces|:namespace\n:proj|:projects|:project • :apps"
-	sections = append(sections, m.renderHelpSection("VIEWS", viewsContent, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("VIEWS", viewsContent, isWide))
 
 	// ACTIONS section
 	actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:resources [app] • :up go up level\ns sync modal • R rollback modal (apps view)"
-	sections = append(sections, m.renderHelpSection("ACTIONS", actionsContent, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("ACTIONS", actionsContent, isWide))
 
 	// MISC section
 	miscContent := ":all • :help • :logs • :q"
-	sections = append(sections, m.renderHelpSection("MISC", miscContent, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("MISC", miscContent, isWide))
 
 	// Close instruction
-	sections = append(sections, "")
-	sections = append(sections, statusStyle.Render("Press ?, q or Esc to close"))
+	helpSections = append(helpSections, "")
+	helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
 
+	helpContent := strings.Join(helpSections, "\n")
+
+	// Calculate available height for content
+	headerLines := countLines(header)
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	overhead := BORDER_LINES + headerLines + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
+
+	// Add bordered content with proper padding
+	styledContent := contentBorderStyle.
+		Height(availableRows).
+		Width(m.contentInnerWidth()).
+		PaddingTop(1).
+		PaddingBottom(1).
+		Render(helpContent)
+
+	sections = append(sections, styledContent)
+
+	// Add status line
+	sections = append(sections, m.renderStatusLine())
+
+	// Join sections and apply main container style
 	content := strings.Join(sections, "\n")
-
-	// Use the new modal content helper
-	return m.renderModalContent(content)
+	totalHeight := m.state.Terminal.Rows - 1
+	return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 func (m Model) renderOfficeSupplyManager() string {
@@ -2057,7 +2086,7 @@ func (m Model) renderConnectionErrorView() string {
 
 	// Instructions
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	errorContent += instructStyle.Render("Press q to exit • Press Esc to retry")
+	errorContent += instructStyle.Render("Press q to exit")
 
 	// Status (empty for error views)
 	status := ""
