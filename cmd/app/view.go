@@ -984,17 +984,24 @@ func (m Model) renderDiffView() string {
 // renderHelpSection - helper for HelpModal (matches Help.tsx HelpSection)
 func (m Model) renderHelpSection(title, content string, isWide bool) string {
     titleStyled := lipgloss.NewStyle().Foreground(syncedColor).Bold(true).Render(title)
-
     if isWide {
-        // Wide layout: ensure multi-line content lines are aligned with the content column
+        // Two-column layout: 12-char title column + 1 space gap
+        const col = 12
+        // Pad the title visually to width 'col'
+        padRightVisual := func(s string, w int) string {
+            diff := w - lipgloss.Width(s)
+            if diff > 0 { return s + strings.Repeat(" ", diff) }
+            return s
+        }
         lines := strings.Split(content, "\n")
-        indent := strings.Repeat(" ", 12)
+        // Indent wrapped lines by title width + 1 space gap
+        indent := strings.Repeat(" ", col+1)
         for i := 1; i < len(lines); i++ {
             lines[i] = indent + lines[i]
         }
         contentAligned := strings.Join(lines, "\n")
-        titlePadded := fmt.Sprintf("%-12s", titleStyled)
-        return titlePadded + contentAligned
+        titlePadded := padRightVisual(titleStyled, col)
+        return titlePadded + " " + contentAligned
     }
     // Narrow layout: title above, content below
     return titleStyled + "\n" + content

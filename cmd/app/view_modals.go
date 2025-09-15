@@ -12,8 +12,8 @@ func (m Model) renderHelpModal() string {
     header := m.renderBanner()
     sections = append(sections, header)
 
-    // Layout toggle
-    isWide := m.state.Terminal.Cols >= 72
+    // Layout toggle (match earlier TS threshold)
+    isWide := m.state.Terminal.Cols >= 60
 
     // Small keycap style to make keys pop
     keycap := func(s string) string {
@@ -56,10 +56,15 @@ func (m Model) renderHelpModal() string {
     }, "")
 
     var helpSections []string
+    // Add a blank line between sections to mimic Ink's marginTop=1
     helpSections = append(helpSections, m.renderHelpSection("GENERAL", general, isWide))
+    helpSections = append(helpSections, "")
     helpSections = append(helpSections, m.renderHelpSection("NAV", nav, isWide))
+    helpSections = append(helpSections, "")
     helpSections = append(helpSections, m.renderHelpSection("VIEWS", views, isWide))
+    helpSections = append(helpSections, "")
     helpSections = append(helpSections, m.renderHelpSection("ACTIONS", actions, isWide))
+    helpSections = append(helpSections, "")
     helpSections = append(helpSections, m.renderHelpSection("MISC", misc, isWide))
     helpSections = append(helpSections, "")
     helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
