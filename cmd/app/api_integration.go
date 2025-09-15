@@ -49,6 +49,8 @@ func (m Model) startLoadingApplications() tea.Cmd {
                 if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" {
                     return model.AuthErrorMsg{Error: argErr}
                 }
+                // Surface structured errors so error view can show details/context
+                return model.StructuredErrorMsg{Error: argErr}
             }
             // Fallback string matching
             if isAuthenticationError(err.Error()) {
@@ -148,6 +150,11 @@ func (m Model) consumeWatchEvent() tea.Cmd {
                 // surface it as an AuthErrorMsg so the UI switches to auth-required.
                 if isAuthenticationError(ev.Error.Error()) {
                     return model.AuthErrorMsg{Error: ev.Error}
+                }
+                // Prefer structured errors when available so we can show details/context
+                var argErr *apperrors.ArgonautError
+                if stdErrors.As(ev.Error, &argErr) {
+                    return model.StructuredErrorMsg{Error: argErr}
                 }
                 return model.ApiErrorMsg{Message: ev.Error.Error()}
             }
