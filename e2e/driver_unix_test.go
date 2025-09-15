@@ -281,6 +281,27 @@ func MockArgoServerAuth(validToken string) (*httptest.Server, error) {
     return srv, nil
 }
 
+// MockArgoServerExpiredToken returns 401 with a structured JSON body like Argo CD when token is expired
+func MockArgoServerExpiredToken() (*httptest.Server, error) {
+    mux := http.NewServeMux()
+    body := `{"error":"invalid session: token has invalid claims: token is expired","code":16,"message":"invalid session: token has invalid claims: token is expired"}`
+    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusUnauthorized)
+        _, _ = w.Write([]byte(body))
+    })
+    mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusUnauthorized)
+        _, _ = w.Write([]byte(body))
+    })
+    mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusUnauthorized)
+        _, _ = w.Write([]byte(body))
+    })
+    mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
+    srv := httptest.NewServer(mux)
+    return srv, nil
+}
+
 // WriteArgoConfigWithToken writes a CLI config using a specific token
 func WriteArgoConfigWithToken(path, baseURL, token string) error {
     var y bytes.Buffer
@@ -292,6 +313,57 @@ func WriteArgoConfigWithToken(path, baseURL, token string) error {
     y.WriteString("  - name: default-user\n    auth-token: "+token+"\n")
     y.WriteString("current-context: default\n")
     return os.WriteFile(path, y.Bytes(), 0o644)
+}
+
+// MockArgoServerForbidden returns 403 Forbidden for applications (simulating RBAC/forbidden)
+func MockArgoServerForbidden() (*httptest.Server, error) {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusForbidden)
+        _, _ = w.Write([]byte(`{"error":"forbidden","message":"forbidden"}`))
+    })
+    mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusForbidden)
+        _, _ = w.Write([]byte(`{"error":"forbidden","message":"forbidden"}`))
+    })
+    mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusForbidden)
+        _, _ = w.Write([]byte(`{"error":"forbidden","message":"forbidden"}`))
+    })
+    srv := httptest.NewServer(mux)
+    return srv, nil
+}
+
+// MockArgoServerStreamUnauthorized returns 200 for list but 401 for stream (expired token mid-flow)
+func MockArgoServerStreamUnauthorized() (*httptest.Server, error) {
+    mux := http.NewServeMux()
+    // Require valid token for userinfo and applications
+    requireAuth := func(w http.ResponseWriter, r *http.Request) bool {
+        got := r.Header.Get("Authorization")
+        if got != "Bearer "+"valid-token" {
+            w.WriteHeader(http.StatusUnauthorized)
+            _, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+            return false
+        }
+        return true
+    }
+    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        w.WriteHeader(200)
+        _, _ = w.Write([]byte(`{}`))
+    })
+    mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+        if !requireAuth(w, r) { return }
+        w.Header().Set("Content-Type", "application/json")
+        _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+    })
+    mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+        // Simulate expired token on stream
+        w.WriteHeader(http.StatusUnauthorized)
+        _, _ = w.Write([]byte(`{"error":"invalid session: token is expired","code":16,"message":"invalid session: token is expired"}`))
+    })
+    srv := httptest.NewServer(mux)
+    return srv, nil
 }
 
 // ---- Sync capturing mock server ----

@@ -2032,25 +2032,24 @@ func (m Model) renderErrorView() string {
 
 // renderConnectionErrorView displays connection error in a user-friendly format
 func (m Model) renderConnectionErrorView() string {
-	// Header
-	header := m.renderBanner()
+    // Header
+    header := m.renderBanner()
 
-	// Build connection error content
-	errorContent := ""
+    // Build connection error content
+    errorContent := ""
 
 	// Title with connection error styling
 	titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
 	errorContent += titleStyle.Render("Connection Error") + "\n\n"
 
-	// Server info if available
-	if m.state.Server != nil {
-		serverStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-		errorContent += fmt.Sprintf("ArgoCD Server: %s\n\n", serverStyle.Render(m.state.Server.BaseURL))
-	}
+    // Main error message
+    messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+    errorContent += messageStyle.Render("Unable to connect to Argo CD server.\n\nPlease check that:\n• Argo CD server is running\n• Network connection is available\n• Server URL and port are correct") + "\n\n"
 
-	// Main error message
-	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-	errorContent += messageStyle.Render("Unable to connect to ArgoCD server.\n\nPlease check that:\n• ArgoCD server is running\n• Network connection is available\n• Server URL and port are correct") + "\n\n"
+    // Tip: encourage checking the current context and re-auth
+    tipStyle := lipgloss.NewStyle().Foreground(cyanBright)
+    tip := "Tip: Ensure you are using the correct Argo CD context. You can switch or re-authenticate with: argocd login <server>"
+    errorContent += tipStyle.Render(tip) + "\n\n"
 
 	// Instructions
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)

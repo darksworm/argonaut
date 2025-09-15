@@ -46,7 +46,7 @@ func (m Model) startLoadingApplications() tea.Cmd {
             // Unwrap structured errors if wrapped
             var argErr *apperrors.ArgonautError
             if stdErrors.As(err, &argErr) {
-                if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" {
+                if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" || hasHTTPStatusCtx(argErr, 401, 403) {
                     return model.AuthErrorMsg{Error: argErr}
                 }
                 // Surface structured errors so error view can show details/context
@@ -79,10 +79,21 @@ func (m Model) startWatchingApplications() tea.Cmd {
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Start watching applications
-		eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
-		if err != nil {
-			return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
-		}
+        eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
+        if err != nil {
+            // Promote auth-related errors to AuthErrorMsg
+            var argErr *apperrors.ArgonautError
+            if stdErrors.As(err, &argErr) {
+                if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
+                    return model.AuthErrorMsg{Error: err}
+                }
+                return model.StructuredErrorMsg{Error: argErr}
+            }
+            if isAuthenticationError(err.Error()) {
+                return model.AuthErrorMsg{Error: err}
+            }
+            return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
+        }
 
 		// Store channel and start first consume
 		m.watchChan = make(chan services.ArgoApiEvent, 100)
@@ -148,13 +159,17 @@ func (m Model) consumeWatchEvent() tea.Cmd {
             if ev.Error != nil {
                 // If the service emitted a generic api-error but the error is auth-related,
                 // surface it as an AuthErrorMsg so the UI switches to auth-required.
-                if isAuthenticationError(ev.Error.Error()) {
-                    return model.AuthErrorMsg{Error: ev.Error}
-                }
-                // Prefer structured errors when available so we can show details/context
                 var argErr *apperrors.ArgonautError
                 if stdErrors.As(ev.Error, &argErr) {
+                    // Treat 401/403 as auth-required regardless of category
+                    if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
+                        return model.AuthErrorMsg{Error: ev.Error}
+                    }
+                    // Forward structured to error view
                     return model.StructuredErrorMsg{Error: argErr}
+                }
+                if isAuthenticationError(ev.Error.Error()) {
+                    return model.AuthErrorMsg{Error: ev.Error}
                 }
                 return model.ApiErrorMsg{Message: ev.Error.Error()}
             }
@@ -441,6 +456,22 @@ func isAuthenticationError(errMsg string) bool {
 		}
 	}
 	return false
+}
+
+// hasHTTPStatusCtx checks ArgonautError.Context for specific HTTP status codes
+func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
+    if err == nil || err.Context == nil { return false }
+    v, ok := err.Context["statusCode"]
+    if !ok { return false }
+    switch n := v.(type) {
+    case int:
+        for _, s := range statuses { if n == s { return true } }
+    case int64:
+        for _, s := range statuses { if int(n) == s { return true } }
+    case float64:
+        for _, s := range statuses { if int(n) == s { return true } }
+    }
+    return false
 }
 
 // startLogsSession opens application logs in pager

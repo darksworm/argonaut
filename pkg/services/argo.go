@@ -160,7 +160,7 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
         if err != nil {
             // Prefer structured error inspection
             if argErr, ok := err.(*apperrors.ArgonautError); ok {
-                if argErr.IsCategory(apperrors.ErrorAuth) {
+                if argErr.IsCategory(apperrors.ErrorAuth) || hasHTTPStatus(argErr, 401, 403) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
                     eventChan <- ArgoApiEvent{Type: "auth-error", Error: err}
                     eventChan <- ArgoApiEvent{Type: "status-change", Status: "Auth required"}
                     return
@@ -353,17 +353,18 @@ func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan cha
         if err != nil && ctx.Err() == nil {
             log.Printf("Watch stream error: %v", err)
             // Map auth-related errors to a dedicated event so the TUI can switch to auth-required
-            if isAuthError(err.Error()) {
-                eventChan <- ArgoApiEvent{
-                    Type:  "auth-error",
-                    Error: err,
+            if ae, ok := err.(*apperrors.ArgonautError); ok {
+                if ae.IsCategory(apperrors.ErrorAuth) || hasHTTPStatus(ae, 401, 403) || ae.IsCode("UNAUTHORIZED") || ae.IsCode("AUTHENTICATION_FAILED") {
+                    eventChan <- ArgoApiEvent{ Type:  "auth-error", Error: err }
+                    eventChan <- ArgoApiEvent{Type: "status-change", Status: "Auth required"}
+                    return
                 }
+            }
+            if isAuthError(err.Error()) {
+                eventChan <- ArgoApiEvent{ Type:  "auth-error", Error: err }
                 eventChan <- ArgoApiEvent{Type: "status-change", Status: "Auth required"}
             } else {
-                eventChan <- ArgoApiEvent{
-                    Type:  "api-error",
-                    Error: err,
-                }
+                eventChan <- ArgoApiEvent{ Type:  "api-error", Error: err }
             }
         }
     }()
@@ -517,4 +518,20 @@ func isAuthError(errMsg string) bool {
 		}
 	}
 	return false
+}
+
+// hasHTTPStatus checks structured error context for specific HTTP status codes
+func hasHTTPStatus(err *apperrors.ArgonautError, statuses ...int) bool {
+    if err == nil || err.Context == nil { return false }
+    v, ok := err.Context["statusCode"]
+    if !ok { return false }
+    switch n := v.(type) {
+    case int:
+        for _, s := range statuses { if n == s { return true } }
+    case int64:
+        for _, s := range statuses { if int(n) == s { return true } }
+    case float64:
+        for _, s := range statuses { if int(n) == s { return true } }
+    }
+    return false
 }
