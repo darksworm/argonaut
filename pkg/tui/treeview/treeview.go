@@ -47,6 +47,7 @@ var (
     colorYellow = lipgloss.Color("11")
     colorRed    = lipgloss.Color("9")
     colorGray   = lipgloss.Color("8")
+    colorWhite  = lipgloss.Color("15")
     selectBG    = lipgloss.Color("13")
 )
 
@@ -300,8 +301,10 @@ func (v *TreeView) View() string {
             }
         }
 
+        // Color non-bracket parts (tree lines, disclosure, kind) as bright white for clarity
+        prefixStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(prefix + disc)
         label := v.renderLabel(n)
-        line := prefix + disc + label
+        line := prefixStyled + label
 
         // If collapsed, hint how many items are hidden
         if len(n.children) > 0 && !v.expanded[n.uid] {
@@ -328,8 +331,10 @@ func (v *TreeView) renderLabel(n *treeNode) string {
     status := n.health
     if status == "" { status = n.status }
     st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+    // Only the bracketed name should be gray/dim
     nameStyled := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
-    return fmt.Sprintf("%s %s %s", n.kind, nameStyled, st)
+    kindStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(n.kind)
+    return fmt.Sprintf("%s %s %s", kindStyled, nameStyled, st)
 }
 
 func (v *TreeView) innerWidth() int {
