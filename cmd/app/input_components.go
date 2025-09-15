@@ -183,57 +183,50 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 
     // Get autocomplete suggestions
     suggestions := m.autocompleteEngine.GetCommandAutocomplete(query, m.state)
+    var firstPlain string
+    if len(suggestions) > 0 {
+        firstPlain = strings.TrimPrefix(suggestions[0], ":")
+    }
 
-	// DEBUG: Log suggestions
-
-	// If no suggestions, show normal input
-	if len(suggestions) == 0 {
-		return m.inputComponents.commandInput.View()
-	}
-
-	// Get the first suggestion for inline completion
-    firstSuggestion := suggestions[0]
-    // Strip the ':' for on-screen rendering and suffix computation
-    firstPlain := strings.TrimPrefix(firstSuggestion, ":")
-
-	// Find the part that should be shown as dim text
-    // Only show an inline suffix if the suggestion continues the current input
-    if len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
-        // Calculate remaining text to show as dim (no colon)
-        suggestionSuffix := firstPlain[len(currentInput):]
-
-		// Create a custom render that doesn't use the full textinput width
-		// We need to manually construct the input view to control spacing
-
-    // Style the current input text
+    // Style the current input, colorizing the argument validity for known commands
     inputText := currentInput
+    parts := strings.Fields(currentInput)
+    if len(parts) >= 1 {
+        cmdWord := strings.ToLower(parts[0])
+        canonical := m.autocompleteEngine.ResolveAlias(cmdWord)
+        if info := m.autocompleteEngine.GetCommandInfo(canonical); info != nil && info.TakesArg && len(parts) >= 2 {
+            arg := parts[1]
+            all := m.autocompleteEngine.GetArgumentSuggestions(canonical, "", m.state)
+            valid := false
+            for _, s := range all {
+                cand := strings.TrimPrefix(s, ":"+canonical+" ")
+                if strings.EqualFold(cand, arg) { valid = true; break }
+            }
+            argStyle := lipgloss.NewStyle().Foreground(outOfSyncColor) // red
+            if valid { argStyle = lipgloss.NewStyle().Foreground(cyanBright) } // blue
+            if strings.Contains(currentInput, " ") {
+                rest := ""
+                if len(parts) > 2 { rest = " " + strings.Join(parts[2:], " ") }
+                inputText = parts[0] + " " + argStyle.Render(arg) + rest
+            }
+        }
+    }
 
-		// Style the suggestion suffix as dim
-		dimSuggestion := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
+    // Optional dim suggestion suffix
+    dimSuggestion := ""
+    if firstPlain != "" && len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
+        suggestionSuffix := firstPlain[len(currentInput):]
+        dimSuggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
+    }
 
-		// Hide cursor when showing autocomplete suggestions
-		// The cursor would appear at the wrong position after the dim text
-		cursor := ""
-
-    // Reintroduce visible prompt to match default input rendering
-    promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // Light gray
+    // Prompt + colored input + optional dim suggestion
+    promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // light gray
     prompt := promptStyle.Render("> ")
-
-    // Combine: prompt + input text + dim suggestion (no cursor)
-    content := prompt + inputText + dimSuggestion + cursor
-
-		// Add padding to fill the maxWidth if needed
-		contentWidth := lipgloss.Width(content)
-		if contentWidth < maxWidth {
-			padding := strings.Repeat(" ", maxWidth-contentWidth)
-			content += padding
-		}
-
-		return content
-	}
-
-    // Fallback to normal input if no completion available
-    return m.inputComponents.commandInput.View()
+    content := prompt + inputText + dimSuggestion
+    if w := lipgloss.Width(content); w < maxWidth {
+        content += strings.Repeat(" ", maxWidth-w)
+    }
+    return content
 }
 
 // Enhanced input handling for bubbles integration
