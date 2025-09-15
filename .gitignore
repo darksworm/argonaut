@@ -78,5 +78,10 @@ hive-mind-prompt-*.txt
 
 # macOS
 .DS_Store
-\n# Ignore downloaded Argo CD manifest\nargocd/install.yaml
+
+# Ignore downloaded Argo CD manifest
+argocd/install.yaml
 logs/
+
+# Local worktrees not to be tracked
+/hello/
