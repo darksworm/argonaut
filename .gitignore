@@ -10,7 +10,14 @@ argonaut-cli
 main
 /app
 /bin/
+### Go CLI binaries
 a9s
+argonaut
+cmd/app/app
+e2e/a9s_e2e
+
+### Editor or tool output
+repomix-output.xml
 *.exe
 *.exe~
 *.dll

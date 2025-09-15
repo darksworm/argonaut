@@ -20,6 +20,9 @@ jobs:
       - name: Unit tests
         run: |
           go test ./...
+      - name: E2E tests (parallel)
+        run: |
+          go test -tags e2e ./e2e -v -count=1 -parallel 8
 
   build-binaries:
     if: ${{ github.event_name == 'pull_request' }}
