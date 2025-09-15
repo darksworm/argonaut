@@ -71,25 +71,27 @@ func RetryWithBackoff(ctx context.Context, config RetryConfig, fn RetryFunc) err
 			return nil
 		}
 
-		lastErr = err
+        lastErr = err
 
-		// Convert to structured error if needed
-		var argErr *apperrors.ArgonautError
-		if ae, ok := err.(*apperrors.ArgonautError); ok {
-			argErr = ae
-		} else {
-			argErr = apperrors.Wrap(err, apperrors.ErrorInternal, "RETRY_OPERATION_FAILED", "Operation failed during retry")
-		}
+        // Convert to structured error for logging/decision only
+        var argErr *apperrors.ArgonautError
+        if ae, ok := err.(*apperrors.ArgonautError); ok {
+            argErr = ae
+        } else {
+            // Create a temporary wrapper for categorization, but prefer returning the original error later
+            argErr = apperrors.Wrap(err, apperrors.ErrorInternal, "RETRY_OPERATION_FAILED", "Operation failed during retry")
+        }
 
 		// Log the attempt
 		logger.Warn("Attempt %d/%d failed (took %v): %s",
 			attempt, config.MaxAttempts, duration, argErr.Error())
 
 		// Check if we should retry
-		if !config.ShouldRetry(argErr) {
-			logger.Info("Not retrying due to error type: %s", argErr.Category)
-			return argErr
-		}
+        if !config.ShouldRetry(argErr) {
+            logger.Info("Not retrying due to error type: %s", argErr.Category)
+            // Return the original error to preserve its message/details
+            return err
+        }
 
 		// Don't sleep after the last attempt
 		if attempt >= config.MaxAttempts {
