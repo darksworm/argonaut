@@ -650,12 +650,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Printf("StructuredErrorMsg received: Category=%s, Code=%s, Message=%s",
 				msg.Error.Category, msg.Error.Code, msg.Error.Message)
 
-			// Update error state in TUI
-			if tuiHandler := tui.GetDefaultTUIHandler(); tuiHandler != nil {
-				tuiMessages := tuiHandler.HandleError(msg.Error)
-				// Process TUI messages if needed
-				_ = tuiMessages
-			}
+			// Update error state so the error view can show full details
+			tui.UpdateAppErrorState(m.state, msg.Error)
 		}
 
 		// Clear any loading states that might be active
