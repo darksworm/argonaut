@@ -517,9 +517,6 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
             m.state.UI.TreeAppName = &target
             m.treeLoading = true
             return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
-		case "license", "licenses":
-			m.state.Mode = model.ModeLicense
-			return m, nil
 		case "all":
 			m.state.Selections = *model.NewSelectionState()
 			m.state.UI.SearchQuery = ""

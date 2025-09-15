@@ -8,9 +8,6 @@ import (
 )
 
 func (m Model) renderHelpModal() string {
-    var sections []string
-    header := m.renderBanner()
-    sections = append(sections, header)
 
     // Layout toggle (match earlier TS threshold)
     isWide := m.state.Terminal.Cols >= 60
@@ -54,9 +51,9 @@ func (m Model) renderHelpModal() string {
         keycap("d"), " open diff (apps view)",
     }, "")
 
-    // MISC
+    // MISC (licenses removed)
     misc := strings.Join([]string{
-        mono(":all"), " ", bullet(), " ", mono(":licenses"),
+        mono(":all"),
         "\n",
         mono(":logs"), " ", bullet(), " ", mono(":q"),
     }, "")
@@ -76,7 +73,8 @@ func (m Model) renderHelpModal() string {
     helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
 
     body := "\n" + strings.Join(helpSections, "\n") + "\n"
-    return m.renderFullScreenViewWithOptions(header, body, m.renderStatusLine(), FullScreenViewOptions{ ContentBordered: true, BorderColor: magentaBright })
+    // No header: occupy full screen with the help box and status line
+    return m.renderFullScreenViewWithOptions("", body, m.renderStatusLine(), FullScreenViewOptions{ ContentBordered: true, BorderColor: magentaBright })
 }
 
 func (m Model) renderDiffLoadingSpinner() string {

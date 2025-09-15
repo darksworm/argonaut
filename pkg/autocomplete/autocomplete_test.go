@@ -104,7 +104,7 @@ func TestGetCommandAutocomplete_EmptyInput(t *testing.T) {
 	}
 
 	// Should contain all primary commands
-	expected := []string{":all", ":app", ":cluster", ":diff", ":license", ":logs", ":namespace", ":project", ":resources", ":rollback", ":sync", ":up"}
+    expected := []string{":all", ":app", ":cluster", ":diff", ":logs", ":namespace", ":project", ":resources", ":rollback", ":sync", ":up"}
 
 	// Check that all expected commands are present (subset check since we have aliases)
 	for _, exp := range expected {

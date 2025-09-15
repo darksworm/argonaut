@@ -1,8 +1,3 @@
-                                                                                                    
-  Argonaut dev                                                                                      
-                                                                                                    
- Context: argo.example.com                                                                          
-                                                                                                    
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │                                                                                                │ 
  │ GENERAL      : command • / search • ? help                                                     │ 
@@ -19,11 +14,16 @@
  │               r  resources (apps view)                                                         │ 
  │               d  open diff (apps view)                                                         │ 
  │                                                                                                │ 
- │ MISC         :all • :licenses                                                                  │ 
+ │ MISC         :all                                                                              │ 
  │              :logs • :q                                                                        │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
  │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
  │                                                                                                │ 
  ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
  <clusters>                                                                             Ready • 0/0 
