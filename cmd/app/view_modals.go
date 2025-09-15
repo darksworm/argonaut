@@ -183,6 +183,9 @@ func (m Model) renderRollbackModal() string {
     var sections []string
     sections = append(sections, header)
     sections = append(sections, styledContent)
+    // Add status line to ensure full-height composition like other views
+    status := m.renderStatusLine()
+    sections = append(sections, status)
 
     content := strings.Join(sections, "\n")
     totalHeight := m.state.Terminal.Rows - 1
@@ -218,6 +221,8 @@ func (m Model) renderSimpleModal(title, content string) string {
     var sections []string
     sections = append(sections, header)
     sections = append(sections, styledContent)
+    // Add status line for consistent height
+    sections = append(sections, m.renderStatusLine())
 
     content = strings.Join(sections, "\n")
     totalHeight := m.state.Terminal.Rows - 1
