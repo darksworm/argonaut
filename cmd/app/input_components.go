@@ -470,10 +470,11 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 				selectedApp = &model.App{Name: target}
 			}
 
-			// Switch to tree view and load
-			m.state.Navigation.View = model.ViewTree
-			m.state.UI.TreeAppName = &target
-			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
+            // Switch to tree view and load
+            m.state.Navigation.View = model.ViewTree
+            m.state.UI.TreeAppName = &target
+            m.treeLoading = true
+            return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
 		case "license", "licenses":
 			m.state.Mode = model.ModeLicense
 			return m, nil

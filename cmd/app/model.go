@@ -62,6 +62,9 @@ type Model struct {
 
     // Tree watch internal channel delivery
     treeStream chan model.ResourceTreeStreamMsg
+
+    // Tree loading overlay state
+    treeLoading bool
 }
 // NewModel, Init, pager helpers, and tree stream helpers moved to dedicated files.
 
@@ -152,6 +155,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                 m.treeView.SetData(&tree)
             }
         }
+        // Any tree stream activity implies data is arriving; clear loading overlay
+        m.treeLoading = false
         return m, m.consumeTreeEvent()
 
 		// Spinner messages
@@ -295,18 +300,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.consumeWatchEvent()
 
     case model.ResourceTreeLoadedMsg:
-		// Populate tree view with loaded data
-		if m.treeView != nil && len(msg.TreeJSON) > 0 {
-			var tree api.ResourceTree
-			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
-				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
-				m.treeView.SetData(&tree)
-			}
-			// Reset cursor for tree view
-			m.state.Navigation.SelectedIdx = 0
-			m.statusService.Set("Tree loaded")
-		}
-		return m, nil
+        // Populate tree view with loaded data
+        if m.treeView != nil && len(msg.TreeJSON) > 0 {
+            var tree api.ResourceTree
+            if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
+                m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
+                m.treeView.SetData(&tree)
+            }
+            // Reset cursor for tree view
+            m.state.Navigation.SelectedIdx = 0
+            m.statusService.Set("Tree loaded")
+        }
+        // Clear loading overlay once initial tree is loaded
+        m.treeLoading = false
+        return m, nil
 
 	case ResourcesLoadedMsg:
         cblog.With("component", "tree").Info("ResourcesLoadedMsg", "app", msg.AppName)

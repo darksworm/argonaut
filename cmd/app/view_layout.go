@@ -67,6 +67,18 @@ func (m Model) renderMainLayout() string {
     baseView := mainContainerStyle.Render(content)
 
     // Overlays
+    // Tree loading overlay when entering resources view
+    if m.state.Navigation.View == model.ViewTree && m.treeLoading {
+        spinner := m.renderTreeLoadingSpinner()
+        grayBase := desaturateANSI(baseView)
+        baseLayer := lipgloss.NewLayer(grayBase)
+        spinnerLayer := lipgloss.NewLayer(spinner).
+            X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
+            Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
+            Z(1)
+        canvas := lipgloss.NewCanvas(baseLayer, spinnerLayer)
+        return canvas.Render()
+    }
     // Confirm Sync modal (confirmation or loading state)
     if m.state.Mode == model.ModeConfirmSync || m.state.Modals.ConfirmSyncLoading {
         modal := ""

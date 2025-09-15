@@ -848,6 +848,7 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
     m.state.SaveNavigationState()
     m.state.Navigation.View = model.ViewTree
     m.state.UI.TreeAppName = &app.Name
+    m.treeLoading = true
     return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 

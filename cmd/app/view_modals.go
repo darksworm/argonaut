@@ -93,6 +93,21 @@ func (m Model) renderDiffLoadingSpinner() string {
     return outer.Render(spinnerStyle.Render(spinnerContent))
 }
 
+// renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
+func (m Model) renderTreeLoadingSpinner() string {
+    spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
+    spinnerStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(cyanBright).
+        Background(lipgloss.Color("0")).
+        Foreground(whiteBright).
+        Padding(1, 2).
+        Bold(true).
+        Align(lipgloss.Center)
+    outer := lipgloss.NewStyle().Padding(1, 1)
+    return outer.Render(spinnerStyle.Render(spinnerContent))
+}
+
 func (m Model) renderSyncLoadingModal() string {
     msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
     content := msg
