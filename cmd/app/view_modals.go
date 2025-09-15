@@ -42,13 +42,10 @@ func (m Model) renderHelpModal() string {
         "\n",
         mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " go up level",
         "\n",
-        keycap("s"), " sync modal (apps view)",
+        // App view hotkeys grouped two per line
+        keycap("s"), " sync modal (apps view) ", bullet(), " ", keycap("R"), " rollback modal (apps view)",
         "\n",
-        keycap("R"), " rollback modal (apps view)",
-        "\n",
-        keycap("r"), " resources (apps view)",
-        "\n",
-        keycap("d"), " open diff (apps view)",
+        keycap("r"), " resources (apps view) ", bullet(), " ", keycap("d"), " open diff (apps view)",
     }, "")
 
     // MISC (licenses removed)
