@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"strings"
+    "fmt"
+    "os"
+    "strings"
 
-	"github.com/charmbracelet/bubbles/v2/textinput"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
-	"github.com/darksworm/argonaut/pkg/model"
+    "github.com/charmbracelet/bubbles/v2/textinput"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    "github.com/charmbracelet/lipgloss/v2"
+    cblog "github.com/charmbracelet/log"
+    "github.com/darksworm/argonaut/pkg/model"
 )
 
 // InputComponentState manages interactive input components
@@ -211,17 +211,15 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 		// Style the suggestion suffix as dim
 		dimSuggestion := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
 
-		// Show cursor if input is focused
+		// Hide cursor when showing autocomplete suggestions
+		// The cursor would appear at the wrong position after the dim text
 		cursor := ""
-		if m.inputComponents.commandInput.Focused() {
-			cursor = lipgloss.NewStyle().Reverse(true).Render(" ")
-		}
 
     // Reintroduce visible prompt to match default input rendering
     promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // Light gray
     prompt := promptStyle.Render("> ")
 
-    // Combine: prompt + input text + dim suggestion + cursor
+    // Combine: prompt + input text + dim suggestion (no cursor)
     content := prompt + inputText + dimSuggestion + cursor
 
 		// Add padding to fill the maxWidth if needed
@@ -405,7 +403,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 
 			// Use the same rollback logic as the R key
-			log.Printf(":rollback command for app: %s", target)
+            cblog.With("component", "rollback").Debug(":rollback command invoked", "app", target)
 			m.state.Modals.RollbackAppName = &target
 			m.state.Mode = model.ModeRollback
 
@@ -544,6 +542,10 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			} else {
 				m.state.Selections.SelectedApps = model.NewStringSet()
 			}
+			return m, nil
+		case "help":
+			// Show help modal
+			m.state.Mode = model.ModeHelp
 			return m, nil
 		case "quit", "q", "q!", "exit":
 			// Exit the application

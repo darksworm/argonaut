@@ -1255,11 +1255,11 @@ func (m Model) renderHelpModal() string {
 	sections = append(sections, m.renderHelpSection("VIEWS", viewsContent, isWide))
 
 	// ACTIONS section
-	actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:up go up level\ns sync modal • R rollback modal (apps view)"
+	actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:resources [app] • :up go up level\ns sync modal • R rollback modal (apps view)"
 	sections = append(sections, m.renderHelpSection("ACTIONS", actionsContent, isWide))
 
 	// MISC section
-	miscContent := ":all • :licenses\n:logs • :q"
+	miscContent := ":all • :help • :logs • :q"
 	sections = append(sections, m.renderHelpSection("MISC", miscContent, isWide))
 
 	// Close instruction
@@ -1874,9 +1874,13 @@ func (m Model) renderLogsView() string {
 
 // readLogContent reads the actual log file content
 func (m Model) readLogContent() string {
-	// Try to read the log file that we write to in main.go
-	logFile := "logs/a9s.log"
-	content, err := os.ReadFile(logFile)
+    // Try to read the log file path from environment (set by setupLogging)
+    logFile := os.Getenv("ARGONAUT_LOG_FILE")
+    if strings.TrimSpace(logFile) == "" {
+        // Fallback to legacy location if env not set
+        logFile = "logs/a9s.log"
+    }
+    content, err := os.ReadFile(logFile)
 	if err != nil {
 		return fmt.Sprintf("ArgoCD Application Logs\n\nError reading log file: %v\n\nPress q to return to main view.", err)
 	}

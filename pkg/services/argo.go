@@ -1,17 +1,17 @@
 package services
 
 import (
-	"context"
-	"encoding/json"
-	"log"
-	"strings"
-	"sync"
+    "context"
+    "encoding/json"
+    "strings"
+    "sync"
 
-	"github.com/darksworm/argonaut/pkg/api"
-	apperrors "github.com/darksworm/argonaut/pkg/errors"
-	appcontext "github.com/darksworm/argonaut/pkg/context"
-	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/retry"
+    "github.com/darksworm/argonaut/pkg/api"
+    apperrors "github.com/darksworm/argonaut/pkg/errors"
+    appcontext "github.com/darksworm/argonaut/pkg/context"
+    "github.com/darksworm/argonaut/pkg/model"
+    "github.com/darksworm/argonaut/pkg/retry"
+    cblog "github.com/charmbracelet/log"
 )
 
 // ArgoApiService interface defines operations for interacting with ArgoCD API
@@ -351,7 +351,7 @@ func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan cha
         defer close(watchEventChan)
         err := s.appService.WatchApplications(ctx, watchEventChan)
         if err != nil && ctx.Err() == nil {
-            log.Printf("Watch stream error: %v", err)
+            cblog.With("component", "services").Error("Watch stream error", "err", err)
             // Map auth-related errors to a dedicated event so the TUI can switch to auth-required
             if ae, ok := err.(*apperrors.ArgonautError); ok {
                 if ae.IsCategory(apperrors.ErrorAuth) || hasHTTPStatus(ae, 401, 403) || ae.IsCode("UNAUTHORIZED") || ae.IsCode("AUTHENTICATION_FAILED") {

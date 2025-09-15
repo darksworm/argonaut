@@ -4,13 +4,13 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "log"
     "os"
     "os/exec"
     "strings"
     "time"
 
     tea "github.com/charmbracelet/bubbletea/v2"
+    cblog "github.com/charmbracelet/log"
     "github.com/darksworm/argonaut/pkg/api"
     apperrors "github.com/darksworm/argonaut/pkg/errors"
     "github.com/darksworm/argonaut/pkg/model"
@@ -414,10 +414,10 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
-		log.Printf("Starting sync for app: %s", appName)
+        cblog.With("component", "api").Info("Starting sync", "app", appName)
 		err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
 		if err != nil {
-			log.Printf("Sync failed for app %s: %v", appName, err)
+            cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
 			// Convert to structured error and return via TUI error handling
 			if argErr, ok := err.(*apperrors.ArgonautError); ok {
 				return model.StructuredErrorMsg{
@@ -438,7 +438,7 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 			}
 		}
 
-		log.Printf("Sync completed successfully for app: %s", appName)
+        cblog.With("component", "api").Info("Sync completed", "app", appName)
 		return model.SyncCompletedMsg{AppName: appName, Success: true}
 	})
 }
@@ -476,13 +476,15 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 
 // startLogsSession opens application logs in pager
 func (m Model) startLogsSession() tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
-		data, err := os.ReadFile("logs/a9s.log")
-		if err != nil {
-			return model.ApiErrorMsg{Message: "No logs available"}
-		}
-		return m.openTextPager("Logs", string(data))()
-	})
+    return tea.Cmd(func() tea.Msg {
+        path := os.Getenv("ARGONAUT_LOG_FILE")
+        if strings.TrimSpace(path) == "" { path = "logs/a9s.log" }
+        data, err := os.ReadFile(path)
+        if err != nil {
+            return model.ApiErrorMsg{Message: "No logs available"}
+        }
+        return m.openTextPager("Logs", string(data))()
+    })
 }
 
 // startRollbackSession loads deployment history for rollback
@@ -501,14 +503,14 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 		app, err := apiService.GetApplication(ctx, m.state.Server, appName, nil)
 		if err != nil {
 			errMsg := err.Error()
-			log.Printf("Rollback session failed for app %s: %v", appName, err)
+        cblog.With("component", "rollback").Error("Rollback session failed", "app", appName, "err", err)
 			if isAuthenticationError(errMsg) {
 				return model.AuthErrorMsg{Error: err}
 			}
 			return model.ApiErrorMsg{Message: "Failed to load application: " + err.Error()}
 		}
 
-		log.Printf("Successfully loaded application %s with %d history entries", appName, len(app.Status.History))
+        cblog.With("component", "rollback").Info("Loaded application history", "app", appName, "count", len(app.Status.History))
 
 		// Convert history to rollback rows
 		rows := api.ConvertDeploymentHistoryToRollbackRows(app.Status.History)
@@ -521,7 +523,7 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 			currentRevision = app.Status.Sync.Revisions[0]
 		}
 
-		log.Printf("Rollback session loaded for %s: %d deployment history rows, current revision: %s", appName, len(rows), currentRevision)
+        cblog.With("component", "rollback").Debug("Rollback session loaded", "app", appName, "rows", len(rows), "currentRevision", currentRevision)
 
 		return model.RollbackHistoryLoadedMsg{
 			AppName:         appName,

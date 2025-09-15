@@ -35,18 +35,18 @@ func main() {
     // Create the initial model
     m := NewModel()
 
-	// Load ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
-	log.Println("Loading ArgoCD config…")
+	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
+	cblog.With("component", "app").Info("Loading Argo CD config…")
 
 	// Try to read the ArgoCD CLI config file
     server, err := loadArgoConfig(cfgPathFlag)
 	if err != nil {
-		log.Printf("Could not load ArgoCD config: %v", err)
-		log.Println("Please run 'argocd login' to configure and authenticate")
+		cblog.With("component", "app").Error("Could not load Argo CD config", "err", err)
+		cblog.With("component", "app").Info("Please run 'argocd login' to configure and authenticate")
 		// Set to nil - the app will show auth-required mode
 		m.state.Server = nil
 	} else {
-		log.Printf("Successfully loaded ArgoCD config for server: %s", server.BaseURL)
+		cblog.With("component", "app").Info("Loaded Argo CD config", "server", server.BaseURL)
 		m.state.Server = server
 		// Server is configured - the Init() method will handle showing loading screen
 	}
@@ -78,25 +78,20 @@ func stringPtr(s string) *string {
 
 // setupLogging configures logging to write to a file instead of stdout
 func setupLogging() {
-	// Create logs directory if it doesn't exist
-	if err := os.MkdirAll("logs", 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create logs directory: %v\n", err)
-		return
-	}
+    // Create temp log file and expose path via env for the logs view
+    f, err := os.CreateTemp("", "a9s-*.log")
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Failed to create temp log file: %v\n", err)
+        return
+    }
+    _ = os.Setenv("ARGONAUT_LOG_FILE", f.Name())
 
-	// Open log file
-	logFile, err := os.OpenFile("logs/a9s.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open log file: %v\n", err)
-		return
-	}
-
-    // Set standard log output to file
-    log.SetOutput(logFile)
+    // Standard library log to same file (for any remaining log.Printf)
+    log.SetOutput(f)
     log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-    // Configure charmbracelet/log default logger to same file, with level from env
-    logger := cblog.NewWithOptions(logFile, cblog.Options{ReportTimestamp: true})
+    // Charmbracelet/log to same file
+    logger := cblog.NewWithOptions(f, cblog.Options{ReportTimestamp: true})
     switch strings.ToUpper(os.Getenv("ARGONAUT_LOG_LEVEL")) {
     case "DEBUG":
         logger.SetLevel(cblog.DebugLevel)
@@ -111,7 +106,7 @@ func setupLogging() {
     }
     cblog.SetDefault(logger)
 
-    log.Println("ArgoCD Apps started")
+    cblog.With("component", "app").Info("Argo CD Apps started", "logFile", f.Name())
 }
 
 // loadArgoConfig loads ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
@@ -142,16 +137,17 @@ func loadArgoConfig(overridePath string) (*model.Server, error) {
 
 // createFileStatusHandler creates a status handler that logs to file
 func createFileStatusHandler() services.StatusChangeHandler {
-	return func(msg services.StatusMessage) {
-		switch msg.Level {
-		case services.StatusLevelError:
-			log.Printf("ERROR: %s", msg.Message)
-		case services.StatusLevelWarn:
-			log.Printf("WARN: %s", msg.Message)
-		case services.StatusLevelInfo:
-			log.Printf("INFO: %s", msg.Message)
-		case services.StatusLevelDebug:
-			log.Printf("DEBUG: %s", msg.Message)
-		}
-	}
+    return func(msg services.StatusMessage) {
+        logger := cblog.With("component", "status")
+        switch msg.Level {
+        case services.StatusLevelError:
+            logger.Error(msg.Message)
+        case services.StatusLevelWarn:
+            logger.Warn(msg.Message)
+        case services.StatusLevelInfo:
+            logger.Info(msg.Message)
+        case services.StatusLevelDebug:
+            logger.Debug(msg.Message)
+        }
+    }
 }

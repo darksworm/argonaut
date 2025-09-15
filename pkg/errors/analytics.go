@@ -1,12 +1,12 @@
 package errors
 
 import (
-	"context"
-	"encoding/json"
-	"log"
-	"sort"
-	"sync"
-	"time"
+    "context"
+    "encoding/json"
+    "sort"
+    "sync"
+    "time"
+    cblog "github.com/charmbracelet/log"
 )
 
 // ErrorAnalytics provides error monitoring and analysis capabilities
@@ -128,7 +128,7 @@ func (ea *ErrorAnalytics) RecordError(err *ArgonautError) {
 	// Update metrics
 	ea.updateMetrics()
 
-	log.Printf("DEBUG: Recorded error for analytics: %s/%s", err.Category, err.Code)
+    cblog.With("component", "errors").Debug("Recorded error", "category", err.Category, "code", err.Code)
 }
 
 // RecordResolution records when an error is resolved
@@ -145,8 +145,8 @@ func (ea *ErrorAnalytics) RecordResolution(category ErrorCategory, code string, 
 			record.ResolvedAt = &resolvedAt
 			record.Duration = &duration
 
-			log.Printf("DEBUG: Recorded resolution for error: %s/%s (duration: %v)",
-				category, code, duration)
+            cblog.With("component", "errors").Debug("Recorded resolution",
+                "category", category, "code", code, "duration", duration)
 			break
 		}
 	}
@@ -498,7 +498,7 @@ func (ea *ErrorAnalytics) Cleanup(ctx context.Context) {
 	removed := len(ea.errorHistory) - len(newHistory)
 	ea.errorHistory = newHistory
 
-	if removed > 0 {
-		log.Printf("DEBUG: Cleaned up %d old error records", removed)
-	}
+    if removed > 0 {
+        cblog.With("component", "errors").Debug("Cleaned up old error records", "count", removed)
+    }
 }

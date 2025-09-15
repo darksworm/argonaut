@@ -1,12 +1,12 @@
 package main
 
 import (
-	"log"
-	"os"
-	"time"
+    "os"
+    "time"
 
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/darksworm/argonaut/pkg/model"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    cblog "github.com/charmbracelet/log"
+    "github.com/darksworm/argonaut/pkg/model"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -261,7 +261,7 @@ func (m Model) handleRollback() (Model, tea.Cmd) {
 	}
 
 	// Log rollback start
-	log.Printf("Starting rollback session for app: %s", appName)
+    cblog.With("component", "rollback").Info("Starting rollback session", "app", appName)
 
 	// Start loading rollback history
 	return m, m.startRollbackSession(appName)

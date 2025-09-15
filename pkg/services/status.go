@@ -1,8 +1,8 @@
 package services
 
 import (
-	"fmt"
-	"log"
+    "fmt"
+    cblog "github.com/charmbracelet/log"
 )
 
 // StatusLevel represents the level of a status message
@@ -132,17 +132,18 @@ func (s *StatusServiceImpl) GetCurrentStatus() string {
 
 // handleMessage processes a status message
 func (s *StatusServiceImpl) handleMessage(msg StatusMessage) {
-	// Always log to standard logger
-	switch msg.Level {
-	case StatusLevelError:
-		log.Printf("ERROR: %s", msg.Message)
-	case StatusLevelWarn:
-		log.Printf("WARN: %s", msg.Message)
-	case StatusLevelInfo:
-		log.Printf("INFO: %s", msg.Message)
-	case StatusLevelDebug:
-		log.Printf("DEBUG: %s", msg.Message)
-	}
+    // Log via charmbracelet/log
+    logger := cblog.With("component", "status")
+    switch msg.Level {
+    case StatusLevelError:
+        logger.Error(msg.Message)
+    case StatusLevelWarn:
+        logger.Warn(msg.Message)
+    case StatusLevelInfo:
+        logger.Info(msg.Message)
+    case StatusLevelDebug:
+        logger.Debug(msg.Message)
+    }
 
 	// Call custom handler if provided
 	if s.handler != nil {

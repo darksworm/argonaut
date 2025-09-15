@@ -1,19 +1,19 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
-	"github.com/charmbracelet/bubbles/v2/spinner"
-	"github.com/charmbracelet/bubbles/v2/table"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+    "github.com/charmbracelet/bubbles/v2/spinner"
+    "github.com/charmbracelet/bubbles/v2/table"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    "github.com/charmbracelet/lipgloss/v2"
+    cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
@@ -227,7 +227,7 @@ func (m Model) consumeTreeEvent() tea.Cmd {
 func (m Model) validateAuthentication() tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
-			log.Printf("No server configured - showing auth required")
+            cblog.With("component", "auth").Info("No server configured - showing auth required")
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
 
@@ -238,7 +238,7 @@ func (m Model) validateAuthentication() tea.Cmd {
 
 		// Validate user info (similar to TypeScript getUserInfo call)
 		if err := appService.GetUserInfo(ctx); err != nil {
-			log.Printf("Authentication validation failed: %v", err)
+            cblog.With("component", "auth").Error("Authentication validation failed", "err", err)
 
 			// Check if this is a connection error rather than authentication error
 			errStr := err.Error()
@@ -254,7 +254,7 @@ func (m Model) validateAuthentication() tea.Cmd {
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
 
-		log.Printf("Authentication validated successfully")
+        cblog.With("component", "auth").Info("Authentication validated successfully")
 		return model.SetModeMsg{Mode: model.ModeLoading}
 	}
 }
@@ -280,7 +280,7 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 		r := strings.NewReader(text)
 		root, err := oviewer.NewRoot(r)
 		if err != nil {
-			log.Printf("ERROR: Failed to create oviewer root: %v", err)
+            cblog.With("component", "pager").Error("Failed to create oviewer root", "err", err)
 			return pagerDoneMsg{Err: err}
 		}
 
@@ -294,7 +294,7 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 		// Try to configure keybindings and catch any errors
 		configErr := configureVimKeyBindings(&cfg)
 		if configErr != nil {
-			log.Printf("ERROR: Failed to configure vim keybindings: %v", configErr)
+            cblog.With("component", "pager").Error("Failed to configure vim keybindings", "err", configErr)
 			return pagerDoneMsg{Err: configErr}
 		}
 
@@ -305,7 +305,7 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 		// Capture any error from Run()
 		runErr := root.Run()
 		if runErr != nil {
-			log.Printf("ERROR: Failed to run oviewer: %v", runErr)
+            cblog.With("component", "pager").Error("Failed to run oviewer", "err", runErr)
 			return pagerDoneMsg{Err: runErr}
 		}
 
@@ -342,7 +342,7 @@ func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if err := c.Run(); err != nil {
-		log.Printf("interactive diff viewer failed: %v", err)
+        cblog.With("component", "diff").Error("interactive diff viewer failed", "err", err)
 		return pagerDoneMsg{Err: err}
 	}
 	return pagerDoneMsg{Err: nil}
@@ -620,14 +620,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ResourcesLoadedMsg:
-		log.Printf("Received ResourcesLoadedMsg for app: %s", msg.AppName)
+        cblog.With("component", "tree").Info("ResourcesLoadedMsg", "app", msg.AppName)
 		if m.state.Resources != nil && m.state.Resources.AppName == msg.AppName {
 			if msg.Error != "" {
-				log.Printf("ERROR: Resource loading failed for %s: %s", msg.AppName, msg.Error)
+                cblog.With("component", "tree").Error("Resource loading failed", "app", msg.AppName, "err", msg.Error)
 				m.state.Resources.Loading = false
 				m.state.Resources.Error = msg.Error
 			} else {
-				log.Printf("SUCCESS: Loaded %d resources for app %s", len(msg.Resources), msg.AppName)
+                cblog.With("component", "tree").Info("Loaded resources", "count", len(msg.Resources), "app", msg.AppName)
 				m.state.Resources.Loading = false
 				m.state.Resources.Resources = msg.Resources
 				m.state.Resources.Error = ""
@@ -647,8 +647,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusService.Error(errorMsg)
 
 			// Debug: Log structured error details
-			log.Printf("StructuredErrorMsg received: Category=%s, Code=%s, Message=%s",
-				msg.Error.Category, msg.Error.Code, msg.Error.Message)
+            cblog.With("component", "tui").Debug("StructuredErrorMsg",
+                "category", msg.Error.Category, "code", msg.Error.Code, "message", msg.Error.Message)
 
 			// Update error state so the error view can show full details
 			tui.UpdateAppErrorState(m.state, msg.Error)
@@ -689,7 +689,7 @@ case model.ApiErrorMsg:
         if m.state.Mode == model.ModeAuthRequired {
             return m, nil
         }
-        // Log error to file and store structured error in state for display
+        // Log error and store structured error in state for display
         fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
 		if msg.StatusCode > 0 {
 			fullErrorMsg = fmt.Sprintf("API Error (%d): %s", msg.StatusCode, msg.Message)
@@ -765,7 +765,7 @@ case model.ApiErrorMsg:
 
 		// If there was an error, display it
 		if msg.Err != nil {
-			log.Printf("PAGER ERROR: %v", msg.Err)
+            cblog.With("component", "pager").Error("Pager error", "err", msg.Err)
 			// Set error state and display the error on screen
 			m.state.CurrentError = &model.ApiError{
 				Message:    "Pager Error: " + msg.Err.Error(),
@@ -784,7 +784,7 @@ case model.ApiErrorMsg:
 		return m, nil
 
 	case model.AuthErrorMsg:
-		// Log error to file and store in model for display
+        // Log error and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
 
@@ -1132,12 +1132,12 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "r":
 		return m.handleRefresh()
 	case "R":
-		log.Printf("R key pressed, current view: %v", m.state.Navigation.View)
+        cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
 		if m.state.Navigation.View == model.ViewApps {
-			log.Printf("Calling handleRollback()")
+            cblog.With("component", "rollback").Debug("Calling handleRollback()")
 			return m.handleRollback()
 		} else {
-			log.Printf("Rollback not available in view: %v", m.state.Navigation.View)
+            cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
 		}
 
 	// Clear/escape functionality
@@ -1165,31 +1165,31 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // loadResourcesForApp creates a command to load resources for the given app
 func (m Model) loadResourcesForApp(appName string) tea.Cmd {
-	log.Printf("Loading resources for app: %s", appName)
+    cblog.With("component", "tree").Info("Loading resources", "app", appName)
 
 	return func() tea.Msg {
 		if m.state.Server == nil {
-			log.Printf("ERROR: server not configured when loading resources for %s", appName)
+            cblog.With("component", "tree").Error("Server not configured while loading resources", "app", appName)
 			return ResourcesLoadedMsg{
 				AppName: appName,
 				Error:   "Server not configured",
 			}
 		}
 
-		log.Printf("Creating ApplicationService for server: %s", m.state.Server.BaseURL)
+        cblog.With("component", "tree").Debug("Creating ApplicationService", "server", m.state.Server.BaseURL)
 		appService := api.NewApplicationService(m.state.Server)
 
-		log.Printf("Calling GetResourceTree API for app: %s", appName)
+        cblog.With("component", "tree").Debug("Calling GetResourceTree", "app", appName)
 		tree, err := appService.GetResourceTree(context.Background(), appName, "")
 		if err != nil {
-			log.Printf("ERROR: Failed to load resources for app %s: %v", appName, err)
+            cblog.With("component", "tree").Error("Failed to load resources", "app", appName, "err", err)
 			return ResourcesLoadedMsg{
 				AppName: appName,
 				Error:   err.Error(),
 			}
 		}
 
-		log.Printf("Successfully loaded %d resources for app %s", len(tree.Nodes), appName)
+        cblog.With("component", "tree").Info("Loaded resources", "count", len(tree.Nodes), "app", appName)
 
 		// Convert api.ResourceNode to model.ResourceNode
 		modelResources := make([]model.ResourceNode, len(tree.Nodes))
