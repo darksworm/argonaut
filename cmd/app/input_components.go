@@ -416,7 +416,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 			// Start loading rollback history using the same function as R key
 			return m, m.startRollbackSession(target)
-		case "resources":
+		case "resources", "res", "r":
 			target := arg
 			if target == "" {
 				// Only try to get current selection if we're in the apps view
