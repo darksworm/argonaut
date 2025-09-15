@@ -19,12 +19,26 @@ func (m Model) renderStatusLine() string {
     }
 
     // Right side: status and position (matches MainLayout right Box)
-    position := "0/0"
-    if len(visibleItems) > 0 {
-        position = fmt.Sprintf("%d/%d", m.state.Navigation.SelectedIdx+1, len(visibleItems))
+    // For tree view, use treeView counts; otherwise use list counts.
+    position := ""
+    if m.state.Navigation.View == model.ViewTree && m.treeView != nil {
+        total := m.treeView.VisibleCount()
+        if total > 0 {
+            position = fmt.Sprintf("%d/%d", m.treeView.SelectedIndex()+1, total)
+        }
+    } else {
+        // Keep old behavior for list views: show 0/0 when empty
+        if len(visibleItems) > 0 {
+            position = fmt.Sprintf("%d/%d", m.state.Navigation.SelectedIdx+1, len(visibleItems))
+        } else {
+            position = "0/0"
+        }
     }
 
-    rightText := fmt.Sprintf("Ready • %s", position)
+    rightText := "Ready"
+    if position != "" {
+        rightText = fmt.Sprintf("Ready • %s", position)
+    }
     if m.state.UI.IsVersionOutdated {
         rightText += " • Update available!"
     }
@@ -95,4 +109,3 @@ func (m Model) getColorForStatus(status string) lipgloss.Style {
         return lipgloss.NewStyle().Foreground(unknownColor)
     }
 }
-

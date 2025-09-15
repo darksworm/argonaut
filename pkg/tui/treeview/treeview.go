@@ -303,6 +303,7 @@ func (v *TreeView) View() string {
 
         // Color non-bracket parts (tree lines, disclosure, kind) as bright white for clarity
         prefixStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(prefix + disc)
+        // Default line composition without selection background
         label := v.renderLabel(n)
         line := prefixStyled + label
 
@@ -315,7 +316,21 @@ func (v *TreeView) View() string {
             }
         }
         if i == v.selIdx {
-            line = lipgloss.NewStyle().Background(selectBG).Render(padRight(line, v.innerWidth()))
+            // Rebuild the line so that the selection background covers the entire row,
+            // including the kind text and the bracketed name/status segments.
+            name := n.name
+            if n.namespace != "" {
+                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+            }
+            status := n.health
+            if status == "" { status = n.status }
+
+            ps := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(prefix + disc)
+            ks := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(n.kind)
+            ns := lipgloss.NewStyle().Foreground(colorGray).Background(selectBG).Render("[" + name + "]")
+            st := statusStyle(status).Background(selectBG).Render(fmt.Sprintf("(%s)", status))
+            line = ps + ks + " " + ns + " " + st
+            line = padRight(line, v.innerWidth())
         }
         b.WriteString(line)
         if i < len(v.order)-1 { b.WriteString("\n") }
@@ -350,6 +365,9 @@ func max(a, b int) int { if a > b { return a }; return b }
 
 // Expose selected index for integration (optional)
 func (v *TreeView) SelectedIndex() int { return v.selIdx }
+
+// VisibleCount returns the number of currently visible nodes in DFS order.
+func (v *TreeView) VisibleCount() int { return len(v.order) }
 
 func padRight(s string, width int) string {
     w := lipgloss.Width(s)

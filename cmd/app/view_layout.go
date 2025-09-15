@@ -46,6 +46,8 @@ func (m Model) renderMainLayout() string {
 
     var sections []string
     sections = append(sections, header)
+    // Add a subtle vertical gap between the banner and bordered content
+    sections = append(sections, "")
     if searchBar != "" { sections = append(sections, searchBar) }
     if commandBar != "" { sections = append(sections, commandBar) }
 
