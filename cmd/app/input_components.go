@@ -342,6 +342,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
             applied := strings.TrimPrefix(suggestions[0], ":")
             m.inputComponents.SetCommandValue(applied)
             m.state.UI.Command = applied
+            // Move the cursor to the end of the newly-applied text so the
+            // user can continue typing immediately (e.g., ":ns <completed>")
+            m.inputComponents.commandInput.CursorEnd()
         }
         return m, nil
 	case "enter":
