@@ -108,6 +108,28 @@ func (m Model) renderTreeLoadingSpinner() string {
     return outer.Render(spinnerStyle.Render(spinnerContent))
 }
 
+// renderRollbackLoadingModal displays a centered modal while rollback is loading/executing
+func (m Model) renderRollbackLoadingModal() string {
+    msg := "Loading rollback…"
+    if m.state.Rollback != nil {
+        if m.state.Rollback.Mode == "confirm" {
+            msg = "Executing rollback…"
+        } else if m.state.Modals.RollbackAppName != nil {
+            msg = "Loading rollback for " + *m.state.Modals.RollbackAppName + "…"
+        }
+    }
+    content := m.spinner.View() + " " + statusStyle.Render(msg)
+    wrapper := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(outOfSyncColor).
+        Padding(1, 2)
+    minW := 28
+    w := max(minW, lipgloss.Width(content)+4)
+    wrapper = wrapper.Width(w)
+    outer := lipgloss.NewStyle().Padding(1, 1)
+    return outer.Render(wrapper.Render(content))
+}
+
 func (m Model) renderSyncLoadingModal() string {
     msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
     content := msg
