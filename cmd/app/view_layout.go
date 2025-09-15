@@ -46,8 +46,11 @@ func (m Model) renderMainLayout() string {
 
     var sections []string
     sections = append(sections, header)
-    // Add a subtle vertical gap between the banner and bordered content
-    sections = append(sections, "")
+    // Add a subtle vertical gap only in wide layout. The narrow banner
+    // already includes spacing, so avoid doubling it.
+    if m.state.Terminal.Cols > 100 {
+        sections = append(sections, "")
+    }
     if searchBar != "" { sections = append(sections, searchBar) }
     if commandBar != "" { sections = append(sections, commandBar) }
 
