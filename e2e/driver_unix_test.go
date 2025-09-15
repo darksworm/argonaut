@@ -6,6 +6,7 @@ import (
     "bytes"
     "io"
     "encoding/json"
+    "fmt"
     "net/http"
     "net/http/httptest"
     "os"
@@ -47,6 +48,31 @@ func NewTUITest(t *testing.T) *TUITestFramework {
     return &TUITestFramework{t: t, buf: make([]byte, ringSize)}
 }
 
+// ensureBinary builds the app test binary if it doesn't exist yet.
+func ensureBinary(t *testing.T) error {
+    t.Helper()
+    // Resolve absolute binPath under e2e dir
+    cwd, err := os.Getwd()
+    if err != nil { return err }
+    p := binPath
+    if !filepath.IsAbs(p) {
+        p = filepath.Join(cwd, p)
+    }
+    // Already exists?
+    if st, err := os.Stat(p); err == nil && st.Mode().IsRegular() {
+        binPath = p
+        return nil
+    }
+    // Build it
+    cmd := exec.Command("go", "build", "-o", p, "./cmd/app")
+    cmd.Dir = ".."
+    if out, err := cmd.CombinedOutput(); err != nil {
+        return fmt.Errorf("build failed: %v\n%s", err, string(out))
+    }
+    binPath = p
+    return nil
+}
+
 // SetupWorkspace creates an isolated HOME and returns ARGOCD_CONFIG path to write
 func (tf *TUITestFramework) SetupWorkspace() (string, error) {
     tf.t.Helper()
@@ -61,17 +87,21 @@ func (tf *TUITestFramework) SetupWorkspace() (string, error) {
 // StartApp runs the compiled binary under a PTY
 func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
     tf.t.Helper()
+    if err := ensureBinary(tf.t); err != nil { return err }
     tf.cmd = exec.Command(binPath)
     p, t, err := pty.Open()
     if err != nil { return err }
     tf.pty, tf.tty = p, t
 
     tf.cmd.Stdout, tf.cmd.Stdin, tf.cmd.Stderr = t, t, t
+    // Run the app in the isolated workspace so per-test files (e.g., logs) don't clash
+    if tf.workspace != "" { tf.cmd.Dir = tf.workspace }
     env := append(os.Environ(),
         "TERM=xterm-256color",
         "LC_ALL=C",
         "LANG=C",
         "HOME="+tf.workspace,
+        "ARGONAUT_E2E=1",
     )
     env = append(env, extraEnv...)
     tf.cmd.Env = env
@@ -88,16 +118,19 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 // StartAppArgs starts the app with explicit CLI args and optional env
 func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) error {
     tf.t.Helper()
+    if err := ensureBinary(tf.t); err != nil { return err }
     tf.cmd = exec.Command(binPath, args...)
     p, t, err := pty.Open()
     if err != nil { return err }
     tf.pty, tf.tty = p, t
     tf.cmd.Stdout, tf.cmd.Stdin, tf.cmd.Stderr = t, t, t
+    if tf.workspace != "" { tf.cmd.Dir = tf.workspace }
     env := append(os.Environ(),
         "TERM=xterm-256color",
         "LC_ALL=C",
         "LANG=C",
         "HOME="+tf.workspace,
+        "ARGONAUT_E2E=1",
     )
     env = append(env, extraEnv...)
     tf.cmd.Env = env
@@ -148,6 +181,26 @@ func (tf *TUITestFramework) WaitForPlain(substr string, timeout time.Duration) b
     return false
 }
 
+// OpenCommand enters command mode and waits for the command bar to be ready.
+func (tf *TUITestFramework) OpenCommand() error {
+    if err := tf.Send(":"); err != nil { return err }
+    // Command bar shows a light-gray prompt "> " when ready
+    if !tf.WaitForPlain("> ", 2*time.Second) {
+        return fmt.Errorf("command bar not ready")
+    }
+    return nil
+}
+
+// OpenSearch enters search mode and waits for the search bar to be ready.
+func (tf *TUITestFramework) OpenSearch() error {
+    if err := tf.Send("/"); err != nil { return err }
+    // Search bar shows label "Search" when ready
+    if !tf.WaitForPlain("Search", 2*time.Second) {
+        return fmt.Errorf("search bar not ready")
+    }
+    return nil
+}
+
 func (tf *TUITestFramework) Cleanup() {
     if tf.pty != nil { _ = tf.pty.Close(); tf.pty = nil }
     if tf.tty != nil { _ = tf.tty.Close(); tf.tty = nil }
@@ -165,7 +218,10 @@ func MockArgoServer() (*httptest.Server, error) {
     })
     mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
     mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
-        _, _ = w.Write([]byte(`{"nodes":[]}`))
+        _, _ = w.Write([]byte(`{"nodes":[
+            {"kind":"Deployment","name":"demo","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"Synced"},
+            {"kind":"ReplicaSet","name":"demo-rs","namespace":"default","version":"v1","group":"apps","uid":"rs-1","status":"Synced","parentRefs":[{"uid":"dep-1","kind":"Deployment","name":"demo","namespace":"default","group":"apps","version":"v1"}]}
+        ]}`))
     })
     // apps watch stream: send a single apps-loaded style event not required; ListApplications already populates
     mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
@@ -188,35 +244,34 @@ func WriteArgoConfig(path, baseURL string) error {
 // MockArgoServerAuth requires Authorization: Bearer <validToken> or returns 401
 func MockArgoServerAuth(validToken string) (*httptest.Server, error) {
     mux := http.NewServeMux()
-    requireAuth := func(w http.ResponseWriter, r *http.Request) bool {
+    // Enforce auth on userinfo and applications to drive auth-required view deterministically
+    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
         got := r.Header.Get("Authorization")
         if got != "Bearer "+validToken {
             w.WriteHeader(http.StatusUnauthorized)
             _, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-            return false
+            return
         }
-        return true
-    }
-    mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
-        if !requireAuth(w, r) { return }
         w.WriteHeader(200)
         _, _ = w.Write([]byte(`{}`))
     })
     mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
-        if !requireAuth(w, r) { return }
+        got := r.Header.Get("Authorization")
+        if got != "Bearer "+validToken {
+            w.WriteHeader(http.StatusUnauthorized)
+            _, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+            return
+        }
         w.Header().Set("Content-Type", "application/json")
         _, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
     })
     mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
-        if !requireAuth(w, r) { return }
         _, _ = w.Write([]byte(`{"version":"e2e"}`))
     })
     mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
-        if !requireAuth(w, r) { return }
         _, _ = w.Write([]byte(`{"nodes":[]}`))
     })
     mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
-        if !requireAuth(w, r) { return }
         fl, _ := w.(http.Flusher)
         w.Header().Set("Content-Type", "application/json")
         _, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo"}}}}\n`))

@@ -19,6 +19,7 @@ func waitUntil(t *testing.T, cond func() bool, timeout time.Duration) bool {
 
 // Ensure single-app sync posts to the correct endpoint with expected body
 func TestSyncSingleApp(t *testing.T) {
+    t.Parallel()
     tf := NewTUITest(t)
     t.Cleanup(tf.Cleanup)
 
@@ -32,12 +33,16 @@ func TestSyncSingleApp(t *testing.T) {
 
     if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil { t.Fatalf("start app: %v", err) }
 
-    // Navigate down to apps view: clusters -> namespaces -> projects -> apps
+    // Navigate deterministically via commands to apps
     if !tf.WaitForPlain("cluster-a", 3*time.Second) { t.Fatal("clusters not ready") }
-    _ = tf.Enter()
-    if !tf.WaitForPlain("default", 3*time.Second) { t.Fatal("namespaces not ready") }
+    _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
+    _ = tf.Send("ns default")
     _ = tf.Enter()
     if !tf.WaitForPlain("demo", 3*time.Second) { t.Fatal("projects not ready") }
+    _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
+    _ = tf.Send("apps")
     _ = tf.Enter()
     if !tf.WaitForPlain("demo2", 3*time.Second) { t.Fatal("apps not ready") }
 
@@ -63,6 +68,7 @@ func TestSyncSingleApp(t *testing.T) {
 
 // Ensure multi-app sync posts for each selected app
 func TestSyncMultipleApps(t *testing.T) {
+    t.Parallel()
     tf := NewTUITest(t)
     t.Cleanup(tf.Cleanup)
 
@@ -76,12 +82,16 @@ func TestSyncMultipleApps(t *testing.T) {
 
     if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil { t.Fatalf("start app: %v", err) }
 
-    // To apps
+    // To apps deterministically
     if !tf.WaitForPlain("cluster-a", 3*time.Second) { t.Fatal("clusters not ready") }
-    _ = tf.Enter()
-    if !tf.WaitForPlain("default", 3*time.Second) { t.Fatal("namespaces not ready") }
+    _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
+    _ = tf.Send("ns default")
     _ = tf.Enter()
     if !tf.WaitForPlain("demo", 3*time.Second) { t.Fatal("projects not ready") }
+    _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
+    _ = tf.Send("apps")
     _ = tf.Enter()
     if !tf.WaitForPlain("demo2", 3*time.Second) { t.Fatal("apps not ready") }
 
@@ -104,4 +114,3 @@ func TestSyncMultipleApps(t *testing.T) {
         t.Fatalf("expected sync calls for demo and demo2, got: %+v", names)
     }
 }
-

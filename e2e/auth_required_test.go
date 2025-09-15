@@ -10,6 +10,7 @@ import (
 
 // When config is empty, app should show the auth-required screen with instructions
 func TestEmptyConfigShowsAuthRequired(t *testing.T) {
+    t.Parallel()
     tf := NewTUITest(t)
     t.Cleanup(tf.Cleanup)
 
@@ -37,4 +38,3 @@ func TestEmptyConfigShowsAuthRequired(t *testing.T) {
     // Exit cleanly
     _ = tf.CtrlC()
 }
-

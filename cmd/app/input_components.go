@@ -144,34 +144,27 @@ func (m Model) renderEnhancedCommandBar() string {
 		return ""
 	}
 
-	// Command bar with border (matches CommandBar Box with borderStyle="round" borderColor="yellow")
-	commandBarStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		PaddingLeft(1).
-		PaddingRight(1)
+    // Command bar with border (matches CommandBar Box with borderStyle="round" borderColor="yellow")
+    commandBarStyle := lipgloss.NewStyle().
+        Border(lipgloss.RoundedBorder()).
+        BorderForeground(yellowBright).
+        PaddingLeft(1).
+        PaddingRight(1)
 
-	// Content matching CommandBar layout
-	cmdLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("CMD")
-	// Removed colon prefix from command prompt
+    // Compute widths for full-row input (no label, fill full width)
+    totalWidth := m.state.Terminal.Cols
+    // Match OUTER width of main content border (cols-2); inner width = cols-6
+    styleWidth := maxInt(0, totalWidth-2)
+    innerWidth := maxInt(0, styleWidth-4)
+    minInput := 5
+    inputWidth := maxInt(minInput, innerWidth)
+    if inputWidth != m.inputComponents.commandInput.Width() {
+        m.inputComponents.commandInput.SetWidth(inputWidth)
+    }
 
-	// Compute widths for full-row input (no trailing help text)
-	totalWidth := m.state.Terminal.Cols
-	// Match OUTER width of main content border (cols-2); inner width = cols-6
-	styleWidth := maxInt(0, totalWidth-2)
-	innerWidth := maxInt(0, styleWidth-4)
-	baseUsed := lipgloss.Width(cmdLabel) + 1 /*space*/
-	minInput := 5
-	inputWidth := maxInt(minInput, innerWidth-baseUsed)
-	if inputWidth != m.inputComponents.commandInput.Width() {
-		m.inputComponents.commandInput.SetWidth(inputWidth)
-	}
-
-	// Render with autocomplete suggestions
-	commandInputView := m.renderCommandInputWithAutocomplete(inputWidth)
-	content := fmt.Sprintf("%s %s", cmdLabel, commandInputView)
-
-	return commandBarStyle.Width(styleWidth).Render(content)
+    // Render with autocomplete suggestions
+    commandInputView := m.renderCommandInputWithAutocomplete(inputWidth)
+    return commandBarStyle.Width(styleWidth).Render(commandInputView)
 }
 
 // renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
@@ -180,13 +173,16 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 
 	// DEBUG: Log what we're working with
 
-	// If input is empty or doesn't start with ":", just show normal input
-	if currentInput == "" || !strings.HasPrefix(currentInput, ":") {
-		return m.inputComponents.commandInput.View()
-	}
+    // Build query for the autocomplete engine. The engine expects a leading ':',
+    // but our command mode does not include ':' in the text input; ':' is only
+    // used to enter the mode. So prepend it for querying suggestions.
+    query := currentInput
+    if !strings.HasPrefix(query, ":") {
+        query = ":" + query
+    }
 
-	// Get autocomplete suggestions
-	suggestions := m.autocompleteEngine.GetCommandAutocomplete(currentInput, m.state)
+    // Get autocomplete suggestions
+    suggestions := m.autocompleteEngine.GetCommandAutocomplete(query, m.state)
 
 	// DEBUG: Log suggestions
 
@@ -196,22 +192,21 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	}
 
 	// Get the first suggestion for inline completion
-	firstSuggestion := suggestions[0]
+    firstSuggestion := suggestions[0]
+    // Strip the ':' for on-screen rendering and suffix computation
+    firstPlain := strings.TrimPrefix(firstSuggestion, ":")
 
 	// Find the part that should be shown as dim text
-	if len(firstSuggestion) > len(currentInput) {
-		// Calculate remaining text to show as dim
-		suggestionSuffix := firstSuggestion[len(currentInput):]
+    // Only show an inline suffix if the suggestion continues the current input
+    if len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
+        // Calculate remaining text to show as dim (no colon)
+        suggestionSuffix := firstPlain[len(currentInput):]
 
 		// Create a custom render that doesn't use the full textinput width
 		// We need to manually construct the input view to control spacing
 
-		// Get the prompt style (similar to textinput default)
-		promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // Light gray
-		prompt := promptStyle.Render("> ")
-
-		// Style the current input text
-		inputText := currentInput
+    // Style the current input text
+    inputText := currentInput
 
 		// Style the suggestion suffix as dim
 		dimSuggestion := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
@@ -222,8 +217,12 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 			cursor = lipgloss.NewStyle().Reverse(true).Render(" ")
 		}
 
-		// Combine: prompt + input text + dim suggestion + cursor
-		content := prompt + inputText + dimSuggestion + cursor
+    // Reintroduce visible prompt to match default input rendering
+    promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // Light gray
+    prompt := promptStyle.Render("> ")
+
+    // Combine: prompt + input text + dim suggestion + cursor
+    content := prompt + inputText + dimSuggestion + cursor
 
 		// Add padding to fill the maxWidth if needed
 		contentWidth := lipgloss.Width(content)
@@ -235,8 +234,8 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 		return content
 	}
 
-	// Fallback to normal input if no completion available
-	return m.inputComponents.commandInput.View()
+    // Fallback to normal input if no completion available
+    return m.inputComponents.commandInput.View()
 }
 
 // Enhanced input handling for bubbles integration
@@ -331,18 +330,22 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
 		return m, nil
-	case "tab":
-		// Tab completion - accept the first autocomplete suggestion
-		currentInput := m.inputComponents.GetCommandValue()
-		if strings.HasPrefix(currentInput, ":") {
-			suggestions := m.autocompleteEngine.GetCommandAutocomplete(currentInput, m.state)
-			if len(suggestions) > 0 {
-				// Set the first suggestion as the current input
-				m.inputComponents.SetCommandValue(suggestions[0])
-				m.state.UI.Command = suggestions[0]
-			}
-		}
-		return m, nil
+    case "tab":
+        // Tab completion - accept the first autocomplete suggestion
+        currentInput := m.inputComponents.GetCommandValue()
+        // Build query with ':' prefix for the engine
+        query := currentInput
+        if !strings.HasPrefix(query, ":") {
+            query = ":" + query
+        }
+        suggestions := m.autocompleteEngine.GetCommandAutocomplete(query, m.state)
+        if len(suggestions) > 0 {
+            // Apply the suggestion text to the input without the leading ':'
+            applied := strings.TrimPrefix(suggestions[0], ":")
+            m.inputComponents.SetCommandValue(applied)
+            m.state.UI.Command = applied
+        }
+        return m, nil
 	case "enter":
 		// Execute simple navigation commands (clusters/namespaces/projects/apps) with aliases
 		raw := strings.TrimSpace(m.inputComponents.GetCommandValue())

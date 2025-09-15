@@ -40,16 +40,20 @@ func (m Model) startLoadingApplications() tea.Cmd {
 
 		// Load applications
 		// [API] Calling ListApplications - removed printf to avoid TUI interference
-		apps, err := apiService.ListApplications(ctx, m.state.Server)
-		if err != nil {
-			// [API] Error loading applications - removed printf to avoid TUI interference
-			// Check if it's an auth error
-			errMsg := err.Error()
-			if isAuthenticationError(errMsg) {
-				return model.AuthErrorMsg{Error: err}
-			}
-			return model.ApiErrorMsg{Message: err.Error()}
-		}
+        apps, err := apiService.ListApplications(ctx, m.state.Server)
+        if err != nil {
+            // Check structured error category first
+            if argErr, ok := err.(*apperrors.ArgonautError); ok {
+                if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" {
+                    return model.AuthErrorMsg{Error: err}
+                }
+            }
+            // Fallback string matching
+            if isAuthenticationError(err.Error()) {
+                return model.AuthErrorMsg{Error: err}
+            }
+            return model.ApiErrorMsg{Message: err.Error()}
+        }
 
 		// Successfully loaded applications
 		// [API] Successfully loaded applications - removed printf to avoid TUI interference

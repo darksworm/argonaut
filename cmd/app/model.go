@@ -261,11 +261,11 @@ func (m Model) validateAuthentication() tea.Cmd {
 
 // openTextPager releases the terminal and runs an oviewer pager with the given text
 func (m Model) openTextPager(title, text string) tea.Cmd {
-	return func() tea.Msg {
-		if m.program != nil {
-			m.program.Send(pauseRenderingMsg{})
-			_ = m.program.ReleaseTerminal()
-		}
+    return func() tea.Msg {
+        if m.program != nil {
+            m.program.Send(pauseRenderingMsg{})
+            _ = m.program.ReleaseTerminal()
+        }
 		defer func() {
 			// Clear screen and restore terminal to Bubble Tea
 			fmt.Print("\x1b[2J\x1b[H")
@@ -676,9 +676,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case model.ApiErrorMsg:
-		// Log error to file and store structured error in state for display
-		fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
+case model.ApiErrorMsg:
+        // If we're already in auth-required mode, suppress generic API errors to avoid
+        // overriding the auth-required view with a generic error panel.
+        if m.state.Mode == model.ModeAuthRequired {
+            return m, nil
+        }
+        // Log error to file and store structured error in state for display
+        fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
 		if msg.StatusCode > 0 {
 			fullErrorMsg = fmt.Sprintf("API Error (%d): %s", msg.StatusCode, msg.Message)
 		}

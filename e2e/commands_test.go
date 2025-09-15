@@ -24,15 +24,16 @@ func TestCommandCtxFromProjects(t *testing.T) {
 
     if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil { t.Fatalf("start app: %v", err) }
 
-    // Drill to projects first
+    // Go to projects deterministically via commands
     if !tf.WaitForPlain("cluster-a", 3*time.Second) { t.Fatal("clusters not ready") }
-    _ = tf.Enter()
-    if !tf.WaitForPlain("default", 3*time.Second) { t.Fatal("namespaces not ready") }
+    _ = tf.Send(":")
+    _ = tf.Send("ns default")
     _ = tf.Enter()
     if !tf.WaitForPlain("demo", 3*time.Second) { t.Fatal("projects not ready") }
 
     // Use :ctx to jump back to clusters (with arg -> advance to namespaces)
     _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
     _ = tf.Send("ctx cluster-a")
     _ = tf.Enter()
 
@@ -61,6 +62,7 @@ func TestCommandNsFromClusters(t *testing.T) {
     if !tf.WaitForPlain("cluster-a", 3*time.Second) { t.Fatal("clusters not ready") }
 
     _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
     _ = tf.Send("ns default")
     _ = tf.Enter()
 
@@ -89,6 +91,7 @@ func TestCommandAppFromAnywhere(t *testing.T) {
     if !tf.WaitForPlain("cluster-a", 3*time.Second) { t.Fatal("clusters not ready") }
 
     _ = tf.Send(":")
+    if !tf.WaitForPlain("> ", 2*time.Second) { t.Fatal("command bar not ready") }
     _ = tf.Send("app demo")
     _ = tf.Enter()
 
@@ -98,4 +101,3 @@ func TestCommandAppFromAnywhere(t *testing.T) {
         t.Fatal("expected apps view after :app demo")
     }
 }
-

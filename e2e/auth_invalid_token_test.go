@@ -9,10 +9,11 @@ import (
 
 // When token is invalid, app should show auth-required screen
 func TestInvalidTokenShowsAuthRequired(t *testing.T) {
+    t.Parallel()
     tf := NewTUITest(t)
     t.Cleanup(tf.Cleanup)
 
-    // Mock server expecting a different token
+    // Mock server requiring a token for userinfo (auth gate)
     srv, err := MockArgoServerAuth("valid-token")
     if err != nil { t.Fatalf("mock server: %v", err) }
     t.Cleanup(srv.Close)
@@ -28,6 +29,7 @@ func TestInvalidTokenShowsAuthRequired(t *testing.T) {
         t.Fatalf("start app: %v", err)
     }
 
+    // Expect authentication required banner and instructions
     if !tf.WaitForPlain("AUTHENTICATION REQUIRED", 4*time.Second) {
         t.Log(tf.SnapshotPlain())
         t.Fatal("expected AUTHENTICATION REQUIRED with invalid token")

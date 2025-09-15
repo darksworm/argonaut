@@ -23,15 +23,15 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
         t.Fatalf("start app: %v", err)
     }
 
-    // Wait for banner
-    if ok := tf.WaitForPlain("Argo", 3*time.Second); !ok {
+    // Wait for app ready status (stable marker)
+    if ok := tf.WaitForPlain("Ready", 3*time.Second); !ok {
         t.Log(tf.SnapshotPlain())
-        t.Fatal("did not see banner")
+        t.Fatal("did not see ready status")
     }
 
     // Enter help
     if err := tf.Send("?"); err != nil { t.Fatalf("send ?: %v", err) }
-    if !tf.WaitForPlain("Help", 2*time.Second) {
+    if !tf.WaitForPlain("Press ?, q or Esc to close", 2*time.Second) {
         t.Log(tf.SnapshotPlain())
         t.Fatal("help not shown")
     }

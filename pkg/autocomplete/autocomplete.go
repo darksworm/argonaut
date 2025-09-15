@@ -105,13 +105,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			TakesArg:    false,
 			ArgType:     "",
 		},
-		{
-			Command:     "license",
-			Aliases:     []string{"license", "licenses", "about"},
-			Description: "Show license information",
-			TakesArg:    false,
-			ArgType:     "",
-		},
+        {
+            Command:     "license",
+            Aliases:     []string{"license", "licenses"},
+            Description: "Show license information",
+            TakesArg:    false,
+            ArgType:     "",
+        },
 		{
 			Command:     "quit",
 			Aliases:     []string{"quit", "q", "q!", "exit"},
