@@ -347,9 +347,25 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
             m.inputComponents.commandInput.CursorEnd()
         }
         return m, nil
-	case "enter":
-		// Execute simple navigation commands (clusters/namespaces/projects/apps) with aliases
-		raw := strings.TrimSpace(m.inputComponents.GetCommandValue())
+    case "enter":
+        // Execute simple navigation commands (clusters/namespaces/projects/apps) with aliases
+        // but first, if there's an autocomplete suggestion that extends the input,
+        // accept it implicitly so Enter completes rather than errors.
+        typed := strings.TrimSpace(m.inputComponents.GetCommandValue())
+        // Build query with ':' prefix
+        q := typed
+        if !strings.HasPrefix(q, ":") {
+            q = ":" + q
+        }
+        sugg := m.autocompleteEngine.GetCommandAutocomplete(q, m.state)
+        raw := typed
+        if len(sugg) > 0 {
+            applied := strings.TrimPrefix(sugg[0], ":")
+            // Only accept if it continues what was typed (prefix match)
+            if strings.HasPrefix(strings.ToLower(applied), strings.ToLower(typed)) {
+                raw = applied
+            }
+        }
 		m.inputComponents.BlurInputs()
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
