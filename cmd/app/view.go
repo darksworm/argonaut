@@ -866,51 +866,7 @@ func (m Model) renderAuthRequiredView() string {
 	})
 }
 
-func (m Model) renderHelpModal() string {
-	// Build sections for the help modal
-	var sections []string
-
-	// Add header
-	header := m.renderBanner()
-	sections = append(sections, header)
-
-	// Build help content
-	isWide := m.state.Terminal.Cols >= 60
-	var helpSections []string
-
-	// GENERAL section
-	generalContent := ": command • / search • ? help"
-	helpSections = append(helpSections, m.renderHelpSection("GENERAL", generalContent, isWide))
-
-	// NAV section
-	navContent := "j/k up/down • Space select • Enter drill down • Esc clear/up"
-	helpSections = append(helpSections, m.renderHelpSection("NAV", navContent, isWide))
-
-	// VIEWS section
-	viewsContent := ":cls|:clusters|:cluster • :ns|:namespaces|:namespace\n:proj|:projects|:project • :apps"
-	helpSections = append(helpSections, m.renderHelpSection("VIEWS", viewsContent, isWide))
-
-	// ACTIONS section
-	actionsContent := ":diff [app] • :sync [app] • :rollback [app]\n:resources [app] • :up go up level\ns sync modal • R rollback modal (apps view)"
-	helpSections = append(helpSections, m.renderHelpSection("ACTIONS", actionsContent, isWide))
-
-	// MISC section
-	miscContent := ":all • :help • :logs • :q"
-	helpSections = append(helpSections, m.renderHelpSection("MISC", miscContent, isWide))
-
-	// Close instruction
-	helpSections = append(helpSections, "")
-	helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
-
-    helpContent := strings.Join(helpSections, "\n")
-
-    // Use standard full-screen layout with a bordered content box for consistent sizing
-    body := "\n" + helpContent + "\n"
-    return m.renderFullScreenViewWithOptions(header, body, m.renderStatusLine(), FullScreenViewOptions{
-        ContentBordered: true,
-        BorderColor:     magentaBright,
-    })
-}
+// moved to view_modals.go
 
 func (m Model) renderOfficeSupplyManager() string {
 	return statusStyle.Render("Office supply manager - TODO: implement 1:1")
@@ -1667,149 +1623,16 @@ func (m Model) renderConnectionErrorView() string {
 }
 
 // renderDiffLoadingSpinner displays a centered loading spinner for diff operations
-func (m Model) renderDiffLoadingSpinner() string {
-	// Create spinner content with message
-	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
-
-	// Style the spinner with a small bordered box and semi-transparent background
-	spinnerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		Background(lipgloss.Color("0")). // Dark background
-		Foreground(whiteBright).
-		Padding(1, 2).
-		Bold(true).
-		Align(lipgloss.Center)
-
-	// Add outer whitespace so overlay doesn't butt up against background text
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(spinnerStyle.Render(spinnerContent))
-}
+// moved to view_modals.go
 
 // renderSyncLoadingModal displays a compact centered modal with a spinner during sync start
-func (m Model) renderSyncLoadingModal() string {
-	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
-	content := msg
-	// Compact wrapper with cyan border to match confirm modal theme
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Padding(1, 2)
-	// Width based on content, with a small minimum
-	minW := 24
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	// Add outer whitespace: one space left/right and one blank line top/bottom
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
-}
+// moved to view_modals.go
 
 // renderInitialLoadingModal displays a compact centered modal with a spinner during initial app load
-func (m Model) renderInitialLoadingModal() string {
-	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading..."))
-	content := msg
-	// Compact wrapper with magenta border to match the app theme
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		Padding(1, 2)
-	// Width based on content, with a reasonable minimum
-	minW := 32
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	// Add outer whitespace: one space left/right and one blank line top/bottom
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
-}
+// moved to view_modals.go
 
 // renderRollbackModal displays the rollback modal with deployment history
-func (m Model) renderRollbackModal() string {
-	// Calculate available space using the same pattern as other modals
-	header := m.renderBanner()
-	headerLines := countLines(header)
-
-	// Rollback modal doesn't have search/command bars, so overhead is just banner + borders + status
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	// Calculate dimensions for consistent full-height layout
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentHeight := max(3, availableRows)
-	innerWidth := max(0, containerWidth-4) // 2 borders + 2 padding
-	innerHeight := max(0, contentHeight-2) // no vertical padding set
-
-	// Check if rollback state is available
-	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
-		var content string
-		if m.state.Modals.RollbackAppName == nil {
-			content = "No app selected for rollback"
-		} else {
-			content = fmt.Sprintf("Loading deployment history for %s...\n\n%s", *m.state.Modals.RollbackAppName, m.spinner.View())
-		}
-		return m.renderSimpleModal("Rollback", content)
-	}
-
-	rollback := m.state.Rollback
-	var modalContent string
-
-	if rollback.Loading {
-		// Loading state: if confirming, we're executing the rollback; otherwise we're loading history
-		if rollback.Mode == "confirm" {
-			modalContent = fmt.Sprintf("%s Executing rollback for %s...", m.spinner.View(), rollback.AppName)
-		} else {
-			modalContent = fmt.Sprintf("%s Loading deployment history for %s...", m.spinner.View(), *m.state.Modals.RollbackAppName)
-		}
-	} else if rollback.Error != "" {
-		// Error state
-		errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
-		modalContent = errorStyle.Render(fmt.Sprintf("Error loading rollback history:\n%s", rollback.Error))
-	} else if rollback.Mode == "confirm" {
-		// Confirmation mode - render with bottom-aligned confirmation block
-		modalContent = m.renderRollbackConfirmation(rollback, innerHeight, innerWidth)
-	} else {
-		// List mode - show deployment history
-		modalContent = m.renderRollbackHistory(rollback)
-	}
-
-	// Add instructions only for list mode; confirmation view has inline keys
-	if rollback.Mode != "confirm" {
-		instructionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-		instructions := "j/k: Navigate • Enter: Select • Esc: Cancel"
-		modalContent += "\n\n" + instructionStyle.Render(instructions)
-	}
-
-	// Create a full-height bordered box
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		// Occupy full width of the main container
-		Width(containerWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	// Normalize each modal line to the inner content width to avoid wrapping,
-	// then clip to available inner height to prevent vertical overflow.
-	modalContent = normalizeLinesToWidth(modalContent, innerWidth)
-	// Clip modal content to available inner height to prevent overflow.
-	// Height() does not clip content; it only pads. Inner height is total minus borders.
-	modalContent = clipAnsiToLines(modalContent, innerHeight)
-	styledContent := modalStyle.Render(modalContent)
-
-	// Combine with header
-	var sections []string
-	sections = append(sections, header)
-	sections = append(sections, styledContent)
-
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	// Clip final composed content to terminal height to ensure no overflow.
-	content = clipAnsiToLines(content, totalHeight)
-	return mainContainerStyle.Height(totalHeight).Render(content)
-}
+// moved to view_modals.go
 
 // renderRollbackHistory renders the deployment history list
 func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
@@ -2009,41 +1832,7 @@ func (m Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHe
 }
 
 // renderSimpleModal renders a simple modal with title and content
-func (m Model) renderSimpleModal(title, content string) string {
-	header := m.renderBanner()
-	headerLines := countLines(header)
-
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4)
-	contentHeight := max(3, availableRows)
-
-	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-	modalContent := titleStyle.Render(title) + "\n\n" + content
-
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	styledContent := modalStyle.Render(modalContent)
-
-	var sections []string
-	sections = append(sections, header)
-	sections = append(sections, styledContent)
-
-	content = strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
-}
+// moved to view_modals.go
 
 // truncateString truncates a string to the specified length with ellipsis
 // moved to view_utils.go
