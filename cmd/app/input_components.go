@@ -545,37 +545,70 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.state.Diff.Loading = true
 			return m, m.startDiffSession(target)
         case "cluster", "clusters", "cls", "context", "ctx":
-            // Switch to clusters view
-            m.state.Navigation.View = model.ViewClusters
+            // Exit deep views and clear lower-level scopes
+            m.state.UI.TreeAppName = nil
+            m.state.Resources = nil
+            m.treeLoading = false
             m.state.Selections.SelectedApps = model.NewStringSet()
+            m.state.Navigation.View = model.ViewClusters
             if arg != "" {
-                // Set cluster scope and advance to namespaces
+                // Validate cluster exists
+                all := m.autocompleteEngine.GetArgumentSuggestions("cluster", "", m.state)
+                names := make([]string, 0, len(all))
+                for _, s := range all { names = append(names, strings.TrimPrefix(s, ":cluster ")) }
+                matched := false
+                for _, n := range names { if strings.EqualFold(n, arg) { arg = n; matched = true; break } }
+                if !matched { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown cluster: "+arg} } }
                 m.state.Selections.ScopeClusters = model.StringSetFromSlice([]string{arg})
+                m.state.Selections.ScopeNamespaces = model.NewStringSet()
+                m.state.Selections.ScopeProjects = model.NewStringSet()
                 m.state.Navigation.View = model.ViewNamespaces
             } else {
                 m.state.Selections.ScopeClusters = model.NewStringSet()
+                m.state.Selections.ScopeNamespaces = model.NewStringSet()
+                m.state.Selections.ScopeProjects = model.NewStringSet()
             }
             return m, nil
-		case "namespace", "namespaces", "ns":
-			m.state.Navigation.View = model.ViewNamespaces
-			m.state.Selections.SelectedApps = model.NewStringSet()
-			if arg != "" {
-				m.state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{arg})
-				m.state.Navigation.View = model.ViewProjects
-			} else {
-				m.state.Selections.ScopeNamespaces = model.NewStringSet()
-			}
-			return m, nil
-		case "project", "projects", "proj":
-			m.state.Navigation.View = model.ViewProjects
-			m.state.Selections.SelectedApps = model.NewStringSet()
-			if arg != "" {
-				m.state.Selections.ScopeProjects = model.StringSetFromSlice([]string{arg})
-				m.state.Navigation.View = model.ViewApps
-			} else {
-				m.state.Selections.ScopeProjects = model.NewStringSet()
-			}
-			return m, nil
+        case "namespace", "namespaces", "ns":
+            m.state.UI.TreeAppName = nil
+            m.state.Resources = nil
+            m.treeLoading = false
+            m.state.Navigation.View = model.ViewNamespaces
+            m.state.Selections.SelectedApps = model.NewStringSet()
+            if arg != "" {
+                all := m.autocompleteEngine.GetArgumentSuggestions("namespace", "", m.state)
+                names := make([]string, 0, len(all))
+                for _, s := range all { names = append(names, strings.TrimPrefix(s, ":namespace ")) }
+                matched := false
+                for _, n := range names { if strings.EqualFold(n, arg) { arg = n; matched = true; break } }
+                if !matched { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown namespace: "+arg} } }
+                m.state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{arg})
+                m.state.Selections.ScopeProjects = model.NewStringSet()
+                m.state.Navigation.View = model.ViewProjects
+            } else {
+                m.state.Selections.ScopeNamespaces = model.NewStringSet()
+                m.state.Selections.ScopeProjects = model.NewStringSet()
+            }
+            return m, nil
+        case "project", "projects", "proj":
+            m.state.UI.TreeAppName = nil
+            m.state.Resources = nil
+            m.treeLoading = false
+            m.state.Navigation.View = model.ViewProjects
+            m.state.Selections.SelectedApps = model.NewStringSet()
+            if arg != "" {
+                all := m.autocompleteEngine.GetArgumentSuggestions("project", "", m.state)
+                names := make([]string, 0, len(all))
+                for _, s := range all { names = append(names, strings.TrimPrefix(s, ":project ")) }
+                matched := false
+                for _, n := range names { if strings.EqualFold(n, arg) { arg = n; matched = true; break } }
+                if !matched { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown project: "+arg} } }
+                m.state.Selections.ScopeProjects = model.StringSetFromSlice([]string{arg})
+                m.state.Navigation.View = model.ViewApps
+            } else {
+                m.state.Selections.ScopeProjects = model.NewStringSet()
+            }
+            return m, nil
 		case "app", "apps":
 			m.state.Navigation.View = model.ViewApps
 			if arg != "" {
