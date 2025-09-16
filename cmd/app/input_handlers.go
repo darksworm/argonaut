@@ -7,6 +7,7 @@ import (
     tea "github.com/charmbracelet/bubbletea/v2"
     cblog "github.com/charmbracelet/log"
     "github.com/darksworm/argonaut/pkg/model"
+    "github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -50,9 +51,9 @@ func (m Model) handleToggleSelection() (Model, tea.Cmd) {
     case model.ViewApps:
         if app, ok := selectedItem.(model.App); ok {
             if model.HasInStringSet(m.state.Selections.SelectedApps, app.Name) {
-                model.RemoveFromStringSet(m.state.Selections.SelectedApps, app.Name)
+                m.state.Selections.SelectedApps = model.RemoveFromStringSet(m.state.Selections.SelectedApps, app.Name)
             } else {
-                model.AddToStringSet(m.state.Selections.SelectedApps, app.Name)
+                m.state.Selections.SelectedApps = model.AddToStringSet(m.state.Selections.SelectedApps, app.Name)
             }
         }
     // For clusters/namespaces/projects views, Space has no effect by design.
@@ -259,7 +260,7 @@ func (m Model) handleEscape() (Model, tea.Cmd) {
 	m.state.Navigation.LastEscPressed = now
 
 	switch m.state.Mode {
-	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeResources, model.ModeDiff:
+	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff:
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	default:
@@ -282,19 +283,19 @@ func (m Model) handleEscape() (Model, tea.Cmd) {
 			// Clear current level (selected apps) and prior (projects), go up to Projects
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			m.state.Selections.ScopeProjects = model.NewStringSet()
-			m.state.Navigation.View = model.ViewProjects
+			m = m.safeChangeView(model.ViewProjects)
 			m.state.Navigation.SelectedIdx = 0
 		case model.ViewProjects:
 			// Clear current (projects) and prior (namespaces), go up to Namespaces
 			m.state.Selections.ScopeProjects = model.NewStringSet()
 			m.state.Selections.ScopeNamespaces = model.NewStringSet()
-			m.state.Navigation.View = model.ViewNamespaces
+			m = m.safeChangeView(model.ViewNamespaces)
 			m.state.Navigation.SelectedIdx = 0
 		case model.ViewNamespaces:
 			// Clear current (namespaces) and prior (clusters), go up to Clusters
 			m.state.Selections.ScopeNamespaces = model.NewStringSet()
 			m.state.Selections.ScopeClusters = model.NewStringSet()
-			m.state.Navigation.View = model.ViewClusters
+			m = m.safeChangeView(model.ViewClusters)
 			m.state.Navigation.SelectedIdx = 0
 		case model.ViewClusters:
 			// At top level: clear current scope only; stay on Clusters
@@ -343,52 +344,7 @@ func (m Model) handleHelpModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleResourcesModeKeys handles navigation in resources mode
-func (m Model) handleResourcesModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if m.state.Resources == nil {
-		return m, nil
-	}
-	switch msg.String() {
-	case "q", "esc":
-		// Restore navigation state and clear selections when returning from resources
-		m.state.RestoreNavigationState()
-		m.state.ClearSelectionsAfterDetailView()
-		m.state.Mode = model.ModeNormal
-
-		// Validate bounds for the restored cursor position
-		visibleItems := m.getVisibleItemsForCurrentView()
-		m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
-			m.state.Navigation.SelectedIdx,
-			len(visibleItems),
-		)
-		return m, nil
-    case "j", "down":
-        // Scroll down in resources view; in grouped mode, let renderer clamp
-        if m.state.Resources != nil {
-            m.state.Resources.Offset++
-        }
-        return m, nil
-    case "k", "up":
-        // Scroll up
-        if m.state.Resources != nil && m.state.Resources.Offset > 0 {
-            m.state.Resources.Offset--
-        }
-        return m, nil
-    case "g":
-        // Go to top of resources
-		if m.state.Resources != nil {
-			m.state.Resources.Offset = 0
-		}
-		return m, nil
-	case "G":
-		// Go to bottom of resources
-		if m.state.Resources != nil && len(m.state.Resources.Resources) > 0 {
-			m.state.Resources.Offset = len(m.state.Resources.Resources) - 1
-		}
-		return m, nil
-	}
-	return m, nil
-}
+// removed: resources list mode
 
 // handleDiffModeKeys handles navigation and search in diff mode
 func (m Model) handleDiffModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
@@ -468,12 +424,10 @@ func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		// Toggle prune option
 		m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
 		return m, nil
-	case "w":
-		// Toggle watch option (only for single app)
-		if m.state.Modals.ConfirmTarget != nil && *m.state.Modals.ConfirmTarget != "__MULTI__" {
-			m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
-		}
-		return m, nil
+    case "w":
+        // Toggle watch option (single or multi)
+        m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
+        return m, nil
 	}
 	return m, nil
 }
@@ -721,8 +675,6 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
         return m.handleRollbackModeKeys(msg)
     case model.ModeDiff:
         return m.handleDiffModeKeys(msg)
-    case model.ModeResources:
-        return m.handleResourcesModeKeys(msg)
     case model.ModeLogs:
         return m.handleLogsModeKeys(msg)
     case model.ModeAuthRequired:
@@ -737,7 +689,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
     if m.state.Navigation.View == model.ViewTree {
         switch msg.String() {
         case "q", "esc":
-            m.state.Navigation.View = model.ViewApps
+            // Stop active tree watchers and return to list
+            m = m.safeChangeView(model.ViewApps)
             visibleItems := m.getVisibleItemsForCurrentView()
             m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
                 m.state.Navigation.SelectedIdx,
@@ -810,20 +763,29 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleOpenResourcesForSelection opens the resources (tree) view for the selected app
 func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
-    // If multiple apps selected, open combined resources view (ModeResources)
+    // If multiple apps selected, open tree view and stream all
     sel := m.state.Selections.SelectedApps
     selected := make([]string, 0, len(sel))
-    for name, ok := range sel {
-        if ok { selected = append(selected, name) }
-    }
+    for name, ok := range sel { if ok { selected = append(selected, name) } }
     if len(selected) > 1 {
-        m.state.Mode = model.ModeResources
-        m.state.Resources = &model.ResourceState{Loading: true, Groups: []model.ResourceGroup{}, Pending: len(selected), Offset: 0}
-        // Launch loads for each selected app
+        // Reset tree view to a fresh multi-app instance
+        m.treeView = treeview.NewTreeView(0, 0)
+        m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+        m.state.SaveNavigationState()
+        m.state.Navigation.View = model.ViewTree
+        // Clear single-app tracker
+        m.state.UI.TreeAppName = nil
+        m.treeLoading = true
         var cmds []tea.Cmd
         for _, name := range selected {
-            cmds = append(cmds, m.loadResourcesForApp(name))
+            // start initial load + watch stream for the tree view
+            var appObj *model.App
+            for i := range m.state.Apps { if m.state.Apps[i].Name == name { appObj = &m.state.Apps[i]; break } }
+            if appObj == nil { tmp := model.App{Name: name}; appObj = &tmp }
+            cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+            cmds = append(cmds, m.startWatchingResourceTree(*appObj))
         }
+        cmds = append(cmds, m.consumeTreeEvent())
         return m, tea.Batch(cmds...)
     }
     // Fallback to single app tree view
@@ -835,6 +797,9 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
     if !ok {
         return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"} }
     }
+    // Reset tree view to a fresh single-app instance
+    m.treeView = treeview.NewTreeView(0, 0)
+    m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
     m.state.SaveNavigationState()
     m.state.Navigation.View = model.ViewTree
     m.state.UI.TreeAppName = &app.Name
@@ -844,15 +809,40 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
 
 // handleOpenDiffForSelection opens the diff for the selected app
 func (m Model) handleOpenDiffForSelection() (Model, tea.Cmd) {
-    items := m.getVisibleItemsForCurrentView()
-    if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
-        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
+    // Check if there are multiple selected apps first
+    sel := m.state.Selections.SelectedApps
+    selected := make([]string, 0, len(sel))
+    for name, ok := range sel { if ok { selected = append(selected, name) } }
+
+    cblog.With("component", "diff").Debug("handleOpenDiffForSelection",
+        "selected_apps", selected,
+        "selected_count", len(selected),
+        "cursor_idx", m.state.Navigation.SelectedIdx)
+
+    var appName string
+    if len(selected) == 1 {
+        // Use the single selected app
+        appName = selected[0]
+        cblog.With("component", "diff").Debug("Using single selected app", "app", appName)
+    } else if len(selected) > 1 {
+        // Multiple apps selected - cannot show diff for multiple apps
+        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Cannot show diff for multiple apps"} }
+    } else {
+        // No apps selected via checkbox, use cursor position
+        items := m.getVisibleItemsForCurrentView()
+        if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
+            return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
+        }
+        app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
+        if !ok {
+            return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"} }
+        }
+        appName = app.Name
+        cblog.With("component", "diff").Debug("Using cursor position", "app", appName, "idx", m.state.Navigation.SelectedIdx)
     }
-    app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
-    if !ok {
-        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"} }
-    }
+
+    cblog.With("component", "diff").Debug("Starting diff session", "app", appName)
     if m.state.Diff == nil { m.state.Diff = &model.DiffState{} }
     m.state.Diff.Loading = true
-    return m, m.startDiffSession(app.Name)
+    return m, m.startDiffSession(appName)
 }

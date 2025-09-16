@@ -311,6 +311,8 @@ func (m Model) startLoadingResourceTree(app model.App) tea.Cmd {
 }
 
 // startWatchingResourceTree starts a streaming watcher for resource tree updates
+type treeWatchStartedMsg struct{ cleanup func() }
+
 func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
     return tea.Cmd(func() tea.Msg {
         if m.state.Server == nil { return nil }
@@ -318,7 +320,7 @@ func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
         apiService := services.NewArgoApiService(m.state.Server)
         appNamespace := ""
         if app.AppNamespace != nil { appNamespace = *app.AppNamespace }
-        ch, _, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+        ch, cleanup, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
         if err != nil { return model.StatusChangeMsg{Status: "Tree watch failed: "+err.Error()} }
         go func() {
             for t := range ch {
@@ -327,7 +329,7 @@ func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
                 m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
             }
         }()
-        return model.StatusChangeMsg{Status: "Watching tree…"}
+        return treeWatchStartedMsg{cleanup: cleanup}
     })
 }
 

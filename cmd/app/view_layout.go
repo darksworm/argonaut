@@ -56,8 +56,6 @@ func (m Model) renderMainLayout() string {
 
     if m.state.Navigation.View == model.ViewTree {
         sections = append(sections, m.renderTreePanel(listRows))
-    } else if m.state.Mode == model.ModeResources {
-        sections = append(sections, m.renderResourceStream(listRows))
     } else {
         sections = append(sections, m.renderListView(listRows))
     }
@@ -76,18 +74,6 @@ func (m Model) renderMainLayout() string {
         modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
         modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
         canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
-        return canvas.Render()
-    }
-    // Resources stream loading overlay (ModeResources path)
-    if m.state.Mode == model.ModeResources && m.state.Resources != nil && m.state.Resources.Loading {
-        spinner := m.renderTreeLoadingSpinner()
-        grayBase := desaturateANSI(baseView)
-        baseLayer := lipgloss.NewLayer(grayBase)
-        spinnerLayer := lipgloss.NewLayer(spinner).
-            X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
-            Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
-            Z(1)
-        canvas := lipgloss.NewCanvas(baseLayer, spinnerLayer)
         return canvas.Render()
     }
     // Tree loading overlay when entering resources view

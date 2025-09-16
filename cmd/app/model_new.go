@@ -18,7 +18,6 @@ func NewModel() *Model {
     s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
     // Initialize tables using helpers
-    resourcesTable := newResourcesTable()
     appsTable := newAppsTable()
     clustersTable := newSimpleTable()
     namespacesTable := newSimpleTable()
@@ -34,7 +33,6 @@ func NewModel() *Model {
         ready:              false,
         err:                nil,
         spinner:            s,
-        resourcesTable:     resourcesTable,
         appsTable:          appsTable,
         clustersTable:      clustersTable,
         namespacesTable:    namespacesTable,

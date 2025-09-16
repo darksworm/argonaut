@@ -20,14 +20,20 @@ type TreeView struct {
     height int
 
     nodesByUID map[string]*treeNode
+    // Per-app bookkeeping so we can upsert multiple apps into a single view
+    nodesByApp map[string][]string // appName -> list of node keys
+    rootByApp  map[string]*treeNode
     roots      []*treeNode
     expanded   map[string]bool
     order      []*treeNode // visible nodes in DFS order based on expanded
     selIdx     int
 
+    // Deprecated single-app fields; kept for compatibility in legacy SetData path
     appName   string
     appHealth string
     appSync   string
+    // Multi-app metadata for synthetic roots
+    appMeta map[string]struct{ health, sync string }
 }
 
 type treeNode struct {
@@ -70,8 +76,11 @@ func NewTreeView(width, height int) *TreeView {
         width:      width,
         height:     height,
         nodesByUID: make(map[string]*treeNode),
+        nodesByApp: make(map[string][]string),
+        rootByApp:  make(map[string]*treeNode),
         expanded:   make(map[string]bool),
         selIdx:     0,
+        appMeta:    make(map[string]struct{ health, sync string }),
     }
     tv.Model = tv // self
     return tv
@@ -82,91 +91,94 @@ func (v *TreeView) Init() tea.Cmd { return nil }
 
 // SetData converts api.ResourceTree to internal nodes and builds adjacency
 func (v *TreeView) SetData(tree *api.ResourceTree) {
+    // Legacy single-app path: reset state and insert once under v.appName
     v.nodesByUID = make(map[string]*treeNode)
+    v.nodesByApp = make(map[string][]string)
+    v.rootByApp = make(map[string]*treeNode)
     v.roots = nil
     v.expanded = make(map[string]bool)
     v.order = nil
     v.selIdx = 0
     v.SelectedUID = ""
+    v.UpsertAppTree(v.appName, tree)
+}
 
-    // First pass: create nodes
-    for _, n := range tree.Nodes {
-        ns := ""
-        if n.Namespace != nil {
-            ns = *n.Namespace
+// UpsertAppTree replaces/adds a single application's tree under a synthetic root
+func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
+    // Remove existing app entries
+    if keys, ok := v.nodesByApp[appName]; ok {
+        for _, k := range keys {
+            delete(v.nodesByUID, k)
+            delete(v.expanded, k)
         }
-        health := ""
-        if n.Health != nil && n.Health.Status != nil {
-            health = *n.Health.Status
-        }
-        tn := &treeNode{
-            uid:    n.UID,
-            kind:   n.Kind,
-            name:   n.Name,
-            status: n.Status,
-            health: health,
-            namespace: ns,
-        }
-        v.nodesByUID[n.UID] = tn
+        delete(v.nodesByApp, appName)
+    }
+    if oldRoot, ok := v.rootByApp[appName]; ok {
+        idx := -1
+        for i, r := range v.roots { if r == oldRoot { idx = i; break } }
+        if idx >= 0 { v.roots = append(v.roots[:idx], v.roots[idx+1:]...) }
+        delete(v.rootByApp, appName)
     }
 
-    // Second pass: set parents/children (use first matching ParentRef uid if present)
-    // Some resources may have multiple ParentRefs; attach to each parent for visibility.
+    // Key scoping to avoid collisions across apps
+    makeKey := func(uid string) string { return appName + "::" + uid }
+
+    // First pass: build nodes for this app
+    nodesLocal := make(map[string]*treeNode)
+    appKeys := make([]string, 0, len(tree.Nodes)+1)
     for _, n := range tree.Nodes {
-        child := v.nodesByUID[n.UID]
-        if len(n.ParentRefs) == 0 {
-            continue
-        }
+        ns := ""; if n.Namespace != nil { ns = *n.Namespace }
+        health := ""; if n.Health != nil && n.Health.Status != nil { health = *n.Health.Status }
+        key := makeKey(n.UID)
+        tn := &treeNode{ uid: key, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns }
+        v.nodesByUID[key] = tn
+        nodesLocal[key] = tn
+        appKeys = append(appKeys, key)
+    }
+
+    // Second pass: parent/child links in this app
+    for _, n := range tree.Nodes {
+        ckey := makeKey(n.UID)
+        child := nodesLocal[ckey]
+        if child == nil { continue }
         for _, pref := range n.ParentRefs {
-            if p, ok := v.nodesByUID[pref.UID]; ok {
-                child.parent = p // last parent wins for back-navigation
+            pkey := makeKey(pref.UID)
+            if p, ok := nodesLocal[pkey]; ok {
+                child.parent = p
                 p.children = append(p.children, child)
             }
         }
     }
 
-    // Roots = nodes with no parent in the set (temporary, will attach under app root)
+    // Collect roots for this app
     tempRoots := make([]*treeNode, 0)
-    for _, node := range v.nodesByUID {
-        if node.parent == nil {
-            tempRoots = append(tempRoots, node)
-        }
-    }
-    // Sort roots and children by kind/name for stable display
+    for _, node := range nodesLocal { if node.parent == nil { tempRoots = append(tempRoots, node) } }
+    // Sort roots and children
     sortNodes := func(list []*treeNode) {
         sort.Slice(list, func(i, j int) bool {
-            if list[i].kind == list[j].kind {
-                return list[i].name < list[j].name
-            }
+            if list[i].kind == list[j].kind { return list[i].name < list[j].name }
             return list[i].kind < list[j].kind
         })
     }
     sortNodes(tempRoots)
-    for _, n := range v.nodesByUID {
-        if len(n.children) > 0 {
-            sortNodes(n.children)
-        }
-    }
+    for _, n := range nodesLocal { if len(n.children) > 0 { sortNodes(n.children) } }
 
-    // Create synthetic application root and attach temp roots under it
-    root := &treeNode{
-        uid:    "__app_root__",
-        kind:   "Application",
-        name:   v.appName,
-        status: v.appHealth,
-        health: v.appHealth,
-    }
-    for _, r := range tempRoots {
-        r.parent = root
-        root.children = append(root.children, r)
-    }
-    v.nodesByUID[root.uid] = root
-    v.roots = []*treeNode{root}
+    // Synthetic application root for this app
+    meta := v.appMeta[appName]
+    rootKey := makeKey("__app_root__")
+    root := &treeNode{ uid: rootKey, kind: "Application", name: appName, status: meta.health, health: meta.health }
+    for _, r := range tempRoots { r.parent = root; root.children = append(root.children, r) }
+    v.nodesByUID[rootKey] = root
+    v.rootByApp[appName] = root
+    v.roots = append(v.roots, root)
+    appKeys = append(appKeys, rootKey)
+    v.nodesByApp[appName] = appKeys
 
-    // Expand everything by default (root and all descendants)
-    for uid := range v.nodesByUID {
-        v.expanded[uid] = true
-    }
+    // Expand newly added nodes
+    for _, k := range appKeys { v.expanded[k] = true }
+
+    // Stable root ordering by app name
+    sort.SliceStable(v.roots, func(i, j int) bool { return v.roots[i].name < v.roots[j].name })
     v.rebuildOrder()
 }
 
@@ -252,6 +264,10 @@ func (v *TreeView) View() string {
     for _, n := range v.nodesByUID { for _, c := range n.children { parentMap[c] = n } }
 
     for i, n := range v.order {
+        // Separate app roots visually with a blank line
+        if n.parent == nil && i > 0 {
+            b.WriteString("\n")
+        }
         // Determine depth by walking parents
         depth := 0
         p := n.parent
@@ -377,6 +393,9 @@ func padRight(s string, width int) string {
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node
 func (v *TreeView) SetAppMeta(name, health, sync string) {
+    if v.appMeta == nil { v.appMeta = make(map[string]struct{ health, sync string }) }
+    v.appMeta[name] = struct{ health, sync string }{health: health, sync: sync}
+    // Keep legacy fields for single-app compatibility
     v.appName = name
     v.appHealth = health
     v.appSync = sync

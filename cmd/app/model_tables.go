@@ -19,13 +19,6 @@ func getTableStyle() table.Styles {
     return s
 }
 
-func newResourcesTable() table.Model {
-    cols := []table.Column{{Title: "KIND", Width: 20}, {Title: "NAME", Width: 40}, {Title: "STATUS", Width: 15}}
-    t := table.New(table.WithColumns(cols), table.WithFocused(false), table.WithHeight(10))
-    t.SetStyles(getTableStyle())
-    return t
-}
-
 func newAppsTable() table.Model {
     cols := []table.Column{{Title: "NAME", Width: 40}, {Title: "SYNC", Width: 12}, {Title: "HEALTH", Width: 15}}
     t := table.New(table.WithColumns(cols), table.WithFocused(true), table.WithHeight(10))

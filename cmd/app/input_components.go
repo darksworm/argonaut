@@ -9,6 +9,7 @@ import (
     "github.com/charmbracelet/lipgloss/v2"
     cblog "github.com/charmbracelet/log"
     "github.com/darksworm/argonaut/pkg/model"
+    "github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // InputComponentState manages interactive input components
@@ -469,34 +470,48 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                 // Only try to get current selection if we're in the apps view
                 if m.state.Navigation.View == model.ViewApps {
                     items := m.getVisibleItemsForCurrentView()
-					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
-						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
-							target = app.Name
-						}
-					}
-				} else {
-					return m, func() tea.Msg {
-						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
-					}
-				}
-			}
-            // If multiple selected apps and no explicit target, open multi resources view
+                    if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+                        if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+                            target = app.Name
+                        }
+                    }
+                } else {
+                    return m, func() tea.Msg {
+                        return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
+                    }
+                }
+            }
+            // If multiple selected and no explicit target, open multi tree view with live updates
             if target == "" {
                 sel := m.state.Selections.SelectedApps
                 names := make([]string, 0, len(sel))
                 for name, ok := range sel { if ok { names = append(names, name) } }
                 if len(names) > 1 {
-                    m.state.Mode = model.ModeResources
-                    m.state.Resources = &model.ResourceState{Loading: true, Groups: []model.ResourceGroup{}, Pending: len(names), Offset: 0}
+                    // Reset tree view for multi-app session
+                    m.treeView = treeview.NewTreeView(0, 0)
+                    m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+                    m.state.SaveNavigationState()
+                    m.state.Navigation.View = model.ViewTree
+                    m.state.UI.TreeAppName = nil
+                    m.treeLoading = true
                     var cmds []tea.Cmd
-                    for _, n := range names { cmds = append(cmds, m.loadResourcesForApp(n)) }
+                    for _, n := range names {
+                        var appObj *model.App
+                        for i := range m.state.Apps { if m.state.Apps[i].Name == n { appObj = &m.state.Apps[i]; break } }
+                        if appObj == nil { tmp := model.App{Name: n}; appObj = &tmp }
+                        cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+                        cmds = append(cmds, m.startWatchingResourceTree(*appObj))
+                    }
+                    cmds = append(cmds, m.consumeTreeEvent())
                     return m, tea.Batch(cmds...)
                 }
             }
             if target == "" {
                 return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
             }
-            // Single app: open tree view
+            // Single app: open tree view with watch (reset tree view)
+            m.treeView = treeview.NewTreeView(0, 0)
+            m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
             m.state.SaveNavigationState()
             var selectedApp *model.App
             for i := range m.state.Apps { if m.state.Apps[i].Name == target { selectedApp = &m.state.Apps[i]; break } }
@@ -542,10 +557,10 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
         case "cluster", "clusters", "cls", "context", "ctx":
             // Exit deep views and clear lower-level scopes
             m.state.UI.TreeAppName = nil
-            m.state.Resources = nil
+            // resources list removed
             m.treeLoading = false
             m.state.Selections.SelectedApps = model.NewStringSet()
-            m.state.Navigation.View = model.ViewClusters
+            m = m.safeChangeView(model.ViewClusters)
             if arg != "" {
                 // Validate cluster exists
                 all := m.autocompleteEngine.GetArgumentSuggestions("cluster", "", m.state)
@@ -557,7 +572,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                 m.state.Selections.ScopeClusters = model.StringSetFromSlice([]string{arg})
                 m.state.Selections.ScopeNamespaces = model.NewStringSet()
                 m.state.Selections.ScopeProjects = model.NewStringSet()
-                m.state.Navigation.View = model.ViewNamespaces
+                m = m.safeChangeView(model.ViewNamespaces)
             } else {
                 m.state.Selections.ScopeClusters = model.NewStringSet()
                 m.state.Selections.ScopeNamespaces = model.NewStringSet()
@@ -566,9 +581,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
             return m, nil
         case "namespace", "namespaces", "ns":
             m.state.UI.TreeAppName = nil
-            m.state.Resources = nil
+            // resources list removed
             m.treeLoading = false
-            m.state.Navigation.View = model.ViewNamespaces
+            m = m.safeChangeView(model.ViewNamespaces)
             m.state.Selections.SelectedApps = model.NewStringSet()
             if arg != "" {
                 all := m.autocompleteEngine.GetArgumentSuggestions("namespace", "", m.state)
@@ -579,7 +594,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                 if !matched { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown namespace: "+arg} } }
                 m.state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{arg})
                 m.state.Selections.ScopeProjects = model.NewStringSet()
-                m.state.Navigation.View = model.ViewProjects
+                m = m.safeChangeView(model.ViewProjects)
             } else {
                 m.state.Selections.ScopeNamespaces = model.NewStringSet()
                 m.state.Selections.ScopeProjects = model.NewStringSet()
@@ -587,9 +602,9 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
             return m, nil
         case "project", "projects", "proj":
             m.state.UI.TreeAppName = nil
-            m.state.Resources = nil
+            // resources list removed
             m.treeLoading = false
-            m.state.Navigation.View = model.ViewProjects
+            m = m.safeChangeView(model.ViewProjects)
             m.state.Selections.SelectedApps = model.NewStringSet()
             if arg != "" {
                 all := m.autocompleteEngine.GetArgumentSuggestions("project", "", m.state)
@@ -599,13 +614,13 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                 for _, n := range names { if strings.EqualFold(n, arg) { arg = n; matched = true; break } }
                 if !matched { return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown project: "+arg} } }
                 m.state.Selections.ScopeProjects = model.StringSetFromSlice([]string{arg})
-                m.state.Navigation.View = model.ViewApps
+                m = m.safeChangeView(model.ViewApps)
             } else {
                 m.state.Selections.ScopeProjects = model.NewStringSet()
             }
             return m, nil
 		case "app", "apps":
-			m.state.Navigation.View = model.ViewApps
+			m = m.safeChangeView(model.ViewApps)
 			if arg != "" {
 				// Select the app and move cursor to it if found
 				m.state.Selections.SelectedApps = model.StringSetFromSlice([]string{arg})

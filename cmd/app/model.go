@@ -47,7 +47,6 @@ type Model struct {
     spinner spinner.Model
 
     // bubbles tables for all views
-    resourcesTable  table.Model
     appsTable       table.Model
     clustersTable   table.Model
     namespacesTable table.Model
@@ -65,6 +64,9 @@ type Model struct {
 
     // Tree loading overlay state
     treeLoading bool
+
+    // Cleanup callbacks for active tree watchers
+    treeWatchCleanups []func()
 }
 // NewModel, Init, pager helpers, and tree stream helpers moved to dedicated files.
 
@@ -149,15 +151,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
     // Tree stream messages from watcher goroutine
     case model.ResourceTreeStreamMsg:
-        if m.state.Navigation.View == model.ViewTree && m.treeView != nil && len(msg.TreeJSON) > 0 {
+        if len(msg.TreeJSON) > 0 && m.treeView != nil && m.state.Navigation.View == model.ViewTree {
             var tree api.ResourceTree
             if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
-                m.treeView.SetData(&tree)
+                m.treeView.UpsertAppTree(msg.AppName, &tree)
             }
         }
         // Any tree stream activity implies data is arriving; clear loading overlay
         m.treeLoading = false
         return m, m.consumeTreeEvent()
+
+    // Tree watch started (store cleanup)
+    case treeWatchStartedMsg:
+        if msg.cleanup != nil {
+            m.treeWatchCleanups = append(m.treeWatchCleanups, msg.cleanup)
+            m.statusService.Set("Watching tree…")
+        }
+        return m, nil
 
 		// Spinner messages
 	case spinner.TickMsg:
@@ -300,12 +310,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.consumeWatchEvent()
 
     case model.ResourceTreeLoadedMsg:
-        // Populate tree view with loaded data
+        // Populate tree view with loaded data (single or multi-app)
         if m.treeView != nil && len(msg.TreeJSON) > 0 {
             var tree api.ResourceTree
             if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
                 m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
-                m.treeView.SetData(&tree)
+                m.treeView.UpsertAppTree(msg.AppName, &tree)
             }
             // Reset cursor for tree view
             m.state.Navigation.SelectedIdx = 0
@@ -315,33 +325,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         m.treeLoading = false
         return m, nil
 
-    case ResourcesLoadedMsg:
-        cblog.With("component", "tree").Info("ResourcesLoadedMsg", "app", msg.AppName)
-        if m.state.Resources == nil {
-            return m, nil
-        }
-        // Multi-app accumulation
-        if len(m.state.Resources.Groups) > 0 || m.state.Resources.Pending > 0 {
-            grp := model.ResourceGroup{AppName: msg.AppName, Resources: msg.Resources, Error: msg.Error}
-            m.state.Resources.Groups = append(m.state.Resources.Groups, grp)
-            if m.state.Resources.Pending > 0 { m.state.Resources.Pending-- }
-            if m.state.Resources.Pending <= 0 { m.state.Resources.Loading = false }
-            return m, nil
-        }
-        // Single-app state update
-        if m.state.Resources.AppName == msg.AppName {
-            if msg.Error != "" {
-                cblog.With("component", "tree").Error("Resource loading failed", "app", msg.AppName, "err", msg.Error)
-                m.state.Resources.Loading = false
-                m.state.Resources.Error = msg.Error
-            } else {
-                cblog.With("component", "tree").Info("Loaded resources", "count", len(msg.Resources), "app", msg.AppName)
-                m.state.Resources.Loading = false
-                m.state.Resources.Resources = msg.Resources
-                m.state.Resources.Error = ""
-            }
-        }
-        return m, nil
+    // removed: resources list loader
 
 		// Old spinner TickMsg removed - now using bubbles spinner
 
@@ -420,6 +404,7 @@ case model.ApiErrorMsg:
 
 		// If we were loading tree view, return to apps view
 		if m.state.Navigation.View == model.ViewTree {
+			m = m.cleanupTreeWatchers()
 			m.state.Navigation.View = model.ViewApps
 		}
 
@@ -578,20 +563,49 @@ case model.ApiErrorMsg:
         }
         return m, nil
 
-	case model.MultiSyncCompletedMsg:
-		// Handle multiple app sync completion
-		if msg.Success {
-			m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
-			// Clear selections after multi-sync (matching TypeScript behavior)
-			m.state.Selections.SelectedApps = model.NewStringSet()
-		}
-		// Close confirm modal/loading state if open
-		m.state.Modals.ConfirmTarget = nil
-		m.state.Modals.ConfirmSyncLoading = false
-		if m.state.Mode == model.ModeConfirmSync {
-			m.state.Mode = model.ModeNormal
-		}
-		return m, nil
+    case model.MultiSyncCompletedMsg:
+        // Handle multiple app sync completion
+        if msg.Success {
+            m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
+            if m.state.Modals.ConfirmSyncWatch && len(m.state.Selections.SelectedApps) > 1 {
+                // Snapshot selected names before clearing
+                sel := m.state.Selections.SelectedApps
+                names := make([]string, 0, len(sel))
+                for name, ok := range sel { if ok { names = append(names, name) } }
+                if len(names) > 0 {
+                    var cmds []tea.Cmd
+                    // Reset tree view for multi-app session
+                    m.treeView = treeview.NewTreeView(0, 0)
+                    m.state.SaveNavigationState()
+                    m.state.Navigation.View = model.ViewTree
+                    // Clear single-app tracker
+                    m.state.UI.TreeAppName = nil
+                    m.treeLoading = true
+                    for _, n := range names {
+                        var appObj *model.App
+                        for i := range m.state.Apps { if m.state.Apps[i].Name == n { appObj = &m.state.Apps[i]; break } }
+                        if appObj == nil { tmp := model.App{Name: n}; appObj = &tmp }
+                        cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+                        cmds = append(cmds, m.startWatchingResourceTree(*appObj))
+                    }
+                    // Close modal before switching
+                    m.state.Modals.ConfirmTarget = nil
+                    m.state.Modals.ConfirmSyncLoading = false
+                    if m.state.Mode == model.ModeConfirmSync { m.state.Mode = model.ModeNormal }
+                    // Clear selections after queueing
+                    m.state.Selections.SelectedApps = model.NewStringSet()
+                    cmds = append(cmds, m.consumeTreeEvent())
+                    return m, tea.Batch(cmds...)
+                }
+            }
+            // Clear selections when not opening multi tree
+            m.state.Selections.SelectedApps = model.NewStringSet()
+        }
+        // Close confirm modal/loading state if open
+        m.state.Modals.ConfirmTarget = nil
+        m.state.Modals.ConfirmSyncLoading = false
+        if m.state.Mode == model.ModeConfirmSync { m.state.Mode = model.ModeNormal }
+        return m, nil
 
 	// Rollback Messages
 	case model.RollbackHistoryLoadedMsg:
@@ -758,8 +772,6 @@ case model.ApiErrorMsg:
 
 // handleKeyMsg handles keyboard input with 1:1 mapping to TypeScript functionality
 // moved to input_handlers.go
-
-// resources helpers moved to model_resources.go
 
 // Duplicate sync functions removed - using existing ones from api_integration.go
 

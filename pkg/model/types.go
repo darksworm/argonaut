@@ -29,7 +29,6 @@ const (
 	ModeRollback     Mode = "rollback"
     ModeExternal     Mode = "external"
     ModeDiff         Mode = "diff"
-    ModeResources    Mode = "resources"
 	ModeAuthRequired Mode = "auth-required"
 	ModeRulerLine    Mode = "rulerline"
 	ModeError        Mode = "error"
@@ -165,24 +164,6 @@ type ResourceInfo struct {
 	Value string `json:"value"`
 }
 
-// ResourceState holds the state for resource viewing
-type ResourceState struct {
-    AppName   string         `json:"appName"`
-    Resources []ResourceNode `json:"resources"`
-    Loading   bool           `json:"loading"`
-    Error     string         `json:"error"`
-    Offset    int            `json:"offset"`
-    // Multi-application rendering support
-    Groups  []ResourceGroup `json:"groups,omitempty"`
-    Pending int             `json:"pending"`
-}
-
-// ResourceGroup represents resources for a single application (for multi-app view)
-type ResourceGroup struct {
-    AppName   string         `json:"appName"`
-    Resources []ResourceNode `json:"resources"`
-    Error     string         `json:"error"`
-}
 
 // RollbackRow represents a deployment history entry for rollback selection
 type RollbackRow struct {

@@ -121,7 +121,6 @@ type AppState struct {
     APIVersion string          `json:"apiVersion"`
     // Note: AbortController equivalent will use context.Context in Go services
     Diff       *DiffState      `json:"diff,omitempty"`
-    Resources  *ResourceState  `json:"resources,omitempty"`
     Rollback   *RollbackState  `json:"rollback,omitempty"`
     // Store previous navigation state for restoration
     SavedNavigation *NavigationState `json:"savedNavigation,omitempty"`
