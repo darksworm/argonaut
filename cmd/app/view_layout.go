@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     "strings"
 
     "github.com/charmbracelet/lipgloss/v2"
@@ -9,14 +10,52 @@ import (
 
 // moved: full-screen helpers remain in view.go
 
-// renderTreePanel renders the resource tree view inside a bordered container
+// renderTreePanel renders the resource tree view inside a bordered container with scrolling
 func (m Model) renderTreePanel(availableRows int) string {
     contentWidth := max(0, m.contentInnerWidth())
     treeContent := "(no data)"
-    if m.treeView != nil { treeContent = m.treeView.View() }
-    treeContent = normalizeLinesToWidth(treeContent, contentWidth)
+    if m.treeView != nil {
+        treeContent = m.treeView.View()
+    }
+
+    // Split content into lines for scrolling
+    lines := strings.Split(treeContent, "\n")
+    totalLines := len(lines)
+
+    // Calculate viewport
+    viewportHeight := availableRows
+    scrollOffset := m.treeScrollOffset
+
+    // Clamp scroll offset
+    if scrollOffset < 0 {
+        scrollOffset = 0
+    }
+    if scrollOffset > max(0, totalLines-viewportHeight) {
+        scrollOffset = max(0, totalLines-viewportHeight)
+    }
+
+    // Extract visible lines
+    visibleLines := []string{}
+    for i := scrollOffset; i < min(scrollOffset+viewportHeight, totalLines); i++ {
+        visibleLines = append(visibleLines, lines[i])
+    }
+
+    // Join visible lines
+    visibleContent := strings.Join(visibleLines, "\n")
+    visibleContent = normalizeLinesToWidth(visibleContent, contentWidth)
+
+    // Add scroll indicator if needed
+    if totalLines > viewportHeight {
+        scrollInfo := fmt.Sprintf(" [%d-%d/%d] ",
+            scrollOffset+1,
+            min(scrollOffset+viewportHeight, totalLines),
+            totalLines)
+        // We'll add this to the border title or status line
+        _ = scrollInfo
+    }
+
     adjustedWidth := max(0, m.state.Terminal.Cols-2)
-    return contentBorderStyle.Width(adjustedWidth).Height(availableRows + 1).AlignVertical(lipgloss.Top).Render(treeContent)
+    return contentBorderStyle.Width(adjustedWidth).Height(availableRows + 1).AlignVertical(lipgloss.Top).Render(visibleContent)
 }
 
 // contentInnerWidth computes inner content width inside the bordered box

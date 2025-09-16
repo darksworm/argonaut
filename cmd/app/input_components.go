@@ -477,6 +477,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                     // Multiple apps selected - open multi tree view with live updates
                     m.treeView = treeview.NewTreeView(0, 0)
                     m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+                    m.treeScrollOffset = 0 // Reset scroll position
                     m.state.SaveNavigationState()
                     m.state.Navigation.View = model.ViewTree
                     m.state.UI.TreeAppName = nil
@@ -517,6 +518,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
             // Single app: open tree view with watch (reset tree view)
             m.treeView = treeview.NewTreeView(0, 0)
             m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+            m.treeScrollOffset = 0 // Reset scroll position
             m.state.SaveNavigationState()
             var selectedApp *model.App
             for i := range m.state.Apps { if m.state.Apps[i].Name == target { selectedApp = &m.state.Apps[i]; break } }

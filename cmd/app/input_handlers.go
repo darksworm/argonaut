@@ -14,6 +14,14 @@ import (
 
 // handleNavigationUp moves cursor up with bounds checking
 func (m Model) handleNavigationUp() (Model, tea.Cmd) {
+	// Special handling for tree view - scroll instead of cursor
+	if m.state.Navigation.View == model.ViewTree {
+		if m.treeScrollOffset > 0 {
+			m.treeScrollOffset--
+		}
+		return m, nil
+	}
+
 	// Only update navigation state - table cursor will be synced in render
 	newIdx := m.state.Navigation.SelectedIdx - 1
 	if newIdx < 0 {
@@ -25,6 +33,13 @@ func (m Model) handleNavigationUp() (Model, tea.Cmd) {
 
 // handleNavigationDown moves cursor down with bounds checking
 func (m Model) handleNavigationDown() (Model, tea.Cmd) {
+	// Special handling for tree view - scroll instead of cursor
+	if m.state.Navigation.View == model.ViewTree {
+		m.treeScrollOffset++
+		// The actual clamping happens in renderTreePanel
+		return m, nil
+	}
+
 	visibleItems := m.getVisibleItemsForCurrentView()
 	newIdx := m.state.Navigation.SelectedIdx + 1
 	maxItems := len(visibleItems)
@@ -308,6 +323,13 @@ func (m Model) handleEscape() (Model, tea.Cmd) {
 
 // handleGoToTop moves to first item (double-g)
 func (m Model) handleGoToTop() (Model, tea.Cmd) {
+	// Special handling for tree view - scroll to top
+	if m.state.Navigation.View == model.ViewTree {
+		m.treeScrollOffset = 0
+		m.state.Navigation.LastGPressed = 0 // Reset double-g state
+		return m, nil
+	}
+
 	m.state.Navigation.SelectedIdx = 0
 	m.state.Navigation.LastGPressed = 0 // Reset double-g state
 	return m, nil
@@ -315,6 +337,13 @@ func (m Model) handleGoToTop() (Model, tea.Cmd) {
 
 // handleGoToBottom moves to last item (G key)
 func (m Model) handleGoToBottom() (Model, tea.Cmd) {
+	// Special handling for tree view - scroll to bottom
+	if m.state.Navigation.View == model.ViewTree {
+		// Set to a large value, will be clamped in renderTreePanel
+		m.treeScrollOffset = 1 << 30
+		return m, nil
+	}
+
 	visibleItems := m.getVisibleItemsForCurrentView()
 	if len(visibleItems) > 0 {
 		m.state.Navigation.SelectedIdx = len(visibleItems) - 1
@@ -771,6 +800,7 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
         // Reset tree view to a fresh multi-app instance
         m.treeView = treeview.NewTreeView(0, 0)
         m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+        m.treeScrollOffset = 0 // Reset scroll position
         m.state.SaveNavigationState()
         m.state.Navigation.View = model.ViewTree
         // Clear single-app tracker
@@ -800,6 +830,7 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
     // Reset tree view to a fresh single-app instance
     m.treeView = treeview.NewTreeView(0, 0)
     m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+    m.treeScrollOffset = 0 // Reset scroll position
     m.state.SaveNavigationState()
     m.state.Navigation.View = model.ViewTree
     m.state.UI.TreeAppName = &app.Name

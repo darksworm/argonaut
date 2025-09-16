@@ -65,6 +65,9 @@ type Model struct {
     // Tree loading overlay state
     treeLoading bool
 
+    // Tree view scroll offset
+    treeScrollOffset int
+
     // Cleanup callbacks for active tree watchers
     treeWatchCleanups []func()
 }
@@ -606,6 +609,7 @@ case model.ApiErrorMsg:
                     var cmds []tea.Cmd
                     // Reset tree view for multi-app session
                     m.treeView = treeview.NewTreeView(0, 0)
+                    m.treeScrollOffset = 0 // Reset scroll position
                     m.state.SaveNavigationState()
                     m.state.Navigation.View = model.ViewTree
                     // Clear single-app tracker
