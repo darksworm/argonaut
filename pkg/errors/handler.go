@@ -23,9 +23,9 @@ type ErrorHandler interface {
 type ErrorResponse struct {
 	ShouldExit     bool           `json:"shouldExit"`
 	DisplayMessage string         `json:"displayMessage"`
-	Mode          string         `json:"mode"` // error, connection-error, auth-required
-	RetryAfter    *time.Duration `json:"retryAfter,omitempty"`
-	UserActions   []UserAction   `json:"userActions,omitempty"`
+	Mode           string         `json:"mode"` // error, connection-error, auth-required
+	RetryAfter     *time.Duration `json:"retryAfter,omitempty"`
+	UserActions    []UserAction   `json:"userActions,omitempty"`
 }
 
 // UserAction represents an action the user can take to resolve an error
@@ -37,12 +37,12 @@ type UserAction struct {
 
 // ErrorHandlerImpl provides a concrete implementation of ErrorHandler
 type ErrorHandlerImpl struct {
-	logger        *log.Logger
-	logFile       *os.File
-	errorHistory  []ArgonautError
-	historyMu     sync.RWMutex
-	maxHistory    int
-	notifyFunc    func(*ArgonautError) // Callback for UI notifications
+	logger       *log.Logger
+	logFile      *os.File
+	errorHistory []ArgonautError
+	historyMu    sync.RWMutex
+	maxHistory   int
+	notifyFunc   func(*ArgonautError) // Callback for UI notifications
 }
 
 // ErrorHandlerConfig configures the error handler
@@ -308,8 +308,15 @@ var defaultHandlerOnce sync.Once
 // GetDefaultHandler returns the default error handler instance
 func GetDefaultHandler() *ErrorHandlerImpl {
 	defaultHandlerOnce.Do(func() {
+		// Use temp file for error logs
+		logFile, err := os.CreateTemp("", "a9s-errors-*.log")
+		logFilePath := "logs/errors.log" // fallback
+		if err == nil {
+			logFilePath = logFile.Name()
+		}
+
 		config := ErrorHandlerConfig{
-			LogFilePath: "logs/errors.log",
+			LogFilePath: logFilePath,
 			MaxHistory:  100,
 		}
 

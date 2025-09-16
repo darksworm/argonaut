@@ -1,15 +1,15 @@
 package main
 
 import (
-    "fmt"
-    "image/color"
-    "os"
-    "regexp"
-    "strings"
-    "time"
+	"fmt"
+	"image/color"
+	"os"
+	"regexp"
+	"strings"
+	"time"
 
-	cblog "github.com/charmbracelet/log"
 	"github.com/charmbracelet/lipgloss/v2"
+	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
@@ -29,33 +29,221 @@ var (
 	whiteBright    = lipgloss.Color("15") // Bright white
 )
 
+// HighlightLogLine applies syntax highlighting to a single log line
+func HighlightLogLine(line string) string {
+	if strings.TrimSpace(line) == "" {
+		return line
+	}
+
+	// Use a more sophisticated parser that handles quoted strings
+	parts, err := parseLogLineParts(line)
+	if err != nil || len(parts) < 3 {
+		return line // Fallback to original line if parsing fails
+	}
+
+	var highlighted strings.Builder
+	partIndex := 0
+
+	// Try to identify timestamp (first part that looks like a timestamp)
+	if partIndex < len(parts) && looksLikeTimestamp(parts[partIndex]) {
+		highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(parts[partIndex]))
+		highlighted.WriteString(" ")
+		partIndex++
+	}
+
+	// Try to identify time (second part that looks like HH:MM:SS)
+	if partIndex < len(parts) && looksLikeTime(parts[partIndex]) {
+		highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(parts[partIndex]))
+		highlighted.WriteString(" ")
+		partIndex++
+	}
+
+	// Try to identify log level
+	if partIndex < len(parts) && looksLikeLogLevel(parts[partIndex]) {
+		var style lipgloss.Style
+		switch strings.ToUpper(parts[partIndex]) {
+		case "DEBUG", "TRACE":
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true) // magenta
+		case "INFO":
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true) // blue
+		case "WARN", "WARNING":
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true) // yellow
+		case "ERROR", "FATAL":
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true) // red
+		default:
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true) // white
+		}
+		highlighted.WriteString(style.Render(parts[partIndex]))
+		highlighted.WriteString(" ")
+		partIndex++
+	}
+
+	// Process remaining parts
+	for partIndex < len(parts) {
+		part := parts[partIndex]
+
+		// Check if it's a key=value pair
+		if strings.Contains(part, "=") {
+			// Split on first = only
+			eqIndex := strings.Index(part, "=")
+			if eqIndex > 0 {
+				key := part[:eqIndex]
+				value := part[eqIndex+1:]
+
+				// Remove quotes from value if present
+				value = strings.Trim(value, `"`)
+
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(key))   // cyan for field names
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("="))    // dim for equals
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(value)) // white for values
+			} else {
+				// Not a proper key=value, just render as is
+				highlighted.WriteString(part)
+			}
+		} else {
+			// Check if this looks like a component name (no spaces, no special chars)
+			if isLikelyComponent(part) {
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(part)) // green for components
+			} else {
+				// Regular text
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(part)) // white for regular text
+			}
+		}
+
+		if partIndex < len(parts)-1 {
+			highlighted.WriteString(" ")
+		}
+		partIndex++
+	}
+
+	return highlighted.String()
+}
+
+// parseLogLineParts parses a log line into parts, properly handling quoted strings
+func parseLogLineParts(line string) ([]string, error) {
+	var parts []string
+	var current strings.Builder
+	inQuotes := false
+	quoteChar := byte(0)
+
+	for i := 0; i < len(line); i++ {
+		char := line[i]
+
+		switch {
+		case !inQuotes && (char == '"' || char == '\''):
+			// Start of quoted string
+			inQuotes = true
+			quoteChar = char
+			current.WriteByte(char)
+		case inQuotes && char == quoteChar:
+			// End of quoted string
+			inQuotes = false
+			current.WriteByte(char)
+		case inQuotes:
+			// Inside quoted string, include everything
+			current.WriteByte(char)
+		case !inQuotes && char == ' ':
+			// Space separator
+			if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		default:
+			// Regular character
+			current.WriteByte(char)
+		}
+	}
+
+	// Add the last part if any
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+
+	return parts, nil
+}
+
+// looksLikeTimestamp checks if a string resembles a timestamp
+func looksLikeTimestamp(s string) bool {
+	// Match patterns like: 2024/01/15, 10:30:45, 2024-01-15T10:30:45, etc.
+	timestampPatterns := []string{
+		`^\d{4}/\d{2}/\d{2}$`,                  // 2024/01/15
+		`^\d{2}:\d{2}:\d{2}`,                   // 10:30:45
+		`^\d{4}-\d{2}-\d{2}`,                   // 2024-01-15
+		`^\d{4}/\d{2}/\d{2}T\d{2}:\d{2}:\d{2}`, // 2024/01/15T10:30:45
+	}
+
+	for _, pattern := range timestampPatterns {
+		if matched, _ := regexp.MatchString(pattern, s); matched {
+			return true
+		}
+	}
+	return false
+}
+
+// looksLikeLogLevel checks if a string is a log level
+func looksLikeLogLevel(s string) bool {
+	levels := []string{"DEBUG", "INFO", "WARN", "WARNING", "ERROR", "FATAL", "TRACE"}
+	s = strings.ToUpper(s)
+	for _, level := range levels {
+		if s == level {
+			return true
+		}
+	}
+	return false
+}
+
+// looksLikeTime checks if a string resembles a time (HH:MM:SS)
+func looksLikeTime(s string) bool {
+	timePattern := `^\d{2}:\d{2}:\d{2}$`
+	matched, _ := regexp.MatchString(timePattern, s)
+	return matched
+}
+
+// isLikelyComponent checks if a string looks like a component name
+func isLikelyComponent(s string) bool {
+	// Component names typically contain letters, numbers, underscores, dots
+	// No spaces, no special characters except underscore and dot
+	if strings.ContainsAny(s, " \t\n\r\"'()[]{}<>,;:!@#$%^&*+-=|\\") {
+		return false
+	}
+	// Should have at least one letter
+	hasLetter := false
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			hasLetter = true
+			break
+		}
+	}
+	return hasLetter && len(s) > 1 && len(s) < 50
+}
+
 // Styles matching React+Ink components
 var (
 	// Main container style (matches MainLayout Box)
 	mainContainerStyle = lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
+				PaddingLeft(1).
+				PaddingRight(1)
 
 	// Border style for main content area (matches ListView container)
 	// Add inner padding for readability; width calculations account for it
 	contentBorderStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		PaddingLeft(1).
-		PaddingRight(1)
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(magentaBright).
+				PaddingLeft(1).
+				PaddingRight(1)
 
 	// Header styles (matches ListView header)
 	headerStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(yellowBright)
+			Bold(true).
+			Foreground(yellowBright)
 
 	// Selection highlight style (matches ListView active items)
 	selectedStyle = lipgloss.NewStyle().
-		Background(magentaBright)
+			Background(magentaBright)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().
-		Foreground(dimColor)
+			Foreground(dimColor)
 )
 
 // ASCII icons matching React ListView
@@ -82,9 +270,9 @@ func (m Model) View() string {
 
 	// Map React App.tsx switch statement exactly
 	switch m.state.Mode {
-    case model.ModeLoading:
-        // Show regular layout with the initial loading modal overlay instead of a separate loading view
-        return m.renderMainLayout()
+	case model.ModeLoading:
+		// Show regular layout with the initial loading modal overlay instead of a separate loading view
+		return m.renderMainLayout()
 	case model.ModeAuthRequired:
 		return m.renderAuthRequiredView()
 	case model.ModeHelp:
@@ -197,14 +385,14 @@ func (m Model) renderFullScreenViewWithOptions(header, content, status string, o
 
 		// Apply bordered styling with custom color if specified
 		contentWidth := max(0, m.state.Terminal.Cols-2) // Adjusted to fill space properly
-        borderStyle := lipgloss.NewStyle().
-            Border(lipgloss.RoundedBorder()).
-            BorderForeground(opts.BorderColor).
-            Width(contentWidth).
-            Height(availableRows + 1). // Add 1 to properly fill vertical space
-            PaddingLeft(1).
-            PaddingRight(1).
-            AlignVertical(lipgloss.Top) // Align content to top for help/everywhere
+		borderStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(opts.BorderColor).
+			Width(contentWidth).
+			Height(availableRows + 1). // Add 1 to properly fill vertical space
+			PaddingLeft(1).
+			PaddingRight(1).
+			AlignVertical(lipgloss.Top) // Align content to top for help/everywhere
 
 		content = borderStyle.Render(content)
 	}
@@ -727,13 +915,13 @@ func (m Model) renderConfirmSyncModal() string {
 	} else {
 		optsLine.WriteString(dim.Render("Off"))
 	}
-    // Always show watch toggle (single and multi)
-    optsLine.WriteString(dim.Render(" • w: Watch "))
-    if m.state.Modals.ConfirmSyncWatch {
-        optsLine.WriteString(on.Render("On"))
-    } else {
-        optsLine.WriteString(dim.Render("Off"))
-    }
+	// Always show watch toggle (single and multi)
+	optsLine.WriteString(dim.Render(" • w: Watch "))
+	if m.state.Modals.ConfirmSyncWatch {
+		optsLine.WriteString(on.Render("On"))
+	} else {
+		optsLine.WriteString(dim.Render("Off"))
+	}
 	aux := center.Render(optsLine.String())
 
 	// Lines are already centered to innerWidth; avoid re-normalizing which can
@@ -817,28 +1005,30 @@ func (m Model) renderDiffView() string {
 
 // renderHelpSection - helper for HelpModal (matches Help.tsx HelpSection)
 func (m Model) renderHelpSection(title, content string, isWide bool) string {
-    titleStyled := lipgloss.NewStyle().Foreground(syncedColor).Bold(true).Render(title)
-    if isWide {
-        // Two-column layout: 12-char title column + 1 space gap
-        const col = 12
-        // Pad the title visually to width 'col'
-        padRightVisual := func(s string, w int) string {
-            diff := w - lipgloss.Width(s)
-            if diff > 0 { return s + strings.Repeat(" ", diff) }
-            return s
-        }
-        lines := strings.Split(content, "\n")
-        // Indent wrapped lines by title width + 1 space gap
-        indent := strings.Repeat(" ", col+1)
-        for i := 1; i < len(lines); i++ {
-            lines[i] = indent + lines[i]
-        }
-        contentAligned := strings.Join(lines, "\n")
-        titlePadded := padRightVisual(titleStyled, col)
-        return titlePadded + " " + contentAligned
-    }
-    // Narrow layout: title above, content below
-    return titleStyled + "\n" + content
+	titleStyled := lipgloss.NewStyle().Foreground(syncedColor).Bold(true).Render(title)
+	if isWide {
+		// Two-column layout: 12-char title column + 1 space gap
+		const col = 12
+		// Pad the title visually to width 'col'
+		padRightVisual := func(s string, w int) string {
+			diff := w - lipgloss.Width(s)
+			if diff > 0 {
+				return s + strings.Repeat(" ", diff)
+			}
+			return s
+		}
+		lines := strings.Split(content, "\n")
+		// Indent wrapped lines by title width + 1 space gap
+		indent := strings.Repeat(" ", col+1)
+		for i := 1; i < len(lines); i++ {
+			lines[i] = indent + lines[i]
+		}
+		contentAligned := strings.Join(lines, "\n")
+		titlePadded := padRightVisual(titleStyled, col)
+		return titlePadded + " " + contentAligned
+	}
+	// Narrow layout: title above, content below
+	return titleStyled + "\n" + content
 }
 
 // Helper functions
@@ -975,13 +1165,12 @@ func (m Model) renderLogsView() string {
 
 // readLogContent reads the actual log file content
 func (m Model) readLogContent() string {
-    // Try to read the log file path from environment (set by setupLogging)
-    logFile := os.Getenv("ARGONAUT_LOG_FILE")
-    if strings.TrimSpace(logFile) == "" {
-        // Fallback to legacy location if env not set
-        logFile = "logs/a9s.log"
-    }
-    content, err := os.ReadFile(logFile)
+	// Try to read the log file path from environment (set by setupLogging)
+	logFile := os.Getenv("ARGONAUT_LOG_FILE")
+	if strings.TrimSpace(logFile) == "" {
+		return "ArgoCD Application Logs\n\nNo log file available.\n\nPress q to return to main view."
+	}
+	content, err := os.ReadFile(logFile)
 	if err != nil {
 		return fmt.Sprintf("ArgoCD Application Logs\n\nError reading log file: %v\n\nPress q to return to main view.", err)
 	}
@@ -992,9 +1181,21 @@ func (m Model) readLogContent() string {
 		return "ArgoCD Application Logs\n\nNo log entries found.\n\nPress q to return to main view."
 	}
 
+	// Apply syntax highlighting to each log line
+	lines := strings.Split(logText, "\n")
+	var highlightedLines []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			highlightedLines = append(highlightedLines, HighlightLogLine(line))
+		} else {
+			highlightedLines = append(highlightedLines, line)
+		}
+	}
+	highlightedLogText := strings.Join(highlightedLines, "\n")
+
 	// Add header and instructions
 	header := "ArgoCD Application Logs\n\nPress q to return to main view.\n\n"
-	return header + "--- Log Content ---\n\n" + logText
+	return header + "--- Log Content ---\n\n" + highlightedLogText
 }
 
 // buildWrappedLogLines returns header + log content lines wrapped to contentWidth
@@ -1004,7 +1205,9 @@ func (m Model) buildWrappedLogLines(contentWidth int) []string {
 	logical := strings.Split(text, "\n")
 	visual := make([]string, 0, len(logical))
 	for _, ln := range logical {
-		parts := wrapAnsiToWidth(ln, contentWidth)
+		// Apply syntax highlighting to the log line
+		highlightedLine := HighlightLogLine(ln)
+		parts := wrapAnsiToWidth(highlightedLine, contentWidth)
 		for _, p := range parts {
 			// Ensure each visual line fits exactly (avoid residual wrap)
 			visual = append(visual, clipAnsiToWidth(p, contentWidth))
@@ -1137,24 +1340,24 @@ func (m Model) renderErrorView() string {
 
 // renderConnectionErrorView displays connection error in a user-friendly format
 func (m Model) renderConnectionErrorView() string {
-    // Header
-    header := m.renderBanner()
+	// Header
+	header := m.renderBanner()
 
-    // Build connection error content
-    errorContent := ""
+	// Build connection error content
+	errorContent := ""
 
 	// Title with connection error styling
 	titleStyle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
 	errorContent += titleStyle.Render("Connection Error") + "\n\n"
 
-    // Main error message
-    messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-    errorContent += messageStyle.Render("Unable to connect to Argo CD server.\n\nPlease check that:\n• Argo CD server is running\n• Network connection is available\n• Server URL and port are correct") + "\n\n"
+	// Main error message
+	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	errorContent += messageStyle.Render("Unable to connect to Argo CD server.\n\nPlease check that:\n• Argo CD server is running\n• Network connection is available\n• Server URL and port are correct") + "\n\n"
 
-    // Tip: encourage checking the current context and re-auth
-    tipStyle := lipgloss.NewStyle().Foreground(cyanBright)
-    tip := "Tip: Ensure you are using the correct Argo CD context. You can switch or re-authenticate with: argocd login <server>"
-    errorContent += tipStyle.Render(tip) + "\n\n"
+	// Tip: encourage checking the current context and re-auth
+	tipStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	tip := "Tip: Ensure you are using the correct Argo CD context. You can switch or re-authenticate with: argocd login <server>"
+	errorContent += tipStyle.Render(tip) + "\n\n"
 
 	// Instructions
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)

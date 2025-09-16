@@ -27,17 +27,17 @@ const (
 
 // LogEntry represents a structured log entry
 type LogEntry struct {
-	Timestamp   time.Time              `json:"timestamp"`
-	Level       LogLevel               `json:"level"`
-	Message     string                 `json:"message"`
-	Component   string                 `json:"component,omitempty"`
-	Operation   string                 `json:"operation,omitempty"`
-	Context     map[string]interface{} `json:"context,omitempty"`
-	Error       string                 `json:"error,omitempty"`
-	ErrorCode   string                 `json:"errorCode,omitempty"`
-	ErrorCategory string               `json:"errorCategory,omitempty"`
-	Duration    *time.Duration         `json:"duration,omitempty"`
-	RequestID   string                 `json:"requestId,omitempty"`
+	Timestamp     time.Time              `json:"timestamp"`
+	Level         LogLevel               `json:"level"`
+	Message       string                 `json:"message"`
+	Component     string                 `json:"component,omitempty"`
+	Operation     string                 `json:"operation,omitempty"`
+	Context       map[string]interface{} `json:"context,omitempty"`
+	Error         string                 `json:"error,omitempty"`
+	ErrorCode     string                 `json:"errorCode,omitempty"`
+	ErrorCategory string                 `json:"errorCategory,omitempty"`
+	Duration      *time.Duration         `json:"duration,omitempty"`
+	RequestID     string                 `json:"requestId,omitempty"`
 }
 
 // Logger interface defines logging operations
@@ -65,15 +65,15 @@ type Logger interface {
 
 // StructuredLogger provides a concrete implementation of Logger
 type StructuredLogger struct {
-	level        LogLevel
-	component    string
-	operation    string
-	context      map[string]interface{}
-	output       *os.File
-	encoder      *json.Encoder
-	stdLogger    *log.Logger
-	mu           sync.RWMutex
-	useJSON      bool
+	level     LogLevel
+	component string
+	operation string
+	context   map[string]interface{}
+	output    *os.File
+	encoder   *json.Encoder
+	stdLogger *log.Logger
+	mu        sync.RWMutex
+	useJSON   bool
 }
 
 // LoggerConfig configures the structured logger
@@ -421,9 +421,16 @@ var defaultLoggerOnce sync.Once
 // GetDefaultLogger returns the default logger instance
 func GetDefaultLogger() Logger {
 	defaultLoggerOnce.Do(func() {
+		// Use temp file for logging
+		logFile, err := os.CreateTemp("", "a9s-app-*.log")
+		outputPath := "logs/app.log" // fallback
+		if err == nil {
+			outputPath = logFile.Name()
+		}
+
 		config := LoggerConfig{
 			Level:      LevelInfo,
-			OutputPath: "logs/app.log",
+			OutputPath: outputPath,
 			UseJSON:    false, // Human-readable by default
 			Component:  "argonaut",
 		}

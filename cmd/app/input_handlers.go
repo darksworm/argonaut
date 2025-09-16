@@ -1,13 +1,14 @@
 package main
 
 import (
-    "os"
-    "time"
+	"os"
+	"strings"
+	"time"
 
-    tea "github.com/charmbracelet/bubbletea/v2"
-    cblog "github.com/charmbracelet/log"
-    "github.com/darksworm/argonaut/pkg/model"
-    "github.com/darksworm/argonaut/pkg/tui/treeview"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // Navigation handlers matching TypeScript functionality
@@ -48,7 +49,7 @@ func (m Model) handleNavigationDown() (Model, tea.Cmd) {
 		// We'll need to calculate viewport height in renderTreePanel
 		// For now, use a simple heuristic
 		viewportHeight := m.state.Terminal.Rows - 10 // Approximate overhead
-		if m.state.Navigation.SelectedIdx >= m.treeScrollOffset + viewportHeight {
+		if m.state.Navigation.SelectedIdx >= m.treeScrollOffset+viewportHeight {
 			m.treeScrollOffset = m.state.Navigation.SelectedIdx - viewportHeight + 1
 		}
 		return m, nil
@@ -69,26 +70,26 @@ func (m Model) handleNavigationDown() (Model, tea.Cmd) {
 
 // handleToggleSelection toggles selection of current item (space key)
 func (m Model) handleToggleSelection() (Model, tea.Cmd) {
-    visibleItems := m.getVisibleItemsForCurrentView()
-    if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
-        return m, nil
-    }
+	visibleItems := m.getVisibleItemsForCurrentView()
+	if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
+		return m, nil
+	}
 
-    selectedItem := visibleItems[m.state.Navigation.SelectedIdx]
+	selectedItem := visibleItems[m.state.Navigation.SelectedIdx]
 
-    switch m.state.Navigation.View {
-    case model.ViewApps:
-        if app, ok := selectedItem.(model.App); ok {
-            if model.HasInStringSet(m.state.Selections.SelectedApps, app.Name) {
-                m.state.Selections.SelectedApps = model.RemoveFromStringSet(m.state.Selections.SelectedApps, app.Name)
-            } else {
-                m.state.Selections.SelectedApps = model.AddToStringSet(m.state.Selections.SelectedApps, app.Name)
-            }
-        }
-    // For clusters/namespaces/projects views, Space has no effect by design.
-    }
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		if app, ok := selectedItem.(model.App); ok {
+			if model.HasInStringSet(m.state.Selections.SelectedApps, app.Name) {
+				m.state.Selections.SelectedApps = model.RemoveFromStringSet(m.state.Selections.SelectedApps, app.Name)
+			} else {
+				m.state.Selections.SelectedApps = model.AddToStringSet(m.state.Selections.SelectedApps, app.Name)
+			}
+		}
+		// For clusters/namespaces/projects views, Space has no effect by design.
+	}
 
-    return m, nil
+	return m, nil
 }
 
 // handleDrillDown implements drill-down navigation (enter key)
@@ -268,7 +269,7 @@ func (m Model) handleRollback() (Model, tea.Cmd) {
 	}
 
 	// Log rollback start
-    cblog.With("component", "rollback").Info("Starting rollback session", "app", appName)
+	cblog.With("component", "rollback").Info("Starting rollback session", "app", appName)
 
 	// Start loading rollback history
 	return m, m.startRollbackSession(appName)
@@ -467,10 +468,10 @@ func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		// Toggle prune option
 		m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
 		return m, nil
-    case "w":
-        // Toggle watch option (single or multi)
-        m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
-        return m, nil
+	case "w":
+		// Toggle watch option (single or multi)
+		m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
+		return m, nil
 	}
 	return m, nil
 }
@@ -647,12 +648,29 @@ func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m, func() tea.Msg { return model.QuitMsg{} }
 	case "l":
-		// Open logs pager directly
-		data, err := os.ReadFile("logs/a9s.log")
+		// Open logs pager with syntax highlighting
+		logFile := os.Getenv("ARGONAUT_LOG_FILE")
+		if strings.TrimSpace(logFile) == "" {
+			return m, func() tea.Msg { return model.ApiErrorMsg{Message: "No logs available"} }
+		}
+		data, err := os.ReadFile(logFile)
 		if err != nil {
 			return m, func() tea.Msg { return model.ApiErrorMsg{Message: "No logs available"} }
 		}
-		return m, m.openTextPager("Logs", string(data))
+
+		// Apply syntax highlighting to each log line
+		lines := strings.Split(string(data), "\n")
+		var highlightedLines []string
+		for _, line := range lines {
+			if strings.TrimSpace(line) != "" {
+				highlightedLines = append(highlightedLines, HighlightLogLine(line))
+			} else {
+				highlightedLines = append(highlightedLines, line)
+			}
+		}
+		highlightedContent := strings.Join(highlightedLines, "\n")
+
+		return m, m.openTextPager("Logs", highlightedContent)
 	}
 	return m, nil
 }
@@ -694,200 +712,224 @@ func (m Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // Helper function to get visible items for current view
 func (m Model) getVisibleItemsForCurrentView() []interface{} {
-    // Delegate to shared computation used by the view
-    return m.getVisibleItems()
+	// Delegate to shared computation used by the view
+	return m.getVisibleItems()
 }
 
 // handleKeyMsg centralizes keyboard handling and delegates to mode/view handlers
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
-    // Global kill: always quit on Ctrl+C
-    if msg.String() == "ctrl+c" {
-        return m, func() tea.Msg { return model.QuitMsg{} }
-    }
-    // Mode-specific handling first
-    switch m.state.Mode {
-    case model.ModeSearch:
-        return m.handleSearchModeKeys(msg)
-    case model.ModeCommand:
-        return m.handleCommandModeKeys(msg)
-    case model.ModeHelp:
-        return m.handleHelpModeKeys(msg)
-    case model.ModeConfirmSync:
-        return m.handleConfirmSyncKeys(msg)
-    case model.ModeRollback:
-        return m.handleRollbackModeKeys(msg)
-    case model.ModeDiff:
-        return m.handleDiffModeKeys(msg)
-    case model.ModeLogs:
-        return m.handleLogsModeKeys(msg)
-    case model.ModeAuthRequired:
-        return m.handleAuthRequiredModeKeys(msg)
-    case model.ModeError:
-        return m.handleErrorModeKeys(msg)
-    case model.ModeConnectionError:
-        return m.handleConnectionErrorModeKeys(msg)
-    }
+	// Global kill: always quit on Ctrl+C
+	if msg.String() == "ctrl+c" {
+		return m, func() tea.Msg { return model.QuitMsg{} }
+	}
+	// Mode-specific handling first
+	switch m.state.Mode {
+	case model.ModeSearch:
+		return m.handleSearchModeKeys(msg)
+	case model.ModeCommand:
+		return m.handleCommandModeKeys(msg)
+	case model.ModeHelp:
+		return m.handleHelpModeKeys(msg)
+	case model.ModeConfirmSync:
+		return m.handleConfirmSyncKeys(msg)
+	case model.ModeRollback:
+		return m.handleRollbackModeKeys(msg)
+	case model.ModeDiff:
+		return m.handleDiffModeKeys(msg)
+	case model.ModeLogs:
+		return m.handleLogsModeKeys(msg)
+	case model.ModeAuthRequired:
+		return m.handleAuthRequiredModeKeys(msg)
+	case model.ModeError:
+		return m.handleErrorModeKeys(msg)
+	case model.ModeConnectionError:
+		return m.handleConnectionErrorModeKeys(msg)
+	}
 
-    // Tree view keys when in normal mode
-    if m.state.Navigation.View == model.ViewTree {
-        switch msg.String() {
-        case "q", "esc":
-            // Stop active tree watchers and return to list
-            m = m.safeChangeView(model.ViewApps)
-            visibleItems := m.getVisibleItemsForCurrentView()
-            m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
-                m.state.Navigation.SelectedIdx,
-                len(visibleItems),
-            )
-            return m, nil
-        default:
-            if m.treeView != nil {
-                _, cmd := m.treeView.Update(msg)
-                return m, cmd
-            }
-            return m, nil
-        }
-    }
+	// Tree view keys when in normal mode
+	if m.state.Navigation.View == model.ViewTree {
+		switch msg.String() {
+		case "q", "esc":
+			// Stop active tree watchers and return to list
+			m = m.safeChangeView(model.ViewApps)
+			visibleItems := m.getVisibleItemsForCurrentView()
+			m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+				m.state.Navigation.SelectedIdx,
+				len(visibleItems),
+			)
+			return m, nil
+		default:
+			if m.treeView != nil {
+				_, cmd := m.treeView.Update(msg)
+				return m, cmd
+			}
+			return m, nil
+		}
+	}
 
-    // Normal-mode global keys
-    switch msg.String() {
-    case "q", "ctrl+c":
-        return m, func() tea.Msg { return model.QuitMsg{} }
-    case "up", "k":
-        return m.handleNavigationUp()
-    case "down", "j":
-        return m.handleNavigationDown()
-    case " ":
-        return m.handleToggleSelection()
-    case "enter":
-        return m.handleDrillDown()
-    case "/":
-        return m.handleEnterSearchMode()
-    case ":":
-        return m.handleEnterCommandMode()
-    case "?":
-        return m.handleShowHelp()
-    case "s":
-        if m.state.Navigation.View == model.ViewApps { return m.handleSyncModal() }
-    case "r":
-        // Open resources for selected app (apps view)
-        if m.state.Navigation.View == model.ViewApps {
-            return m.handleOpenResourcesForSelection()
-        }
-        return m, nil
-    case "d":
-        // Open diff for selected app (apps view)
-        if m.state.Navigation.View == model.ViewApps {
-            return m.handleOpenDiffForSelection()
-        }
-        return m, nil
-    case "R":
-        cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
-        if m.state.Navigation.View == model.ViewApps {
-            cblog.With("component", "rollback").Debug("Calling handleRollback()")
-            return m.handleRollback()
-        } else {
-            cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
-        }
-    case "esc":
-        return m.handleEscape()
-    case "g":
-        now := time.Now().UnixMilli()
-        if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
-            return m.handleGoToTop()
-        }
-        m.state.Navigation.LastGPressed = now
-        return m, nil
-    case "G":
-        return m.handleGoToBottom()
-    }
-    return m, nil
+	// Normal-mode global keys
+	switch msg.String() {
+	case "q", "ctrl+c":
+		return m, func() tea.Msg { return model.QuitMsg{} }
+	case "up", "k":
+		return m.handleNavigationUp()
+	case "down", "j":
+		return m.handleNavigationDown()
+	case " ":
+		return m.handleToggleSelection()
+	case "enter":
+		return m.handleDrillDown()
+	case "/":
+		return m.handleEnterSearchMode()
+	case ":":
+		return m.handleEnterCommandMode()
+	case "?":
+		return m.handleShowHelp()
+	case "s":
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleSyncModal()
+		}
+	case "r":
+		// Open resources for selected app (apps view)
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleOpenResourcesForSelection()
+		}
+		return m, nil
+	case "d":
+		// Open diff for selected app (apps view)
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleOpenDiffForSelection()
+		}
+		return m, nil
+	case "R":
+		cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
+		if m.state.Navigation.View == model.ViewApps {
+			cblog.With("component", "rollback").Debug("Calling handleRollback()")
+			return m.handleRollback()
+		} else {
+			cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
+		}
+	case "esc":
+		return m.handleEscape()
+	case "g":
+		now := time.Now().UnixMilli()
+		if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
+			return m.handleGoToTop()
+		}
+		m.state.Navigation.LastGPressed = now
+		return m, nil
+	case "G":
+		return m.handleGoToBottom()
+	}
+	return m, nil
 }
 
 // handleOpenResourcesForSelection opens the resources (tree) view for the selected app
 func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
-    // If multiple apps selected, open tree view and stream all
-    sel := m.state.Selections.SelectedApps
-    selected := make([]string, 0, len(sel))
-    for name, ok := range sel { if ok { selected = append(selected, name) } }
-    if len(selected) > 1 {
-        // Reset tree view to a fresh multi-app instance
-        m.treeView = treeview.NewTreeView(0, 0)
-        m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
-        m.treeScrollOffset = 0 // Reset scroll position
-        m.state.SaveNavigationState()
-        m.state.Navigation.View = model.ViewTree
-        // Clear single-app tracker
-        m.state.UI.TreeAppName = nil
-        m.treeLoading = true
-        var cmds []tea.Cmd
-        for _, name := range selected {
-            // start initial load + watch stream for the tree view
-            var appObj *model.App
-            for i := range m.state.Apps { if m.state.Apps[i].Name == name { appObj = &m.state.Apps[i]; break } }
-            if appObj == nil { tmp := model.App{Name: name}; appObj = &tmp }
-            cmds = append(cmds, m.startLoadingResourceTree(*appObj))
-            cmds = append(cmds, m.startWatchingResourceTree(*appObj))
-        }
-        cmds = append(cmds, m.consumeTreeEvent())
-        return m, tea.Batch(cmds...)
-    }
-    // Fallback to single app tree view
-    items := m.getVisibleItemsForCurrentView()
-    if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
-        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
-    }
-    app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
-    if !ok {
-        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"} }
-    }
-    // Reset tree view to a fresh single-app instance
-    m.treeView = treeview.NewTreeView(0, 0)
-    m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
-    m.treeScrollOffset = 0 // Reset scroll position
-    m.state.SaveNavigationState()
-    m.state.Navigation.View = model.ViewTree
-    m.state.UI.TreeAppName = &app.Name
-    m.treeLoading = true
-    return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
+	// If multiple apps selected, open tree view and stream all
+	sel := m.state.Selections.SelectedApps
+	selected := make([]string, 0, len(sel))
+	for name, ok := range sel {
+		if ok {
+			selected = append(selected, name)
+		}
+	}
+	if len(selected) > 1 {
+		// Reset tree view to a fresh multi-app instance
+		m.treeView = treeview.NewTreeView(0, 0)
+		m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+		m.treeScrollOffset = 0 // Reset scroll position
+		m.state.SaveNavigationState()
+		m.state.Navigation.View = model.ViewTree
+		// Clear single-app tracker
+		m.state.UI.TreeAppName = nil
+		m.treeLoading = true
+		var cmds []tea.Cmd
+		for _, name := range selected {
+			// start initial load + watch stream for the tree view
+			var appObj *model.App
+			for i := range m.state.Apps {
+				if m.state.Apps[i].Name == name {
+					appObj = &m.state.Apps[i]
+					break
+				}
+			}
+			if appObj == nil {
+				tmp := model.App{Name: name}
+				appObj = &tmp
+			}
+			cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+			cmds = append(cmds, m.startWatchingResourceTree(*appObj))
+		}
+		cmds = append(cmds, m.consumeTreeEvent())
+		return m, tea.Batch(cmds...)
+	}
+	// Fallback to single app tree view
+	items := m.getVisibleItemsForCurrentView()
+	if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
+		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
+	}
+	app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
+	if !ok {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
+		}
+	}
+	// Reset tree view to a fresh single-app instance
+	m.treeView = treeview.NewTreeView(0, 0)
+	m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+	m.treeScrollOffset = 0 // Reset scroll position
+	m.state.SaveNavigationState()
+	m.state.Navigation.View = model.ViewTree
+	m.state.UI.TreeAppName = &app.Name
+	m.treeLoading = true
+	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 
 // handleOpenDiffForSelection opens the diff for the selected app
 func (m Model) handleOpenDiffForSelection() (Model, tea.Cmd) {
-    // Check if there are multiple selected apps first
-    sel := m.state.Selections.SelectedApps
-    selected := make([]string, 0, len(sel))
-    for name, ok := range sel { if ok { selected = append(selected, name) } }
+	// Check if there are multiple selected apps first
+	sel := m.state.Selections.SelectedApps
+	selected := make([]string, 0, len(sel))
+	for name, ok := range sel {
+		if ok {
+			selected = append(selected, name)
+		}
+	}
 
-    cblog.With("component", "diff").Debug("handleOpenDiffForSelection",
-        "selected_apps", selected,
-        "selected_count", len(selected),
-        "cursor_idx", m.state.Navigation.SelectedIdx)
+	cblog.With("component", "diff").Debug("handleOpenDiffForSelection",
+		"selected_apps", selected,
+		"selected_count", len(selected),
+		"cursor_idx", m.state.Navigation.SelectedIdx)
 
-    var appName string
-    if len(selected) == 1 {
-        // Use the single selected app
-        appName = selected[0]
-        cblog.With("component", "diff").Debug("Using single selected app", "app", appName)
-    } else if len(selected) > 1 {
-        // Multiple apps selected - cannot show diff for multiple apps
-        return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Cannot show diff for multiple apps"} }
-    } else {
-        // No apps selected via checkbox, use cursor position
-        items := m.getVisibleItemsForCurrentView()
-        if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
-            return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
-        }
-        app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
-        if !ok {
-            return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"} }
-        }
-        appName = app.Name
-        cblog.With("component", "diff").Debug("Using cursor position", "app", appName, "idx", m.state.Navigation.SelectedIdx)
-    }
+	var appName string
+	if len(selected) == 1 {
+		// Use the single selected app
+		appName = selected[0]
+		cblog.With("component", "diff").Debug("Using single selected app", "app", appName)
+	} else if len(selected) > 1 {
+		// Multiple apps selected - cannot show diff for multiple apps
+		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Cannot show diff for multiple apps"} }
+	} else {
+		// No apps selected via checkbox, use cursor position
+		items := m.getVisibleItemsForCurrentView()
+		if len(items) == 0 || m.state.Navigation.SelectedIdx >= len(items) {
+			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for diff"} }
+		}
+		app, ok := items[m.state.Navigation.SelectedIdx].(model.App)
+		if !ok {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"}
+			}
+		}
+		appName = app.Name
+		cblog.With("component", "diff").Debug("Using cursor position", "app", appName, "idx", m.state.Navigation.SelectedIdx)
+	}
 
-    cblog.With("component", "diff").Debug("Starting diff session", "app", appName)
-    if m.state.Diff == nil { m.state.Diff = &model.DiffState{} }
-    m.state.Diff.Loading = true
-    return m, m.startDiffSession(appName)
+	cblog.With("component", "diff").Debug("Starting diff session", "app", appName)
+	if m.state.Diff == nil {
+		m.state.Diff = &model.DiffState{}
+	}
+	m.state.Diff.Loading = true
+	return m, m.startDiffSession(appName)
 }

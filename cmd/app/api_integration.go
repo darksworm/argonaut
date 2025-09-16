@@ -1,23 +1,23 @@
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
-    tea "github.com/charmbracelet/bubbletea/v2"
-    cblog "github.com/charmbracelet/log"
-    "github.com/darksworm/argonaut/pkg/api"
-    apperrors "github.com/darksworm/argonaut/pkg/errors"
-    "github.com/darksworm/argonaut/pkg/model"
-    "github.com/darksworm/argonaut/pkg/neat"
-    "github.com/darksworm/argonaut/pkg/services"
-    yaml "gopkg.in/yaml.v3"
-    stdErrors "errors"
+	stdErrors "errors"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/api"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/neat"
+	"github.com/darksworm/argonaut/pkg/services"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // startLoadingApplications initiates loading applications from ArgoCD API
@@ -43,23 +43,23 @@ func (m Model) startLoadingApplications() tea.Cmd {
 
 		// Load applications
 		// [API] Calling ListApplications - removed printf to avoid TUI interference
-        apps, err := apiService.ListApplications(ctx, m.state.Server)
-        if err != nil {
-            // Unwrap structured errors if wrapped
-            var argErr *apperrors.ArgonautError
-            if stdErrors.As(err, &argErr) {
-                if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" || hasHTTPStatusCtx(argErr, 401, 403) {
-                    return model.AuthErrorMsg{Error: argErr}
-                }
-                // Surface structured errors so error view can show details/context
-                return model.StructuredErrorMsg{Error: argErr}
-            }
-            // Fallback string matching
-            if isAuthenticationError(err.Error()) {
-                return model.AuthErrorMsg{Error: err}
-            }
-            return model.ApiErrorMsg{Message: err.Error()}
-        }
+		apps, err := apiService.ListApplications(ctx, m.state.Server)
+		if err != nil {
+			// Unwrap structured errors if wrapped
+			var argErr *apperrors.ArgonautError
+			if stdErrors.As(err, &argErr) {
+				if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" || hasHTTPStatusCtx(argErr, 401, 403) {
+					return model.AuthErrorMsg{Error: argErr}
+				}
+				// Surface structured errors so error view can show details/context
+				return model.StructuredErrorMsg{Error: argErr}
+			}
+			// Fallback string matching
+			if isAuthenticationError(err.Error()) {
+				return model.AuthErrorMsg{Error: err}
+			}
+			return model.ApiErrorMsg{Message: err.Error()}
+		}
 
 		// Successfully loaded applications
 		// [API] Successfully loaded applications - removed printf to avoid TUI interference
@@ -88,21 +88,21 @@ func (m Model) startWatchingApplications() tea.Cmd {
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Start watching applications
-        eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
-        if err != nil {
-            // Promote auth-related errors to AuthErrorMsg
-            var argErr *apperrors.ArgonautError
-            if stdErrors.As(err, &argErr) {
-                if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
-                    return model.AuthErrorMsg{Error: err}
-                }
-                return model.StructuredErrorMsg{Error: argErr}
-            }
-            if isAuthenticationError(err.Error()) {
-                return model.AuthErrorMsg{Error: err}
-            }
-            return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
-        }
+		eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
+		if err != nil {
+			// Promote auth-related errors to AuthErrorMsg
+			var argErr *apperrors.ArgonautError
+			if stdErrors.As(err, &argErr) {
+				if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
+					return model.AuthErrorMsg{Error: err}
+				}
+				return model.StructuredErrorMsg{Error: argErr}
+			}
+			if isAuthenticationError(err.Error()) {
+				return model.AuthErrorMsg{Error: err}
+			}
+			return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
+		}
 
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
@@ -129,21 +129,21 @@ func (m Model) fetchAPIVersion() tea.Cmd {
 
 // consumeWatchEvent reads a single service event and converts it to a tea message
 func (m Model) consumeWatchEvent() tea.Cmd {
-    return func() tea.Msg {
-        if m.watchChan == nil {
-            cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
-            return nil
-        }
-        ev, ok := <-m.watchChan
-        if !ok {
-            cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
-            return nil
-        }
-        cblog.With("component", "watch").Debug("consumeWatchEvent: received event",
-            "type", ev.Type,
-            "has_app", ev.App != nil,
-            "app_name", ev.AppName)
-        switch ev.Type {
+	return func() tea.Msg {
+		if m.watchChan == nil {
+			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
+			return nil
+		}
+		ev, ok := <-m.watchChan
+		if !ok {
+			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+			return nil
+		}
+		cblog.With("component", "watch").Debug("consumeWatchEvent: received event",
+			"type", ev.Type,
+			"has_app", ev.App != nil,
+			"app_name", ev.AppName)
+		switch ev.Type {
 		case "apps-loaded":
 			if ev.Apps != nil {
 				return model.AppsLoadedMsg{Apps: ev.Apps}
@@ -168,27 +168,27 @@ func (m Model) consumeWatchEvent() tea.Cmd {
 			if ev.Error != nil {
 				return model.AuthErrorMsg{Error: ev.Error}
 			}
-        case "api-error":
-            if ev.Error != nil {
-                // If the service emitted a generic api-error but the error is auth-related,
-                // surface it as an AuthErrorMsg so the UI switches to auth-required.
-                var argErr *apperrors.ArgonautError
-                if stdErrors.As(ev.Error, &argErr) {
-                    // Treat 401/403 as auth-required regardless of category
-                    if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
-                        return model.AuthErrorMsg{Error: ev.Error}
-                    }
-                    // Forward structured to error view
-                    return model.StructuredErrorMsg{Error: argErr}
-                }
-                if isAuthenticationError(ev.Error.Error()) {
-                    return model.AuthErrorMsg{Error: ev.Error}
-                }
-                return model.ApiErrorMsg{Message: ev.Error.Error()}
-            }
-        }
-        return nil
-    }
+		case "api-error":
+			if ev.Error != nil {
+				// If the service emitted a generic api-error but the error is auth-related,
+				// surface it as an AuthErrorMsg so the UI switches to auth-required.
+				var argErr *apperrors.ArgonautError
+				if stdErrors.As(ev.Error, &argErr) {
+					// Treat 401/403 as auth-required regardless of category
+					if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
+						return model.AuthErrorMsg{Error: ev.Error}
+					}
+					// Forward structured to error view
+					return model.StructuredErrorMsg{Error: argErr}
+				}
+				if isAuthenticationError(ev.Error.Error()) {
+					return model.AuthErrorMsg{Error: ev.Error}
+				}
+				return model.ApiErrorMsg{Message: ev.Error.Error()}
+			}
+		}
+		return nil
+	}
 }
 
 // startDiffSession loads diffs and opens the diff pager
@@ -300,50 +300,60 @@ func cleanManifestToYAML(jsonOrYaml string) string {
 
 // startLoadingResourceTree loads the resource tree for the given app
 func (m Model) startLoadingResourceTree(app model.App) tea.Cmd {
-    return tea.Cmd(func() tea.Msg {
-        if m.state.Server == nil {
-            return model.ApiErrorMsg{Message: "No server configured"}
-        }
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        defer cancel()
+	return tea.Cmd(func() tea.Msg {
+		if m.state.Server == nil {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-        argo := services.NewArgoApiService(m.state.Server)
-        appNamespace := ""
-        if app.AppNamespace != nil { appNamespace = *app.AppNamespace }
-        tree, err := argo.GetResourceTree(ctx, m.state.Server, app.Name, appNamespace)
-        if err != nil {
-            return model.ApiErrorMsg{Message: err.Error()}
-        }
-        // Marshal to JSON to avoid import cycle in model messages
-        data, merr := json.Marshal(tree)
-        if merr != nil {
-            return model.ApiErrorMsg{Message: merr.Error()}
-        }
-        return model.ResourceTreeLoadedMsg{AppName: app.Name, Health: app.Health, Sync: app.Sync, TreeJSON: data}
-    })
+		argo := services.NewArgoApiService(m.state.Server)
+		appNamespace := ""
+		if app.AppNamespace != nil {
+			appNamespace = *app.AppNamespace
+		}
+		tree, err := argo.GetResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+		if err != nil {
+			return model.ApiErrorMsg{Message: err.Error()}
+		}
+		// Marshal to JSON to avoid import cycle in model messages
+		data, merr := json.Marshal(tree)
+		if merr != nil {
+			return model.ApiErrorMsg{Message: merr.Error()}
+		}
+		return model.ResourceTreeLoadedMsg{AppName: app.Name, Health: app.Health, Sync: app.Sync, TreeJSON: data}
+	})
 }
 
 // startWatchingResourceTree starts a streaming watcher for resource tree updates
 type treeWatchStartedMsg struct{ cleanup func() }
 
 func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
-    return tea.Cmd(func() tea.Msg {
-        if m.state.Server == nil { return nil }
-        ctx := context.Background()
-        apiService := services.NewArgoApiService(m.state.Server)
-        appNamespace := ""
-        if app.AppNamespace != nil { appNamespace = *app.AppNamespace }
-        ch, cleanup, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
-        if err != nil { return model.StatusChangeMsg{Status: "Tree watch failed: "+err.Error()} }
-        go func() {
-            for t := range ch {
-                if t == nil { continue }
-                data, _ := json.Marshal(t)
-                m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
-            }
-        }()
-        return treeWatchStartedMsg{cleanup: cleanup}
-    })
+	return tea.Cmd(func() tea.Msg {
+		if m.state.Server == nil {
+			return nil
+		}
+		ctx := context.Background()
+		apiService := services.NewArgoApiService(m.state.Server)
+		appNamespace := ""
+		if app.AppNamespace != nil {
+			appNamespace = *app.AppNamespace
+		}
+		ch, cleanup, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+		if err != nil {
+			return model.StatusChangeMsg{Status: "Tree watch failed: " + err.Error()}
+		}
+		go func() {
+			for t := range ch {
+				if t == nil {
+					continue
+				}
+				data, _ := json.Marshal(t)
+				m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
+			}
+		}()
+		return treeWatchStartedMsg{cleanup: cleanup}
+	})
 }
 
 func stripDiffHeader(out string) string {
@@ -429,10 +439,10 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
-        cblog.With("component", "api").Info("Starting sync", "app", appName)
+		cblog.With("component", "api").Info("Starting sync", "app", appName)
 		err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
 		if err != nil {
-            cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
+			cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
 			// Convert to structured error and return via TUI error handling
 			if argErr, ok := err.(*apperrors.ArgonautError); ok {
 				return model.StructuredErrorMsg{
@@ -453,7 +463,7 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 			}
 		}
 
-        cblog.With("component", "api").Info("Sync completed", "app", appName)
+		cblog.With("component", "api").Info("Sync completed", "app", appName)
 		return model.SyncCompletedMsg{AppName: appName, Success: true}
 	})
 }
@@ -475,31 +485,58 @@ func isAuthenticationError(errMsg string) bool {
 
 // hasHTTPStatusCtx checks ArgonautError.Context for specific HTTP status codes
 func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
-    if err == nil || err.Context == nil { return false }
-    v, ok := err.Context["statusCode"]
-    if !ok { return false }
-    switch n := v.(type) {
-    case int:
-        for _, s := range statuses { if n == s { return true } }
-    case int64:
-        for _, s := range statuses { if int(n) == s { return true } }
-    case float64:
-        for _, s := range statuses { if int(n) == s { return true } }
-    }
-    return false
+	if err == nil || err.Context == nil {
+		return false
+	}
+	v, ok := err.Context["statusCode"]
+	if !ok {
+		return false
+	}
+	switch n := v.(type) {
+	case int:
+		for _, s := range statuses {
+			if n == s {
+				return true
+			}
+		}
+	case int64:
+		for _, s := range statuses {
+			if int(n) == s {
+				return true
+			}
+		}
+	case float64:
+		for _, s := range statuses {
+			if int(n) == s {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // startLogsSession opens application logs in pager
 func (m Model) startLogsSession() tea.Cmd {
-    return tea.Cmd(func() tea.Msg {
-        path := os.Getenv("ARGONAUT_LOG_FILE")
-        if strings.TrimSpace(path) == "" { path = "logs/a9s.log" }
-        data, err := os.ReadFile(path)
-        if err != nil {
-            return model.ApiErrorMsg{Message: "No logs available"}
-        }
-        return m.openTextPager("Logs", string(data))()
-    })
+	return tea.Cmd(func() tea.Msg {
+		path := os.Getenv("ARGONAUT_LOG_FILE")
+		if strings.TrimSpace(path) == "" {
+			return model.ApiErrorMsg{Message: "No logs available"}
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return model.ApiErrorMsg{Message: "No logs available"}
+		}
+
+		// Apply syntax highlighting to each log line
+		lines := strings.Split(string(data), "\n")
+		var highlightedLines []string
+		for _, line := range lines {
+			highlightedLines = append(highlightedLines, HighlightLogLine(line))
+		}
+		highlightedContent := strings.Join(highlightedLines, "\n")
+
+		return m.openTextPager("Logs", highlightedContent)()
+	})
 }
 
 // startRollbackSession loads deployment history for rollback
@@ -518,14 +555,14 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 		app, err := apiService.GetApplication(ctx, m.state.Server, appName, nil)
 		if err != nil {
 			errMsg := err.Error()
-        cblog.With("component", "rollback").Error("Rollback session failed", "app", appName, "err", err)
+			cblog.With("component", "rollback").Error("Rollback session failed", "app", appName, "err", err)
 			if isAuthenticationError(errMsg) {
 				return model.AuthErrorMsg{Error: err}
 			}
 			return model.ApiErrorMsg{Message: "Failed to load application: " + err.Error()}
 		}
 
-        cblog.With("component", "rollback").Info("Loaded application history", "app", appName, "count", len(app.Status.History))
+		cblog.With("component", "rollback").Info("Loaded application history", "app", appName, "count", len(app.Status.History))
 
 		// Convert history to rollback rows
 		rows := api.ConvertDeploymentHistoryToRollbackRows(app.Status.History)
@@ -538,7 +575,7 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 			currentRevision = app.Status.Sync.Revisions[0]
 		}
 
-        cblog.With("component", "rollback").Debug("Rollback session loaded", "app", appName, "rows", len(rows), "currentRevision", currentRevision)
+		cblog.With("component", "rollback").Debug("Rollback session loaded", "app", appName, "rows", len(rows), "currentRevision", currentRevision)
 
 		return model.RollbackHistoryLoadedMsg{
 			AppName:         appName,

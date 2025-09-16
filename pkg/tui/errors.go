@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -15,8 +16,17 @@ type ErrorHandler struct {
 
 // NewErrorHandler creates a new TUI error handler
 func NewErrorHandler() (*ErrorHandler, error) {
+	// Use temp file for TUI errors
+	logFile, err := os.CreateTemp("", "a9s-tui-errors-*.log")
+	if err != nil {
+		// Fallback to basic handler if temp file creation fails
+		return &ErrorHandler{
+			handler: nil,
+		}, nil
+	}
+
 	handler, err := apperrors.NewErrorHandler(apperrors.ErrorHandlerConfig{
-		LogFilePath: "logs/tui-errors.log",
+		LogFilePath: logFile.Name(),
 		MaxHistory:  50,
 		NotifyCallback: func(err *apperrors.ArgonautError) {
 			// This will be called when errors occur
