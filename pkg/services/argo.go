@@ -152,39 +152,7 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
 		// Send initial status
 		eventChan <- ArgoApiEvent{
 			Type:   "status-change",
-			Status: "Loading…",
-		}
-
-		// Send initial apps loaded event (no retry for initial watch load to avoid delays)
-        apps, err := s.ListApplications(watchCtx, server)
-        if err != nil {
-            // Prefer structured error inspection
-            if argErr, ok := err.(*apperrors.ArgonautError); ok {
-                if argErr.IsCategory(apperrors.ErrorAuth) || hasHTTPStatus(argErr, 401, 403) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
-                    eventChan <- ArgoApiEvent{Type: "auth-error", Error: err}
-                    eventChan <- ArgoApiEvent{Type: "status-change", Status: "Auth required"}
-                    return
-                }
-            }
-            // Fallback string check
-            if isAuthError(err.Error()) {
-                eventChan <- ArgoApiEvent{Type: "auth-error", Error: err}
-                eventChan <- ArgoApiEvent{Type: "status-change", Status: "Auth required"}
-                return
-            }
-            eventChan <- ArgoApiEvent{Type: "api-error", Error: err}
-            eventChan <- ArgoApiEvent{Type: "status-change", Status: "Error: " + err.Error()}
-            return
-        }
-
-		eventChan <- ArgoApiEvent{
-			Type: "apps-loaded",
-			Apps: apps,
-		}
-
-		eventChan <- ArgoApiEvent{
-			Type:   "status-change",
-			Status: "Live",
+			Status: "Watching for changes...",
 		}
 
 		// Start real watch stream
@@ -345,10 +313,12 @@ func (s *ArgoApiServiceImpl) Cleanup() {
 
 // startWatchStream starts the application watch stream
 func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan chan<- ArgoApiEvent) {
+    cblog.With("component", "services").Info("startWatchStream: starting watch stream")
     watchEventChan := make(chan api.ApplicationWatchEvent, 100)
-    
+
     go func() {
         defer close(watchEventChan)
+        cblog.With("component", "services").Info("startWatchStream: calling WatchApplications")
         err := s.appService.WatchApplications(ctx, watchEventChan)
         if err != nil && ctx.Err() == nil {
             cblog.With("component", "services").Error("Watch stream error", "err", err)
@@ -369,14 +339,18 @@ func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan cha
         }
     }()
 
+	cblog.With("component", "services").Info("startWatchStream: entering event loop")
 	for {
 		select {
 		case <-ctx.Done():
+			cblog.With("component", "services").Debug("startWatchStream: context cancelled, exiting")
 			return
 		case event, ok := <-watchEventChan:
 			if !ok {
+				cblog.With("component", "services").Debug("startWatchStream: watch channel closed, exiting")
 				return
 			}
+			cblog.With("component", "services").Debug("startWatchStream: received event from watch", "type", event.Type, "app", event.Application.Metadata.Name)
 			s.handleWatchEvent(event, eventChan)
 		}
 	}

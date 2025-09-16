@@ -240,10 +240,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.SetModeMsg:
 		oldMode := m.state.Mode
 		m.state.Mode = msg.Mode
+		cblog.With("component", "model").Info("SetModeMsg received",
+			"old_mode", oldMode,
+			"new_mode", msg.Mode)
 		// [MODE] Switching from %s to %s - removed printf to avoid TUI interference
 
 		// Handle mode transitions
 		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
+			cblog.With("component", "model").Info("Triggering initial load for ModeLoading")
 			// Start loading applications from API when transitioning to loading mode
 			// [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
 			return m, m.startLoadingApplications()
@@ -294,11 +298,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// API Event messages
 	case model.AppsLoadedMsg:
+		cblog.With("component", "model").Info("AppsLoadedMsg received",
+			"apps_count", len(msg.Apps),
+			"watchChan_nil", m.watchChan == nil)
 		m.state.Apps = msg.Apps
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
 		// m.ui.UpdateListItems(m.state)
-		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }, m.consumeWatchEvent())
+
+		// Only start watching if we haven't already started
+		// (watchChan is set when watch starts)
+		if m.watchChan == nil {
+			cblog.With("component", "model").Info("Starting watch as watchChan is nil")
+			// Start watching for app updates after initial load
+			return m, tea.Batch(
+				func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
+				m.startWatchingApplications(),
+			)
+		}
+		// If watch is already running, just switch to normal mode and keep consuming
+		return m, tea.Batch(
+			func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
+			m.consumeWatchEvent(),
+		)
 
 	case model.AppUpdatedMsg:
 		// upsert app
@@ -793,13 +815,10 @@ case model.ApiErrorMsg:
 		return m, tea.Quit
 
 	case model.SetInitialLoadingMsg:
+		cblog.With("component", "model").Info("SetInitialLoadingMsg received", "loading", msg.Loading)
 		// Control the initial loading modal display
 		m.state.Modals.InitialLoading = msg.Loading
-
-		// If turning on initial loading, also trigger the API load
-		if msg.Loading && m.state.Server != nil {
-			return m, m.startLoadingApplications()
-		}
+		// Don't trigger load here - let SetModeMsg handle it to avoid duplicates
 
 		return m, nil
 	}

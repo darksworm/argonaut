@@ -22,6 +22,7 @@ import (
 
 // startLoadingApplications initiates loading applications from ArgoCD API
 func (m Model) startLoadingApplications() tea.Cmd {
+	cblog.With("component", "api_integration").Info("startLoadingApplications called")
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.AuthErrorMsg{Error: fmt.Errorf("no server configured")}
@@ -29,6 +30,7 @@ func (m Model) startLoadingApplications() tea.Cmd {
 	}
 
 	return tea.Cmd(func() tea.Msg {
+		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
 		// Log the API call attempt
 		// [API] Starting to load applications - removed printf to avoid TUI interference
 
@@ -72,11 +74,13 @@ type watchStartedMsg struct {
 
 // startWatchingApplications starts the real-time watch stream
 func (m Model) startWatchingApplications() tea.Cmd {
+	cblog.With("component", "api_integration").Info("startWatchingApplications called", "watchChan_nil", m.watchChan == nil)
 	if m.state.Server == nil {
 		return nil
 	}
 
 	return tea.Cmd(func() tea.Msg {
+		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup")
 		// Create context for the watch stream
 		ctx := context.Background()
 

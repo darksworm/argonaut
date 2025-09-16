@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/darksworm/argonaut/pkg/model"
+	cblog "github.com/charmbracelet/log"
 )
 
 // ArgoApplication represents an ArgoCD application from the API
@@ -248,15 +249,20 @@ func (s *ApplicationService) SyncApplication(ctx context.Context, appName string
 
 // WatchApplications starts watching for application changes
 func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan chan<- ApplicationWatchEvent) error {
+	cblog.With("component", "api").Info("WatchApplications: attempting to establish stream", "endpoint", "/api/v1/stream/applications")
 	stream, err := s.client.Stream(ctx, "/api/v1/stream/applications")
 	if err != nil {
+		cblog.With("component", "api").Error("WatchApplications: failed to establish stream", "error", err)
 		return fmt.Errorf("failed to start watch stream: %w", err)
 	}
+	cblog.With("component", "api").Info("WatchApplications: stream established successfully")
 	defer stream.Close()
 
 	scanner := bufio.NewScanner(stream)
+	cblog.With("component", "api").Info("WatchApplications: starting to read from stream")
 	for scanner.Scan() {
 		if ctx.Err() != nil {
+			cblog.With("component", "api").Debug("WatchApplications: context cancelled")
 			return ctx.Err()
 		}
 
@@ -264,16 +270,26 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 		if line == "" {
 			continue
 		}
+		cblog.With("component", "api").Debug("WatchApplications: received line from stream", "line", line)
+
+		// Handle Server-Sent Events format (lines starting with "data: ")
+		if strings.HasPrefix(line, "data: ") {
+			line = strings.TrimPrefix(line, "data: ")
+		}
 
 		var eventResult WatchEventResult
 		if err := json.Unmarshal([]byte(line), &eventResult); err != nil {
+			cblog.With("component", "api").Warn("WatchApplications: failed to unmarshal event", "error", err, "line", line)
 			// Skip malformed lines
 			continue
 		}
+		cblog.With("component", "api").Debug("WatchApplications: parsed event", "type", eventResult.Result.Type, "app", eventResult.Result.Application.Metadata.Name)
 
 		select {
 		case eventChan <- eventResult.Result:
+			cblog.With("component", "api").Debug("WatchApplications: sent event to channel")
 		case <-ctx.Done():
+			cblog.With("component", "api").Debug("WatchApplications: context cancelled during send")
 			return ctx.Err()
 		}
 	}
