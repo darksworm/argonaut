@@ -65,6 +65,11 @@ func (m Model) startLoadingApplications() tea.Cmd {
 	})
 }
 
+// WatchStartedMsg indicates the watch stream has started
+type watchStartedMsg struct {
+	eventChan <-chan services.ArgoApiEvent
+}
+
 // startWatchingApplications starts the real-time watch stream
 func (m Model) startWatchingApplications() tea.Cmd {
 	if m.state.Server == nil {
@@ -95,15 +100,8 @@ func (m Model) startWatchingApplications() tea.Cmd {
             return model.ApiErrorMsg{Message: "Failed to start watch: " + err.Error()}
         }
 
-		// Store channel and start first consume
-		m.watchChan = make(chan services.ArgoApiEvent, 100)
-		go func() {
-			for ev := range eventChan {
-				m.watchChan <- ev
-			}
-			close(m.watchChan)
-		}()
-		return model.StatusChangeMsg{Status: "Watching for changes..."}
+		// Return message with the event channel so Update can set it properly
+		return watchStartedMsg{eventChan: eventChan}
 	})
 }
 

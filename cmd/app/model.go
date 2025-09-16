@@ -263,6 +263,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Also fetch API version and start watching
 		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
+	case watchStartedMsg:
+		// Set up the watch channel with proper forwarding
+		m.watchChan = make(chan services.ArgoApiEvent, 100)
+		go func() {
+			for ev := range msg.eventChan {
+				m.watchChan <- ev
+			}
+			close(m.watchChan)
+		}()
+		// Start consuming events
+		return m, tea.Batch(
+			m.consumeWatchEvent(),
+			func() tea.Msg { return model.StatusChangeMsg{Status: "Watching for changes..."} },
+		)
+
 	// API Event messages
 	case model.AppsLoadedMsg:
 		m.state.Apps = msg.Apps
