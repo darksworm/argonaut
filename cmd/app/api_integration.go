@@ -126,12 +126,18 @@ func (m Model) fetchAPIVersion() tea.Cmd {
 func (m Model) consumeWatchEvent() tea.Cmd {
     return func() tea.Msg {
         if m.watchChan == nil {
+            cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
             return nil
         }
         ev, ok := <-m.watchChan
         if !ok {
+            cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
             return nil
         }
+        cblog.With("component", "watch").Debug("consumeWatchEvent: received event",
+            "type", ev.Type,
+            "has_app", ev.App != nil,
+            "app_name", ev.AppName)
         switch ev.Type {
 		case "apps-loaded":
 			if ev.Apps != nil {

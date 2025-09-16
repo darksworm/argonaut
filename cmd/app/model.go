@@ -266,10 +266,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case watchStartedMsg:
 		// Set up the watch channel with proper forwarding
 		m.watchChan = make(chan services.ArgoApiEvent, 100)
+		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
 		go func() {
+			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
+			eventCount := 0
 			for ev := range msg.eventChan {
+				eventCount++
+				cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
+					"event_number", eventCount,
+					"type", ev.Type)
 				m.watchChan <- ev
 			}
+			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
 			close(m.watchChan)
 		}()
 		// Start consuming events
@@ -289,6 +297,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.AppUpdatedMsg:
 		// upsert app
 		updated := msg.App
+		cblog.With("component", "watch").Debug("AppUpdatedMsg received",
+			"app", updated.Name,
+			"health", updated.Health,
+			"sync", updated.Sync)
 		found := false
 		for i, a := range m.state.Apps {
 			if a.Name == updated.Name {
@@ -300,6 +312,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !found {
 			m.state.Apps = append(m.state.Apps, updated)
 		}
+		cblog.With("component", "watch").Debug("Apps list updated",
+			"total_apps", len(m.state.Apps),
+			"updated_app", updated.Name)
 		return m, m.consumeWatchEvent()
 
 	case model.AppDeletedMsg:
