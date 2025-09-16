@@ -24,7 +24,21 @@ func (m Model) renderTreePanel(availableRows int) string {
 
     // Calculate viewport
     viewportHeight := availableRows
+    cursorIdx := m.state.Navigation.SelectedIdx
     scrollOffset := m.treeScrollOffset
+
+    // Clamp cursor to valid range
+    if cursorIdx >= totalLines {
+        cursorIdx = max(0, totalLines-1)
+        m.state.Navigation.SelectedIdx = cursorIdx
+    }
+
+    // Ensure scroll offset keeps cursor in view
+    if cursorIdx < scrollOffset {
+        scrollOffset = cursorIdx
+    } else if cursorIdx >= scrollOffset+viewportHeight {
+        scrollOffset = cursorIdx - viewportHeight + 1
+    }
 
     // Clamp scroll offset
     if scrollOffset < 0 {
@@ -34,10 +48,22 @@ func (m Model) renderTreePanel(availableRows int) string {
         scrollOffset = max(0, totalLines-viewportHeight)
     }
 
-    // Extract visible lines
+    // Save the adjusted scroll offset back
+    m.treeScrollOffset = scrollOffset
+
+    // Extract visible lines and highlight the selected one
     visibleLines := []string{}
     for i := scrollOffset; i < min(scrollOffset+viewportHeight, totalLines); i++ {
-        visibleLines = append(visibleLines, lines[i])
+        line := lines[i]
+        // Highlight the selected line
+        if i == cursorIdx {
+            // Add selection indicator
+            line = lipgloss.NewStyle().
+                Background(lipgloss.Color("240")).
+                Foreground(lipgloss.Color("255")).
+                Render(line)
+        }
+        visibleLines = append(visibleLines, line)
     }
 
     // Join visible lines
@@ -46,10 +72,11 @@ func (m Model) renderTreePanel(availableRows int) string {
 
     // Add scroll indicator if needed
     if totalLines > viewportHeight {
-        scrollInfo := fmt.Sprintf(" [%d-%d/%d] ",
+        scrollInfo := fmt.Sprintf(" [Line %d/%d, View %d-%d] ",
+            cursorIdx+1,
+            totalLines,
             scrollOffset+1,
-            min(scrollOffset+viewportHeight, totalLines),
-            totalLines)
+            min(scrollOffset+viewportHeight, totalLines))
         // We'll add this to the border title or status line
         _ = scrollInfo
     }

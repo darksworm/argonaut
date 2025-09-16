@@ -14,10 +14,15 @@ import (
 
 // handleNavigationUp moves cursor up with bounds checking
 func (m Model) handleNavigationUp() (Model, tea.Cmd) {
-	// Special handling for tree view - scroll instead of cursor
+	// Special handling for tree view - move cursor and auto-scroll
 	if m.state.Navigation.View == model.ViewTree {
-		if m.treeScrollOffset > 0 {
-			m.treeScrollOffset--
+		if m.state.Navigation.SelectedIdx > 0 {
+			m.state.Navigation.SelectedIdx--
+
+			// Auto-scroll up if cursor moved above viewport
+			if m.state.Navigation.SelectedIdx < m.treeScrollOffset {
+				m.treeScrollOffset = m.state.Navigation.SelectedIdx
+			}
 		}
 		return m, nil
 	}
@@ -33,10 +38,19 @@ func (m Model) handleNavigationUp() (Model, tea.Cmd) {
 
 // handleNavigationDown moves cursor down with bounds checking
 func (m Model) handleNavigationDown() (Model, tea.Cmd) {
-	// Special handling for tree view - scroll instead of cursor
+	// Special handling for tree view - move cursor and auto-scroll
 	if m.state.Navigation.View == model.ViewTree {
-		m.treeScrollOffset++
-		// The actual clamping happens in renderTreePanel
+		// We don't know the total lines here, so just increment
+		// The clamping will happen in renderTreePanel
+		m.state.Navigation.SelectedIdx++
+
+		// Auto-scroll down if cursor moved below viewport
+		// We'll need to calculate viewport height in renderTreePanel
+		// For now, use a simple heuristic
+		viewportHeight := m.state.Terminal.Rows - 10 // Approximate overhead
+		if m.state.Navigation.SelectedIdx >= m.treeScrollOffset + viewportHeight {
+			m.treeScrollOffset = m.state.Navigation.SelectedIdx - viewportHeight + 1
+		}
 		return m, nil
 	}
 
