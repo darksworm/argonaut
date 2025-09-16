@@ -287,6 +287,58 @@ func MockArgoServer() (*httptest.Server, error) {
 	return srv, nil
 }
 
+// MockArgoServerStreaming creates a server that sends multiple streaming updates
+func MockArgoServerStreaming() (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte(`{}`)) })
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		// Initial app with OutOfSync status
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}]}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
+	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"demo","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"Synced"},
+			{"kind":"ReplicaSet","name":"demo-rs","namespace":"default","version":"v1","group":"apps","uid":"rs-1","status":"Synced","parentRefs":[{"uid":"dep-1","kind":"Deployment","name":"demo","namespace":"default","group":"apps","version":"v1"}]}
+		]}`))
+	})
+	// Streaming endpoint that sends multiple updates
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "application/json")
+
+		// Send initial state
+		lines := []string{
+			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`,
+		}
+
+		for _, ln := range lines {
+			_, _ = w.Write([]byte(ln + "\n"))
+			if fl != nil {
+				fl.Flush()
+			}
+		}
+
+		// Wait a bit then send an update
+		time.Sleep(500 * time.Millisecond)
+
+		// Send sync status update
+		updateLines := []string{
+			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
+		}
+
+		for _, ln := range updateLines {
+			_, _ = w.Write([]byte(ln + "\n"))
+			if fl != nil {
+				fl.Flush()
+			}
+		}
+	})
+	srv := httptest.NewServer(mux)
+	return srv, nil
+}
+
 // WriteArgoConfig writes an argocd CLI config pointing to our test server
 func WriteArgoConfig(path, baseURL string) error {
 	return WriteArgoConfigWithToken(path, baseURL, "test-token")
