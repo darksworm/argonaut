@@ -101,6 +101,7 @@ func (m Model) startWatchingApplications() tea.Cmd {
         }
 
 		// Return message with the event channel so Update can set it properly
+		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
 		return watchStartedMsg{eventChan: eventChan}
 	})
 }
@@ -145,6 +146,10 @@ func (m Model) consumeWatchEvent() tea.Cmd {
 			}
 		case "app-updated":
 			if ev.App != nil {
+				cblog.With("component", "watch").Info("Sending AppUpdatedMsg",
+					"app_name", ev.App.Name,
+					"health", ev.App.Health,
+					"sync", ev.App.Sync)
 				return model.AppUpdatedMsg{App: *ev.App}
 			}
 		case "app-deleted":

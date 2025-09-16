@@ -70,6 +70,9 @@ type Model struct {
 
     // Cleanup callbacks for active tree watchers
     treeWatchCleanups []func()
+
+    // Debug: render counter
+    renderCount int
 }
 // NewModel, Init, pager helpers, and tree stream helpers moved to dedicated files.
 
