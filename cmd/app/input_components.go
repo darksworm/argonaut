@@ -466,28 +466,15 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, m.startRollbackSession(target)
         case "resources", "res", "r":
             target := arg
-            if target == "" {
-                // Only try to get current selection if we're in the apps view
-                if m.state.Navigation.View == model.ViewApps {
-                    items := m.getVisibleItemsForCurrentView()
-                    if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
-                        if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
-                            target = app.Name
-                        }
-                    }
-                } else {
-                    return m, func() tea.Msg {
-                        return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
-                    }
-                }
-            }
-            // If multiple selected and no explicit target, open multi tree view with live updates
+
+            // If no explicit target provided, check for multiple selections first (like 'r' key does)
             if target == "" {
                 sel := m.state.Selections.SelectedApps
                 names := make([]string, 0, len(sel))
                 for name, ok := range sel { if ok { names = append(names, name) } }
+
                 if len(names) > 1 {
-                    // Reset tree view for multi-app session
+                    // Multiple apps selected - open multi tree view with live updates
                     m.treeView = treeview.NewTreeView(0, 0)
                     m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
                     m.state.SaveNavigationState()
@@ -504,8 +491,26 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
                     }
                     cmds = append(cmds, m.consumeTreeEvent())
                     return m, tea.Batch(cmds...)
+                } else if len(names) == 1 {
+                    // Single app selected via checkbox
+                    target = names[0]
+                } else {
+                    // No apps selected via checkbox, try cursor position
+                    if m.state.Navigation.View == model.ViewApps {
+                        items := m.getVisibleItemsForCurrentView()
+                        if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+                            if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+                                target = app.Name
+                            }
+                        }
+                    } else {
+                        return m, func() tea.Msg {
+                            return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
+                        }
+                    }
                 }
             }
+
             if target == "" {
                 return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
             }
