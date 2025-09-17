@@ -9,7 +9,7 @@ import (
 )
 
 // renderListView - custom list/table rendering with fixed inner width
-func (m Model) renderListView(availableRows int) string {
+func (m *Model) renderListView(availableRows int) string {
 	visibleItems := m.getVisibleItems()
 
 	contentWidth := max(0, m.contentInnerWidth())
@@ -122,7 +122,7 @@ func (m Model) renderListView(availableRows int) string {
 }
 
 // renderListHeader - matches ListView header row with responsive widths
-func (m Model) renderListHeader() string {
+func (m *Model) renderListHeader() string {
 	if m.state.Navigation.View == model.ViewApps {
 		// Fixed-width columns with full text headers
 		contentWidth := m.contentInnerWidth()
@@ -160,7 +160,7 @@ func (m Model) renderListHeader() string {
 }
 
 // renderAppRow - matches ListView app row rendering
-func (m Model) renderAppRow(app model.App, isCursor bool) string {
+func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 	// Selection checking (matches ListView isChecked logic)
 	isSelected := m.state.Selections.HasSelectedApp(app.Name)
 	active := isCursor || isSelected
@@ -237,7 +237,7 @@ func (m Model) renderAppRow(app model.App, isCursor bool) string {
 }
 
 // renderSimpleRow - matches ListView non-app row rendering
-func (m Model) renderSimpleRow(label string, isCursor bool) string {
+func (m *Model) renderSimpleRow(label string, isCursor bool) string {
 	// Check if selected based on view (matches ListView isChecked logic)
 	isSelected := false
 	switch m.state.Navigation.View {

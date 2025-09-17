@@ -9,7 +9,7 @@ import (
 )
 
 // renderStatusLine - 1:1 mapping from MainLayout status Box
-func (m Model) renderStatusLine() string {
+func (m *Model) renderStatusLine() string {
 	visibleItems := m.getVisibleItems()
 
 	// Left side: view and filter info (matches MainLayout left Box)
@@ -69,7 +69,7 @@ func (m Model) renderStatusLine() string {
 
 // Helper functions matching TypeScript utilities
 
-func (m Model) getSyncIcon(sync string) string {
+func (m *Model) getSyncIcon(sync string) string {
 	switch sync {
 	case "Synced":
 		return checkIcon
@@ -82,7 +82,7 @@ func (m Model) getSyncIcon(sync string) string {
 	}
 }
 
-func (m Model) getHealthIcon(health string) string {
+func (m *Model) getHealthIcon(health string) string {
 	switch health {
 	case "Healthy":
 		return checkIcon
@@ -97,7 +97,7 @@ func (m Model) getHealthIcon(health string) string {
 	}
 }
 
-func (m Model) getColorForStatus(status string) lipgloss.Style {
+func (m *Model) getColorForStatus(status string) lipgloss.Style {
 	switch status {
 	case "Synced", "Healthy":
 		return lipgloss.NewStyle().Foreground(syncedColor)

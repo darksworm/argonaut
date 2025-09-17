@@ -101,7 +101,7 @@ func (ic *InputComponentState) ClearCommandInput() {
 // Enhanced view functions that use bubbles textinput
 
 // renderEnhancedSearchBar renders an interactive search bar using bubbles textinput
-func (m Model) renderEnhancedSearchBar() string {
+func (m *Model) renderEnhancedSearchBar() string {
 	if m.state.Mode != model.ModeSearch {
 		return ""
 	}
@@ -139,7 +139,7 @@ func (m Model) renderEnhancedSearchBar() string {
 }
 
 // renderEnhancedCommandBar renders an interactive command bar using bubbles textinput
-func (m Model) renderEnhancedCommandBar() string {
+func (m *Model) renderEnhancedCommandBar() string {
 	if m.state.Mode != model.ModeCommand {
 		return ""
 	}
@@ -168,7 +168,7 @@ func (m Model) renderEnhancedCommandBar() string {
 }
 
 // renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
-func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
+func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	currentInput := m.inputComponents.GetCommandValue()
 
 	// DEBUG: Log what we're working with
@@ -239,7 +239,7 @@ func (m Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 // Enhanced input handling for bubbles integration
 
 // handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
-func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		// Treat Ctrl+C as closing the input (do not quit app)
@@ -295,8 +295,11 @@ func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.state.UI.SearchQuery = searchValue
 		// Perform drill-down based on current selection under active search filter
 		newModel, cmd := m.handleDrillDown()
-		newModel.inputComponents.BlurInputs()
-		newModel.state.Mode = model.ModeNormal
+		if modelPtr, ok := newModel.(*Model); ok {
+			modelPtr.inputComponents.BlurInputs()
+			modelPtr.state.Mode = model.ModeNormal
+			return modelPtr, cmd
+		}
 		return newModel, cmd
 	default:
 		// Let bubbles textinput handle the key
@@ -313,7 +316,7 @@ func (m Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
-func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		// Treat Ctrl+C as closing the input (do not quit app)
@@ -603,7 +606,6 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		case "cluster", "clusters", "cls", "context", "ctx":
 			// Exit deep views and clear lower-level scopes
 			m.state.UI.TreeAppName = nil
-			// resources list removed
 			m.treeLoading = false
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			m = m.safeChangeView(model.ViewClusters)
@@ -637,7 +639,6 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, nil
 		case "namespace", "namespaces", "ns":
 			m.state.UI.TreeAppName = nil
-			// resources list removed
 			m.treeLoading = false
 			m = m.safeChangeView(model.ViewNamespaces)
 			m.state.Selections.SelectedApps = model.NewStringSet()
@@ -668,7 +669,6 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, nil
 		case "project", "projects", "proj":
 			m.state.UI.TreeAppName = nil
-			// resources list removed
 			m.treeLoading = false
 			m = m.safeChangeView(model.ViewProjects)
 			m.state.Selections.SelectedApps = model.NewStringSet()
@@ -737,7 +737,7 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 // Enhanced mode entry handlers that activate bubbles inputs
 
 // handleEnhancedEnterSearchMode switches to search mode and activates textinput
-func (m Model) handleEnhancedEnterSearchMode() (Model, tea.Cmd) {
+func (m *Model) handleEnhancedEnterSearchMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeSearch
 	m.state.UI.SearchQuery = ""
 	m.inputComponents.ClearSearchInput()
@@ -746,7 +746,7 @@ func (m Model) handleEnhancedEnterSearchMode() (Model, tea.Cmd) {
 }
 
 // handleEnhancedEnterCommandMode switches to command mode and activates textinput
-func (m Model) handleEnhancedEnterCommandMode() (Model, tea.Cmd) {
+func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeCommand
 	m.state.UI.Command = ""
 	m.inputComponents.ClearCommandInput()

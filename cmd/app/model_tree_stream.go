@@ -6,7 +6,7 @@ import (
 )
 
 // watchTreeDeliver is used by the watcher goroutine to send messages into Bubble Tea
-func (m Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
+func (m *Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
 	select {
 	case m.treeStream <- msg:
 	default:
@@ -14,7 +14,7 @@ func (m Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
 }
 
 // consumeTreeEvent reads a single tree stream event and returns it as a tea message
-func (m Model) consumeTreeEvent() tea.Cmd {
+func (m *Model) consumeTreeEvent() tea.Cmd {
 	return func() tea.Msg {
 		if m.treeStream == nil {
 			return nil

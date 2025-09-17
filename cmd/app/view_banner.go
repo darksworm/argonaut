@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
-func (m Model) renderBanner() string {
+func (m *Model) renderBanner() string {
 	isNarrow := m.state.Terminal.Cols <= 100
 	if isNarrow {
 		// Float the small badge to the right of the first context line to save vertical space.
@@ -45,7 +45,7 @@ func (m Model) renderBanner() string {
 }
 
 // renderSmallBadge renders the compact badge used in narrow terminals.
-func (m Model) renderSmallBadge(grayscale bool) string {
+func (m *Model) renderSmallBadge(grayscale bool) string {
 	st := lipgloss.NewStyle().
 		Bold(true).
 		PaddingLeft(1).
@@ -58,7 +58,7 @@ func (m Model) renderSmallBadge(grayscale bool) string {
 	return st.Render("Argonaut " + appVersion)
 }
 
-func (m Model) renderContextBlock(isNarrow bool) string {
+func (m *Model) renderContextBlock(isNarrow bool) string {
 	if m.state.Server == nil {
 		return ""
 	}
@@ -89,7 +89,7 @@ func (m Model) renderContextBlock(isNarrow bool) string {
 	return lipgloss.NewStyle().PaddingRight(2).Render(block)
 }
 
-func (m Model) renderAsciiLogo() string {
+func (m *Model) renderAsciiLogo() string {
 	cyan := lipgloss.NewStyle().Foreground(cyanBright)
 	white := lipgloss.NewStyle().Foreground(whiteBright)
 	dim := lipgloss.NewStyle().Foreground(dimColor)

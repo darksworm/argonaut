@@ -7,6 +7,11 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
+// Test helper function
+func stringPtr(s string) *string {
+	return &s
+}
+
 // buildTestModelWithApps creates a minimal model configured for a deterministic list view.
 func buildTestModelWithApps(cols, rows int) *Model {
 	m := NewModel()

@@ -256,7 +256,7 @@ const (
 )
 
 // View implements tea.Model.View - 1:1 mapping from React App.tsx
-func (m Model) View() string {
+func (m *Model) View() string {
 	m.renderCount++
 	cblog.With("component", "view").Debug("View() called",
 		"render_count", m.renderCount,
@@ -311,7 +311,7 @@ type FullScreenViewOptions struct {
 }
 
 // renderFullScreenViewWithOptions provides the full-screen layout with customizable options
-func (m Model) renderFullScreenViewWithOptions(header, content, status string, opts FullScreenViewOptions) string {
+func (m *Model) renderFullScreenViewWithOptions(header, content, status string, opts FullScreenViewOptions) string {
 	var sections []string
 
 	// Header section
@@ -414,7 +414,7 @@ func padRight(s string, width int) string {
 	return s
 }
 
-func (m Model) getVisibleItems() []interface{} {
+func (m *Model) getVisibleItems() []interface{} {
 	// Derive unique groups and filtered apps from current state, mirroring TS useVisibleItems
 	// 1) Gather filtered apps through selected scopes
 	apps := m.state.Apps
@@ -597,7 +597,7 @@ func sortStrings(items []string) {
 		}
 	}
 }
-func (m Model) renderAuthRequiredView() string {
+func (m *Model) renderAuthRequiredView() string {
 	serverText := "—"
 	if m.state.Server != nil {
 		serverText = m.state.Server.BaseURL
@@ -658,10 +658,10 @@ func (m Model) renderAuthRequiredView() string {
 	})
 }
 
-func (m Model) renderOfficeSupplyManager() string {
+func (m *Model) renderOfficeSupplyManager() string {
 	return statusStyle.Render("Office supply manager - TODO: implement 1:1")
 }
-func (m Model) renderConfirmSyncModal() string {
+func (m *Model) renderConfirmSyncModal() string {
 	if m.state.Modals.ConfirmTarget == nil {
 		return ""
 	}
@@ -748,7 +748,7 @@ func (m Model) renderConfirmSyncModal() string {
 }
 
 // renderDiffView - simple pager for diff content
-func (m Model) renderDiffView() string {
+func (m *Model) renderDiffView() string {
 	if m.state.Diff == nil {
 		return contentBorderStyle.Render("No diff loaded")
 	}
@@ -812,7 +812,7 @@ func (m Model) renderDiffView() string {
 }
 
 // renderHelpSection - helper for HelpModal (matches Help.tsx HelpSection)
-func (m Model) renderHelpSection(title, content string, isWide bool) string {
+func (m *Model) renderHelpSection(title, content string, isWide bool) string {
 	titleStyled := lipgloss.NewStyle().Foreground(syncedColor).Bold(true).Render(title)
 	if isWide {
 		// Two-column layout: 12-char title column + 1 space gap
@@ -872,7 +872,7 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 }
 
 // renderLogsView renders the logs view with full-height layout
-func (m Model) renderLogsView() string {
+func (m *Model) renderLogsView() string {
 	// Dimensions
 	containerWidth := max(0, m.state.Terminal.Cols-2)
 	contentWidth := max(0, containerWidth-4)
@@ -910,7 +910,7 @@ func (m Model) renderLogsView() string {
 }
 
 // readLogContent reads the actual log file content
-func (m Model) readLogContent() string {
+func (m *Model) readLogContent() string {
 	// Try to read the log file path from environment (set by setupLogging)
 	logFile := os.Getenv("ARGONAUT_LOG_FILE")
 	if strings.TrimSpace(logFile) == "" {
@@ -945,7 +945,7 @@ func (m Model) readLogContent() string {
 }
 
 // buildWrappedLogLines returns header + log content lines wrapped to contentWidth
-func (m Model) buildWrappedLogLines(contentWidth int) []string {
+func (m *Model) buildWrappedLogLines(contentWidth int) []string {
 	text := m.readLogContent()
 	// Split into logical lines, then wrap into visual lines
 	logical := strings.Split(text, "\n")
@@ -964,7 +964,7 @@ func (m Model) buildWrappedLogLines(contentWidth int) []string {
 }
 
 // renderErrorView displays API errors in a user-friendly format
-func (m Model) renderErrorView() string {
+func (m *Model) renderErrorView() string {
 	// Header
 	header := m.renderBanner()
 
@@ -1066,7 +1066,7 @@ func (m Model) renderErrorView() string {
 }
 
 // renderConnectionErrorView displays connection error in a user-friendly format
-func (m Model) renderConnectionErrorView() string {
+func (m *Model) renderConnectionErrorView() string {
 	// Header
 	header := m.renderBanner()
 
@@ -1101,7 +1101,7 @@ func (m Model) renderConnectionErrorView() string {
 }
 
 // renderRollbackHistory renders the deployment history list
-func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
+func (m *Model) renderRollbackHistory(rollback *model.RollbackState) string {
 	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
 	content := titleStyle.Render(fmt.Sprintf("Rollback %s", rollback.AppName)) + "\n\n"
 
@@ -1204,7 +1204,7 @@ func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
 }
 
 // renderRollbackConfirmation renders the confirmation screen
-func (m Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHeight int, innerWidth int) string {
+func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHeight int, innerWidth int) string {
 	// Top details section (no title here)
 	content := ""
 

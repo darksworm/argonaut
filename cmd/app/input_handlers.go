@@ -14,7 +14,7 @@ import (
 // Navigation handlers matching TypeScript functionality
 
 // handleNavigationUp moves cursor up with bounds checking
-func (m Model) handleNavigationUp() (Model, tea.Cmd) {
+func (m *Model) handleNavigationUp() (tea.Model, tea.Cmd) {
 	// Only update navigation state - table cursor will be synced in render
 	newIdx := m.state.Navigation.SelectedIdx - 1
 	if newIdx < 0 {
@@ -25,7 +25,7 @@ func (m Model) handleNavigationUp() (Model, tea.Cmd) {
 }
 
 // handleNavigationDown moves cursor down with bounds checking
-func (m Model) handleNavigationDown() (Model, tea.Cmd) {
+func (m *Model) handleNavigationDown() (tea.Model, tea.Cmd) {
 	visibleItems := m.getVisibleItemsForCurrentView()
 	newIdx := m.state.Navigation.SelectedIdx + 1
 	maxItems := len(visibleItems)
@@ -40,7 +40,7 @@ func (m Model) handleNavigationDown() (Model, tea.Cmd) {
 }
 
 // handleToggleSelection toggles selection of current item (space key)
-func (m Model) handleToggleSelection() (Model, tea.Cmd) {
+func (m *Model) handleToggleSelection() (tea.Model, tea.Cmd) {
 	visibleItems := m.getVisibleItemsForCurrentView()
 	if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
 		return m, nil
@@ -64,7 +64,7 @@ func (m Model) handleToggleSelection() (Model, tea.Cmd) {
 }
 
 // handleDrillDown implements drill-down navigation (enter key)
-func (m Model) handleDrillDown() (Model, tea.Cmd) {
+func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
 	visibleItems := m.getVisibleItemsForCurrentView()
 	if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
 		return m, nil
@@ -141,17 +141,17 @@ func (m Model) handleDrillDown() (Model, tea.Cmd) {
 // Mode switching handlers
 
 // handleEnterSearchMode switches to search mode
-func (m Model) handleEnterSearchMode() (Model, tea.Cmd) {
+func (m *Model) handleEnterSearchMode() (tea.Model, tea.Cmd) {
 	return m.handleEnhancedEnterSearchMode()
 }
 
 // handleEnterCommandMode switches to command mode
-func (m Model) handleEnterCommandMode() (Model, tea.Cmd) {
+func (m *Model) handleEnterCommandMode() (tea.Model, tea.Cmd) {
 	return m.handleEnhancedEnterCommandMode()
 }
 
 // handleShowHelp shows the help modal
-func (m Model) handleShowHelp() (Model, tea.Cmd) {
+func (m *Model) handleShowHelp() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeHelp
 	return m, nil
 }
@@ -159,7 +159,7 @@ func (m Model) handleShowHelp() (Model, tea.Cmd) {
 // Action handlers
 
 // handleSyncModal shows sync confirmation modal for selected apps
-func (m Model) handleSyncModal() (Model, tea.Cmd) {
+func (m *Model) handleSyncModal() (tea.Model, tea.Cmd) {
 	if len(m.state.Selections.SelectedApps) == 0 {
 		// If no apps selected, sync current app
 		visibleItems := m.getVisibleItemsForCurrentView()
@@ -184,7 +184,7 @@ func (m Model) handleSyncModal() (Model, tea.Cmd) {
 }
 
 // handleRollback initiates rollback for selected or current app
-func (m Model) handleRollback() (Model, tea.Cmd) {
+func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View != model.ViewApps {
 		// Rollback only available in apps view
 		return m, nil
@@ -237,7 +237,7 @@ func (m Model) handleRollback() (Model, tea.Cmd) {
 }
 
 // handleEscape handles escape key (clear filters, exit modes) with debounce
-func (m Model) handleEscape() (Model, tea.Cmd) {
+func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	// Debounce escape key to prevent rapid multiple exits
 	now := time.Now().UnixMilli()
 	const ESCAPE_DEBOUNCE_MS = 100 // 100ms debounce (reduced from 200ms)
@@ -298,7 +298,7 @@ func (m Model) handleEscape() (Model, tea.Cmd) {
 }
 
 // handleGoToTop moves to first item (double-g)
-func (m Model) handleGoToTop() (Model, tea.Cmd) {
+func (m *Model) handleGoToTop() (tea.Model, tea.Cmd) {
 	// Special handling for tree view - scroll to top
 	if m.state.Navigation.View == model.ViewTree {
 		m.treeScrollOffset = 0
@@ -312,7 +312,7 @@ func (m Model) handleGoToTop() (Model, tea.Cmd) {
 }
 
 // handleGoToBottom moves to last item (G key)
-func (m Model) handleGoToBottom() (Model, tea.Cmd) {
+func (m *Model) handleGoToBottom() (tea.Model, tea.Cmd) {
 	// Special handling for tree view - scroll to bottom
 	if m.state.Navigation.View == model.ViewTree {
 		// Set to a large value, will be clamped in renderTreePanel
@@ -330,17 +330,17 @@ func (m Model) handleGoToBottom() (Model, tea.Cmd) {
 // Mode-specific key handlers
 
 // handleSearchModeKeys handles input when in search mode
-func (m Model) handleSearchModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleEnhancedSearchModeKeys(msg)
 }
 
 // handleCommandModeKeys handles input when in command mode
-func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleEnhancedCommandModeKeys(msg)
 }
 
 // handleHelpModeKeys handles input when in help mode
-func (m Model) handleHelpModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleHelpModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "?":
 		m.state.Mode = model.ModeNormal
@@ -352,7 +352,7 @@ func (m Model) handleHelpModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 // removed: resources list mode
 
 // handleDiffModeKeys handles navigation and search in diff mode
-func (m Model) handleDiffModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.state.Diff == nil {
 		return m, nil
 	}
@@ -386,7 +386,7 @@ func (m Model) handleDiffModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleConfirmSyncKeys handles input when in sync confirmation mode
-func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
 		m.state.Mode = model.ModeNormal
@@ -438,7 +438,7 @@ func (m Model) handleConfirmSyncKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleRollbackModeKeys handles input when in rollback mode
-func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "ctrl+c":
 		// Allow exit even during loading
@@ -557,7 +557,7 @@ func (m Model) handleRollbackModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleLogsModeKeys handles input when in logs mode
-func (m Model) handleLogsModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleLogsModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "esc":
 		// Restore navigation state and clear selections when returning from logs
@@ -604,7 +604,7 @@ func (m Model) handleLogsModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleAuthRequiredModeKeys handles input when authentication is required
-func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, func() tea.Msg { return model.QuitMsg{} }
@@ -637,7 +637,7 @@ func (m Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleErrorModeKeys handles input when in error mode
-func (m Model) handleErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "esc":
 		// If no apps have been loaded (initial load failed), exit the application
@@ -658,7 +658,7 @@ func (m Model) handleErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleConnectionErrorModeKeys handles input when in connection error mode
-func (m Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		// Exit application when there's no connection
@@ -672,13 +672,13 @@ func (m Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // Helper function to get visible items for current view
-func (m Model) getVisibleItemsForCurrentView() []interface{} {
+func (m *Model) getVisibleItemsForCurrentView() []interface{} {
 	// Delegate to shared computation used by the view
 	return m.getVisibleItems()
 }
 
 // handleKeyMsg centralizes keyboard handling and delegates to mode/view handlers
-func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global kill: always quit on Ctrl+C
 	if msg.String() == "ctrl+c" {
 		return m, func() tea.Msg { return model.QuitMsg{} }
@@ -870,7 +870,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleOpenResourcesForSelection opens the resources (tree) view for the selected app
-func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
+func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	// If multiple apps selected, open tree view and stream all
 	sel := m.state.Selections.SelectedApps
 	selected := make([]string, 0, len(sel))
@@ -932,7 +932,7 @@ func (m Model) handleOpenResourcesForSelection() (Model, tea.Cmd) {
 }
 
 // handleOpenDiffForSelection opens the diff for the selected app
-func (m Model) handleOpenDiffForSelection() (Model, tea.Cmd) {
+func (m *Model) handleOpenDiffForSelection() (tea.Model, tea.Cmd) {
 	// Check if there are multiple selected apps first
 	sel := m.state.Selections.SelectedApps
 	selected := make([]string, 0, len(sel))

@@ -11,7 +11,7 @@ import (
 // moved: full-screen helpers remain in view.go
 
 // renderTreePanel renders the resource tree view inside a bordered container with scrolling
-func (m Model) renderTreePanel(availableRows int) string {
+func (m *Model) renderTreePanel(availableRows int) string {
 	contentWidth := max(0, m.contentInnerWidth())
 	treeContent := "(no data)"
 	if m.treeView != nil {
@@ -88,12 +88,12 @@ func (m Model) renderTreePanel(availableRows int) string {
 }
 
 // contentInnerWidth computes inner content width inside the bordered box
-func (m Model) contentInnerWidth() int {
+func (m *Model) contentInnerWidth() int {
 	return max(0, m.state.Terminal.Cols-6)
 }
 
 // Main layout
-func (m Model) renderMainLayout() string {
+func (m *Model) renderMainLayout() string {
 	const (
 		BORDER_LINES       = 2
 		TABLE_HEADER_LINES = 0

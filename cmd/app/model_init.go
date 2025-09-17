@@ -54,7 +54,7 @@ var _ table.Model
 var _ tea.Msg
 
 // Init implements tea.Model.Init
-func (m Model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
 	// Initialize with terminal size request and startup commands
 	var cmds []tea.Cmd
 	cmds = append(cmds, tea.EnterAltScreen, m.spinner.Tick)
@@ -75,7 +75,7 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (m Model) validateAuthentication() tea.Cmd {
+func (m *Model) validateAuthentication() tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			cblog.With("component", "auth").Info("No server configured - showing auth required")

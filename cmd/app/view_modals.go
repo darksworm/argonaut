@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
-func (m Model) renderHelpModal() string {
+func (m *Model) renderHelpModal() string {
 
 	// Layout toggle (match earlier TS threshold)
 	isWide := m.state.Terminal.Cols >= 60
@@ -74,7 +74,7 @@ func (m Model) renderHelpModal() string {
 	return m.renderFullScreenViewWithOptions("", body, m.renderStatusLine(), FullScreenViewOptions{ContentBordered: true, BorderColor: magentaBright})
 }
 
-func (m Model) renderDiffLoadingSpinner() string {
+func (m *Model) renderDiffLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -89,7 +89,7 @@ func (m Model) renderDiffLoadingSpinner() string {
 }
 
 // renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
-func (m Model) renderTreeLoadingSpinner() string {
+func (m *Model) renderTreeLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -104,7 +104,7 @@ func (m Model) renderTreeLoadingSpinner() string {
 }
 
 // renderRollbackLoadingModal displays a centered modal while rollback is loading/executing
-func (m Model) renderRollbackLoadingModal() string {
+func (m *Model) renderRollbackLoadingModal() string {
 	msg := "Loading rollback…"
 	if m.state.Rollback != nil {
 		if m.state.Rollback.Mode == "confirm" {
@@ -125,7 +125,7 @@ func (m Model) renderRollbackLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-func (m Model) renderSyncLoadingModal() string {
+func (m *Model) renderSyncLoadingModal() string {
 	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
 	content := msg
 	wrapper := lipgloss.NewStyle().
@@ -139,7 +139,7 @@ func (m Model) renderSyncLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-func (m Model) renderInitialLoadingModal() string {
+func (m *Model) renderInitialLoadingModal() string {
 	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading..."))
 	content := msg
 	wrapper := lipgloss.NewStyle().
@@ -153,7 +153,7 @@ func (m Model) renderInitialLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-func (m Model) renderRollbackModal() string {
+func (m *Model) renderRollbackModal() string {
 	header := m.renderBanner()
 	headerLines := countLines(header)
 	const BORDER_LINES = 2
@@ -225,7 +225,7 @@ func (m Model) renderRollbackModal() string {
 	return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
-func (m Model) renderSimpleModal(title, content string) string {
+func (m *Model) renderSimpleModal(title, content string) string {
 	header := m.renderBanner()
 	headerLines := countLines(header)
 	const BORDER_LINES = 2

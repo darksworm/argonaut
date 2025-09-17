@@ -10,6 +10,7 @@ import (
 	"time"
 
 	stdErrors "errors"
+
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
@@ -21,7 +22,7 @@ import (
 )
 
 // startLoadingApplications initiates loading applications from ArgoCD API
-func (m Model) startLoadingApplications() tea.Cmd {
+func (m *Model) startLoadingApplications() tea.Cmd {
 	cblog.With("component", "api_integration").Info("startLoadingApplications called")
 	if m.state.Server == nil {
 		return func() tea.Msg {
@@ -29,10 +30,8 @@ func (m Model) startLoadingApplications() tea.Cmd {
 		}
 	}
 
-	return tea.Cmd(func() tea.Msg {
+	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
-		// Log the API call attempt
-		// [API] Starting to load applications - removed printf to avoid TUI interference
 
 		// Create context with timeout (shorter timeout for initial loading)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -64,7 +63,7 @@ func (m Model) startLoadingApplications() tea.Cmd {
 		// Successfully loaded applications
 		// [API] Successfully loaded applications - removed printf to avoid TUI interference
 		return model.AppsLoadedMsg{Apps: apps}
-	})
+	}
 }
 
 // WatchStartedMsg indicates the watch stream has started
@@ -73,13 +72,13 @@ type watchStartedMsg struct {
 }
 
 // startWatchingApplications starts the real-time watch stream
-func (m Model) startWatchingApplications() tea.Cmd {
+func (m *Model) startWatchingApplications() tea.Cmd {
 	cblog.With("component", "api_integration").Info("startWatchingApplications called", "watchChan_nil", m.watchChan == nil)
 	if m.state.Server == nil {
 		return nil
 	}
 
-	return tea.Cmd(func() tea.Msg {
+	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup")
 		// Create context for the watch stream
 		ctx := context.Background()
@@ -107,15 +106,15 @@ func (m Model) startWatchingApplications() tea.Cmd {
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
 		return watchStartedMsg{eventChan: eventChan}
-	})
+	}
 }
 
 // fetchAPIVersion fetches the ArgoCD API version and updates state
-func (m Model) fetchAPIVersion() tea.Cmd {
+func (m *Model) fetchAPIVersion() tea.Cmd {
 	if m.state.Server == nil {
 		return nil
 	}
-	return tea.Cmd(func() tea.Msg {
+	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -124,11 +123,11 @@ func (m Model) fetchAPIVersion() tea.Cmd {
 			return model.StatusChangeMsg{Status: "Version: unknown"}
 		}
 		return model.SetAPIVersionMsg{Version: v}
-	})
+	}
 }
 
 // consumeWatchEvent reads a single service event and converts it to a tea message
-func (m Model) consumeWatchEvent() tea.Cmd {
+func (m *Model) consumeWatchEvent() tea.Cmd {
 	return func() tea.Msg {
 		if m.watchChan == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
@@ -192,8 +191,8 @@ func (m Model) consumeWatchEvent() tea.Cmd {
 }
 
 // startDiffSession loads diffs and opens the diff pager
-func (m Model) startDiffSession(appName string) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) startDiffSession(appName string) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -260,7 +259,7 @@ func (m Model) startDiffSession(appName string) tea.Cmd {
 		}
 		title := fmt.Sprintf("%s - Live vs Desired", appName)
 		return m.openTextPager(title, formatted)()
-	})
+	}
 }
 
 func writeTempYAML(prefix string, docs []string) (string, error) {
@@ -299,8 +298,8 @@ func cleanManifestToYAML(jsonOrYaml string) string {
 }
 
 // startLoadingResourceTree loads the resource tree for the given app
-func (m Model) startLoadingResourceTree(app model.App) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -322,14 +321,14 @@ func (m Model) startLoadingResourceTree(app model.App) tea.Cmd {
 			return model.ApiErrorMsg{Message: merr.Error()}
 		}
 		return model.ResourceTreeLoadedMsg{AppName: app.Name, Health: app.Health, Sync: app.Sync, TreeJSON: data}
-	})
+	}
 }
 
 // startWatchingResourceTree starts a streaming watcher for resource tree updates
 type treeWatchStartedMsg struct{ cleanup func() }
 
-func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return nil
 		}
@@ -353,7 +352,7 @@ func (m Model) startWatchingResourceTree(app model.App) tea.Cmd {
 			}
 		}()
 		return treeWatchStartedMsg{cleanup: cleanup}
-	})
+	}
 }
 
 func stripDiffHeader(out string) string {
@@ -373,7 +372,7 @@ func stripDiffHeader(out string) string {
 }
 
 // syncSelectedApplications syncs the currently selected applications
-func (m Model) syncSelectedApplications(prune bool) tea.Cmd {
+func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -391,7 +390,7 @@ func (m Model) syncSelectedApplications(prune bool) tea.Cmd {
 		}
 	}
 
-	return tea.Cmd(func() tea.Msg {
+	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 seconds max for sync operations
 		defer cancel()
 
@@ -422,18 +421,18 @@ func (m Model) syncSelectedApplications(prune bool) tea.Cmd {
 		}
 
 		return model.MultiSyncCompletedMsg{AppCount: len(selectedApps), Success: true}
-	})
+	}
 }
 
 // syncSingleApplication syncs a specific application
-func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
+func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 	}
 
-	return tea.Cmd(func() tea.Msg {
+	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 seconds max for sync operations
 		defer cancel()
 
@@ -465,7 +464,7 @@ func (m Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 
 		cblog.With("component", "api").Info("Sync completed", "app", appName)
 		return model.SyncCompletedMsg{AppName: appName, Success: true}
-	})
+	}
 }
 
 // isAuthenticationError checks if an error is related to authentication
@@ -516,8 +515,8 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 }
 
 // startRollbackSession loads deployment history for rollback
-func (m Model) startRollbackSession(appName string) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) startRollbackSession(appName string) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -558,12 +557,12 @@ func (m Model) startRollbackSession(appName string) tea.Cmd {
 			Rows:            rows,
 			CurrentRevision: currentRevision,
 		}
-	})
+	}
 }
 
 // loadRevisionMetadata loads git metadata for a specific rollback row
-func (m Model) loadRevisionMetadata(appName string, rowIndex int, revision string) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -585,12 +584,12 @@ func (m Model) loadRevisionMetadata(appName string, rowIndex int, revision strin
 			RowIndex: rowIndex,
 			Metadata: *metadata,
 		}
-	})
+	}
 }
 
 // executeRollback performs the actual rollback operation
-func (m Model) executeRollback(request model.RollbackRequest) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -620,12 +619,12 @@ func (m Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 			Success: true,
 			Watch:   watchAfter,
 		}
-	})
+	}
 }
 
 // startRollbackDiffSession shows diff between current and selected revision
-func (m Model) startRollbackDiffSession(appName string, revision string) tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
+func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cmd {
+	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
@@ -685,5 +684,5 @@ func (m Model) startRollbackDiffSession(appName string, revision string) tea.Cmd
 			Loading: false,
 		}
 		return model.SetModeMsg{Mode: model.ModeDiff}
-	})
+	}
 }

@@ -12,6 +12,37 @@ func stripANSI(s string) string {
 	return ansiTestRE.ReplaceAllString(s, "")
 }
 
+// Test helper functions that were removed from main code
+func abbreviateStatus(status string) string {
+	abbr := map[string]string{
+		"Synced":      "Sync",
+		"OutOfSync":   "Out",
+		"Healthy":     "OK",
+		"Degraded":    "Bad",
+		"Unknown":     "?",
+		"Progressing": "Prog",
+		"Suspended":   "||",
+		"Missing":     "--",
+	}
+	if short, exists := abbr[status]; exists {
+		return short
+	}
+	if len(status) > 4 {
+		return status[:4]
+	}
+	return status
+}
+
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
+}
+
 func TestAbbreviateStatus(t *testing.T) {
 	cases := map[string]string{
 		"Synced":      "Sync",

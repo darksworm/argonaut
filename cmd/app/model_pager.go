@@ -21,7 +21,7 @@ type resumeRenderingMsg struct{}
 func (m *Model) SetProgram(p *tea.Program) { m.program = p }
 
 // openTextPager releases the terminal and runs an oviewer pager with the given text
-func (m Model) openTextPager(title, text string) tea.Cmd {
+func (m *Model) openTextPager(title, text string) tea.Cmd {
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
@@ -72,7 +72,7 @@ func (m Model) openTextPager(title, text string) tea.Cmd {
 // openInteractiveDiffViewer replaces the terminal with an interactive diff tool
 // configured via ARGONAUT_DIFF_VIEWER. The command may include {left} and {right}
 // placeholders for file paths.
-func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea.Msg {
+func (m *Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea.Msg {
 	if m.program != nil {
 		m.program.Send(pauseRenderingMsg{})
 		_ = m.program.ReleaseTerminal()
@@ -101,7 +101,7 @@ func (m Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea
 
 // runDiffFormatter runs a non-interactive diff formatter on diffText and returns its output.
 // Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
-func (m Model) runDiffFormatter(diffText string) (string, error) {
+func (m *Model) runDiffFormatter(diffText string) (string, error) {
 	cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
 	cols := 0
 	if m.state != nil {

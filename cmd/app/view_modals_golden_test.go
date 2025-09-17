@@ -18,6 +18,14 @@ func buildBaseModel(cols, rows int) *Model {
 	return m
 }
 
+// renderFullScreenView helper for tests - wraps renderFullScreenViewWithOptions
+func (m *Model) renderFullScreenView(header, content, status string, contentBordered bool) string {
+	return m.renderFullScreenViewWithOptions(header, content, status, FullScreenViewOptions{
+		ContentBordered: contentBordered,
+		BorderColor:     magentaBright,
+	})
+}
+
 func TestGolden_HelpModal(t *testing.T) {
 	m := buildBaseModel(100, 30)
 	m.state.Mode = model.ModeHelp
