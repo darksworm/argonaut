@@ -15,19 +15,6 @@ import (
 
 // handleNavigationUp moves cursor up with bounds checking
 func (m Model) handleNavigationUp() (Model, tea.Cmd) {
-	// Special handling for tree view - move cursor and auto-scroll
-	if m.state.Navigation.View == model.ViewTree {
-		if m.state.Navigation.SelectedIdx > 0 {
-			m.state.Navigation.SelectedIdx--
-
-			// Auto-scroll up if cursor moved above viewport
-			if m.state.Navigation.SelectedIdx < m.treeScrollOffset {
-				m.treeScrollOffset = m.state.Navigation.SelectedIdx
-			}
-		}
-		return m, nil
-	}
-
 	// Only update navigation state - table cursor will be synced in render
 	newIdx := m.state.Navigation.SelectedIdx - 1
 	if newIdx < 0 {
@@ -39,22 +26,6 @@ func (m Model) handleNavigationUp() (Model, tea.Cmd) {
 
 // handleNavigationDown moves cursor down with bounds checking
 func (m Model) handleNavigationDown() (Model, tea.Cmd) {
-	// Special handling for tree view - move cursor and auto-scroll
-	if m.state.Navigation.View == model.ViewTree {
-		// We don't know the total lines here, so just increment
-		// The clamping will happen in renderTreePanel
-		m.state.Navigation.SelectedIdx++
-
-		// Auto-scroll down if cursor moved below viewport
-		// We'll need to calculate viewport height in renderTreePanel
-		// For now, use a simple heuristic
-		viewportHeight := m.state.Terminal.Rows - 10 // Approximate overhead
-		if m.state.Navigation.SelectedIdx >= m.treeScrollOffset+viewportHeight {
-			m.treeScrollOffset = m.state.Navigation.SelectedIdx - viewportHeight + 1
-		}
-		return m, nil
-	}
-
 	visibleItems := m.getVisibleItemsForCurrentView()
 	newIdx := m.state.Navigation.SelectedIdx + 1
 	maxItems := len(visibleItems)
@@ -757,6 +728,90 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (Model, tea.Cmd) {
 				m.state.Navigation.SelectedIdx,
 				len(visibleItems),
 			)
+			return m, nil
+		case "up", "k", "down", "j":
+			if m.treeView != nil {
+				oldIdx := m.treeView.SelectedIndex()
+				updatedModel, _ := m.treeView.Update(msg)
+				m.treeView = updatedModel.(*treeview.TreeView)
+				newIdx := m.treeView.SelectedIndex()
+
+				// Adjust scroll based on cursor movement
+				if msg.String() == "up" || msg.String() == "k" {
+					// Moving up - ensure cursor is visible at top
+					if newIdx < oldIdx && newIdx < m.treeScrollOffset {
+						m.treeScrollOffset = newIdx
+					}
+				} else {
+					// Moving down - ensure cursor is visible at bottom
+					viewportHeight := m.state.Terminal.Rows - 10 // Approximate overhead
+					if newIdx > oldIdx && newIdx >= m.treeScrollOffset+viewportHeight {
+						m.treeScrollOffset = newIdx - viewportHeight + 1
+					}
+				}
+			}
+			return m, nil
+		case "left", "h", "right", "l", "enter":
+			if m.treeView != nil {
+				oldIdx := m.treeView.SelectedIndex()
+				oldCount := m.treeView.VisibleCount()
+				updatedModel, _ := m.treeView.Update(msg)
+				m.treeView = updatedModel.(*treeview.TreeView)
+				newIdx := m.treeView.SelectedIndex()
+				newCount := m.treeView.VisibleCount()
+
+				// If the visible count changed (expand/collapse) or cursor moved,
+				// ensure cursor stays in viewport
+				if oldCount != newCount || oldIdx != newIdx {
+					viewportHeight := m.state.Terminal.Rows - 10
+					// Ensure cursor is visible
+					if newIdx < m.treeScrollOffset {
+						m.treeScrollOffset = newIdx
+					} else if newIdx >= m.treeScrollOffset+viewportHeight {
+						m.treeScrollOffset = newIdx - viewportHeight + 1
+					}
+					// Clamp scroll to valid range
+					maxScroll := max(0, newCount-viewportHeight)
+					if m.treeScrollOffset > maxScroll {
+						m.treeScrollOffset = maxScroll
+					}
+				}
+			}
+			return m, nil
+		case "g":
+			// Handle double-g for go to top
+			now := time.Now().UnixMilli()
+			if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
+				// Double-g: go to top
+				if m.treeView != nil {
+					// Send multiple "up" keys to move to top
+					for i := 0; i < m.treeView.SelectedIndex(); i++ {
+						upMsg := tea.KeyPressMsg{Text: "k", Code: 'k'}
+						updatedModel, _ := m.treeView.Update(upMsg)
+						m.treeView = updatedModel.(*treeview.TreeView)
+					}
+					m.treeScrollOffset = 0
+					m.state.Navigation.LastGPressed = 0
+				}
+			} else {
+				m.state.Navigation.LastGPressed = now
+			}
+			return m, nil
+		case "G":
+			// Go to bottom
+			if m.treeView != nil {
+				totalItems := m.treeView.VisibleCount()
+				currentIdx := m.treeView.SelectedIndex()
+				// Send multiple "down" keys to move to bottom
+				for i := currentIdx; i < totalItems-1; i++ {
+					downMsg := tea.KeyPressMsg{Text: "j", Code: 'j'}
+					updatedModel, _ := m.treeView.Update(downMsg)
+					m.treeView = updatedModel.(*treeview.TreeView)
+				}
+				// Scroll to show the bottom item
+				viewportHeight := m.state.Terminal.Rows - 10
+				m.treeScrollOffset = max(0, totalItems-viewportHeight)
+			}
 			return m, nil
 		default:
 			if m.treeView != nil {

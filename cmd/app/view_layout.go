@@ -24,13 +24,15 @@ func (m Model) renderTreePanel(availableRows int) string {
 
     // Calculate viewport
     viewportHeight := availableRows
-    cursorIdx := m.state.Navigation.SelectedIdx
+    cursorIdx := 0
+    if m.treeView != nil {
+        cursorIdx = m.treeView.SelectedIndex()
+    }
     scrollOffset := m.treeScrollOffset
 
     // Clamp cursor to valid range
     if cursorIdx >= totalLines {
         cursorIdx = max(0, totalLines-1)
-        m.state.Navigation.SelectedIdx = cursorIdx
     }
 
     // Ensure scroll offset keeps cursor in view
