@@ -31,12 +31,12 @@ var DefaultStreamRecoveryConfig = StreamRecoveryConfig{
 
 // StreamRecoveryManager handles stream connection recovery
 type StreamRecoveryManager struct {
-	config       StreamRecoveryConfig
-	logger       logging.Logger
-	mu           sync.RWMutex
+	config        StreamRecoveryConfig
+	logger        logging.Logger
+	mu            sync.RWMutex
 	activeStreams map[string]*StreamConnection
-	shutdown     chan struct{}
-	wg           sync.WaitGroup
+	shutdown      chan struct{}
+	wg            sync.WaitGroup
 }
 
 // StreamConnection represents an active stream connection
@@ -55,9 +55,9 @@ type StreamConnection struct {
 type StreamStatus string
 
 const (
-	StreamStatusHealthy     StreamStatus = "healthy"
-	StreamStatusRecovering  StreamStatus = "recovering"
-	StreamStatusFailed      StreamStatus = "failed"
+	StreamStatusHealthy      StreamStatus = "healthy"
+	StreamStatusRecovering   StreamStatus = "recovering"
+	StreamStatusFailed       StreamStatus = "failed"
 	StreamStatusDisconnected StreamStatus = "disconnected"
 )
 
@@ -166,8 +166,8 @@ func (m *StreamRecoveryManager) recoverStream(stream *StreamConnection, original
 		ShouldRetry: func(err *apperrors.ArgonautError) bool {
 			// Retry most errors except authentication and permission issues
 			return err.Category != apperrors.ErrorAuth &&
-				   err.Category != apperrors.ErrorPermission &&
-				   err.Category != apperrors.ErrorConfig
+				err.Category != apperrors.ErrorPermission &&
+				err.Category != apperrors.ErrorConfig
 		},
 	}
 
@@ -284,12 +284,12 @@ func (m *StreamRecoveryManager) Shutdown() {
 
 // StreamRecoveryStats provides statistics about stream recovery
 type StreamRecoveryStats struct {
-	TotalStreams    int                        `json:"totalStreams"`
-	HealthyStreams  int                        `json:"healthyStreams"`
-	RecoveringStreams int                      `json:"recoveringStreams"`
-	FailedStreams   int                        `json:"failedStreams"`
-	DisconnectedStreams int                    `json:"disconnectedStreams"`
-	StreamDetails   map[string]StreamDetail    `json:"streamDetails"`
+	TotalStreams        int                     `json:"totalStreams"`
+	HealthyStreams      int                     `json:"healthyStreams"`
+	RecoveringStreams   int                     `json:"recoveringStreams"`
+	FailedStreams       int                     `json:"failedStreams"`
+	DisconnectedStreams int                     `json:"disconnectedStreams"`
+	StreamDetails       map[string]StreamDetail `json:"streamDetails"`
 }
 
 // StreamDetail provides detailed information about a stream

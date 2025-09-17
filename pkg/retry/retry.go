@@ -12,12 +12,12 @@ import (
 
 // RetryConfig configures retry behavior
 type RetryConfig struct {
-	MaxAttempts   int                          `json:"maxAttempts"`
-	InitialDelay  time.Duration                `json:"initialDelay"`
-	MaxDelay      time.Duration                `json:"maxDelay"`
-	Multiplier    float64                      `json:"multiplier"`
-	Jitter        bool                         `json:"jitter"`
-	ShouldRetry   func(*apperrors.ArgonautError) bool `json:"-"`
+	MaxAttempts  int                                 `json:"maxAttempts"`
+	InitialDelay time.Duration                       `json:"initialDelay"`
+	MaxDelay     time.Duration                       `json:"maxDelay"`
+	Multiplier   float64                             `json:"multiplier"`
+	Jitter       bool                                `json:"jitter"`
+	ShouldRetry  func(*apperrors.ArgonautError) bool `json:"-"`
 }
 
 // DefaultConfig provides sensible retry defaults
@@ -71,27 +71,27 @@ func RetryWithBackoff(ctx context.Context, config RetryConfig, fn RetryFunc) err
 			return nil
 		}
 
-        lastErr = err
+		lastErr = err
 
-        // Convert to structured error for logging/decision only
-        var argErr *apperrors.ArgonautError
-        if ae, ok := err.(*apperrors.ArgonautError); ok {
-            argErr = ae
-        } else {
-            // Create a temporary wrapper for categorization, but prefer returning the original error later
-            argErr = apperrors.Wrap(err, apperrors.ErrorInternal, "RETRY_OPERATION_FAILED", "Operation failed during retry")
-        }
+		// Convert to structured error for logging/decision only
+		var argErr *apperrors.ArgonautError
+		if ae, ok := err.(*apperrors.ArgonautError); ok {
+			argErr = ae
+		} else {
+			// Create a temporary wrapper for categorization, but prefer returning the original error later
+			argErr = apperrors.Wrap(err, apperrors.ErrorInternal, "RETRY_OPERATION_FAILED", "Operation failed during retry")
+		}
 
 		// Log the attempt
 		logger.Warn("Attempt %d/%d failed (took %v): %s",
 			attempt, config.MaxAttempts, duration, argErr.Error())
 
 		// Check if we should retry
-        if !config.ShouldRetry(argErr) {
-            logger.Info("Not retrying due to error type: %s", argErr.Category)
-            // Return the original error to preserve its message/details
-            return err
-        }
+		if !config.ShouldRetry(argErr) {
+			logger.Info("Not retrying due to error type: %s", argErr.Category)
+			// Return the original error to preserve its message/details
+			return err
+		}
 
 		// Don't sleep after the last attempt
 		if attempt >= config.MaxAttempts {
@@ -186,10 +186,10 @@ func NetworkShouldRetry(err *apperrors.ArgonautError) bool {
 	case apperrors.ErrorAPI:
 		// Only retry certain API errors
 		return err.IsCode("CONNECTION_REFUSED") ||
-			   err.IsCode("TIMEOUT") ||
-			   err.IsCode("SERVICE_UNAVAILABLE") ||
-			   err.IsCode("RATE_LIMITED") ||
-			   err.IsCode("SERVER_ERROR")
+			err.IsCode("TIMEOUT") ||
+			err.IsCode("SERVICE_UNAVAILABLE") ||
+			err.IsCode("RATE_LIMITED") ||
+			err.IsCode("SERVER_ERROR")
 	default:
 		return err.Recoverable
 	}
@@ -214,9 +214,9 @@ func APIShouldRetry(err *apperrors.ArgonautError) bool {
 	case apperrors.ErrorAPI:
 		// Retry server errors and rate limits, but not client errors
 		return err.IsCode("SERVER_ERROR") ||
-			   err.IsCode("RATE_LIMITED") ||
-			   err.IsCode("SERVICE_UNAVAILABLE") ||
-			   err.IsCode("TIMEOUT")
+			err.IsCode("RATE_LIMITED") ||
+			err.IsCode("SERVICE_UNAVAILABLE") ||
+			err.IsCode("TIMEOUT")
 	default:
 		return err.Recoverable
 	}
@@ -224,10 +224,10 @@ func APIShouldRetry(err *apperrors.ArgonautError) bool {
 
 // RetryableOperation wraps an operation with retry logic
 type RetryableOperation struct {
-	Name     string
-	Config   RetryConfig
-	Logger   logging.Logger
-	Context  context.Context
+	Name    string
+	Config  RetryConfig
+	Logger  logging.Logger
+	Context context.Context
 }
 
 // NewRetryableOperation creates a new retryable operation

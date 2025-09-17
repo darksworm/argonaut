@@ -1,23 +1,23 @@
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "strings"
-    "time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
 
-    "github.com/charmbracelet/bubbles/v2/spinner"
-    "github.com/charmbracelet/bubbles/v2/table"
-    tea "github.com/charmbracelet/bubbletea/v2"
-    cblog "github.com/charmbracelet/log"
-    "github.com/darksworm/argonaut/pkg/api"
-    "github.com/darksworm/argonaut/pkg/autocomplete"
-    apperrors "github.com/darksworm/argonaut/pkg/errors"
-    "github.com/darksworm/argonaut/pkg/model"
-    "github.com/darksworm/argonaut/pkg/services"
-    "github.com/darksworm/argonaut/pkg/tui"
-    "github.com/darksworm/argonaut/pkg/tui/treeview"
+	"github.com/charmbracelet/bubbles/v2/spinner"
+	"github.com/charmbracelet/bubbles/v2/table"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/autocomplete"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/tui"
+	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // Model represents the main Bubbletea model containing all application state
@@ -43,44 +43,45 @@ type Model struct {
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 
-    // bubbles spinner for loading
-    spinner spinner.Model
+	// bubbles spinner for loading
+	spinner spinner.Model
 
-    // bubbles tables for all views
-    appsTable       table.Model
-    clustersTable   table.Model
-    namespacesTable table.Model
-    projectsTable   table.Model
+	// bubbles tables for all views
+	appsTable       table.Model
+	clustersTable   table.Model
+	namespacesTable table.Model
+	projectsTable   table.Model
 
-    // Bubble Tea program reference for terminal hand-off (pager integration)
-    program *tea.Program
-    inPager bool
+	// Bubble Tea program reference for terminal hand-off (pager integration)
+	program *tea.Program
+	inPager bool
 
-    // Tree view component
-    treeView *treeview.TreeView
+	// Tree view component
+	treeView *treeview.TreeView
 
-    // Tree watch internal channel delivery
-    treeStream chan model.ResourceTreeStreamMsg
+	// Tree watch internal channel delivery
+	treeStream chan model.ResourceTreeStreamMsg
 
-    // Tree loading overlay state
-    treeLoading bool
+	// Tree loading overlay state
+	treeLoading bool
 
-    // Tree view scroll offset
-    treeScrollOffset int
+	// Tree view scroll offset
+	treeScrollOffset int
 
-    // Cleanup callbacks for active tree watchers
-    treeWatchCleanups []func()
+	// Cleanup callbacks for active tree watchers
+	treeWatchCleanups []func()
 
-    // Debug: render counter
-    renderCount int
+	// Debug: render counter
+	renderCount int
 }
+
 // NewModel, Init, pager helpers, and tree stream helpers moved to dedicated files.
 
 // validateAuthentication checks if authentication is valid (matches TypeScript app-orchestrator.ts)
 func (m Model) validateAuthentication() tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
-            cblog.With("component", "auth").Info("No server configured - showing auth required")
+			cblog.With("component", "auth").Info("No server configured - showing auth required")
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
 
@@ -91,7 +92,7 @@ func (m Model) validateAuthentication() tea.Cmd {
 
 		// Validate user info (similar to TypeScript getUserInfo call)
 		if err := appService.GetUserInfo(ctx); err != nil {
-            cblog.With("component", "auth").Error("Authentication validation failed", "err", err)
+			cblog.With("component", "auth").Error("Authentication validation failed", "err", err)
 
 			// Check if this is a connection error rather than authentication error
 			errStr := err.Error()
@@ -107,35 +108,13 @@ func (m Model) validateAuthentication() tea.Cmd {
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
 
-        cblog.With("component", "auth").Info("Authentication validated successfully")
+		cblog.With("component", "auth").Info("Authentication validated successfully")
 		return model.SetModeMsg{Mode: model.ModeLoading}
 	}
 }
 
-// openTextPager releases the terminal and runs an oviewer pager with the given text
-// pager helpers moved
-
-// openExternalDiffPager runs an external diff viewer/pager. It supports two modes:
-//  1. Command string with placeholders {left} and {right} for file paths (e.g. "vimdiff {left} {right}")
-//  2. Pager that reads unified diff from stdin (e.g. "delta --side-by-side"). In that case we pipe
-//     the diff text to the process.
-//
-// openInteractiveDiffViewer replaces the terminal with an interactive diff tool
-// configured via ARGONAUT_DIFF_VIEWER. The command may include {left} and {right}
-// placeholders for file paths.
-// pager helpers moved
-
-// runDiffFormatter runs a non-interactive diff formatter on diffText and returns its output.
-// Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
-// pager helpers moved
-
-// pager helpers moved
-
-// pager helpers moved
-
-// Update implements tea.Model.Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
+	switch msg := msg.(type) {
 
 	// Terminal/System messages
 	case tea.WindowSizeMsg:
@@ -152,28 +131,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-    case tea.KeyMsg:
-        return m.handleKeyMsg(msg)
+	case tea.KeyMsg:
+		return m.handleKeyMsg(msg)
 
-    // Tree stream messages from watcher goroutine
-    case model.ResourceTreeStreamMsg:
-        if len(msg.TreeJSON) > 0 && m.treeView != nil && m.state.Navigation.View == model.ViewTree {
-            var tree api.ResourceTree
-            if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
-                m.treeView.UpsertAppTree(msg.AppName, &tree)
-            }
-        }
-        // Any tree stream activity implies data is arriving; clear loading overlay
-        m.treeLoading = false
-        return m, m.consumeTreeEvent()
+	// Tree stream messages from watcher goroutine
+	case model.ResourceTreeStreamMsg:
+		if len(msg.TreeJSON) > 0 && m.treeView != nil && m.state.Navigation.View == model.ViewTree {
+			var tree api.ResourceTree
+			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
+				m.treeView.UpsertAppTree(msg.AppName, &tree)
+			}
+		}
+		// Any tree stream activity implies data is arriving; clear loading overlay
+		m.treeLoading = false
+		return m, m.consumeTreeEvent()
 
-    // Tree watch started (store cleanup)
-    case treeWatchStartedMsg:
-        if msg.cleanup != nil {
-            m.treeWatchCleanups = append(m.treeWatchCleanups, msg.cleanup)
-            m.statusService.Set("Watching tree…")
-        }
-        return m, nil
+	// Tree watch started (store cleanup)
+	case treeWatchStartedMsg:
+		if msg.cleanup != nil {
+			m.treeWatchCleanups = append(m.treeWatchCleanups, msg.cleanup)
+			m.statusService.Set("Watching tree…")
+		}
+		return m, nil
 
 		// Spinner messages
 	case spinner.TickMsg:
@@ -265,7 +244,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Data messages
 	case model.SetAppsMsg:
 		m.state.Apps = msg.Apps
-		// m.ui.UpdateListItems(m.state)
 		return m, nil
 
 	case model.SetServerMsg:
@@ -367,23 +345,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, m.consumeWatchEvent()
 
-    case model.ResourceTreeLoadedMsg:
-        // Populate tree view with loaded data (single or multi-app)
-        if m.treeView != nil && len(msg.TreeJSON) > 0 {
-            var tree api.ResourceTree
-            if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
-                m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
-                m.treeView.UpsertAppTree(msg.AppName, &tree)
-            }
-            // Reset cursor for tree view
-            m.state.Navigation.SelectedIdx = 0
-            m.statusService.Set("Tree loaded")
-        }
-        // Clear loading overlay once initial tree is loaded
-        m.treeLoading = false
-        return m, nil
+	case model.ResourceTreeLoadedMsg:
+		// Populate tree view with loaded data (single or multi-app)
+		if m.treeView != nil && len(msg.TreeJSON) > 0 {
+			var tree api.ResourceTree
+			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
+				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
+				m.treeView.UpsertAppTree(msg.AppName, &tree)
+			}
+			// Reset cursor for tree view
+			m.state.Navigation.SelectedIdx = 0
+			m.statusService.Set("Tree loaded")
+		}
+		// Clear loading overlay once initial tree is loaded
+		m.treeLoading = false
+		return m, nil
 
-    // removed: resources list loader
+		// removed: resources list loader
 
 		// Old spinner TickMsg removed - now using bubbles spinner
 
@@ -397,8 +375,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusService.Error(errorMsg)
 
 			// Debug: Log structured error details
-            cblog.With("component", "tui").Debug("StructuredErrorMsg",
-                "category", msg.Error.Category, "code", msg.Error.Code, "message", msg.Error.Message)
+			cblog.With("component", "tui").Debug("StructuredErrorMsg",
+				"category", msg.Error.Category, "code", msg.Error.Code, "message", msg.Error.Message)
 
 			// Update error state so the error view can show full details
 			tui.UpdateAppErrorState(m.state, msg.Error)
@@ -433,14 +411,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-case model.ApiErrorMsg:
-        // If we're already in auth-required mode, suppress generic API errors to avoid
-        // overriding the auth-required view with a generic error panel.
-        if m.state.Mode == model.ModeAuthRequired {
-            return m, nil
-        }
-        // Log error and store structured error in state for display
-        fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
+	case model.ApiErrorMsg:
+		// If we're already in auth-required mode, suppress generic API errors to avoid
+		// overriding the auth-required view with a generic error panel.
+		if m.state.Mode == model.ModeAuthRequired {
+			return m, nil
+		}
+		// Log error and store structured error in state for display
+		fullErrorMsg := fmt.Sprintf("API Error: %s", msg.Message)
 		if msg.StatusCode > 0 {
 			fullErrorMsg = fmt.Sprintf("API Error (%d): %s", msg.StatusCode, msg.Message)
 		}
@@ -516,7 +494,7 @@ case model.ApiErrorMsg:
 
 		// If there was an error, display it
 		if msg.Err != nil {
-            cblog.With("component", "pager").Error("Pager error", "err", msg.Err)
+			cblog.With("component", "pager").Error("Pager error", "err", msg.Err)
 			// Set error state and display the error on screen
 			m.state.CurrentError = &model.ApiError{
 				Message:    "Pager Error: " + msg.Err.Error(),
@@ -535,7 +513,7 @@ case model.ApiErrorMsg:
 		return m, nil
 
 	case model.AuthErrorMsg:
-        // Log error and store in model for display
+		// Log error and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
 
@@ -586,85 +564,107 @@ case model.ApiErrorMsg:
 		// m.ui.UpdateListItems(m.state)
 		return m, nil
 
-    case model.SyncCompletedMsg:
-        // Handle single app sync completion
-        if msg.Success {
-            m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
+	case model.SyncCompletedMsg:
+		// Handle single app sync completion
+		if msg.Success {
+			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
 
-            // Show tree view if watch is enabled
-            if m.state.Modals.ConfirmSyncWatch {
-                // Close confirm modal/loading state before switching views
-                m.state.Modals.ConfirmTarget = nil
-                m.state.Modals.ConfirmSyncLoading = false
-                if m.state.Mode == model.ModeConfirmSync {
-                    m.state.Mode = model.ModeNormal
-                }
-                m.state.Navigation.View = model.ViewTree
-                m.state.UI.TreeAppName = &msg.AppName
-                // find app
-                var appObj model.App
-                found := false
-                for _, a := range m.state.Apps {
-                    if a.Name == msg.AppName { appObj = a; found = true; break }
-                }
-                if !found { appObj = model.App{Name: msg.AppName} }
-                return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
-            }
-        } else {
-            m.statusService.Set("Sync cancelled")
-        }
-        // Close confirm modal/loading state if open (non-watch path)
-        m.state.Modals.ConfirmTarget = nil
-        m.state.Modals.ConfirmSyncLoading = false
-        if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
-            m.state.Mode = model.ModeNormal
-        }
-        return m, nil
+			// Show tree view if watch is enabled
+			if m.state.Modals.ConfirmSyncWatch {
+				// Close confirm modal/loading state before switching views
+				m.state.Modals.ConfirmTarget = nil
+				m.state.Modals.ConfirmSyncLoading = false
+				if m.state.Mode == model.ModeConfirmSync {
+					m.state.Mode = model.ModeNormal
+				}
+				m.state.Navigation.View = model.ViewTree
+				m.state.UI.TreeAppName = &msg.AppName
+				// find app
+				var appObj model.App
+				found := false
+				for _, a := range m.state.Apps {
+					if a.Name == msg.AppName {
+						appObj = a
+						found = true
+						break
+					}
+				}
+				if !found {
+					appObj = model.App{Name: msg.AppName}
+				}
+				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
+			}
+		} else {
+			m.statusService.Set("Sync cancelled")
+		}
+		// Close confirm modal/loading state if open (non-watch path)
+		m.state.Modals.ConfirmTarget = nil
+		m.state.Modals.ConfirmSyncLoading = false
+		if m.state.Mode == model.ModeConfirmSync && !m.state.Modals.ConfirmSyncWatch {
+			m.state.Mode = model.ModeNormal
+		}
+		return m, nil
 
-    case model.MultiSyncCompletedMsg:
-        // Handle multiple app sync completion
-        if msg.Success {
-            m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
-            if m.state.Modals.ConfirmSyncWatch && len(m.state.Selections.SelectedApps) > 1 {
-                // Snapshot selected names before clearing
-                sel := m.state.Selections.SelectedApps
-                names := make([]string, 0, len(sel))
-                for name, ok := range sel { if ok { names = append(names, name) } }
-                if len(names) > 0 {
-                    var cmds []tea.Cmd
-                    // Reset tree view for multi-app session
-                    m.treeView = treeview.NewTreeView(0, 0)
-                    m.treeScrollOffset = 0 // Reset scroll position
-                    m.state.SaveNavigationState()
-                    m.state.Navigation.View = model.ViewTree
-                    // Clear single-app tracker
-                    m.state.UI.TreeAppName = nil
-                    m.treeLoading = true
-                    for _, n := range names {
-                        var appObj *model.App
-                        for i := range m.state.Apps { if m.state.Apps[i].Name == n { appObj = &m.state.Apps[i]; break } }
-                        if appObj == nil { tmp := model.App{Name: n}; appObj = &tmp }
-                        cmds = append(cmds, m.startLoadingResourceTree(*appObj))
-                        cmds = append(cmds, m.startWatchingResourceTree(*appObj))
-                    }
-                    // Close modal before switching
-                    m.state.Modals.ConfirmTarget = nil
-                    m.state.Modals.ConfirmSyncLoading = false
-                    if m.state.Mode == model.ModeConfirmSync { m.state.Mode = model.ModeNormal }
-                    // Clear selections after queueing
-                    m.state.Selections.SelectedApps = model.NewStringSet()
-                    cmds = append(cmds, m.consumeTreeEvent())
-                    return m, tea.Batch(cmds...)
-                }
-            }
-            // Clear selections when not opening multi tree
-            m.state.Selections.SelectedApps = model.NewStringSet()
-        }
-        // Close confirm modal/loading state if open
-        m.state.Modals.ConfirmTarget = nil
-        m.state.Modals.ConfirmSyncLoading = false
-        if m.state.Mode == model.ModeConfirmSync { m.state.Mode = model.ModeNormal }
-        return m, nil
+	case model.MultiSyncCompletedMsg:
+		// Handle multiple app sync completion
+		if msg.Success {
+			m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
+			if m.state.Modals.ConfirmSyncWatch && len(m.state.Selections.SelectedApps) > 1 {
+				// Snapshot selected names before clearing
+				sel := m.state.Selections.SelectedApps
+				names := make([]string, 0, len(sel))
+				for name, ok := range sel {
+					if ok {
+						names = append(names, name)
+					}
+				}
+				if len(names) > 0 {
+					var cmds []tea.Cmd
+					// Reset tree view for multi-app session
+					m.treeView = treeview.NewTreeView(0, 0)
+					m.treeScrollOffset = 0 // Reset scroll position
+					m.state.SaveNavigationState()
+					m.state.Navigation.View = model.ViewTree
+					// Clear single-app tracker
+					m.state.UI.TreeAppName = nil
+					m.treeLoading = true
+					for _, n := range names {
+						var appObj *model.App
+						for i := range m.state.Apps {
+							if m.state.Apps[i].Name == n {
+								appObj = &m.state.Apps[i]
+								break
+							}
+						}
+						if appObj == nil {
+							tmp := model.App{Name: n}
+							appObj = &tmp
+						}
+						cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+						cmds = append(cmds, m.startWatchingResourceTree(*appObj))
+					}
+					// Close modal before switching
+					m.state.Modals.ConfirmTarget = nil
+					m.state.Modals.ConfirmSyncLoading = false
+					if m.state.Mode == model.ModeConfirmSync {
+						m.state.Mode = model.ModeNormal
+					}
+					// Clear selections after queueing
+					m.state.Selections.SelectedApps = model.NewStringSet()
+					cmds = append(cmds, m.consumeTreeEvent())
+					return m, tea.Batch(cmds...)
+				}
+			}
+			// Clear selections when not opening multi tree
+			m.state.Selections.SelectedApps = model.NewStringSet()
+		}
+		// Close confirm modal/loading state if open
+		m.state.Modals.ConfirmTarget = nil
+		m.state.Modals.ConfirmSyncLoading = false
+		if m.state.Mode == model.ModeConfirmSync {
+			m.state.Mode = model.ModeNormal
+		}
+		return m, nil
 
 	// Rollback Messages
 	case model.RollbackHistoryLoadedMsg:
@@ -724,9 +724,17 @@ case model.ApiErrorMsg:
 				m.state.UI.TreeAppName = &msg.AppName
 				var appObj model.App
 				found := false
-				for _, a := range m.state.Apps { if a.Name == msg.AppName { appObj = a; found = true; break } }
-				if !found { appObj = model.App{Name: msg.AppName} }
-                return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
+				for _, a := range m.state.Apps {
+					if a.Name == msg.AppName {
+						appObj = a
+						found = true
+						break
+					}
+				}
+				if !found {
+					appObj = model.App{Name: msg.AppName}
+				}
+				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
 			m.statusService.Error(fmt.Sprintf("Rollback failed for %s", msg.AppName))

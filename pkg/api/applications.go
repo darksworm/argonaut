@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darksworm/argonaut/pkg/model"
 	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 // ArgoApplication represents an ArgoCD application from the API
@@ -22,7 +22,7 @@ type ArgoApplication struct {
 	Spec struct {
 		Project string `json:"project,omitempty"`
 		// Single source (legacy/traditional)
-		Source  *struct {
+		Source *struct {
 			RepoURL        string `json:"repoURL,omitempty"`
 			Path           string `json:"path,omitempty"`
 			TargetRevision string `json:"targetRevision,omitempty"`
@@ -41,7 +41,7 @@ type ArgoApplication struct {
 	} `json:"spec"`
 	Status struct {
 		Sync struct {
-			Status     string    `json:"status,omitempty"`
+			Status     string `json:"status,omitempty"`
 			ComparedTo struct {
 				Source *struct {
 					RepoURL        string `json:"repoURL,omitempty"`
@@ -62,8 +62,8 @@ type ArgoApplication struct {
 			Message string `json:"message,omitempty"`
 		} `json:"health"`
 		OperationState struct {
-			Phase     string    `json:"phase,omitempty"`
-			StartedAt time.Time `json:"startedAt,omitempty"`
+			Phase      string    `json:"phase,omitempty"`
+			StartedAt  time.Time `json:"startedAt,omitempty"`
 			FinishedAt time.Time `json:"finishedAt,omitempty"`
 		} `json:"operationState,omitempty"`
 		History []DeploymentHistory `json:"history,omitempty"`
@@ -83,14 +83,14 @@ type WatchEventResult struct {
 
 // ListApplicationsResponse represents the response from listing applications
 type ListApplicationsResponse struct {
-    Items []ArgoApplication `json:"items"`
+	Items []ArgoApplication `json:"items"`
 }
 
 // DeploymentHistory represents a deployment history entry from ArgoCD API
 type DeploymentHistory struct {
-	ID         int        `json:"id"`
-	Revision   string     `json:"revision"`
-	DeployedAt time.Time  `json:"deployedAt"`
+	ID         int       `json:"id"`
+	Revision   string    `json:"revision"`
+	DeployedAt time.Time `json:"deployedAt"`
 	Source     *struct {
 		RepoURL        string `json:"repoURL,omitempty"`
 		Path           string `json:"path,omitempty"`
@@ -108,21 +108,21 @@ type RevisionMetadataResponse struct {
 
 // ManagedResourceDiff represents ArgoCD managed resource diff item
 type ManagedResourceDiff struct {
-    Kind        string `json:"kind"`
-    Namespace   string `json:"namespace"`
-    Name        string `json:"name"`
-    TargetState string `json:"targetState,omitempty"`
-    LiveState   string `json:"liveState,omitempty"`
+	Kind        string `json:"kind"`
+	Namespace   string `json:"namespace"`
+	Name        string `json:"name"`
+	TargetState string `json:"targetState,omitempty"`
+	LiveState   string `json:"liveState,omitempty"`
 }
 
 // ManagedResourcesResponse represents response for managed resources
 type ManagedResourcesResponse struct {
-    Items []ManagedResourceDiff `json:"items"`
+	Items []ManagedResourceDiff `json:"items"`
 }
 
 // ApplicationService provides ArgoCD application operations
 type ApplicationService struct {
-    client *Client
+	client *Client
 }
 
 // NewApplicationService creates a new application service
@@ -134,92 +134,96 @@ func NewApplicationService(server *model.Server) *ApplicationService {
 
 // ListApplications retrieves all applications from ArgoCD
 func (s *ApplicationService) ListApplications(ctx context.Context) ([]model.App, error) {
-    data, err := s.client.Get(ctx, "/api/v1/applications")
-    if err != nil {
-        return nil, fmt.Errorf("failed to list applications: %w", err)
-    }
+	data, err := s.client.Get(ctx, "/api/v1/applications")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list applications: %w", err)
+	}
 
-    // First, try to parse as { items: [...] }
-    var withItems struct{
-        Items []json.RawMessage `json:"items"`
-    }
-    if err := json.Unmarshal(data, &withItems); err != nil {
-        return nil, fmt.Errorf("failed to parse applications response: %w", err)
-    }
+	// First, try to parse as { items: [...] }
+	var withItems struct {
+		Items []json.RawMessage `json:"items"`
+	}
+	if err := json.Unmarshal(data, &withItems); err != nil {
+		return nil, fmt.Errorf("failed to parse applications response: %w", err)
+	}
 
-    var rawItems []json.RawMessage
-    if len(withItems.Items) > 0 {
-        rawItems = withItems.Items
-    } else {
-        // Some servers may return a bare array instead of an object with items
-        if err := json.Unmarshal(data, &rawItems); err != nil {
-            return nil, fmt.Errorf("failed to parse applications array: %w", err)
-        }
-    }
+	var rawItems []json.RawMessage
+	if len(withItems.Items) > 0 {
+		rawItems = withItems.Items
+	} else {
+		// Some servers may return a bare array instead of an object with items
+		if err := json.Unmarshal(data, &rawItems); err != nil {
+			return nil, fmt.Errorf("failed to parse applications array: %w", err)
+		}
+	}
 
-    apps := make([]model.App, 0, len(rawItems))
-    for _, raw := range rawItems {
-        // Unmarshal into our typed struct first
-        var argoApp ArgoApplication
-        if err := json.Unmarshal(raw, &argoApp); err != nil {
-            // Skip malformed entry
-            continue
-        }
+	apps := make([]model.App, 0, len(rawItems))
+	for _, raw := range rawItems {
+		// Unmarshal into our typed struct first
+		var argoApp ArgoApplication
+		if err := json.Unmarshal(raw, &argoApp); err != nil {
+			// Skip malformed entry
+			continue
+		}
 
-        app := s.ConvertToApp(argoApp)
+		app := s.ConvertToApp(argoApp)
 
-        // Fallback: if sync/health are empty, extract directly from raw JSON
-        if app.Sync == "" || app.Health == "" || app.Sync == "Unknown" || app.Health == "Unknown" {
-            var root map[string]interface{}
-            if err := json.Unmarshal(raw, &root); err == nil {
-                if sMap, ok := root["status"].(map[string]interface{}); ok {
-                    if app.Sync == "" || app.Sync == "Unknown" {
-                        if syncMap, ok := sMap["sync"].(map[string]interface{}); ok {
-                            if v, ok := syncMap["status"].(string); ok && v != "" {
-                                app.Sync = v
-                            }
-                        }
-                    }
-                    if app.Health == "" || app.Health == "Unknown" {
-                        if healthMap, ok := sMap["health"].(map[string]interface{}); ok {
-                            if v, ok := healthMap["status"].(string); ok && v != "" {
-                                app.Health = v
-                            }
-                        }
-                    }
-                }
-            }
-            if app.Sync == "" { app.Sync = "Unknown" }
-            if app.Health == "" { app.Health = "Unknown" }
-        }
+		// Fallback: if sync/health are empty, extract directly from raw JSON
+		if app.Sync == "" || app.Health == "" || app.Sync == "Unknown" || app.Health == "Unknown" {
+			var root map[string]interface{}
+			if err := json.Unmarshal(raw, &root); err == nil {
+				if sMap, ok := root["status"].(map[string]interface{}); ok {
+					if app.Sync == "" || app.Sync == "Unknown" {
+						if syncMap, ok := sMap["sync"].(map[string]interface{}); ok {
+							if v, ok := syncMap["status"].(string); ok && v != "" {
+								app.Sync = v
+							}
+						}
+					}
+					if app.Health == "" || app.Health == "Unknown" {
+						if healthMap, ok := sMap["health"].(map[string]interface{}); ok {
+							if v, ok := healthMap["status"].(string); ok && v != "" {
+								app.Health = v
+							}
+						}
+					}
+				}
+			}
+			if app.Sync == "" {
+				app.Sync = "Unknown"
+			}
+			if app.Health == "" {
+				app.Health = "Unknown"
+			}
+		}
 
-        apps = append(apps, app)
-    }
+		apps = append(apps, app)
+	}
 
-    return apps, nil
+	return apps, nil
 }
 
 // GetManagedResourceDiffs fetches managed resource diffs for an application
 func (s *ApplicationService) GetManagedResourceDiffs(ctx context.Context, appName string) ([]ManagedResourceDiff, error) {
-    if appName == "" {
-        return nil, fmt.Errorf("application name is required")
-    }
-    path := fmt.Sprintf("/api/v1/applications/%s/managed-resources", url.PathEscape(appName))
-    data, err := s.client.Get(ctx, path)
-    if err != nil {
-        return nil, fmt.Errorf("failed to get managed resources: %w", err)
-    }
+	if appName == "" {
+		return nil, fmt.Errorf("application name is required")
+	}
+	path := fmt.Sprintf("/api/v1/applications/%s/managed-resources", url.PathEscape(appName))
+	data, err := s.client.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get managed resources: %w", err)
+	}
 
-    // Accept both {items:[...]} and bare array
-    var withItems ManagedResourcesResponse
-    if err := json.Unmarshal(data, &withItems); err == nil && len(withItems.Items) > 0 {
-        return withItems.Items, nil
-    }
-    var arr []ManagedResourceDiff
-    if err := json.Unmarshal(data, &arr); err == nil {
-        return arr, nil
-    }
-    return []ManagedResourceDiff{}, nil
+	// Accept both {items:[...]} and bare array
+	var withItems ManagedResourcesResponse
+	if err := json.Unmarshal(data, &withItems); err == nil && len(withItems.Items) > 0 {
+		return withItems.Items, nil
+	}
+	var arr []ManagedResourceDiff
+	if err := json.Unmarshal(data, &arr); err == nil {
+		return arr, nil
+	}
+	return []ManagedResourceDiff{}, nil
 }
 
 // SyncApplication triggers a sync for the specified application
@@ -329,7 +333,6 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 		app.Namespace = &argoApp.Spec.Destination.Namespace
 	}
 
-
 	// Extract cluster info preferring destination.name, else from destination.server host
 	if argoApp.Spec.Destination.Name != "" || argoApp.Spec.Destination.Server != "" {
 		var id string
@@ -375,7 +378,7 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 }
 
 // GetPrimaryRevision returns the primary revision with fallback logic
-// Mimics TypeScript logic: revision ?? revisions?.[0] ?? ''
+// Mimics TypeScript logic: revision ?? revisions?.[0] ?? ”
 func GetPrimaryRevision(syncStatus struct {
 	Revision  string   `json:"revision,omitempty"`
 	Revisions []string `json:"revisions,omitempty"`
@@ -411,19 +414,19 @@ func (app *ArgoApplication) GetPrimarySource() *struct {
 
 // ResourceNode represents a Kubernetes resource from ArgoCD API
 type ResourceNode struct {
-	Kind        string                 `json:"kind"`
-	Name        string                 `json:"name"`
-	Namespace   *string                `json:"namespace,omitempty"`
-	Version     string                 `json:"version"`
-	Group       string                 `json:"group"`
-	UID         string                 `json:"uid"`
-	Health      *ResourceHealth        `json:"health,omitempty"`
-	Status      string                 `json:"status"`
-	NetworkingInfo *NetworkingInfo     `json:"networkingInfo,omitempty"`
-	ResourceRef ResourceRef            `json:"resourceRef"`
-	ParentRefs  []ResourceRef          `json:"parentRefs,omitempty"`
-	Info        []ResourceInfo         `json:"info,omitempty"`
-	CreatedAt   *time.Time            `json:"createdAt,omitempty"`
+	Kind           string          `json:"kind"`
+	Name           string          `json:"name"`
+	Namespace      *string         `json:"namespace,omitempty"`
+	Version        string          `json:"version"`
+	Group          string          `json:"group"`
+	UID            string          `json:"uid"`
+	Health         *ResourceHealth `json:"health,omitempty"`
+	Status         string          `json:"status"`
+	NetworkingInfo *NetworkingInfo `json:"networkingInfo,omitempty"`
+	ResourceRef    ResourceRef     `json:"resourceRef"`
+	ParentRefs     []ResourceRef   `json:"parentRefs,omitempty"`
+	Info           []ResourceInfo  `json:"info,omitempty"`
+	CreatedAt      *time.Time      `json:"createdAt,omitempty"`
 }
 
 // ResourceHealth represents the health status from ArgoCD API
@@ -434,10 +437,10 @@ type ResourceHealth struct {
 
 // NetworkingInfo represents networking information from ArgoCD API
 type NetworkingInfo struct {
-	TargetLabels map[string]string   `json:"targetLabels,omitempty"`
-	TargetRefs   []ResourceRef       `json:"targetRefs,omitempty"`
-	Labels       map[string]string   `json:"labels,omitempty"`
-	Ingress      []IngressInfo       `json:"ingress,omitempty"`
+	TargetLabels map[string]string `json:"targetLabels,omitempty"`
+	TargetRefs   []ResourceRef     `json:"targetRefs,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	Ingress      []IngressInfo     `json:"ingress,omitempty"`
 }
 
 // IngressInfo represents ingress information from ArgoCD API
@@ -464,7 +467,7 @@ type ResourceInfo struct {
 
 // ResourceTree represents the resource tree response from ArgoCD API
 type ResourceTree struct {
-    Nodes []ResourceNode `json:"nodes"`
+	Nodes []ResourceNode `json:"nodes"`
 }
 
 // GetResourceTree retrieves the resource tree for an application
@@ -489,45 +492,47 @@ func (s *ApplicationService) GetResourceTree(ctx context.Context, appName, appNa
 
 // ResourceTreeStreamResult wraps streaming responses for resource tree
 type ResourceTreeStreamResult struct {
-    Result ResourceTree `json:"result"`
+	Result ResourceTree `json:"result"`
 }
 
 // WatchResourceTree starts a streaming watch for an application's resource tree
 func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, appNamespace string, out chan<- ResourceTree) error {
-    if appName == "" {
-        return fmt.Errorf("application name is required")
-    }
-    path := fmt.Sprintf("/api/v1/stream/applications/%s/resource-tree", url.PathEscape(appName))
-    if appNamespace != "" {
-        path += "?appNamespace=" + url.QueryEscape(appNamespace)
-    }
-    stream, err := s.client.Stream(ctx, path)
-    if err != nil {
-        return fmt.Errorf("failed to start resource tree watch: %w", err)
-    }
-    defer stream.Close()
+	if appName == "" {
+		return fmt.Errorf("application name is required")
+	}
+	path := fmt.Sprintf("/api/v1/stream/applications/%s/resource-tree", url.PathEscape(appName))
+	if appNamespace != "" {
+		path += "?appNamespace=" + url.QueryEscape(appNamespace)
+	}
+	stream, err := s.client.Stream(ctx, path)
+	if err != nil {
+		return fmt.Errorf("failed to start resource tree watch: %w", err)
+	}
+	defer stream.Close()
 
-    scanner := bufio.NewScanner(stream)
-    for scanner.Scan() {
-        if ctx.Err() != nil {
-            return ctx.Err()
-        }
-        line := strings.TrimSpace(scanner.Text())
-        if line == "" { continue }
-        var res ResourceTreeStreamResult
-        if err := json.Unmarshal([]byte(line), &res); err != nil {
-            continue
-        }
-        select {
-        case out <- res.Result:
-        case <-ctx.Done():
-            return ctx.Err()
-        }
-    }
-    if err := scanner.Err(); err != nil {
-        return fmt.Errorf("stream scanning error: %w", err)
-    }
-    return nil
+	scanner := bufio.NewScanner(stream)
+	for scanner.Scan() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var res ResourceTreeStreamResult
+		if err := json.Unmarshal([]byte(line), &res); err != nil {
+			continue
+		}
+		select {
+		case out <- res.Result:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("stream scanning error: %w", err)
+	}
+	return nil
 }
 
 // GetUserInfo validates user authentication by checking session info
@@ -600,7 +605,7 @@ func (s *ApplicationService) RollbackApplication(ctx context.Context, request mo
 		"id":   request.ID,
 		"name": request.Name,
 	}
-	
+
 	if request.DryRun {
 		body["dryRun"] = true
 	}
@@ -611,11 +616,11 @@ func (s *ApplicationService) RollbackApplication(ctx context.Context, request mo
 		body["appNamespace"] = *request.AppNamespace
 	}
 
-    // Pass the structured body directly; the client marshals it to JSON.
-    _, err := s.client.Post(ctx, endpoint, body)
-    if err != nil {
-        return fmt.Errorf("failed to rollback application %s to deployment %d: %w", request.Name, request.ID, err)
-    }
+	// Pass the structured body directly; the client marshals it to JSON.
+	_, err := s.client.Post(ctx, endpoint, body)
+	if err != nil {
+		return fmt.Errorf("failed to rollback application %s to deployment %d: %w", request.Name, request.ID, err)
+	}
 
 	return nil
 }
@@ -623,7 +628,7 @@ func (s *ApplicationService) RollbackApplication(ctx context.Context, request mo
 // ConvertDeploymentHistoryToRollbackRows converts ArgoCD deployment history to rollback rows
 func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model.RollbackRow {
 	rows := make([]model.RollbackRow, 0, len(history))
-	
+
 	for _, deployment := range history {
 		row := model.RollbackRow{
 			ID:         deployment.ID,
@@ -636,6 +641,6 @@ func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model
 		}
 		rows = append(rows, row)
 	}
-	
+
 	return rows
 }

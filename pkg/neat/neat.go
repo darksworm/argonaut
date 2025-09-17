@@ -301,10 +301,10 @@ func neatServiceDefaults(in string) (string, error) {
 
 	// Remove service-specific defaults that cause clutter
 	serviceDefaults := map[string]interface{}{
-		"spec.type": "ClusterIP",
-		"spec.sessionAffinity": "None",
+		"spec.type":                  "ClusterIP",
+		"spec.sessionAffinity":       "None",
 		"spec.internalTrafficPolicy": "Cluster",
-		"spec.ipFamilyPolicy": "SingleStack",
+		"spec.ipFamilyPolicy":        "SingleStack",
 	}
 
 	for path, defaultValue := range serviceDefaults {
@@ -362,7 +362,7 @@ func neatDeploymentDefaults(in string) (string, error) {
 	// Remove deployment-specific defaults
 	deploymentDefaults := map[string]interface{}{
 		"spec.progressDeadlineSeconds": float64(600),
-		"spec.revisionHistoryLimit": float64(10),
+		"spec.revisionHistoryLimit":    float64(10),
 	}
 
 	for path, defaultValue := range deploymentDefaults {
@@ -393,8 +393,8 @@ func neatPodDefaults(in string) (string, error) {
 	}
 
 	podDefaults := map[string]interface{}{
-		podSpecPath + ".restartPolicy": "Always",
-		podSpecPath + ".dnsPolicy": "ClusterFirst",
+		podSpecPath + ".restartPolicy":                 "Always",
+		podSpecPath + ".dnsPolicy":                     "ClusterFirst",
 		podSpecPath + ".terminationGracePeriodSeconds": float64(30),
 	}
 
@@ -431,8 +431,8 @@ func cleanContainer(containerJSON string) string {
 	result := containerJSON
 
 	containerDefaults := map[string]interface{}{
-		"imagePullPolicy": "Always",
-		"terminationMessagePath": "/dev/termination-log",
+		"imagePullPolicy":          "Always",
+		"terminationMessagePath":   "/dev/termination-log",
 		"terminationMessagePolicy": "File",
 	}
 

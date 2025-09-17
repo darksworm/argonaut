@@ -10,24 +10,24 @@ import (
 
 // TimeoutConfig holds timeout configuration for different operations
 type TimeoutConfig struct {
-	Default    time.Duration
-	API        time.Duration
-	Stream     time.Duration
-	Auth       time.Duration
-	Sync       time.Duration
-	Resource   time.Duration
-	UI         time.Duration
+	Default  time.Duration
+	API      time.Duration
+	Stream   time.Duration
+	Auth     time.Duration
+	Sync     time.Duration
+	Resource time.Duration
+	UI       time.Duration
 }
 
 // DefaultTimeouts provides sensible defaults for different operation types
 var DefaultTimeouts = TimeoutConfig{
-	Default:  5 * time.Second,   // Most operations should be fast
-	API:      3 * time.Second,   // API calls should be quick
-	Stream:   0,                 // No timeout for streams (handled by parent context)
-	Auth:     5 * time.Second,   // Auth should be reasonably fast
-	Sync:     10 * time.Second,  // Sync operations - max 10 seconds
-	Resource: 3 * time.Second,   // Resource queries should be fast
-	UI:       2 * time.Second,   // UI operations must be very fast
+	Default:  5 * time.Second,  // Most operations should be fast
+	API:      3 * time.Second,  // API calls should be quick
+	Stream:   0,                // No timeout for streams (handled by parent context)
+	Auth:     5 * time.Second,  // Auth should be reasonably fast
+	Sync:     10 * time.Second, // Sync operations - max 10 seconds
+	Resource: 3 * time.Second,  // Resource queries should be fast
+	UI:       2 * time.Second,  // UI operations must be very fast
 }
 
 // OperationType represents different types of operations that need timeouts
@@ -133,22 +133,22 @@ func IsCanceled(err error) bool {
 
 // WithTimeoutAndRetry creates a context with timeout and provides retry information
 type RetryableContext struct {
-	Context   context.Context
-	Cancel    context.CancelFunc
-	Attempt   int
+	Context    context.Context
+	Cancel     context.CancelFunc
+	Attempt    int
 	MaxRetries int
-	OpType    OperationType
+	OpType     OperationType
 }
 
 // NewRetryableContext creates a new retryable context
 func NewRetryableContext(parent context.Context, opType OperationType, maxRetries int) *RetryableContext {
 	ctx, cancel := WithTimeout(parent, opType)
 	return &RetryableContext{
-		Context:   ctx,
-		Cancel:    cancel,
-		Attempt:   1,
+		Context:    ctx,
+		Cancel:     cancel,
+		Attempt:    1,
 		MaxRetries: maxRetries,
-		OpType:    opType,
+		OpType:     opType,
 	}
 }
 

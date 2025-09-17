@@ -34,15 +34,15 @@ const (
 
 // ArgonautError represents a structured error with comprehensive metadata
 type ArgonautError struct {
-	Category    ErrorCategory `json:"category"`
-	Severity    ErrorSeverity `json:"severity"`
-	Code        string        `json:"code"`
-	Message     string        `json:"message"`
-	Details     string        `json:"details,omitempty"`
-	Cause       error         `json:"cause,omitempty"`
-	Recoverable bool          `json:"recoverable"`
-	UserAction  string        `json:"userAction,omitempty"`
-	Timestamp   time.Time     `json:"timestamp"`
+	Category    ErrorCategory          `json:"category"`
+	Severity    ErrorSeverity          `json:"severity"`
+	Code        string                 `json:"code"`
+	Message     string                 `json:"message"`
+	Details     string                 `json:"details,omitempty"`
+	Cause       error                  `json:"cause,omitempty"`
+	Recoverable bool                   `json:"recoverable"`
+	UserAction  string                 `json:"userAction,omitempty"`
+	Timestamp   time.Time              `json:"timestamp"`
 	Context     map[string]interface{} `json:"context,omitempty"`
 }
 

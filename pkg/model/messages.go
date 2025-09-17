@@ -1,8 +1,8 @@
 package model
 
 import (
-    tea "github.com/charmbracelet/bubbletea/v2"
-    apperrors "github.com/darksworm/argonaut/pkg/errors"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
 )
 
 // Navigation Messages - correspond to TypeScript navigation actions
@@ -185,10 +185,10 @@ type ApiErrorMsg struct {
 
 // StructuredErrorMsg represents a structured error message for the TUI
 type StructuredErrorMsg struct {
-	Error    *apperrors.ArgonautError   `json:"error"`
-	Context  map[string]interface{}     `json:"context,omitempty"`
-	Retry    bool                       `json:"retry,omitempty"`
-	AutoHide bool                       `json:"autoHide,omitempty"`
+	Error    *apperrors.ArgonautError `json:"error"`
+	Context  map[string]interface{}   `json:"context,omitempty"`
+	Retry    bool                     `json:"retry,omitempty"`
+	AutoHide bool                     `json:"autoHide,omitempty"`
 }
 
 // ErrorRecoveredMsg indicates that an error has been automatically recovered
@@ -340,19 +340,19 @@ type RollbackCancelMsg struct{}
 
 // RollbackShowDiffMsg is sent to show diff for selected revision
 type RollbackShowDiffMsg struct {
-    Revision string
+	Revision string
 }
 
 // ResourceTreeLoadedMsg is sent when a resource tree is loaded for an app
 type ResourceTreeLoadedMsg struct {
-    AppName  string
-    Health   string
-    Sync     string
-    TreeJSON []byte
+	AppName  string
+	Health   string
+	Sync     string
+	TreeJSON []byte
 }
 
 // ResourceTreeStreamMsg represents a streamed resource tree update
 type ResourceTreeStreamMsg struct {
-    AppName  string
-    TreeJSON []byte
+	AppName  string
+	TreeJSON []byte
 }

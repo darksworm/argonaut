@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
 	"github.com/darksworm/argonaut/pkg/model"
+	"gopkg.in/yaml.v3"
 )
 
 // ArgoContext represents an ArgoCD context configuration
@@ -18,11 +18,11 @@ type ArgoContext struct {
 
 // ArgoServer represents an ArgoCD server configuration
 type ArgoServer struct {
-	Server           string `yaml:"server"`
-	GrpcWeb          bool   `yaml:"grpc-web,omitempty"`
-	GrpcWebRootPath  string `yaml:"grpc-web-root-path,omitempty"`
-	Insecure         bool   `yaml:"insecure,omitempty"`
-	PlainText        bool   `yaml:"plain-text,omitempty"`
+	Server          string `yaml:"server"`
+	GrpcWeb         bool   `yaml:"grpc-web,omitempty"`
+	GrpcWebRootPath string `yaml:"grpc-web-root-path,omitempty"`
+	Insecure        bool   `yaml:"insecure,omitempty"`
+	PlainText       bool   `yaml:"plain-text,omitempty"`
 }
 
 // ArgoUser represents an ArgoCD user configuration
@@ -45,39 +45,39 @@ func GetConfigPath() string {
 	if configPath := os.Getenv("ARGOCD_CONFIG"); configPath != "" {
 		return configPath
 	}
-	
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	
+
 	// Check XDG_CONFIG_HOME first
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
 		return filepath.Join(xdgConfig, "argocd", "config")
 	}
-	
+
 	// Default to ~/.config/argocd/config
 	return filepath.Join(homeDir, ".config", "argocd", "config")
 }
 
 // ReadCLIConfig reads and parses the ArgoCD CLI configuration
 func ReadCLIConfig() (*ArgoCLIConfig, error) {
-    return ReadCLIConfigFromPath(GetConfigPath())
+	return ReadCLIConfigFromPath(GetConfigPath())
 }
 
 // ReadCLIConfigFromPath reads the ArgoCD CLI configuration from a specific path
 func ReadCLIConfigFromPath(configPath string) (*ArgoCLIConfig, error) {
-    data, err := os.ReadFile(configPath)
-    if err != nil {
-        return nil, fmt.Errorf("failed to read ArgoCD config from %s: %w", configPath, err)
-    }
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read ArgoCD config from %s: %w", configPath, err)
+	}
 
-    var config ArgoCLIConfig
-    if err := yaml.Unmarshal(data, &config); err != nil {
-        return nil, fmt.Errorf("failed to parse ArgoCD config: %w", err)
-    }
+	var config ArgoCLIConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse ArgoCD config: %w", err)
+	}
 
-    return &config, nil
+	return &config, nil
 }
 
 // GetCurrentServer returns the server URL for the current context
@@ -85,7 +85,7 @@ func (c *ArgoCLIConfig) GetCurrentServer() (string, error) {
 	if c.CurrentContext == "" {
 		return "", fmt.Errorf("no current context set in ArgoCD config")
 	}
-	
+
 	for _, ctx := range c.Contexts {
 		if ctx.Name == c.CurrentContext {
 			if ctx.Server == "" {
@@ -94,7 +94,7 @@ func (c *ArgoCLIConfig) GetCurrentServer() (string, error) {
 			return ctx.Server, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("context %s not found in ArgoCD config", c.CurrentContext)
 }
 
@@ -104,13 +104,13 @@ func (c *ArgoCLIConfig) GetCurrentServerConfig() (*ArgoServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, server := range c.Servers {
 		if server.Server == serverURL {
 			return &server, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("server configuration not found for %s", serverURL)
 }
 
@@ -119,7 +119,7 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 	if c.CurrentContext == "" {
 		return "", fmt.Errorf("no current context set in ArgoCD config")
 	}
-	
+
 	// Find the current context
 	var currentUser string
 	for _, ctx := range c.Contexts {
@@ -128,11 +128,11 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 			break
 		}
 	}
-	
+
 	if currentUser == "" {
 		return "", fmt.Errorf("no user specified for context %s", c.CurrentContext)
 	}
-	
+
 	// Find the user and their token
 	for _, user := range c.Users {
 		if user.Name == currentUser {
@@ -142,7 +142,7 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 			return user.AuthToken, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("user %s not found in ArgoCD config", currentUser)
 }
 
@@ -152,14 +152,14 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	token, err := c.GetCurrentToken()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	baseURL := ensureHTTPS(serverConfig.Server, serverConfig.PlainText)
-	
+
 	return &model.Server{
 		BaseURL:  baseURL,
 		Token:    token,
@@ -172,12 +172,12 @@ func ensureHTTPS(baseURL string, plainText bool) string {
 	if len(baseURL) == 0 {
 		return baseURL
 	}
-	
+
 	// If already has protocol, return as-is
 	if len(baseURL) >= 7 && (baseURL[:7] == "http://" || baseURL[:8] == "https://") {
 		return baseURL
 	}
-	
+
 	// Add appropriate protocol
 	if plainText {
 		return "http://" + baseURL

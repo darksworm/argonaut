@@ -1,12 +1,12 @@
 package errors
 
 import (
-    "context"
-    "encoding/json"
-    "sort"
-    "sync"
-    "time"
-    cblog "github.com/charmbracelet/log"
+	"context"
+	"encoding/json"
+	cblog "github.com/charmbracelet/log"
+	"sort"
+	"sync"
+	"time"
 )
 
 // ErrorAnalytics provides error monitoring and analysis capabilities
@@ -49,33 +49,33 @@ type ErrorPattern struct {
 
 // ErrorMetrics provides aggregate error statistics
 type ErrorMetrics struct {
-	TotalErrors      int                         `json:"totalErrors"`
-	ErrorsByCategory map[ErrorCategory]int       `json:"errorsByCategory"`
-	ErrorsBySeverity map[ErrorSeverity]int       `json:"errorsBySeverity"`
-	RecoveryRate     float64                     `json:"recoveryRate"`
-	AvgResolution    time.Duration               `json:"avgResolution"`
-	TopPatterns      []*ErrorPattern             `json:"topPatterns"`
-	TrendAnalysis    *ErrorTrend                 `json:"trendAnalysis"`
-	LastUpdated      time.Time                   `json:"lastUpdated"`
-	TimeWindow       time.Duration               `json:"timeWindow"`
+	TotalErrors      int                   `json:"totalErrors"`
+	ErrorsByCategory map[ErrorCategory]int `json:"errorsByCategory"`
+	ErrorsBySeverity map[ErrorSeverity]int `json:"errorsBySeverity"`
+	RecoveryRate     float64               `json:"recoveryRate"`
+	AvgResolution    time.Duration         `json:"avgResolution"`
+	TopPatterns      []*ErrorPattern       `json:"topPatterns"`
+	TrendAnalysis    *ErrorTrend           `json:"trendAnalysis"`
+	LastUpdated      time.Time             `json:"lastUpdated"`
+	TimeWindow       time.Duration         `json:"timeWindow"`
 }
 
 // ErrorTrend analyzes error trends over time
 type ErrorTrend struct {
-	Direction        string        `json:"direction"` // "improving", "stable", "degrading"
-	ChangeRate       float64       `json:"changeRate"` // percentage change
-	PredictedErrors  int           `json:"predictedErrors"` // predicted errors in next hour
-	Confidence       float64       `json:"confidence"` // prediction confidence (0-1)
-	RecommendedActions []string    `json:"recommendedActions"`
+	Direction          string   `json:"direction"`       // "improving", "stable", "degrading"
+	ChangeRate         float64  `json:"changeRate"`      // percentage change
+	PredictedErrors    int      `json:"predictedErrors"` // predicted errors in next hour
+	Confidence         float64  `json:"confidence"`      // prediction confidence (0-1)
+	RecommendedActions []string `json:"recommendedActions"`
 }
 
 // PredictiveAlert represents a predictive error alert
 type PredictiveAlert struct {
-	Pattern      string        `json:"pattern"`
-	Probability  float64       `json:"probability"`
-	ExpectedTime time.Time     `json:"expectedTime"`
-	Severity     ErrorSeverity `json:"severity"`
-	PreventionActions []string `json:"preventionActions"`
+	Pattern           string        `json:"pattern"`
+	Probability       float64       `json:"probability"`
+	ExpectedTime      time.Time     `json:"expectedTime"`
+	Severity          ErrorSeverity `json:"severity"`
+	PreventionActions []string      `json:"preventionActions"`
 }
 
 // NewErrorAnalytics creates a new error analytics system
@@ -87,7 +87,7 @@ func NewErrorAnalytics(maxHistory int) *ErrorAnalytics {
 	return &ErrorAnalytics{
 		errorHistory: make([]ErrorRecord, 0, maxHistory),
 		patterns:     make(map[string]*ErrorPattern),
-		metrics:      ErrorMetrics{
+		metrics: ErrorMetrics{
 			ErrorsByCategory: make(map[ErrorCategory]int),
 			ErrorsBySeverity: make(map[ErrorSeverity]int),
 			TimeWindow:       24 * time.Hour,
@@ -128,7 +128,7 @@ func (ea *ErrorAnalytics) RecordError(err *ArgonautError) {
 	// Update metrics
 	ea.updateMetrics()
 
-    cblog.With("component", "errors").Debug("Recorded error", "category", err.Category, "code", err.Code)
+	cblog.With("component", "errors").Debug("Recorded error", "category", err.Category, "code", err.Code)
 }
 
 // RecordResolution records when an error is resolved
@@ -145,8 +145,8 @@ func (ea *ErrorAnalytics) RecordResolution(category ErrorCategory, code string, 
 			record.ResolvedAt = &resolvedAt
 			record.Duration = &duration
 
-            cblog.With("component", "errors").Debug("Recorded resolution",
-                "category", category, "code", code, "duration", duration)
+			cblog.With("component", "errors").Debug("Recorded resolution",
+				"category", category, "code", code, "duration", duration)
 			break
 		}
 	}
@@ -324,10 +324,10 @@ func (ea *ErrorAnalytics) updateTrendAnalysis() {
 	}
 
 	trend := &ErrorTrend{
-		Direction: "stable",
-		ChangeRate: 0,
-		PredictedErrors: recentCount,
-		Confidence: 0.5,
+		Direction:          "stable",
+		ChangeRate:         0,
+		PredictedErrors:    recentCount,
+		Confidence:         0.5,
 		RecommendedActions: []string{},
 	}
 
@@ -386,10 +386,10 @@ func (ea *ErrorAnalytics) GeneratePredictiveAlerts() []PredictiveAlert {
 
 			if probability > 0.3 { // 30% threshold
 				alert := PredictiveAlert{
-					Pattern:     string(pattern.Category) + "/" + pattern.Code,
-					Probability: probability,
-					ExpectedTime: time.Now().Add(time.Duration(60/pattern.Frequency) * time.Minute),
-					Severity:    pattern.Severity,
+					Pattern:           string(pattern.Category) + "/" + pattern.Code,
+					Probability:       probability,
+					ExpectedTime:      time.Now().Add(time.Duration(60/pattern.Frequency) * time.Minute),
+					Severity:          pattern.Severity,
 					PreventionActions: ea.generatePreventionActions(pattern),
 				}
 				alerts = append(alerts, alert)
@@ -431,11 +431,11 @@ func (ea *ErrorAnalytics) GenerateReport() map[string]interface{} {
 
 	return map[string]interface{}{
 		"summary": map[string]interface{}{
-			"totalErrors":    ea.metrics.TotalErrors,
-			"recoveryRate":   ea.metrics.RecoveryRate,
-			"avgResolution":  ea.metrics.AvgResolution.String(),
-			"timeWindow":     ea.metrics.TimeWindow.String(),
-			"lastUpdated":    ea.metrics.LastUpdated,
+			"totalErrors":   ea.metrics.TotalErrors,
+			"recoveryRate":  ea.metrics.RecoveryRate,
+			"avgResolution": ea.metrics.AvgResolution.String(),
+			"timeWindow":    ea.metrics.TimeWindow.String(),
+			"lastUpdated":   ea.metrics.LastUpdated,
 		},
 		"categoryBreakdown": ea.metrics.ErrorsByCategory,
 		"severityBreakdown": ea.metrics.ErrorsBySeverity,
@@ -498,7 +498,7 @@ func (ea *ErrorAnalytics) Cleanup(ctx context.Context) {
 	removed := len(ea.errorHistory) - len(newHistory)
 	ea.errorHistory = newHistory
 
-    if removed > 0 {
-        cblog.With("component", "errors").Debug("Cleaned up old error records", "count", removed)
-    }
+	if removed > 0 {
+		cblog.With("component", "errors").Debug("Cleaned up old error records", "count", removed)
+	}
 }

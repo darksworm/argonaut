@@ -166,7 +166,6 @@ func (e *AutocompleteEngine) GetCommandAutocomplete(input string, state *model.A
 	// Split into command and argument parts
 	parts := strings.Fields(command)
 
-
 	if len(parts) == 0 {
 		// Just ":" - return all command suggestions
 		return e.getAllCommandSuggestions("")

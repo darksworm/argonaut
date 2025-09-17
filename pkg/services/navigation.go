@@ -171,9 +171,9 @@ func (s *NavigationServiceImpl) ClearLowerLevelSelections(view model.View) map[s
 // ResetNavigation implements NavigationService.ResetNavigation
 func (s *NavigationServiceImpl) ResetNavigation(view *model.View) map[string]interface{} {
 	result := map[string]interface{}{
-		"selectedIdx":    0,
-		"activeFilter":   "",
-		"searchQuery":    "",
+		"selectedIdx":  0,
+		"activeFilter": "",
+		"searchQuery":  "",
 	}
 	if view != nil {
 		result["view"] = *view

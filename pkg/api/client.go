@@ -1,22 +1,22 @@
 package api
 
 import (
-    "bytes"
-    "context"
-    "crypto/tls"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net"
-    "net/http"
-    "strings"
-    "time"
+	"bytes"
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strings"
+	"time"
 
-    apperrors "github.com/darksworm/argonaut/pkg/errors"
-    appcontext "github.com/darksworm/argonaut/pkg/context"
-    "github.com/darksworm/argonaut/pkg/model"
-    "github.com/darksworm/argonaut/pkg/retry"
-    cblog "github.com/charmbracelet/log"
+	cblog "github.com/charmbracelet/log"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/retry"
 )
 
 // Client represents an HTTP client for ArgoCD API
@@ -237,35 +237,35 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	}
 	defer resp.Body.Close()
 
-    respBody, err := io.ReadAll(resp.Body)
-    if err != nil {
-        return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "RESPONSE_READ_FAILED",
-            "Failed to read response body").
-            WithContext("method", method).
-            WithContext("url", url).
-            WithUserAction("Try the request again")
-    }
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "RESPONSE_READ_FAILED",
+			"Failed to read response body").
+			WithContext("method", method).
+			WithContext("url", url).
+			WithUserAction("Try the request again")
+	}
 
-    if resp.StatusCode >= 400 {
-        // Log request/response metadata at error level
-        cblog.With("component", "api", "op", "http").Error("http error",
-            "method", method,
-            "url", url,
-            "status", resp.StatusCode,
-            "len", len(respBody),
-        )
-        // Log body content at debug level (may contain details); truncate to avoid huge logs
-        body := string(respBody)
-        const maxLen = 2048
-        if len(body) > maxLen {
-            body = body[:maxLen] + "…"
-        }
-        cblog.With("component", "api").Debug("response body", "body", body)
+	if resp.StatusCode >= 400 {
+		// Log request/response metadata at error level
+		cblog.With("component", "api", "op", "http").Error("http error",
+			"method", method,
+			"url", url,
+			"status", resp.StatusCode,
+			"len", len(respBody),
+		)
+		// Log body content at debug level (may contain details); truncate to avoid huge logs
+		body := string(respBody)
+		const maxLen = 2048
+		if len(body) > maxLen {
+			body = body[:maxLen] + "…"
+		}
+		cblog.With("component", "api").Debug("response body", "body", body)
 
-        return nil, c.createAPIError(resp.StatusCode, string(respBody), url).
-            WithContext("method", method).
-            WithContext("path", path)
-    }
+		return nil, c.createAPIError(resp.StatusCode, string(respBody), url).
+			WithContext("method", method).
+			WithContext("path", path)
+	}
 
 	return respBody, nil
 }

@@ -1,16 +1,16 @@
 package services
 
 import (
-    "context"
-    "encoding/json"
-    "sync"
+	"context"
+	"encoding/json"
+	"sync"
 
-    "github.com/darksworm/argonaut/pkg/api"
-    apperrors "github.com/darksworm/argonaut/pkg/errors"
-    appcontext "github.com/darksworm/argonaut/pkg/context"
-    "github.com/darksworm/argonaut/pkg/model"
-    "github.com/darksworm/argonaut/pkg/retry"
-    cblog "github.com/charmbracelet/log"
+	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/api"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
+	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/retry"
 )
 
 // EnhancedArgoApiService provides enhanced ArgoApiService with recovery and degradation
@@ -33,9 +33,9 @@ func NewEnhancedArgoApiService(server *model.Server) *EnhancedArgoApiService {
 	}
 
 	// Register degradation callback
-    impl.degradationMgr.RegisterCallback(func(oldMode, newMode DegradationMode) {
-        cblog.With("component", "services").Info("Service degradation mode changed", "from", oldMode, "to", newMode)
-    })
+	impl.degradationMgr.RegisterCallback(func(oldMode, newMode DegradationMode) {
+		cblog.With("component", "services").Info("Service degradation mode changed", "from", oldMode, "to", newMode)
+	})
 
 	return impl
 }
@@ -382,7 +382,7 @@ func (s *EnhancedArgoApiService) startWatchStreamWithRecovery(ctx context.Contex
 		defer close(watchEventChan)
 		err := s.appService.WatchApplications(ctx, watchEventChan)
 		if err != nil && ctx.Err() == nil {
-            cblog.With("component", "services").Error("Watch stream error", "err", err)
+			cblog.With("component", "services").Error("Watch stream error", "err", err)
 			s.recoveryManager.ReportStreamFailure(streamID, err)
 			s.degradationMgr.ReportAPIHealth(false, err)
 			eventChan <- ArgoApiEvent{

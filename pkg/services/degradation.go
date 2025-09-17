@@ -21,30 +21,30 @@ const (
 
 // ServiceHealth represents the health status of various services
 type ServiceHealth struct {
-	ArgoAPI      HealthStatus `json:"argoAPI"`
-	Authentication HealthStatus `json:"authentication"`
-	Connectivity HealthStatus `json:"connectivity"`
-	LastCheck    time.Time    `json:"lastCheck"`
-	Mode         DegradationMode `json:"mode"`
+	ArgoAPI        HealthStatus    `json:"argoAPI"`
+	Authentication HealthStatus    `json:"authentication"`
+	Connectivity   HealthStatus    `json:"connectivity"`
+	LastCheck      time.Time       `json:"lastCheck"`
+	Mode           DegradationMode `json:"mode"`
 }
 
 // HealthStatus represents the status of a service component
 type HealthStatus struct {
-	Status    string    `json:"status"`    // healthy, degraded, unavailable
-	LastSeen  time.Time `json:"lastSeen"`
-	Failures  int       `json:"failures"`
-	Message   string    `json:"message,omitempty"`
+	Status   string    `json:"status"` // healthy, degraded, unavailable
+	LastSeen time.Time `json:"lastSeen"`
+	Failures int       `json:"failures"`
+	Message  string    `json:"message,omitempty"`
 }
 
 // GracefulDegradationManager handles service degradation scenarios
 type GracefulDegradationManager struct {
-	health          ServiceHealth
-	mu              sync.RWMutex
-	logger          logging.Logger
-	cache           *ServiceCache
+	health            ServiceHealth
+	mu                sync.RWMutex
+	logger            logging.Logger
+	cache             *ServiceCache
 	healthCheckTicker *time.Ticker
-	shutdown        chan struct{}
-	callbacks       []DegradationCallback
+	shutdown          chan struct{}
+	callbacks         []DegradationCallback
 }
 
 // DegradationCallback is called when degradation mode changes
@@ -52,21 +52,21 @@ type DegradationCallback func(oldMode, newMode DegradationMode)
 
 // ServiceCache provides cached data for offline mode
 type ServiceCache struct {
-	Apps         []model.App   `json:"apps"`
-	LastUpdated  time.Time     `json:"lastUpdated"`
-	Server       *model.Server `json:"server"`
-	APIVersion   string        `json:"apiVersion"`
+	Apps        []model.App   `json:"apps"`
+	LastUpdated time.Time     `json:"lastUpdated"`
+	Server      *model.Server `json:"server"`
+	APIVersion  string        `json:"apiVersion"`
 }
 
 // NewGracefulDegradationManager creates a new degradation manager
 func NewGracefulDegradationManager() *GracefulDegradationManager {
 	manager := &GracefulDegradationManager{
 		health: ServiceHealth{
-			ArgoAPI:      HealthStatus{Status: "unknown", LastSeen: time.Now()},
+			ArgoAPI:        HealthStatus{Status: "unknown", LastSeen: time.Now()},
 			Authentication: HealthStatus{Status: "unknown", LastSeen: time.Now()},
-			Connectivity: HealthStatus{Status: "unknown", LastSeen: time.Now()},
-			LastCheck:    time.Now(),
-			Mode:         DegradationNone,
+			Connectivity:   HealthStatus{Status: "unknown", LastSeen: time.Now()},
+			LastCheck:      time.Now(),
+			Mode:           DegradationNone,
 		},
 		logger:   logging.GetDefaultLogger().WithComponent("degradation"),
 		cache:    &ServiceCache{},
