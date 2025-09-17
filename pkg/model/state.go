@@ -1,8 +1,9 @@
 package model
 
 import (
-	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"time"
+
+	apperrors "github.com/darksworm/argonaut/pkg/errors"
 )
 
 // NavigationState holds navigation-related state
@@ -198,11 +199,11 @@ func (s *AppState) ClearSelectionsAfterDetailView() {
 
 // Helper function to copy a string set
 func copyStringSet(original map[string]bool) map[string]bool {
-	copy := make(map[string]bool)
+	c := make(map[string]bool)
 	for k, v := range original {
-		copy[k] = v
+		c[k] = v
 	}
-	return copy
+	return c
 }
 
 // NewAppState creates a new AppState with default values

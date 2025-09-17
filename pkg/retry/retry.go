@@ -137,27 +137,6 @@ func calculateDelay(attempt int, config RetryConfig) time.Duration {
 	return delay
 }
 
-// DefaultShouldRetry is the default retry predicate
-func DefaultShouldRetry(err *apperrors.ArgonautError) bool {
-	if err == nil {
-		return false
-	}
-
-	// Don't retry authentication or validation errors
-	switch err.Category {
-	case apperrors.ErrorAuth, apperrors.ErrorValidation, apperrors.ErrorPermission:
-		return false
-	case apperrors.ErrorNetwork, apperrors.ErrorAPI:
-		return true
-	case apperrors.ErrorTimeout:
-		// Don't retry user-initiated timeouts - show immediately
-		return err.IsCode("NETWORK_TIMEOUT")
-	default:
-		// Use the error's recoverable flag
-		return err.Recoverable
-	}
-}
-
 // NetworkShouldRetry determines if network errors should be retried
 func NetworkShouldRetry(err *apperrors.ArgonautError) bool {
 	if err == nil {

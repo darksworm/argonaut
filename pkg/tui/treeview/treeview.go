@@ -437,13 +437,6 @@ func (v *TreeView) SetSize(width, height int) {
 	v.width, v.height = width, height
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // Expose selected index for integration (optional)
 func (v *TreeView) SelectedIndex() int { return v.selIdx }
 
