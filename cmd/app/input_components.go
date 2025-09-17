@@ -390,7 +390,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return false
 		}
 		canonical := m.autocompleteEngine.ResolveAlias(cmd)
-		if arg != "" && (canonical == "cluster" || canonical == "namespace" || canonical == "project" || canonical == "app") {
+		if arg != "" {
 			switch canonical {
 			case "cluster":
 				all := m.autocompleteEngine.GetArgumentSuggestions("cluster", "", m.state)
