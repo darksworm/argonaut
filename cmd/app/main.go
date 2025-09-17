@@ -71,11 +71,6 @@ func main() {
 	}
 }
 
-// stringPtr is a helper function to create string pointers
-func stringPtr(s string) *string {
-	return &s
-}
-
 // setupLogging configures logging to write to a file instead of stdout
 func setupLogging() {
 	// Create temp log file and expose path via env for the logs view

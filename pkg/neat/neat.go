@@ -43,7 +43,23 @@ func Clean(in string) (string, error) {
 	}
 
 	// Otherwise, assume it's YAML - convert to JSON, clean, convert back
-	return cleanYAML(in)
+	cleaned, err := CleanYAMLToJSON(in)
+	if err != nil {
+		return in, err
+	}
+
+	// Convert cleaned JSON back to YAML
+	var obj interface{}
+	if err := json.Unmarshal([]byte(cleaned), &obj); err != nil {
+		return in, err
+	}
+
+	yamlBytes, err := yaml.Marshal(obj)
+	if err != nil {
+		return in, err
+	}
+
+	return string(yamlBytes), nil
 }
 
 // CleanYAMLToJSON converts YAML to cleaned JSON
@@ -66,27 +82,6 @@ func CleanYAMLToJSON(yamlStr string) (string, error) {
 
 	// Clean the JSON using kubectl-neat logic
 	return Neat(string(jsonBytes))
-}
-
-func cleanYAML(yamlStr string) (string, error) {
-	// Convert YAML to JSON, clean it, then convert back
-	cleaned, err := CleanYAMLToJSON(yamlStr)
-	if err != nil {
-		return yamlStr, err
-	}
-
-	// Convert cleaned JSON back to YAML
-	var obj interface{}
-	if err := json.Unmarshal([]byte(cleaned), &obj); err != nil {
-		return yamlStr, err
-	}
-
-	yamlBytes, err := yaml.Marshal(obj)
-	if err != nil {
-		return yamlStr, err
-	}
-
-	return string(yamlBytes), nil
 }
 
 // Neat gets a Kubernetes resource json as string and de-clutters it to make it more readable.

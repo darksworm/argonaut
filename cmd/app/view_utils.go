@@ -55,29 +55,6 @@ func wrapAnsiToWidth(s string, width int) []string {
 	return lines
 }
 
-// abbreviateStatus shortens status text for narrow displays
-func abbreviateStatus(status string) string {
-	switch status {
-	case "Synced":
-		return "Sync"
-	case "OutOfSync":
-		return "Out"
-	case "Healthy":
-		return "OK"
-	case "Degraded":
-		return "Bad"
-	case "Progressing":
-		return "Prog"
-	case "Unknown":
-		return "?"
-	default:
-		if len(status) <= 4 {
-			return status
-		}
-		return status[:4]
-	}
-}
-
 // calculateColumnWidths returns responsive column widths based on available space
 func calculateColumnWidths(availableWidth int) (nameWidth, syncWidth, healthWidth int) {
 	// Account for separators between the 3 columns (2 separators, 1 char each)
@@ -105,15 +82,4 @@ func calculateColumnWidths(availableWidth int) (nameWidth, syncWidth, healthWidt
 	}
 
 	return nameWidth, syncWidth, healthWidth
-}
-
-// truncateString truncates a string to the specified length with ellipsis
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen <= 3 {
-		return "..."
-	}
-	return s[:maxLen-3] + "..."
 }

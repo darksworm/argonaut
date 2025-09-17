@@ -126,48 +126,6 @@ func (m *GracefulDegradationManager) ReportAPIHealth(healthy bool, err error) {
 	m.updateDegradationMode()
 }
 
-// ReportAuthHealth reports authentication health status
-func (m *GracefulDegradationManager) ReportAuthHealth(healthy bool, err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if healthy {
-		m.health.Authentication.Status = "healthy"
-		m.health.Authentication.LastSeen = time.Now()
-		m.health.Authentication.Failures = 0
-		m.health.Authentication.Message = ""
-	} else {
-		m.health.Authentication.Status = "unavailable"
-		m.health.Authentication.Failures++
-		if err != nil {
-			m.health.Authentication.Message = err.Error()
-		}
-	}
-
-	m.updateDegradationMode()
-}
-
-// ReportConnectivityHealth reports network connectivity health
-func (m *GracefulDegradationManager) ReportConnectivityHealth(healthy bool, err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if healthy {
-		m.health.Connectivity.Status = "healthy"
-		m.health.Connectivity.LastSeen = time.Now()
-		m.health.Connectivity.Failures = 0
-		m.health.Connectivity.Message = ""
-	} else {
-		m.health.Connectivity.Status = "unavailable"
-		m.health.Connectivity.Failures++
-		if err != nil {
-			m.health.Connectivity.Message = err.Error()
-		}
-	}
-
-	m.updateDegradationMode()
-}
-
 // updateDegradationMode determines the appropriate degradation mode based on health
 func (m *GracefulDegradationManager) updateDegradationMode() {
 	oldMode := m.health.Mode
@@ -202,13 +160,6 @@ func (m *GracefulDegradationManager) GetCurrentMode() DegradationMode {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.health.Mode
-}
-
-// GetServiceHealth returns the current service health status
-func (m *GracefulDegradationManager) GetServiceHealth() ServiceHealth {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.health
 }
 
 // CanPerformOperation checks if an operation is allowed in current degradation mode
@@ -261,39 +212,6 @@ func (m *GracefulDegradationManager) CanPerformOperation(operation string) (bool
 	}
 }
 
-// UpdateCache updates the service cache with fresh data
-func (m *GracefulDegradationManager) UpdateCache(apps []model.App, server *model.Server, apiVersion string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.cache.Apps = apps
-	m.cache.Server = server
-	m.cache.APIVersion = apiVersion
-	m.cache.LastUpdated = time.Now()
-
-	m.logger.Debug("Updated service cache with %d apps", len(apps))
-}
-
-// GetCachedApps returns cached application data
-func (m *GracefulDegradationManager) GetCachedApps() ([]model.App, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	// Return cached data if it's less than 5 minutes old
-	if time.Since(m.cache.LastUpdated) < 5*time.Minute && len(m.cache.Apps) > 0 {
-		return m.cache.Apps, true
-	}
-
-	return nil, false
-}
-
-// GetCacheAge returns the age of the cached data
-func (m *GracefulDegradationManager) GetCacheAge() time.Duration {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return time.Since(m.cache.LastUpdated)
-}
-
 // startHealthMonitoring starts periodic health checks
 func (m *GracefulDegradationManager) startHealthMonitoring() {
 	m.healthCheckTicker = time.NewTicker(30 * time.Second)
@@ -332,35 +250,4 @@ func (m *GracefulDegradationManager) performHealthCheck() {
 
 	m.health.LastCheck = now
 	m.updateDegradationMode()
-}
-
-// Shutdown gracefully shuts down the degradation manager
-func (m *GracefulDegradationManager) Shutdown() {
-	if m.healthCheckTicker != nil {
-		m.healthCheckTicker.Stop()
-	}
-	close(m.shutdown)
-	m.logger.Info("Graceful degradation manager shutdown complete")
-}
-
-// GetDegradationSummary returns a human-readable summary of the current degradation status
-func (m *GracefulDegradationManager) GetDegradationSummary() string {
-	health := m.GetServiceHealth()
-
-	switch health.Mode {
-	case DegradationNone:
-		return "All systems operational"
-	case DegradationPartial:
-		return "Some features may be limited due to service issues"
-	case DegradationReadOnly:
-		return "System in read-only mode - write operations disabled"
-	case DegradationOffline:
-		cacheAge := m.GetCacheAge()
-		if cacheAge < 5*time.Minute {
-			return "Offline mode - showing cached data from " + cacheAge.Round(time.Second).String() + " ago"
-		}
-		return "Offline mode - no cached data available"
-	default:
-		return "System status unknown"
-	}
 }

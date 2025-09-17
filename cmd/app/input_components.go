@@ -447,8 +447,8 @@ func (m Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			body := m.readLogContent()
 			return m, m.openTextPager("Logs", body)
 		case "sync":
-			model, cmd := m.handleSyncModal()
-			return model, cmd
+			mdl, cmd := m.handleSyncModal()
+			return mdl, cmd
 		case "rollback":
 			target := arg
 			if target == "" {
@@ -760,22 +760,4 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
-}
-
-// clipPlainToWidth trims a plain (non-ANSI) string to the given display width
-func clipPlainToWidth(s string, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	w := 0
-	out := make([]rune, 0, len(s))
-	for _, r := range s {
-		rw := 1 // assume width 1 for TUI plain text
-		if w+rw > width {
-			break
-		}
-		out = append(out, r)
-		w += rw
-	}
-	return string(out)
 }

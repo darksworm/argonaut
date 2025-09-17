@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	cblog "github.com/charmbracelet/log"
 )
 
@@ -149,23 +148,4 @@ func (s *StatusServiceImpl) handleMessage(msg StatusMessage) {
 	if s.handler != nil {
 		s.handler(msg)
 	}
-}
-
-// DefaultStatusChangeHandler provides a default handler that just prints to stdout
-func DefaultStatusChangeHandler(msg StatusMessage) {
-	switch msg.Level {
-	case StatusLevelError:
-		fmt.Printf("❌ %s\n", msg.Message)
-	case StatusLevelWarn:
-		fmt.Printf("⚠️  %s\n", msg.Message)
-	case StatusLevelInfo:
-		fmt.Printf("ℹ️  %s\n", msg.Message)
-	case StatusLevelDebug:
-		fmt.Printf("🐛 %s\n", msg.Message)
-	}
-}
-
-// NullStatusChangeHandler provides a handler that does nothing (for testing)
-func NullStatusChangeHandler(msg StatusMessage) {
-	// Do nothing
 }

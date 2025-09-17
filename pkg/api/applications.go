@@ -377,21 +377,6 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 	return app
 }
 
-// GetPrimaryRevision returns the primary revision with fallback logic
-// Mimics TypeScript logic: revision ?? revisions?.[0] ?? ”
-func GetPrimaryRevision(syncStatus struct {
-	Revision  string   `json:"revision,omitempty"`
-	Revisions []string `json:"revisions,omitempty"`
-}) string {
-	if syncStatus.Revision != "" {
-		return syncStatus.Revision
-	}
-	if len(syncStatus.Revisions) > 0 {
-		return syncStatus.Revisions[0]
-	}
-	return ""
-}
-
 // HasMultipleSources returns true if the application uses multiple sources
 func (app *ArgoApplication) HasMultipleSources() bool {
 	return len(app.Spec.Sources) > 0

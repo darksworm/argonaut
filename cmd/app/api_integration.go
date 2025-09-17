@@ -515,30 +515,6 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 	return false
 }
 
-// startLogsSession opens application logs in pager
-func (m Model) startLogsSession() tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
-		path := os.Getenv("ARGONAUT_LOG_FILE")
-		if strings.TrimSpace(path) == "" {
-			return model.ApiErrorMsg{Message: "No logs available"}
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return model.ApiErrorMsg{Message: "No logs available"}
-		}
-
-		// Apply syntax highlighting to each log line
-		lines := strings.Split(string(data), "\n")
-		var highlightedLines []string
-		for _, line := range lines {
-			highlightedLines = append(highlightedLines, HighlightLogLine(line))
-		}
-		highlightedContent := strings.Join(highlightedLines, "\n")
-
-		return m.openTextPager("Logs", highlightedContent)()
-	})
-}
-
 // startRollbackSession loads deployment history for rollback
 func (m Model) startRollbackSession(appName string) tea.Cmd {
 	return tea.Cmd(func() tea.Msg {

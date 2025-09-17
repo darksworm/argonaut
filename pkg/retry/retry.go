@@ -20,16 +20,6 @@ type RetryConfig struct {
 	ShouldRetry  func(*apperrors.ArgonautError) bool `json:"-"`
 }
 
-// DefaultConfig provides sensible retry defaults
-var DefaultConfig = RetryConfig{
-	MaxAttempts:  3,
-	InitialDelay: 1 * time.Second,
-	MaxDelay:     30 * time.Second,
-	Multiplier:   2.0,
-	Jitter:       true,
-	ShouldRetry:  DefaultShouldRetry,
-}
-
 // NetworkConfig is optimized for network operations
 var NetworkConfig = RetryConfig{
 	MaxAttempts:  5,
@@ -246,12 +236,6 @@ func (ro *RetryableOperation) WithContext(ctx context.Context) *RetryableOperati
 	return ro
 }
 
-// WithLogger sets a custom logger
-func (ro *RetryableOperation) WithLogger(logger logging.Logger) *RetryableOperation {
-	ro.Logger = logger
-	return ro
-}
-
 // Execute executes the operation with retry logic
 func (ro *RetryableOperation) Execute(fn RetryFunc) error {
 	ro.Logger.Info("Starting retryable operation: %s", ro.Name)
@@ -281,33 +265,4 @@ func RetryNetworkOperation(ctx context.Context, name string, fn RetryFunc) error
 func RetryAPIOperation(ctx context.Context, name string, fn RetryFunc) error {
 	op := NewRetryableOperation(name, APIConfig).WithContext(ctx)
 	return op.Execute(fn)
-}
-
-// RetryOperation retries an operation with default config
-func RetryOperation(ctx context.Context, name string, fn RetryFunc) error {
-	op := NewRetryableOperation(name, DefaultConfig).WithContext(ctx)
-	return op.Execute(fn)
-}
-
-// Quick retry functions for immediate use
-
-// DoWithRetry executes a function with default retry logic
-func DoWithRetry(ctx context.Context, fn func() error) error {
-	return RetryWithBackoff(ctx, DefaultConfig, func(attempt int) error {
-		return fn()
-	})
-}
-
-// DoNetworkWithRetry executes a network function with network retry logic
-func DoNetworkWithRetry(ctx context.Context, fn func() error) error {
-	return RetryWithBackoff(ctx, NetworkConfig, func(attempt int) error {
-		return fn()
-	})
-}
-
-// DoAPIWithRetry executes an API function with API retry logic
-func DoAPIWithRetry(ctx context.Context, fn func() error) error {
-	return RetryWithBackoff(ctx, APIConfig, func(attempt int) error {
-		return fn()
-	})
 }

@@ -14,8 +14,6 @@ const (
 	ErrorValidation  ErrorCategory = "validation"
 	ErrorConfig      ErrorCategory = "config"
 	ErrorAPI         ErrorCategory = "api"
-	ErrorUI          ErrorCategory = "ui"
-	ErrorResource    ErrorCategory = "resource"
 	ErrorTimeout     ErrorCategory = "timeout"
 	ErrorPermission  ErrorCategory = "permission"
 	ErrorUnavailable ErrorCategory = "unavailable"
@@ -113,23 +111,6 @@ func Wrap(err error, category ErrorCategory, code, message string) *ArgonautErro
 	}
 }
 
-// Predefined error constructors for common scenarios
-
-// NetworkError creates a network-related error
-func NetworkError(code, message string) *ArgonautError {
-	return New(ErrorNetwork, code, message).
-		WithSeverity(SeverityHigh).
-		AsRecoverable().
-		WithUserAction("Check your network connection and try again")
-}
-
-// AuthError creates an authentication-related error
-func AuthError(code, message string) *ArgonautError {
-	return New(ErrorAuth, code, message).
-		WithSeverity(SeverityHigh).
-		WithUserAction("Please run 'argocd login' to authenticate")
-}
-
 // ValidationError creates a validation-related error
 func ValidationError(code, message string) *ArgonautError {
 	return New(ErrorValidation, code, message).
@@ -142,21 +123,6 @@ func ConfigError(code, message string) *ArgonautError {
 	return New(ErrorConfig, code, message).
 		WithSeverity(SeverityHigh).
 		WithUserAction("Please check your ArgoCD configuration")
-}
-
-// APIError creates an API-related error
-func APIError(code, message string) *ArgonautError {
-	return New(ErrorAPI, code, message).
-		WithSeverity(SeverityMedium).
-		AsRecoverable().
-		WithUserAction("The operation failed. You may retry or check the ArgoCD server status")
-}
-
-// InternalError creates an internal application error
-func InternalError(code, message string) *ArgonautError {
-	return New(ErrorInternal, code, message).
-		WithSeverity(SeverityCritical).
-		WithUserAction("This appears to be an internal error. Please report this issue")
 }
 
 // TimeoutError creates a timeout-related error

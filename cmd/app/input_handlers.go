@@ -183,16 +183,6 @@ func (m Model) handleSyncModal() (Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleRefresh refreshes the current view data
-func (m Model) handleRefresh() (Model, tea.Cmd) {
-	if m.state.Server != nil {
-		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeLoading} }
-	}
-	return m, func() tea.Msg {
-		return model.StatusChangeMsg{Status: "No server configured"}
-	}
-}
-
 // handleRollback initiates rollback for selected or current app
 func (m Model) handleRollback() (Model, tea.Cmd) {
 	if m.state.Navigation.View != model.ViewApps {

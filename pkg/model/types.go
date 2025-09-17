@@ -24,7 +24,6 @@ const (
 	ModeSearch          Mode = "search"
 	ModeCommand         Mode = "command"
 	ModeHelp            Mode = "help"
-	ModeLicense         Mode = "license"
 	ModeConfirmSync     Mode = "confirm-sync"
 	ModeRollback        Mode = "rollback"
 	ModeExternal        Mode = "external"
@@ -78,15 +77,6 @@ func StringSetFromSlice(items []string) map[string]bool {
 		set[item] = true
 	}
 	return set
-}
-
-// StringSetToSlice converts a string set to a slice
-func StringSetToSlice(set map[string]bool) []string {
-	var result []string
-	for key := range set {
-		result = append(result, key)
-	}
-	return result
 }
 
 // AddToStringSet adds an item to a string set

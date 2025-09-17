@@ -77,42 +77,6 @@ func NewStreamRecoveryManager(config StreamRecoveryConfig) *StreamRecoveryManage
 	return manager
 }
 
-// RegisterStream registers a stream for recovery management
-func (m *StreamRecoveryManager) RegisterStream(id string, server *model.Server, recoveryFunc func(ctx context.Context) error) *StreamConnection {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	stream := &StreamConnection{
-		ID:           id,
-		Server:       server,
-		LastSeen:     time.Now(),
-		Failures:     0,
-		Status:       StreamStatusHealthy,
-		RecoveryFunc: recoveryFunc,
-		Context:      ctx,
-		Cancel:       cancel,
-	}
-
-	m.activeStreams[id] = stream
-	m.logger.Info("Registered stream for recovery: %s", id)
-
-	return stream
-}
-
-// UnregisterStream removes a stream from recovery management
-func (m *StreamRecoveryManager) UnregisterStream(id string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if stream, exists := m.activeStreams[id]; exists {
-		stream.Cancel()
-		delete(m.activeStreams, id)
-		m.logger.Info("Unregistered stream: %s", id)
-	}
-}
-
 // ReportStreamFailure reports a failure for a specific stream
 func (m *StreamRecoveryManager) ReportStreamFailure(id string, err error) {
 	m.mu.Lock()
@@ -132,18 +96,6 @@ func (m *StreamRecoveryManager) ReportStreamFailure(id string, err error) {
 	// Start recovery process
 	m.wg.Add(1)
 	go m.recoverStream(stream, err)
-}
-
-// ReportStreamHealthy marks a stream as healthy
-func (m *StreamRecoveryManager) ReportStreamHealthy(id string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if stream, exists := m.activeStreams[id]; exists {
-		stream.Status = StreamStatusHealthy
-		stream.LastSeen = time.Now()
-		stream.Failures = 0 // Reset failure count on successful recovery
-	}
 }
 
 // recoverStream attempts to recover a failed stream
@@ -250,38 +202,6 @@ func (m *StreamRecoveryManager) performHealthCheck() {
 	}
 }
 
-// GetStreamStatus returns the current status of all streams
-func (m *StreamRecoveryManager) GetStreamStatus() map[string]StreamStatus {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	status := make(map[string]StreamStatus)
-	for id, stream := range m.activeStreams {
-		status[id] = stream.Status
-	}
-	return status
-}
-
-// Shutdown gracefully shuts down the recovery manager
-func (m *StreamRecoveryManager) Shutdown() {
-	m.logger.Info("Shutting down stream recovery manager")
-
-	// Cancel all active streams
-	m.mu.Lock()
-	for _, stream := range m.activeStreams {
-		stream.Cancel()
-	}
-	m.mu.Unlock()
-
-	// Signal shutdown
-	close(m.shutdown)
-
-	// Wait for all goroutines to finish
-	m.wg.Wait()
-
-	m.logger.Info("Stream recovery manager shutdown complete")
-}
-
 // StreamRecoveryStats provides statistics about stream recovery
 type StreamRecoveryStats struct {
 	TotalStreams        int                     `json:"totalStreams"`
@@ -299,41 +219,4 @@ type StreamDetail struct {
 	LastSeen time.Time    `json:"lastSeen"`
 	Failures int          `json:"failures"`
 	Server   string       `json:"server"`
-}
-
-// GetRecoveryStats returns detailed statistics about stream recovery
-func (m *StreamRecoveryManager) GetRecoveryStats() StreamRecoveryStats {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	stats := StreamRecoveryStats{
-		TotalStreams:  len(m.activeStreams),
-		StreamDetails: make(map[string]StreamDetail),
-	}
-
-	for id, stream := range m.activeStreams {
-		detail := StreamDetail{
-			ID:       stream.ID,
-			Status:   stream.Status,
-			LastSeen: stream.LastSeen,
-			Failures: stream.Failures,
-			Server:   stream.Server.BaseURL,
-		}
-
-		stats.StreamDetails[id] = detail
-
-		// Count by status
-		switch stream.Status {
-		case StreamStatusHealthy:
-			stats.HealthyStreams++
-		case StreamStatusRecovering:
-			stats.RecoveringStreams++
-		case StreamStatusFailed:
-			stats.FailedStreams++
-		case StreamStatusDisconnected:
-			stats.DisconnectedStreams++
-		}
-	}
-
-	return stats
 }

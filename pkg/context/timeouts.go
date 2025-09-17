@@ -34,7 +34,6 @@ var DefaultTimeouts = TimeoutConfig{
 type OperationType string
 
 const (
-	OpDefault  OperationType = "default"
 	OpAPI      OperationType = "api"
 	OpStream   OperationType = "stream"
 	OpAuth     OperationType = "auth"
@@ -53,11 +52,6 @@ func WithTimeout(parent context.Context, opType OperationType) (context.Context,
 		return ctx, cancel
 	}
 	return context.WithTimeout(parent, timeout)
-}
-
-// WithDeadline creates a context with a specific deadline
-func WithDeadline(parent context.Context, deadline time.Time) (context.Context, context.CancelFunc) {
-	return context.WithDeadline(parent, deadline)
 }
 
 // WithCancel creates a cancellable context
@@ -105,32 +99,6 @@ func HandleTimeout(ctx context.Context, opType OperationType) *apperrors.Argonau
 	return nil
 }
 
-// IsTimeout checks if an error is a timeout error
-func IsTimeout(err error) bool {
-	if err == context.DeadlineExceeded {
-		return true
-	}
-
-	if argErr, ok := err.(*apperrors.ArgonautError); ok {
-		return argErr.IsCategory(apperrors.ErrorTimeout)
-	}
-
-	return false
-}
-
-// IsCanceled checks if an error is a cancellation error
-func IsCanceled(err error) bool {
-	if err == context.Canceled {
-		return true
-	}
-
-	if argErr, ok := err.(*apperrors.ArgonautError); ok {
-		return argErr.IsCode("OPERATION_CANCELED")
-	}
-
-	return false
-}
-
 // WithTimeoutAndRetry creates a context with timeout and provides retry information
 type RetryableContext struct {
 	Context    context.Context
@@ -140,70 +108,11 @@ type RetryableContext struct {
 	OpType     OperationType
 }
 
-// NewRetryableContext creates a new retryable context
-func NewRetryableContext(parent context.Context, opType OperationType, maxRetries int) *RetryableContext {
-	ctx, cancel := WithTimeout(parent, opType)
-	return &RetryableContext{
-		Context:    ctx,
-		Cancel:     cancel,
-		Attempt:    1,
-		MaxRetries: maxRetries,
-		OpType:     opType,
-	}
-}
-
-// ShouldRetry determines if the operation should be retried based on the error
-func (rc *RetryableContext) ShouldRetry(err error) bool {
-	if rc.Attempt >= rc.MaxRetries {
-		return false
-	}
-
-	// Don't retry if the context was explicitly canceled
-	if IsCanceled(err) {
-		return false
-	}
-
-	// Retry on timeout errors
-	if IsTimeout(err) {
-		return true
-	}
-
-	// Let the error handler determine if it should retry
-	if argErr, ok := err.(*apperrors.ArgonautError); ok {
-		handler := apperrors.GetDefaultHandler()
-		return handler.ShouldRetry(argErr)
-	}
-
-	return false
-}
-
-// NextAttempt prepares the context for the next retry attempt
-func (rc *RetryableContext) NextAttempt() {
-	// Cancel the current context
-	rc.Cancel()
-
-	// Create new context for next attempt
-	rc.Attempt++
-	ctx, cancel := WithTimeout(context.Background(), rc.OpType)
-	rc.Context = ctx
-	rc.Cancel = cancel
-}
-
-// Close cancels the context and cleans up resources
-func (rc *RetryableContext) Close() {
-	rc.Cancel()
-}
-
 // Convenience functions for common timeout patterns
 
 // WithAPITimeout creates a context specifically for API operations
 func WithAPITimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return WithTimeout(parent, OpAPI)
-}
-
-// WithAuthTimeout creates a context specifically for authentication operations
-func WithAuthTimeout(parent context.Context) (context.Context, context.CancelFunc) {
-	return WithTimeout(parent, OpAuth)
 }
 
 // WithSyncTimeout creates a context specifically for sync operations
@@ -214,9 +123,4 @@ func WithSyncTimeout(parent context.Context) (context.Context, context.CancelFun
 // WithResourceTimeout creates a context specifically for resource operations
 func WithResourceTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return WithTimeout(parent, OpResource)
-}
-
-// WithUITimeout creates a context specifically for UI operations
-func WithUITimeout(parent context.Context) (context.Context, context.CancelFunc) {
-	return WithTimeout(parent, OpUI)
 }

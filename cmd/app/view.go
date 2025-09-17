@@ -310,15 +310,6 @@ type FullScreenViewOptions struct {
 	BorderColor     color.Color // Optional: override border color (defaults to magentaBright)
 }
 
-// renderFullScreenView provides the standard full-terminal layout used by most views:
-// header + content (optionally bordered) + status, with consistent height management
-func (m Model) renderFullScreenView(header, content, status string, contentBordered bool) string {
-	return m.renderFullScreenViewWithOptions(header, content, status, FullScreenViewOptions{
-		ContentBordered: contentBordered,
-		BorderColor:     magentaBright, // default
-	})
-}
-
 // renderFullScreenViewWithOptions provides the full-screen layout with customizable options
 func (m Model) renderFullScreenViewWithOptions(header, content, status string, opts FullScreenViewOptions) string {
 	var sections []string
@@ -333,7 +324,6 @@ func (m Model) renderFullScreenViewWithOptions(header, content, status string, o
 		// Calculate available space for bordered content
 		const (
 			BORDER_LINES = 2 // content border top/bottom
-			STATUS_LINES = 1 // bottom status line
 		)
 
 		headerLines := countLines(header)
@@ -607,28 +597,6 @@ func sortStrings(items []string) {
 		}
 	}
 }
-
-// Placeholder functions for other components (to be implemented)
-func (m Model) renderLoadingView() string {
-	serverText := "—"
-	if m.state.Server != nil {
-		serverText = m.state.Server.BaseURL
-	}
-
-	// Header matching LoadingView.tsx
-	header := headerStyle.Render(fmt.Sprintf("View: LOADING • Context: %s", serverText))
-
-	// Main content with bubbles spinner - let the layout helper handle centering
-	loadingMessage := fmt.Sprintf("%s Loading...", m.spinner.View())
-	content := lipgloss.NewStyle().Foreground(progressColor).Render(loadingMessage)
-
-	// Status section
-	status := statusStyle.Render("Starting…")
-
-	// Use the new layout helper with bordered content
-	return m.renderFullScreenView(header, content, status, true)
-}
-
 func (m Model) renderAuthRequiredView() string {
 	serverText := "—"
 	if m.state.Server != nil {
@@ -693,71 +661,6 @@ func (m Model) renderAuthRequiredView() string {
 func (m Model) renderOfficeSupplyManager() string {
 	return statusStyle.Render("Office supply manager - TODO: implement 1:1")
 }
-
-func (m Model) renderSearchBar() string {
-	// 1:1 mapping from SearchBar.tsx
-	if m.state.Mode != model.ModeSearch {
-		return ""
-	}
-
-	// Search bar with border (matches SearchBar Box with borderStyle="round" borderColor="yellow")
-	searchBarStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		PaddingLeft(1).
-		PaddingRight(1).
-		// Ensure width matches the main bordered content box
-		Width(m.contentInnerWidth())
-
-	// Content matching SearchBar layout
-	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
-	searchValue := m.state.UI.SearchQuery
-
-	helpText := "Enter "
-	if m.state.Navigation.View == model.ViewApps {
-		helpText += "keeps filter"
-	} else {
-		helpText += "opens first result"
-	}
-	helpText += ", Esc cancels"
-
-	content := fmt.Sprintf("%s %s  %s", searchLabel, searchValue, statusStyle.Render("("+helpText+")"))
-
-	// Clip content to inner width to avoid stretching the box
-	content = clipAnsiToWidth(content, m.contentInnerWidth())
-	return searchBarStyle.Render(content)
-}
-
-func (m Model) renderCommandBar() string {
-	// 1:1 mapping from CommandBar.tsx
-	if m.state.Mode != model.ModeCommand {
-		return ""
-	}
-
-	// Command bar with border (matches CommandBar Box with borderStyle="round" borderColor="yellow")
-	commandBarStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
-		PaddingLeft(1).
-		PaddingRight(1).
-		// Match main content width
-		Width(m.contentInnerWidth())
-
-	// Content matching CommandBar layout
-	cmdLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("CMD")
-	commandValue := ":" + m.state.UI.Command
-
-	helpText := "(Enter to run, Esc to cancel)"
-	if m.state.UI.Command != "" {
-		helpText = "(Command entered)"
-	}
-
-	content := fmt.Sprintf("%s %s  %s", cmdLabel, commandValue, statusStyle.Render(helpText))
-
-	content = clipAnsiToWidth(content, m.contentInnerWidth())
-	return commandBarStyle.Render(content)
-}
-
 func (m Model) renderConfirmSyncModal() string {
 	if m.state.Modals.ConfirmTarget == nil {
 		return ""
@@ -1058,25 +961,6 @@ func (m Model) buildWrappedLogLines(contentWidth int) []string {
 	}
 	// Guarantee we have at least contentHeight lines to keep the box height consistent
 	return visual
-}
-
-// renderFullHeightContent renders content with consistent full-height layout
-func (m Model) renderFullHeightContent(content string, contentWidth, contentHeight, containerWidth int) string {
-	// Create a full-height bordered box with vertically centered content
-	fullHeightStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Center).
-		AlignHorizontal(lipgloss.Center).
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	styledContent := fullHeightStyle.Render(content)
-
-	// Apply container width for consistency with other views
-	return contentBorderStyle.Width(containerWidth).Render(styledContent)
 }
 
 // renderErrorView displays API errors in a user-friendly format
