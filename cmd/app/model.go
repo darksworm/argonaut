@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -73,44 +72,6 @@ type Model struct {
 
 	// Debug: render counter
 	renderCount int
-}
-
-// NewModel, Init, pager helpers, and tree stream helpers moved to dedicated files.
-
-// validateAuthentication checks if authentication is valid (matches TypeScript app-orchestrator.ts)
-func (m Model) validateAuthentication() tea.Cmd {
-	return func() tea.Msg {
-		if m.state.Server == nil {
-			cblog.With("component", "auth").Info("No server configured - showing auth required")
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
-		}
-
-		// Create API service to validate authentication
-		appService := api.NewApplicationService(m.state.Server)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		// Validate user info (similar to TypeScript getUserInfo call)
-		if err := appService.GetUserInfo(ctx); err != nil {
-			cblog.With("component", "auth").Error("Authentication validation failed", "err", err)
-
-			// Check if this is a connection error rather than authentication error
-			errStr := err.Error()
-			if strings.Contains(errStr, "connection refused") ||
-				strings.Contains(errStr, "no such host") ||
-				strings.Contains(errStr, "network is unreachable") ||
-				strings.Contains(errStr, "timeout") ||
-				strings.Contains(errStr, "dial tcp") {
-				return model.SetModeMsg{Mode: model.ModeConnectionError}
-			}
-
-			// Otherwise, it's likely an authentication issue
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
-		}
-
-		cblog.With("component", "auth").Info("Authentication validated successfully")
-		return model.SetModeMsg{Mode: model.ModeLoading}
-	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -832,19 +793,4 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-// handleKeyMsg handles keyboard input with 1:1 mapping to TypeScript functionality
-// moved to input_handlers.go
-
-// Duplicate sync functions removed - using existing ones from api_integration.go
-
-// Helper functions
-
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

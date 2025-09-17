@@ -296,9 +296,6 @@ func (m Model) View() string {
 	}
 }
 
-// renderMainLayout - 1:1 mapping from MainLayout.tsx
-// moved to view_layout.go
-
 // countLines returns the number of lines in a rendered string
 func countLines(s string) int {
 	if s == "" {
@@ -306,45 +303,6 @@ func countLines(s string) int {
 	}
 	return strings.Count(s, "\n") + 1
 }
-
-// renderBanner - 1:1 mapping from Banner.tsx
-// moved to view_banner.go
-
-// renderSmallBadge renders the compact "Argonaut <version>" badge used in narrow terminals.
-// If grayscale is true, it uses a gray background with dark text so it stays readable when
-// the base layer is desaturated for modal backdrops.
-// moved to view_banner.go
-
-// renderContextBlock renders the left-side context (labels + values)
-// moved to view_banner.go
-
-// renderAsciiLogo renders the right-side Argonaut ASCII logo like TS component
-// moved to view_banner.go
-
-// scopeToText formats a selection set for display
-// moved to view_banner.go
-
-// hostFromURL extracts host from URL (similar to TS hostFromUrl)
-// moved to view_banner.go
-
-// joinWithRightAlignment composes two multi-line blocks with the right block flush to the given width
-// moved to view_banner.go
-
-// contentInnerWidth computes inner content width inside the bordered box
-// moved to view_layout.go
-
-// moved to view_lists.go
-
-// renderTreePanel renders the resource tree view inside a bordered container
-// moved to view_layout.go
-
-// renderListHeader - matches ListView header row with responsive widths
-// moved to view_lists.go
-
-// clipAnsiToWidth trims a styled string to the given display width (ANSI-aware)
-// moved to view_utils.go
-
-// Layout Helper Functions - Centralized layout management to ensure consistency
 
 // FullScreenViewOptions configures the full-screen layout
 type FullScreenViewOptions struct {
@@ -410,31 +368,6 @@ func (m Model) renderFullScreenViewWithOptions(header, content, status string, o
 	return mainContainerStyle.Height(totalHeight).Render(finalContent)
 }
 
-// renderModalContent provides simple modal content styling (used by help modal)
-// Returns only the styled content without full-screen layout
-func (m Model) renderModalContent(content string) string {
-	return contentBorderStyle.PaddingTop(1).PaddingBottom(1).Render(content)
-}
-
-// renderBackdropBlock returns a patterned, dim block for modal backdrops
-func (m Model) renderBackdropBlock(width, height int) string {
-	if width <= 0 || height <= 0 {
-		return ""
-	}
-	// Render a soft drop shadow using spaces with a dark background.
-	line := strings.Repeat(" ", width)
-	var b strings.Builder
-	for y := 0; y < height; y++ {
-		b.WriteString(line)
-		if y < height-1 {
-			b.WriteByte('\n')
-		}
-	}
-	// Slightly dark background to suggest depth; keep foreground default
-	style := lipgloss.NewStyle().Background(lipgloss.Color("236"))
-	return style.Render(b.String())
-}
-
 // clipAnsiToLines trims the string to at most maxLines lines (ANSI-safe).
 func clipAnsiToLines(s string, maxLines int) string {
 	if maxLines <= 0 {
@@ -473,12 +406,6 @@ func desaturateANSI(s string) string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(plain)
 }
 
-// wrapAnsiToWidth wraps a string into visual lines that fit the given width (ANSI-aware)
-// moved to view_utils.go
-
-// renderAppRow - matches ListView app row rendering
-// moved to view_lists.go
-
 // padLeft returns s left-padded with spaces to the given visible width (ANSI-aware)
 func padLeft(s string, width int) string {
 	n := width - lipgloss.Width(s)
@@ -496,20 +423,6 @@ func padRight(s string, width int) string {
 	}
 	return s
 }
-
-// renderSimpleRow - matches ListView non-app row rendering
-// moved to view_lists.go
-
-// renderStatusLine - 1:1 mapping from MainLayout status Box
-// moved to view_status.go
-
-// Helper functions matching TypeScript utilities
-
-// moved to view_status.go
-
-// moved to view_status.go
-
-// moved to view_status.go
 
 func (m Model) getVisibleItems() []interface{} {
 	// Derive unique groups and filtered apps from current state, mirroring TS useVisibleItems
@@ -777,8 +690,6 @@ func (m Model) renderAuthRequiredView() string {
 	})
 }
 
-// moved to view_modals.go
-
 func (m Model) renderOfficeSupplyManager() string {
 	return statusStyle.Render("Office supply manager - TODO: implement 1:1")
 }
@@ -933,12 +844,6 @@ func (m Model) renderConfirmSyncModal() string {
 	return outer.Render(wrapper.Render(body))
 }
 
-// removed entire implementation; stubbed for compatibility
-func (m Model) renderResourceStream(availableRows int) string { return "" }
-
-// buildGroupedResourceLines builds visual lines for multi-app resources with blank lines between apps
-func (m Model) buildGroupedResourceLines(tableContentWidth int) []string { return nil }
-
 // renderDiffView - simple pager for diff content
 func (m Model) renderDiffView() string {
 	if m.state.Diff == nil {
@@ -1031,17 +936,6 @@ func (m Model) renderHelpSection(title, content string, isWide bool) string {
 	return titleStyled + "\n" + content
 }
 
-// Helper functions
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// abbreviateStatus shortens status text for narrow displays
-// moved to view_utils.go
-
 // truncateWithEllipsis truncates text to fit width, adding ellipsis if needed
 func truncateWithEllipsis(text string, maxWidth int) string {
 	if maxWidth <= 0 {
@@ -1072,57 +966,6 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 	}
 
 	return "..."
-}
-
-// calculateColumnWidths returns responsive column widths based on available space
-// moved to view_utils.go
-
-// calculateResourceColumnWidths returns responsive column widths for resources table
-func calculateResourceColumnWidths(availableWidth int) (kindWidth, nameWidth, statusWidth int) {
-	// Account for separators between the 3 columns (2 separators, 1 char each)
-	const sep = 2
-
-	switch {
-	case availableWidth <= 0:
-		return 0, 0, 0
-	case availableWidth < 30:
-		// Ultra-narrow: icon-only status, tiny kind
-		kindWidth = 6
-		statusWidth = 2
-		nameWidth = max(10, availableWidth-kindWidth-statusWidth-sep)
-	case availableWidth < 45:
-		// Narrow: minimized columns
-		kindWidth = 8
-		statusWidth = 6
-		nameWidth = max(12, availableWidth-kindWidth-statusWidth-sep)
-	default:
-		// Wide: full widths
-		kindWidth = 20
-		statusWidth = 15
-		nameWidth = max(15, availableWidth-kindWidth-statusWidth-sep)
-	}
-
-	// Ensure exact fit including separators
-	totalUsed := kindWidth + nameWidth + statusWidth + sep
-	if totalUsed < availableWidth {
-		nameWidth += (availableWidth - totalUsed)
-	} else if totalUsed > availableWidth {
-		overflow := totalUsed - availableWidth
-		// Take overflow from name first, then kind if needed
-		if nameWidth > overflow {
-			nameWidth -= overflow
-		} else {
-			overflow -= nameWidth
-			nameWidth = 1
-			if kindWidth > overflow {
-				kindWidth -= overflow
-			} else {
-				kindWidth = max(1, kindWidth-overflow)
-			}
-		}
-	}
-
-	return kindWidth, nameWidth, statusWidth
 }
 
 // renderLogsView renders the logs view with full-height layout
@@ -1373,18 +1216,6 @@ func (m Model) renderConnectionErrorView() string {
 	})
 }
 
-// renderDiffLoadingSpinner displays a centered loading spinner for diff operations
-// moved to view_modals.go
-
-// renderSyncLoadingModal displays a compact centered modal with a spinner during sync start
-// moved to view_modals.go
-
-// renderInitialLoadingModal displays a compact centered modal with a spinner during initial app load
-// moved to view_modals.go
-
-// renderRollbackModal displays the rollback modal with deployment history
-// moved to view_modals.go
-
 // renderRollbackHistory renders the deployment history list
 func (m Model) renderRollbackHistory(rollback *model.RollbackState) string {
 	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
@@ -1581,9 +1412,3 @@ func (m Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHe
 
 	return content
 }
-
-// renderSimpleModal renders a simple modal with title and content
-// moved to view_modals.go
-
-// truncateString truncates a string to the specified length with ellipsis
-// moved to view_utils.go
