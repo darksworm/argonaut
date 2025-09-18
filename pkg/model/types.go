@@ -32,7 +32,6 @@ const (
 	ModeRulerLine       Mode = "rulerline"
 	ModeError           Mode = "error"
 	ModeConnectionError Mode = "connection-error"
-	ModeLogs            Mode = "logs"
 )
 
 // App represents an ArgoCD application

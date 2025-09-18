@@ -556,52 +556,6 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleLogsModeKeys handles input when in logs mode
-func (m *Model) handleLogsModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "esc":
-		// Restore navigation state and clear selections when returning from logs
-		m.state.RestoreNavigationState()
-		m.state.ClearSelectionsAfterDetailView()
-		m.state.Mode = model.ModeNormal
-
-		// Validate bounds for the restored cursor position
-		visibleItems := m.getVisibleItemsForCurrentView()
-		m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
-			m.state.Navigation.SelectedIdx,
-			len(visibleItems),
-		)
-		return m, nil
-	case "j", "down":
-		if m.state.Diff == nil {
-			m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
-		}
-		m.state.Diff.Offset++
-		return m, nil
-	case "k", "up":
-		if m.state.Diff == nil {
-			m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
-		}
-		if m.state.Diff.Offset > 0 {
-			m.state.Diff.Offset--
-		}
-		return m, nil
-	case "g":
-		if m.state.Diff == nil {
-			m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
-		}
-		m.state.Diff.Offset = 0
-		return m, nil
-	case "G":
-		// Will be clamped in the view according to current height
-		if m.state.Diff == nil {
-			m.state.Diff = &model.DiffState{Title: "Logs", Content: nil, Offset: 0}
-		}
-		m.state.Diff.Offset = 1 << 30 // large number; view clamps
-		return m, nil
-	}
-	return m, nil
-}
 
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -655,18 +609,21 @@ func (m *Model) handleErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "l":
 		// Open system logs view to help debug the error
-		// Clear error state and switch to logs mode
+		// Clear error state and open logs in pager
 		m.state.CurrentError = nil
 		if m.state.ErrorState != nil {
 			m.state.ErrorState.Current = nil
 		}
-		m.state.Mode = model.ModeLogs
-		// Reset diff state for logs view
-		m.state.Diff = &model.DiffState{
-			Title:  "Logs",
-			Offset: 0,
+		// Open logs in ov pager with syntax highlighting
+		logContent := m.readLogContent()
+		// Apply syntax highlighting
+		lines := strings.Split(logContent, "\n")
+		highlightedLines := make([]string, 0, len(lines))
+		for _, line := range lines {
+			highlightedLines = append(highlightedLines, HighlightLogLine(line))
 		}
-		return m, nil
+		highlightedContent := strings.Join(highlightedLines, "\n")
+		return m, m.openTextPager("Logs", highlightedContent)
 	}
 	return m, nil
 }
@@ -683,13 +640,16 @@ func (m *Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		return m, nil
 	case "l":
 		// Open system logs view to help debug connection issues
-		m.state.Mode = model.ModeLogs
-		// Reset diff state for logs view
-		m.state.Diff = &model.DiffState{
-			Title:  "Logs",
-			Offset: 0,
+		// Open logs in ov pager with syntax highlighting
+		logContent := m.readLogContent()
+		// Apply syntax highlighting
+		lines := strings.Split(logContent, "\n")
+		highlightedLines := make([]string, 0, len(lines))
+		for _, line := range lines {
+			highlightedLines = append(highlightedLines, HighlightLogLine(line))
 		}
-		return m, nil
+		highlightedContent := strings.Join(highlightedLines, "\n")
+		return m, m.openTextPager("Logs", highlightedContent)
 	}
 	return m, nil
 }
@@ -720,8 +680,6 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleRollbackModeKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
-	case model.ModeLogs:
-		return m.handleLogsModeKeys(msg)
 	case model.ModeAuthRequired:
 		return m.handleAuthRequiredModeKeys(msg)
 	case model.ModeError:

@@ -286,8 +286,6 @@ func (m *Model) View() string {
 		return m.renderDiffView()
 	case model.ModeRulerLine:
 		return m.renderOfficeSupplyManager()
-	case model.ModeLogs:
-		return m.renderLogsView()
 	case model.ModeError:
 		return m.renderErrorView()
 	case model.ModeConnectionError:
@@ -872,45 +870,6 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 	return "..."
 }
 
-// renderLogsView renders the logs view with full-height layout
-func (m *Model) renderLogsView() string {
-	// Header
-	header := m.renderBanner()
-
-	// Calculate available space for content
-	headerLines := countLines(header)
-	statusLines := 1 // Status bar at bottom
-	availableHeight := max(3, m.state.Terminal.Rows - headerLines - statusLines - 2) // 2 for borders
-	contentWidth := max(20, m.state.Terminal.Cols - 4) // 4 for borders and padding
-
-	// Build wrapped log lines (header + file content), clipped to viewport using offset
-	wrapped := m.buildWrappedLogLines(contentWidth)
-	// Ensure diff state exists for offset bookkeeping
-	if m.state.Diff == nil {
-		m.state.Diff = &model.DiffState{Title: "Logs", Content: []string{}, Offset: 0}
-	}
-	// Clamp offset to available range
-	maxStart := max(0, len(wrapped)-availableHeight)
-	if m.state.Diff.Offset < 0 {
-		m.state.Diff.Offset = 0
-	}
-	if m.state.Diff.Offset > maxStart {
-		m.state.Diff.Offset = maxStart
-	}
-	start := m.state.Diff.Offset
-	end := min(len(wrapped), start+availableHeight)
-	body := strings.Join(wrapped[start:end], "\n")
-
-	// Status bar with scroll position
-	scrollInfo := fmt.Sprintf("Lines %d-%d of %d", start+1, end, len(wrapped))
-	status := fmt.Sprintf("Logs | %s | Press q to return | ↑↓ to scroll", scrollInfo)
-
-	// Use the full-screen layout helper with bordered content
-	return m.renderFullScreenViewWithOptions(header, body, status, FullScreenViewOptions{
-		ContentBordered: true,
-		BorderColor:     magentaBright,
-	})
-}
 
 // readLogContent reads the actual log file content
 func (m *Model) readLogContent() string {
@@ -947,24 +906,6 @@ func (m *Model) readLogContent() string {
 	return header + "--- Log Content ---\n\n" + highlightedLogText
 }
 
-// buildWrappedLogLines returns header + log content lines wrapped to contentWidth
-func (m *Model) buildWrappedLogLines(contentWidth int) []string {
-	text := m.readLogContent()
-	// Split into logical lines, then wrap into visual lines
-	logical := strings.Split(text, "\n")
-	visual := make([]string, 0, len(logical))
-	for _, ln := range logical {
-		// Apply syntax highlighting to the log line
-		highlightedLine := HighlightLogLine(ln)
-		parts := wrapAnsiToWidth(highlightedLine, contentWidth)
-		for _, p := range parts {
-			// Ensure each visual line fits exactly (avoid residual wrap)
-			visual = append(visual, clipAnsiToWidth(p, contentWidth))
-		}
-	}
-	// Guarantee we have at least contentHeight lines to keep the box height consistent
-	return visual
-}
 
 // renderErrorView displays API errors in a user-friendly format
 func (m *Model) renderErrorView() string {
