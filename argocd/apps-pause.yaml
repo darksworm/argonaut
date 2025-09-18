@@ -1,0 +1,96 @@
+# Ultra-lightweight with pause containers only
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: pause-demo
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # All apps but using pause containers (1-2MB each, ~1m CPU)
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: owlery}
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: potions}
+      - {project: hogwarts, namespace: hogwarts-qa,      cluster: cluster-magic, service: aurors}
+      - {project: hogwarts, namespace: hogwarts-prod,    cluster: cluster-magic, service: spellbook}
+      - {project: diagon, namespace: diagon-dev,         cluster: cluster-magic, service: ollivanders}
+      - {project: diagon, namespace: diagon-staging,     cluster: cluster-magic, service: leaky-cauldron}
+      - {project: diagon, namespace: diagon-qa,          cluster: cluster-magic, service: weasleys}
+      - {project: diagon, namespace: diagon-prod,        cluster: cluster-magic, service: malkins}
+      - {project: hitchhiker, namespace: hitchhiker-dev,     cluster: cluster-scifi, service: heart-of-gold}
+      - {project: hitchhiker, namespace: hitchhiker-staging, cluster: cluster-scifi, service: babel-fish}
+      - {project: hitchhiker, namespace: hitchhiker-qa,      cluster: cluster-scifi, service: improbability}
+      - {project: hitchhiker, namespace: hitchhiker-prod,    cluster: cluster-scifi, service: arthur}
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: guide}
+      - {project: megadodo, namespace: megadodo-staging, cluster: cluster-scifi, service: towel}
+      - {project: megadodo, namespace: megadodo-qa,      cluster: cluster-scifi, service: krikkit}
+      - {project: megadodo, namespace: megadodo-prod,    cluster: cluster-scifi, service: zarniwoop}
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: '{{project}}'
+      syncPolicy:
+        # Manual sync only - no auto-sync
+        automated: null
+        syncOptions:
+        - CreateNamespace=false
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: .
+        targetRevision: HEAD
+        directory:
+          recurse: false
+          jsonnet: {}
+        # Use inline manifests with pause containers
+        kustomize:
+          patches:
+          - patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: {{service}}
+                namespace: {{namespace}}
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: {{service}}
+                template:
+                  metadata:
+                    labels:
+                      app: {{service}}
+                      project: {{project}}
+                      env: {{namespace}}
+                  spec:
+                    containers:
+                    - name: pause
+                      image: gcr.io/google_containers/pause:3.9
+                      resources:
+                        requests:
+                          cpu: "1m"
+                          memory: "1Mi"
+                        limits:
+                          cpu: "2m"
+                          memory: "2Mi"
+              ---
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: {{service}}
+                namespace: {{namespace}}
+              spec:
+                selector:
+                  app: {{service}}
+                ports:
+                - port: 80
+                  targetPort: 80
+                  name: http
+            target:
+              kind: Deployment
+              name: '.*'
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'

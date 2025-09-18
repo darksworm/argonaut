@@ -1,0 +1,93 @@
+# Lightweight version with minimal resource containers
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: lightweight-demo
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # Keep the same app structure but with lightweight containers
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: owlery}
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: potions}
+      - {project: hogwarts, namespace: hogwarts-qa,      cluster: cluster-magic, service: aurors}
+      - {project: hogwarts, namespace: hogwarts-prod,    cluster: cluster-magic, service: spellbook}
+
+      - {project: diagon, namespace: diagon-dev,     cluster: cluster-magic, service: ollivanders}
+      - {project: diagon, namespace: diagon-staging, cluster: cluster-magic, service: leaky-cauldron}
+      - {project: diagon, namespace: diagon-qa,      cluster: cluster-magic, service: weasleys}
+      - {project: diagon, namespace: diagon-prod,    cluster: cluster-magic, service: quality-quidditch}
+
+      - {project: hitchhiker, namespace: hitchhiker-dev,     cluster: cluster-scifi, service: heart-of-gold}
+      - {project: hitchhiker, namespace: hitchhiker-staging, cluster: cluster-scifi, service: babel-fish}
+      - {project: hitchhiker, namespace: hitchhiker-qa,      cluster: cluster-scifi, service: improbability}
+      - {project: hitchhiker, namespace: hitchhiker-prod,    cluster: cluster-scifi, service: arthur-dent}
+
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: guide}
+      - {project: megadodo, namespace: megadodo-staging, cluster: cluster-scifi, service: towel}
+      - {project: megadodo, namespace: megadodo-qa,      cluster: cluster-scifi, service: krikkit}
+      - {project: megadodo, namespace: megadodo-prod,    cluster: cluster-scifi, service: zarniwoop}
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+    spec:
+      project: '{{project}}'
+      syncPolicy:
+        # Disable auto-sync to reduce continuous load
+        automated: null
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: .
+        targetRevision: HEAD
+        directory:
+          recurse: false
+        # Override with a lightweight pause container
+        plugin:
+          name: kustomize-inline
+          env:
+          - name: KUSTOMIZATION_YAML
+            value: |
+              apiVersion: kustomize.config.k8s.io/v1beta1
+              kind: Kustomization
+              resources:
+              - |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: {{service}}
+                spec:
+                  replicas: 1
+                  selector:
+                    matchLabels:
+                      app: {{service}}
+                  template:
+                    metadata:
+                      labels:
+                        app: {{service}}
+                        project: {{project}}
+                    spec:
+                      containers:
+                      - name: pause
+                        image: gcr.io/google_containers/pause:3.9
+                        resources:
+                          requests:
+                            cpu: "1m"
+                            memory: "1Mi"
+                          limits:
+                            cpu: "2m"
+                            memory: "2Mi"
+              - |-
+                apiVersion: v1
+                kind: Service
+                metadata:
+                  name: {{service}}
+                spec:
+                  selector:
+                    app: {{service}}
+                  ports:
+                  - port: 80
+                    targetPort: 80
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'

@@ -1,0 +1,68 @@
+# Fixed lightweight apps with proper manifests
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: lightweight-apps
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # Hogwarts apps (cluster-magic)
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: owlery}
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: potions}
+      - {project: hogwarts, namespace: hogwarts-qa,      cluster: cluster-magic, service: aurors}
+      - {project: hogwarts, namespace: hogwarts-prod,    cluster: cluster-magic, service: spellbook}
+      # Diagon apps (cluster-magic)
+      - {project: diagon, namespace: diagon-dev,         cluster: cluster-magic, service: ollivanders}
+      - {project: diagon, namespace: diagon-staging,     cluster: cluster-magic, service: leaky-cauldron}
+      - {project: diagon, namespace: diagon-qa,          cluster: cluster-magic, service: weasleys}
+      - {project: diagon, namespace: diagon-prod,        cluster: cluster-magic, service: malkins}
+      # Hitchhiker apps (cluster-scifi)
+      - {project: hitchhiker, namespace: hitchhiker-dev,     cluster: cluster-scifi, service: heart-of-gold}
+      - {project: hitchhiker, namespace: hitchhiker-staging, cluster: cluster-scifi, service: babel-fish}
+      - {project: hitchhiker, namespace: hitchhiker-qa,      cluster: cluster-scifi, service: improbability}
+      - {project: hitchhiker, namespace: hitchhiker-prod,    cluster: cluster-scifi, service: arthur}
+      # Megadodo apps (cluster-scifi)
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: guide}
+      - {project: megadodo, namespace: megadodo-staging, cluster: cluster-scifi, service: towel}
+      - {project: megadodo, namespace: megadodo-qa,      cluster: cluster-scifi, service: krikkit}
+      - {project: megadodo, namespace: megadodo-prod,    cluster: cluster-scifi, service: zarniwoop}
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: '{{project}}'
+      syncPolicy:
+        automated: null  # Manual sync
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: guestbook
+        targetRevision: HEAD
+        kustomize:
+          namePrefix: '{{service}}-'
+          commonLabels:
+            app.kubernetes.io/instance: '{{project}}-{{service}}'
+          patches:
+            - target: {kind: Deployment, name: guestbook-ui}
+              patch: |-
+                - op: replace
+                  path: /spec/replicas
+                  value: 1
+                - op: replace
+                  path: /spec/template/spec/containers/0/image
+                  value: gcr.io/google_containers/pause:3.9
+                - op: add
+                  path: /spec/template/spec/containers/0/resources
+                  value:
+                    limits:
+                      cpu: "2m"
+                      memory: "2Mi"
+                    requests:
+                      cpu: "1m"
+                      memory: "1Mi"
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'
