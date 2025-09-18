@@ -308,9 +308,9 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 		fl, _ := w.(http.Flusher)
 		w.Header().Set("Content-Type", "application/json")
 
-		// Send initial state
+		// Send initial state in SSE format
 		lines := []string{
-			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`,
+			`data: {"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`,
 		}
 
 		for _, ln := range lines {
@@ -323,9 +323,9 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 		// Wait a bit then send an update
 		time.Sleep(500 * time.Millisecond)
 
-		// Send sync status update
+		// Send sync status update in SSE format
 		updateLines := []string{
-			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
+			`data: {"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
 		}
 
 		for _, ln := range updateLines {
