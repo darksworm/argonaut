@@ -93,7 +93,6 @@ func (m *Model) runDiffFormatterWithTitle(diffText string, resourceName string) 
 		cols = m.state.Terminal.Cols
 	}
 
-	// Check if we're using delta
 	usingDelta := false
 	if cmdStr == "" && inPath("delta") {
 		usingDelta = true
@@ -102,43 +101,55 @@ func (m *Model) runDiffFormatterWithTitle(diffText string, resourceName string) 
 		} else {
 			cmdStr = "delta --side-by-side --line-numbers --navigate --paging=never"
 		}
-
-		// Add custom file names if we have a resource name
-		if resourceName != "" {
-			cmdStr += fmt.Sprintf(" --file-renamed-label='%s Live ⟶   %s Desired'", resourceName, resourceName)
-		}
 	}
 
 	if cmdStr == "" {
 		return diffText, nil
 	}
-
-	// If using delta with a resource name, modify the diff headers
-	inputDiff := diffText
-	if usingDelta && resourceName != "" {
-		// Replace the file paths in the diff with cleaner names
-		lines := strings.Split(diffText, "\n")
-		for i, line := range lines {
-			if strings.HasPrefix(line, "--- a/") {
-				lines[i] = fmt.Sprintf("--- a/%s (Live)", resourceName)
-			} else if strings.HasPrefix(line, "+++ b/") {
-				lines[i] = fmt.Sprintf("+++ b/%s (Desired)", resourceName)
-			}
-		}
-		inputDiff = strings.Join(lines, "\n")
-	}
-
 	c := exec.Command("sh", "-lc", cmdStr)
 	if cols > 0 {
 		c.Env = append(os.Environ(), fmt.Sprintf("COLUMNS=%d", cols), "DELTA_PAGER=cat")
 	} else {
 		c.Env = append(os.Environ(), "DELTA_PAGER=cat")
 	}
-	c.Stdin = strings.NewReader(inputDiff)
+	c.Stdin = strings.NewReader(diffText)
 	out, err := c.CombinedOutput()
 	if err != nil {
 		return diffText, err
 	}
+
+	// Post-process delta's output to clean up the header if we have a resource name
+	if usingDelta && resourceName != "" {
+		output := string(out)
+		lines := strings.Split(output, "\n")
+
+		// Look for the delta header line (contains the file paths)
+		for i, line := range lines {
+			// Delta's header typically contains "Δ" and the file paths
+			if strings.Contains(line, "Δ") && strings.Contains(line, "/var/folders/") {
+				// Extract ANSI codes to preserve colors
+				// Delta typically uses color codes at the start and resets at the end
+				ansiPrefix := ""
+				if idx := strings.Index(line, "Δ"); idx > 0 {
+					ansiPrefix = line[:idx]
+				}
+
+				// Check if line ends with ANSI reset code
+				ansiSuffix := ""
+				if strings.HasSuffix(line, "\x1b[0m") || strings.HasSuffix(line, "[0m") {
+					// Line already has reset code, we'll add it back
+					ansiSuffix = "\x1b[0m"
+				}
+
+				// Replace with clean header
+				lines[i] = fmt.Sprintf("%sΔ %s: Live ⟶ Desired%s", ansiPrefix, resourceName, ansiSuffix)
+				break
+			}
+		}
+
+		return strings.Join(lines, "\n"), nil
+	}
+
 	return string(out), nil
 }
 
