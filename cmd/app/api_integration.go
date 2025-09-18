@@ -338,18 +338,24 @@ func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
 		if app.AppNamespace != nil {
 			appNamespace = *app.AppNamespace
 		}
+		cblog.With("component", "ui").Info("Starting tree watch", "app", app.Name)
 		ch, cleanup, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
 		if err != nil {
+			cblog.With("component", "ui").Error("Tree watch failed", "err", err, "app", app.Name)
 			return model.StatusChangeMsg{Status: "Tree watch failed: " + err.Error()}
 		}
 		go func() {
+			eventCount := 0
 			for t := range ch {
 				if t == nil {
 					continue
 				}
+				eventCount++
+				cblog.With("component", "ui").Debug("Received tree event", "app", app.Name, "event", eventCount)
 				data, _ := json.Marshal(t)
 				m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
 			}
+			cblog.With("component", "ui").Info("Tree watch channel closed", "app", app.Name, "events", eventCount)
 		}()
 		return treeWatchStartedMsg{cleanup: cleanup}
 	}

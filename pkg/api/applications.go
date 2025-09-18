@@ -489,34 +489,47 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 	if appNamespace != "" {
 		path += "?appNamespace=" + url.QueryEscape(appNamespace)
 	}
+	cblog.With("component", "api").Debug("Starting resource tree watch", "app", appName, "path", path)
 	stream, err := s.client.Stream(ctx, path)
 	if err != nil {
+		cblog.With("component", "api").Error("Failed to start resource tree watch", "err", err, "app", appName)
 		return fmt.Errorf("failed to start resource tree watch: %w", err)
 	}
 	defer stream.Close()
+	cblog.With("component", "api").Debug("Resource tree stream established", "app", appName)
 
 	scanner := bufio.NewScanner(stream)
+	eventCount := 0
 	for scanner.Scan() {
 		if ctx.Err() != nil {
+			cblog.With("component", "api").Debug("Context cancelled, stopping tree watch", "app", appName)
 			return ctx.Err()
 		}
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
+		cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "line", line)
 		var res ResourceTreeStreamResult
 		if err := json.Unmarshal([]byte(line), &res); err != nil {
+			cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "line", line)
 			continue
 		}
+		eventCount++
+		cblog.With("component", "api").Debug("Sending tree update", "app", appName, "event", eventCount)
 		select {
 		case out <- res.Result:
+			cblog.With("component", "api").Debug("Tree update sent", "app", appName, "event", eventCount)
 		case <-ctx.Done():
+			cblog.With("component", "api").Debug("Context done while sending, stopping", "app", appName)
 			return ctx.Err()
 		}
 	}
 	if err := scanner.Err(); err != nil {
+		cblog.With("component", "api").Error("Stream scanning error", "err", err, "app", appName)
 		return fmt.Errorf("stream scanning error: %w", err)
 	}
+	cblog.With("component", "api").Info("Tree watch stream ended", "app", appName, "events", eventCount)
 	return nil
 }
 

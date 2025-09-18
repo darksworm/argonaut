@@ -457,6 +457,7 @@ func (s *ArgoApiServiceImpl) WatchResourceTree(ctx context.Context, server *mode
 		s.appService = api.NewApplicationService(server)
 	}
 
+	cblog.With("component", "services").Info("Starting resource tree watch", "app", appName, "namespace", appNamespace)
 	out := make(chan *api.ResourceTree, 32)
 	watchCtx, cancel := appcontext.WithCancel(ctx)
 
@@ -466,16 +467,26 @@ func (s *ArgoApiServiceImpl) WatchResourceTree(ctx context.Context, server *mode
 		ch := make(chan api.ResourceTree, 32)
 		go func() {
 			defer close(ch)
-			_ = s.appService.WatchResourceTree(watchCtx, appName, appNamespace, ch)
+			err := s.appService.WatchResourceTree(watchCtx, appName, appNamespace, ch)
+			if err != nil {
+				cblog.With("component", "services").Error("WatchResourceTree error", "err", err, "app", appName)
+			} else {
+				cblog.With("component", "services").Info("WatchResourceTree completed normally", "app", appName)
+			}
 		}()
+		eventCount := 0
 		for {
 			select {
 			case <-watchCtx.Done():
+				cblog.With("component", "services").Debug("Watch context done", "app", appName)
 				return
 			case t, ok := <-ch:
 				if !ok {
+					cblog.With("component", "services").Debug("Channel closed", "app", appName, "events", eventCount)
 					return
 				}
+				eventCount++
+				cblog.With("component", "services").Debug("Forwarding tree event", "app", appName, "event", eventCount)
 				// copy to heap pointer
 				tt := t
 				out <- &tt

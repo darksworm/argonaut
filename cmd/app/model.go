@@ -97,10 +97,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Tree stream messages from watcher goroutine
 	case model.ResourceTreeStreamMsg:
+		cblog.With("component", "ui").Debug("Processing tree stream message", "app", msg.AppName, "hasData", len(msg.TreeJSON) > 0)
 		if len(msg.TreeJSON) > 0 && m.treeView != nil && m.state.Navigation.View == model.ViewTree {
 			var tree api.ResourceTree
 			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
+				cblog.With("component", "ui").Debug("Updating tree view", "app", msg.AppName, "nodes", len(tree.Nodes))
 				m.treeView.UpsertAppTree(msg.AppName, &tree)
+			} else {
+				cblog.With("component", "ui").Error("Failed to unmarshal tree", "err", err, "app", msg.AppName)
 			}
 		}
 		// Any tree stream activity implies data is arriving; clear loading overlay

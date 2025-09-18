@@ -2,6 +2,7 @@ package main
 
 import (
 	tea "github.com/charmbracelet/bubbletea/v2"
+	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
@@ -9,7 +10,9 @@ import (
 func (m *Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
 	select {
 	case m.treeStream <- msg:
+		cblog.With("component", "ui").Debug("Tree event delivered to channel", "app", msg.AppName)
 	default:
+		cblog.With("component", "ui").Warn("Tree channel full, dropping event", "app", msg.AppName)
 	}
 }
 
@@ -21,8 +24,10 @@ func (m *Model) consumeTreeEvent() tea.Cmd {
 		}
 		ev, ok := <-m.treeStream
 		if !ok {
+			cblog.With("component", "ui").Debug("Tree stream channel closed")
 			return nil
 		}
+		cblog.With("component", "ui").Debug("Consumed tree event", "app", ev.AppName)
 		return ev
 	}
 }
