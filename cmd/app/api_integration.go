@@ -230,8 +230,8 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		leftFile, _ := writeTempYAML("live-", liveDocs)
 		rightFile, _ := writeTempYAML("desired-", desiredDocs)
 
-		// Build raw unified diff via git
-		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
+		// Build raw unified diff via git (no color so delta can format it)
+		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--no-color", "--", leftFile, rightFile)
 		out, err := cmd.CombinedOutput()
 		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
 			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
@@ -252,9 +252,9 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
 		}
 
-		// 2) Non-interactive formatter: pipe to tool (e.g., delta) and then show via built-in pager (ov)
+		// 2) Non-interactive formatter: pipe to tool (e.g., delta) and then show via pager
 		formatted := cleaned
-		if formattedOut, ferr := m.runDiffFormatter(cleaned); ferr == nil && strings.TrimSpace(formattedOut) != "" {
+		if formattedOut, ferr := m.runDiffFormatterWithTitle(cleaned, appName); ferr == nil && strings.TrimSpace(formattedOut) != "" {
 			formatted = formattedOut
 		}
 		title := fmt.Sprintf("%s - Live vs Desired", appName)
