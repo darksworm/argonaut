@@ -264,7 +264,8 @@ func (m *Model) View() string {
 		"view", m.state.Navigation.View,
 		"apps_count", len(m.state.Apps))
 
-	if !m.ready {
+	// Don't show plain "Starting..." - let renderMainLayout handle the loading modal
+	if !m.ready && m.state.Mode != model.ModeNormal {
 		return statusStyle.Render("Starting…")
 	}
 
@@ -873,10 +874,14 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 
 // renderLogsView renders the logs view with full-height layout
 func (m *Model) renderLogsView() string {
-	// Dimensions
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4)
-	contentHeight := max(10, m.state.Terminal.Rows-6)
+	// Header
+	header := m.renderBanner()
+
+	// Calculate available space for content
+	headerLines := countLines(header)
+	statusLines := 1 // Status bar at bottom
+	availableHeight := max(3, m.state.Terminal.Rows - headerLines - statusLines - 2) // 2 for borders
+	contentWidth := max(20, m.state.Terminal.Cols - 4) // 4 for borders and padding
 
 	// Build wrapped log lines (header + file content), clipped to viewport using offset
 	wrapped := m.buildWrappedLogLines(contentWidth)
@@ -885,7 +890,7 @@ func (m *Model) renderLogsView() string {
 		m.state.Diff = &model.DiffState{Title: "Logs", Content: []string{}, Offset: 0}
 	}
 	// Clamp offset to available range
-	maxStart := max(0, len(wrapped)-contentHeight)
+	maxStart := max(0, len(wrapped)-availableHeight)
 	if m.state.Diff.Offset < 0 {
 		m.state.Diff.Offset = 0
 	}
@@ -893,20 +898,18 @@ func (m *Model) renderLogsView() string {
 		m.state.Diff.Offset = maxStart
 	}
 	start := m.state.Diff.Offset
-	end := min(len(wrapped), start+contentHeight)
+	end := min(len(wrapped), start+availableHeight)
 	body := strings.Join(wrapped[start:end], "\n")
 
-	// Render in a fixed-height bordered box; body is already clipped to avoid overflow
-	logStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
+	// Status bar with scroll position
+	scrollInfo := fmt.Sprintf("Lines %d-%d of %d", start+1, end, len(wrapped))
+	status := fmt.Sprintf("Logs | %s | Press q to return | ↑↓ to scroll", scrollInfo)
 
-	return logStyle.Render(body)
+	// Use the full-screen layout helper with bordered content
+	return m.renderFullScreenViewWithOptions(header, body, status, FullScreenViewOptions{
+		ContentBordered: true,
+		BorderColor:     magentaBright,
+	})
 }
 
 // readLogContent reads the actual log file content
@@ -1053,7 +1056,11 @@ func (m *Model) renderErrorView() string {
 
 	// Instructions
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	errorContent += fmt.Sprintf("\n%s", instructStyle.Render("Press Esc to return to main view"))
+	instructions := []string{
+		"Press Esc to return to main view",
+		"Press 'l' to view system logs",
+	}
+	errorContent += fmt.Sprintf("\n%s", instructStyle.Render(strings.Join(instructions, " | ")))
 
 	// Status (empty for error views)
 	status := ""
@@ -1088,7 +1095,12 @@ func (m *Model) renderConnectionErrorView() string {
 
 	// Instructions
 	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	errorContent += instructStyle.Render("Press q to exit")
+	instructions := []string{
+		"Press 'q' to exit",
+		"Press 'l' to view system logs",
+		"Press Esc to retry",
+	}
+	errorContent += instructStyle.Render(strings.Join(instructions, " | "))
 
 	// Status (empty for error views)
 	status := ""

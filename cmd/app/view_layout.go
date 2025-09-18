@@ -197,6 +197,20 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// Show loading modal when we have no data loaded yet (initial startup or server not running)
+	// Check if we have no apps loaded (apps are the main data source)
+	hasNoData := len(m.state.Apps) == 0
+
+	if hasNoData && m.state.Mode == model.ModeNormal {
+		modal := m.renderNoServerModal()
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	if m.state.Diff != nil && m.state.Diff.Loading {
 		spinner := m.renderDiffLoadingSpinner()
 		grayBase := desaturateANSI(baseView)

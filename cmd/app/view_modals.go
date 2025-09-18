@@ -153,6 +153,20 @@ func (m *Model) renderInitialLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
+func (m *Model) renderNoServerModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Connecting to Argo CD..."))
+	content := msg
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(magentaBright).
+		Padding(1, 2)
+	minW := 40
+	w := max(minW, lipgloss.Width(content)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}
+
 func (m *Model) renderRollbackModal() string {
 	header := m.renderBanner()
 	headerLines := countLines(header)

@@ -653,6 +653,20 @@ func (m *Model) handleErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.state.Mode = model.ModeNormal
 		return m, nil
+	case "l":
+		// Open system logs view to help debug the error
+		// Clear error state and switch to logs mode
+		m.state.CurrentError = nil
+		if m.state.ErrorState != nil {
+			m.state.ErrorState.Current = nil
+		}
+		m.state.Mode = model.ModeLogs
+		// Reset diff state for logs view
+		m.state.Diff = &model.DiffState{
+			Title:  "Logs",
+			Offset: 0,
+		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -666,6 +680,15 @@ func (m *Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 	case "esc":
 		// Return to normal mode from connection error (for retry attempts)
 		m.state.Mode = model.ModeNormal
+		return m, nil
+	case "l":
+		// Open system logs view to help debug connection issues
+		m.state.Mode = model.ModeLogs
+		// Reset diff state for logs view
+		m.state.Diff = &model.DiffState{
+			Title:  "Logs",
+			Offset: 0,
+		}
 		return m, nil
 	}
 	return m, nil
