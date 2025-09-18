@@ -274,11 +274,21 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 		if line == "" {
 			continue
 		}
+
+		// SSE format: lines with just ":" are keep-alive messages
+		if line == ":" {
+			continue // Keep-alive message
+		}
+
 		cblog.With("component", "api").Debug("WatchApplications: received line from stream", "line", line)
 
 		// Handle Server-Sent Events format (lines starting with "data: ")
 		if strings.HasPrefix(line, "data: ") {
 			line = strings.TrimPrefix(line, "data: ")
+		} else {
+			// Skip non-data lines
+			cblog.With("component", "api").Debug("WatchApplications: skipping non-data line", "line", line)
+			continue
 		}
 
 		var eventResult WatchEventResult
@@ -509,10 +519,25 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 		if line == "" {
 			continue
 		}
-		cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "line", line)
+
+		// SSE format: lines starting with "data: " contain the JSON payload
+		// Lines with just ":" are keep-alive messages
+		if line == ":" {
+			continue // Keep-alive message
+		}
+
+		if !strings.HasPrefix(line, "data: ") {
+			cblog.With("component", "api").Debug("Skipping non-data SSE line", "line", line)
+			continue
+		}
+
+		// Strip the "data: " prefix to get the JSON
+		jsonData := strings.TrimPrefix(line, "data: ")
+		cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "data", jsonData)
+
 		var res ResourceTreeStreamResult
-		if err := json.Unmarshal([]byte(line), &res); err != nil {
-			cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "line", line)
+		if err := json.Unmarshal([]byte(jsonData), &res); err != nil {
+			cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "data", jsonData)
 			continue
 		}
 		eventCount++

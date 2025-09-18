@@ -542,6 +542,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.state.Mode == model.ModeConfirmSync {
 					m.state.Mode = model.ModeNormal
 				}
+				// Clean up any existing tree watchers before starting new one
+				m.cleanupTreeWatchers()
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
 				// find app
@@ -585,6 +587,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				if len(names) > 0 {
 					var cmds []tea.Cmd
+					// Clean up any existing tree watchers first
+					m.cleanupTreeWatchers()
 					// Reset tree view for multi-app session
 					m.treeView = treeview.NewTreeView(0, 0)
 					m.treeScrollOffset = 0 // Reset scroll position
@@ -685,6 +689,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Start watching tree if requested
 			if msg.Watch {
+				// Clean up any existing tree watchers before starting new one
+				m.cleanupTreeWatchers()
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
 				var appObj model.App

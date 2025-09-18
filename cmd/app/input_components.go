@@ -501,6 +501,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				}
 
 				if len(names) > 1 {
+					// Clean up any existing tree watchers before starting new ones
+					m.cleanupTreeWatchers()
 					// Multiple apps selected - open multi tree view with live updates
 					m.treeView = treeview.NewTreeView(0, 0)
 					m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
@@ -565,6 +567,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			if selectedApp == nil {
 				selectedApp = &model.App{Name: target}
 			}
+			// Clean up any existing tree watchers before starting new one
+			m.cleanupTreeWatchers()
 			m.state.Navigation.View = model.ViewTree
 			m.state.UI.TreeAppName = &target
 			m.treeLoading = true

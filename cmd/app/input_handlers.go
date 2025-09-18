@@ -861,6 +861,8 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		}
 	}
 	if len(selected) > 1 {
+		// Clean up any existing tree watchers before starting new ones
+		m.cleanupTreeWatchers()
 		// Reset tree view to a fresh multi-app instance
 		m.treeView = treeview.NewTreeView(0, 0)
 		m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
@@ -901,6 +903,8 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 			return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for resources"}
 		}
 	}
+	// Clean up any existing tree watchers before starting new one
+	m.cleanupTreeWatchers()
 	// Reset tree view to a fresh single-app instance
 	m.treeView = treeview.NewTreeView(0, 0)
 	m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
