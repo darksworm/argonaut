@@ -5,8 +5,6 @@ ARG TARGETARCH
 
 RUN apk add --no-cache \
     ca-certificates \
-    libstdc++ \
-    libgcc \
     curl \
     git \
   && curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${TARGETARCH} \

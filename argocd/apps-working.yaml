@@ -1,0 +1,51 @@
+# Working lightweight apps
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: working-apps
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # Just a few test apps using kustomize-guestbook which has proper kustomization
+      - {name: test-dev, namespace: default, env: dev}
+      - {name: test-staging, namespace: default, env: staging}
+      - {name: test-prod, namespace: default, env: prod}
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      syncPolicy:
+        automated: null  # Manual sync
+        syncOptions:
+        - CreateNamespace=true
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: kustomize-guestbook
+        targetRevision: HEAD
+        kustomize:
+          namePrefix: '{{name}}-'
+          commonLabels:
+            env: '{{env}}'
+          patches:
+          - target:
+              kind: Deployment
+              name: guestbook-ui
+            patch: |-
+              - op: replace
+                path: /spec/replicas
+                value: 1
+              - op: add
+                path: /spec/template/spec/containers/0/resources
+                value:
+                  limits:
+                    cpu: "10m"
+                    memory: "32Mi"
+                  requests:
+                    cpu: "5m"
+                    memory: "16Mi"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'

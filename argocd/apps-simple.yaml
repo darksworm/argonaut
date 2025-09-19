@@ -1,0 +1,47 @@
+# Simple lightweight apps using in-cluster destination
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: simple-apps
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # Just a few test apps using the guestbook example
+      - {name: app-dev, namespace: default, env: dev}
+      - {name: app-staging, namespace: default, env: staging}
+      - {name: app-prod, namespace: default, env: prod}
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      syncPolicy:
+        automated: null  # Manual sync
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: guestbook
+        targetRevision: HEAD
+        kustomize:
+          namePrefix: '{{name}}-'
+          patches:
+            - target:
+                kind: Deployment
+                name: guestbook-ui
+              patch: |-
+                - op: replace
+                  path: /spec/replicas
+                  value: 1
+                - op: add
+                  path: /spec/template/spec/containers/0/resources
+                  value:
+                    limits:
+                      cpu: "10m"
+                      memory: "32Mi"
+                    requests:
+                      cpu: "5m"
+                      memory: "16Mi"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'

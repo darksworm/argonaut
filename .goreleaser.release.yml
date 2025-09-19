@@ -2,116 +2,32 @@ version: 2
 
 project_name: argonaut
 
-# Global hooks (run once before all builds)
 before:
   hooks:
-    - bun install --frozen-lockfile 
-    - bun run generate:licenses
-    - rm -rf dist
+    - go mod download
 
-# Build with Bun (bun build --compile)
 builds:
-  - id: bun-standard
-    builder: bun
+  - id: go-standard
+    main: ./cmd/app
     binary: argonaut
-    main: src/main.tsx
-    targets:
-      - linux-x64-modern
-      - linux-arm64
-      - darwin-x64
-      - darwin-arm64
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.appVersion={{ .Version }}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
 
-  - id: bun-musl
-    builder: bun
-    binary: argonaut
-    main: src/main.tsx
-    targets:
-      - linux-x64-musl-modern
-      - linux-arm64-musl
-
-# Package artifacts (use tar.gz, no deprecation warnings)
 archives:
-  - id: bun-archives-standard
-    ids: [bun-standard]  # standard builds
-    formats: ["tar.gz"]
+  - id: go-archives
+    ids: [go-standard]
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     files:
       - LICENSE*
       - README*
       - CHANGELOG*
-
-  - id: bun-archives-musl
-    ids: [bun-musl]  # musl builds
-    formats: ["tar.gz"]
-    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-musl"
-    files:
-      - LICENSE*
-      - README*
-      - CHANGELOG*
-
-# macOS distribution via Homebrew Casks (Formulas are deprecated)
-homebrew_casks:
-  - name: argonaut
-    description: A GitOps CLI tool for managing ArgoCD applications
-    homepage: https://github.com/darksworm/argonaut
-    ids: [bun-archives-standard]    # use the standard archives (macOS is not musl)
-    binary: argonaut       # the binary name inside the archive
-    repository:
-      owner: darksworm
-      name: homebrew-tap
-      branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    # If you don't sign/notarize, consider removing quarantine on install:
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/argonaut"]
-          end
-    caveats: |
-      To get started:
-        argonaut --help
-
-# Release config
-release:
-  draft: false
-  prerelease: auto
-  name_template: "{{ .Tag }}"
-
-# Snapshot releases
-snapshot: {}
-
-# Changelog (GitHub, grouped)
-changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-      - "^test:"
-      - "^chore"
-      - "merge conflict"
-      - "Merge pull request"
-      - "Merge remote-tracking branch"
-      - "Merge branch"
-  groups:
-    - title: "New Features"
-      regexp: "^.*feat[(\\w)]*:+.*$"
-      order: 0
-    - title: "Bug Fixes"
-      regexp: "^.*fix[(\\w)]*:+.*$"
-      order: 1
-    - title: "Performance Improvements"
-      regexp: "^.*perf[(\\w)]*:+.*$"
-      order: 2
-    - title: "Documentation"
-      regexp: "^.*docs[(\\w)]*:+.*$"
-      order: 3
-    - title: "Other Changes"
-      order: 999
-
-# Checksums for all artifacts
-checksum:
-  name_template: "checksums.txt"
 
 aurs:
   - name: argonaut-bin
@@ -135,7 +51,7 @@ aurs:
 
 nix:
   - name: argonaut
-    ids: [ bun-archives-standard ]
+    ids: [go-archives]
     goamd64: v1
     repository:
       owner: darksworm
@@ -143,10 +59,83 @@ nix:
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
 
+nfpms:
+  - id: linux-packages-standard
+    ids: [go-standard]
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    maintainer: "darksworm <bot@goreleaser.com>"
+    homepage: "https://github.com/darksworm/argonaut"
+    description: "A CLI tool for managing Argo CD applications"
+    license: GPL-3.0-or-later
+    section: utils
+    priority: optional
+    provides: [argonaut]
+    conflicts: [argonaut]
+
+homebrew_casks:
+  - name: argonaut
+    description: A GitOps CLI tool for managing ArgoCD applications
+    homepage: https://github.com/darksworm/argonaut
+    ids: [go-archives]
+    binary: argonaut
+    repository:
+      owner: darksworm
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/argonaut"]
+          end
+    caveats: |
+      To get started:
+        argonaut --help
+
+release:
+  draft: false
+  prerelease: auto
+  name_template: "{{ .Tag }}"
+
+snapshot: {}
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore"
+      - "merge conflict"
+      - "Merge pull request"
+      - "Merge remote-tracking branch"
+      - "Merge branch"
+  groups:
+    - title: New Features
+      regexp: '^.*feat[(\\w)]*:+.*$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*fix[(\\w)]*:+.*$'
+      order: 1
+    - title: Performance Improvements
+      regexp: '^.*perf[(\\w)]*:+.*$'
+      order: 2
+    - title: Documentation
+      regexp: '^.*docs[(\\w)]*:+.*$'
+      order: 3
+    - title: Other Changes
+      order: 999
+
+checksum:
+  name_template: checksums.txt
+
 dockers_v2:
   - id: docker-multi
     dockerfile: Dockerfile.v2
-    ids: [bun-musl]
+    ids: [go-standard]
     images:
       - ghcr.io/darksworm/argonaut
     tags:
@@ -161,33 +150,3 @@ dockers_v2:
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.source: "https://github.com/darksworm/argonaut"
-
-nfpms:
-  - id: linux-packages-standard
-    ids: [bun-standard]
-    formats: [deb, rpm, apk]
-    bindir: /usr/bin
-    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    maintainer: "darksworm <bot@goreleaser.com>"
-    homepage: "https://github.com/darksworm/argonaut"
-    description: "A CLI tool for managing Argo CD applications"
-    license: GPL-3.0-or-later
-    section: utils
-    priority: optional
-    provides: [argonaut]
-    conflicts: [argonaut, argonaut-musl]
-
-  - id: linux-packages-musl
-    ids: [bun-musl]
-    formats: [deb, rpm, apk]
-    bindir: /usr/bin
-    file_name_template: "{{ .ProjectName }}-musl_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    package_name: "argonaut-musl"
-    maintainer: "darksworm <bot@goreleaser.com>"
-    homepage: "https://github.com/darksworm/argonaut"
-    description: "A CLI tool for managing Argo CD applications (musl build)"
-    license: GPL-3.0-or-later
-    section: utils
-    priority: optional
-    provides: [argonaut]
-    conflicts: [argonaut, argonaut-standard]

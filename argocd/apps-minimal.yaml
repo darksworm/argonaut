@@ -1,0 +1,47 @@
+# Minimal configuration with just 5 apps for testing
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: minimal-demo
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      # Just 5 essential apps for testing
+      - {project: hogwarts, namespace: hogwarts-dev,     cluster: cluster-magic, service: owlery}
+      - {project: hogwarts, namespace: hogwarts-staging, cluster: cluster-magic, service: potions}
+      - {project: diagon,   namespace: diagon-dev,       cluster: cluster-magic, service: ollivanders}
+      - {project: hitchhiker, namespace: hitchhiker-dev, cluster: cluster-scifi, service: heart-of-gold}
+      - {project: megadodo, namespace: megadodo-dev,     cluster: cluster-scifi, service: guide}
+  template:
+    metadata:
+      name: '{{project}}-{{service}}'
+    spec:
+      project: '{{project}}'
+      syncPolicy:
+        # Disable auto-sync to reduce load
+        automated: null
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: kustomize-guestbook
+        targetRevision: HEAD
+        kustomize:
+          namePrefix: '{{service}}-'
+          commonLabels:
+            app.kubernetes.io/instance: '{{project}}-{{service}}'
+          patches:
+            - target: {kind: Deployment, name: guestbook-ui}
+              patch: |-
+                - op: add
+                  path: /spec/template/spec/containers/0/resources
+                  value:
+                    requests:
+                      cpu: "5m"
+                      memory: "16Mi"
+                    limits:
+                      cpu: "20m"
+                      memory: "32Mi"
+      destination:
+        name: '{{cluster}}'
+        namespace: '{{namespace}}'

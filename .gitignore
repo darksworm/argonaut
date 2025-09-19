@@ -8,6 +8,21 @@ out/
 argonaut-cli
 ./main
 main
+/app
+/bin/
+### Go CLI binaries
+a9s
+argonaut
+cmd/app/app
+e2e/a9s_e2e
+
+### Editor or tool output
+repomix-output.xml
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 junit.xml
 
 
@@ -32,31 +47,41 @@ stryker-tmp/
 CLAUDE.md
 TODO-tests.md
 
-# Claude Flow runtime data
+# Claude Flow runtime data  
 .claude-flow/
+.swarm/
+.hive-mind/
+coordination/
+memory/
 
 # Claude Flow generated files
 .claude/settings.local.json
 .mcp.json
 claude-flow.config.json
-.swarm/
-.hive-mind/
-memory/claude-flow-data.json
-memory/sessions/*
-!memory/sessions/README.md
-memory/agents/*
-!memory/agents/README.md
-coordination/memory_bank/*
-coordination/subtasks/*
-coordination/orchestration/*
+claude-flow
+claude-flow.bat
+claude-flow.ps1
+hive-mind-prompt-*.txt
+
+# AI automation databases
 *.db
 *.db-journal
 *.db-wal
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
-claude-flow
-claude-flow.bat
-claude-flow.ps1
-hive-mind-prompt-*.txt
-\n# Ignore downloaded Argo CD manifest\nargocd/install.yaml
+
+# IDE files
+*.iml
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Ignore downloaded Argo CD manifest
+argocd/install.yaml
+logs/
+
+# Local worktrees not to be tracked
+/hello/
