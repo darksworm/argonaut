@@ -26,64 +26,7 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: go
 
-  publish-npm:
-    needs: [release-please, goreleaser]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Update package version
-        run: |
-          VERSION="${{ needs.release-please.outputs.tag_name }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
-          npm version "$VERSION" --no-git-tag-version
-
-      - name: Create placeholder binaries and scripts
-        run: |
-          mkdir -p bin scripts
-          echo '#!/usr/bin/env node' > bin/a9s
-          echo 'console.log("Binary will be downloaded on install");' >> bin/a9s
-          chmod +x bin/a9s
-          ln -s a9s bin/argonaut
-
-          # Ensure install script exists
-          if [ ! -f scripts/install.js ]; then
-            echo "Creating minimal install script..."
-            cat > scripts/install.js << 'EOF'
-#!/usr/bin/env node
-console.log("Install script placeholder - will download binary on postinstall");
-EOF
-          fi
-
-          # Create uninstall script
-          cat > scripts/uninstall.js << 'EOF'
-#!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
-const binDir = path.join(__dirname, '..', 'bin');
-try {
-  if (fs.existsSync(binDir)) {
-    fs.rmSync(binDir, { recursive: true, force: true });
-    console.log('Argonaut CLI uninstalled successfully');
-  }
-} catch (err) {
-  console.error('Error during uninstall:', err);
-}
-EOF
-          chmod +x scripts/*.js
-
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  # npm publish disabled - not distributing via npm
 
   goreleaser:
     needs: release-please
@@ -173,44 +116,4 @@ EOF
           install-source: ${{ needs.release-please.outputs.tag_name }}
           test-mode: release
 
-  npm-integration-tests:
-    needs: [release-please, publish-npm]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version:
-          - 18
-          - 20
-          - 22
-          - latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Wait for npm package availability
-        run: |
-          VERSION="${{ needs.release-please.outputs.tag_name }}"
-          VERSION="${VERSION#v}"
-          for i in {1..30}; do
-            if npm view argonaut-cli@$VERSION > /dev/null 2>&1; then
-              echo "Package available!"
-              break
-            fi
-            echo "Waiting for package... ($i/30)"
-            sleep 10
-          done
-
-      - name: Test npm installation
-        run: |
-          npm install -g argonaut-cli
-          which argonaut
-          which a9s
-          argonaut --version || true
-          a9s --version || true
+  # npm integration tests removed - not distributing via npm
