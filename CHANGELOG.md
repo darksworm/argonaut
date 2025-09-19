@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/darksworm/argonaut/compare/v1.16.1...v2.0.0) (2025-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* go rewrite ([#84](https://github.com/darksworm/argonaut/issues/84))
+
+### Features
+
+* go rewrite ([#84](https://github.com/darksworm/argonaut/issues/84)) ([c574906](https://github.com/darksworm/argonaut/commit/c5749060cdbfd2cbbf157f470a086b60a54577eb))
+
 ## [1.16.0](https://github.com/darksworm/argonaut/compare/v1.15.1...v1.16.0) (2025-09-06)
 
 
