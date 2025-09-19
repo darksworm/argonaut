@@ -67,6 +67,9 @@ type Model struct {
 	// Tree view scroll offset
 	treeScrollOffset int
 
+	// List view scroll offset (for apps, clusters, namespaces, projects)
+	listScrollOffset int
+
 	// Cleanup callbacks for active tree watchers
 	treeWatchCleanups []func()
 

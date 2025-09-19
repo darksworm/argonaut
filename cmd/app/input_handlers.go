@@ -21,6 +21,14 @@ func (m *Model) handleNavigationUp() (tea.Model, tea.Cmd) {
 		newIdx = 0
 	}
 	m.state.Navigation.SelectedIdx = newIdx
+
+	// Update list scroll offset for non-tree views to keep cursor visible
+	if m.state.Navigation.View != model.ViewTree {
+		if newIdx < m.listScrollOffset {
+			m.listScrollOffset = newIdx
+		}
+	}
+
 	return m, nil
 }
 
@@ -36,6 +44,18 @@ func (m *Model) handleNavigationDown() (tea.Model, tea.Cmd) {
 		newIdx = maxItems - 1
 	}
 	m.state.Navigation.SelectedIdx = newIdx
+
+	// Update list scroll offset for non-tree views to keep cursor visible
+	if m.state.Navigation.View != model.ViewTree {
+		// Calculate viewport height for list views (similar to tree view calculation)
+		availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
+		visibleRows := max(0, availableRows-1)      // Leave room for header
+
+		if newIdx >= m.listScrollOffset+visibleRows {
+			m.listScrollOffset = newIdx - visibleRows + 1
+		}
+	}
+
 	return m, nil
 }
 
@@ -307,6 +327,7 @@ func (m *Model) handleGoToTop() (tea.Model, tea.Cmd) {
 	}
 
 	m.state.Navigation.SelectedIdx = 0
+	m.listScrollOffset = 0 // Reset scroll to top for list views
 	m.state.Navigation.LastGPressed = 0 // Reset double-g state
 	return m, nil
 }
@@ -323,6 +344,11 @@ func (m *Model) handleGoToBottom() (tea.Model, tea.Cmd) {
 	visibleItems := m.getVisibleItemsForCurrentView()
 	if len(visibleItems) > 0 {
 		m.state.Navigation.SelectedIdx = len(visibleItems) - 1
+
+		// Update scroll offset to show the last item
+		availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
+		visibleRows := max(0, availableRows-1)      // Leave room for header
+		m.listScrollOffset = max(0, len(visibleItems)-visibleRows)
 	}
 	return m, nil
 }
