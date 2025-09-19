@@ -16,8 +16,7 @@
   },
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "postinstall": "node scripts/install.js",
-    "preuninstall": "node scripts/uninstall.js"
+    "postinstall": "node scripts/postinstall.js"
   },
   "bin": {
     "argonaut": "./bin/argonaut",
@@ -25,6 +24,7 @@
   },
   "files": [
     "bin/",
+    "bin-platform/",
     "scripts/",
     "package.json",
     "README.md",
