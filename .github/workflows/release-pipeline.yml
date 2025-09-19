@@ -46,42 +46,39 @@ jobs:
           VERSION="${VERSION#v}"  # Remove 'v' prefix if present
           npm version "$VERSION" --no-git-tag-version
 
-      - name: Download release binaries
+      - name: Create placeholder binaries and scripts
         run: |
-          mkdir -p bin-platform
-          TAG="${{ needs.release-please.outputs.tag_name }}"
-
-          # Download all platform binaries from the release
-          gh release download "$TAG" \
-            --pattern "a9s_Darwin_arm64" \
-            --pattern "a9s_Darwin_x86_64" \
-            --pattern "a9s_Linux_arm64" \
-            --pattern "a9s_Linux_x86_64" \
-            --pattern "a9s_Windows_x86_64.exe" \
-            --dir bin-platform || true
-
-          # Rename to npm-friendly names
-          cd bin-platform
-          [ -f a9s_Darwin_arm64 ] && mv a9s_Darwin_arm64 a9s-darwin-arm64
-          [ -f a9s_Darwin_x86_64 ] && mv a9s_Darwin_x86_64 a9s-darwin-x64
-          [ -f a9s_Linux_arm64 ] && mv a9s_Linux_arm64 a9s-linux-arm64
-          [ -f a9s_Linux_x86_64 ] && mv a9s_Linux_x86_64 a9s-linux-x64
-          [ -f a9s_Windows_x86_64.exe ] && mv a9s_Windows_x86_64.exe a9s-windows-x64.exe
-
-          # Make them executable
-          chmod +x a9s-* || true
-
-          cd ..
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup placeholder bin directory
-        run: |
-          mkdir -p bin
+          mkdir -p bin scripts
           echo '#!/usr/bin/env node' > bin/a9s
-          echo 'console.log("This will be replaced during postinstall");' >> bin/a9s
+          echo 'console.log("Binary will be downloaded on install");' >> bin/a9s
           chmod +x bin/a9s
           ln -s a9s bin/argonaut
+
+          # Ensure install script exists
+          if [ ! -f scripts/install.js ]; then
+            echo "Creating minimal install script..."
+            cat > scripts/install.js << 'EOF'
+#!/usr/bin/env node
+console.log("Install script placeholder - will download binary on postinstall");
+EOF
+          fi
+
+          # Create uninstall script
+          cat > scripts/uninstall.js << 'EOF'
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const binDir = path.join(__dirname, '..', 'bin');
+try {
+  if (fs.existsSync(binDir)) {
+    fs.rmSync(binDir, { recursive: true, force: true });
+    console.log('Argonaut CLI uninstalled successfully');
+  }
+} catch (err) {
+  console.error('Error during uninstall:', err);
+}
+EOF
+          chmod +x scripts/*.js
 
       - name: Publish to npm
         run: npm publish --access public
