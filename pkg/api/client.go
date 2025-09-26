@@ -27,34 +27,48 @@ type Client struct {
 	insecure   bool
 }
 
+var customHTTPClient *http.Client
+
+// SetHTTPClient sets a custom HTTP client to be used by all new Client instances
+func SetHTTPClient(client *http.Client) {
+	customHTTPClient = client
+}
+
 // NewClient creates a new ArgoCD API client
 func NewClient(server *model.Server) *Client {
-	// Create HTTP transport with fast connection timeouts
-	transport := &http.Transport{
-		// Connection establishment timeout - should be very fast
-		DialContext: (&net.Dialer{
-			Timeout:   2 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		TLSHandshakeTimeout:   3 * time.Second,
-		ResponseHeaderTimeout: 5 * time.Second,
-		// Keep connections alive for efficiency
-		IdleConnTimeout:     30 * time.Second,
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 2,
-	}
+	var httpClient *http.Client
 
-	// If insecure flag is set, skip TLS verification
-	if server.Insecure {
-		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
+	// Use custom HTTP client if available
+	if customHTTPClient != nil {
+		httpClient = customHTTPClient
+	} else {
+		// Create HTTP transport with fast connection timeouts
+		transport := &http.Transport{
+			// Connection establishment timeout - should be very fast
+			DialContext: (&net.Dialer{
+				Timeout:   2 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout:   3 * time.Second,
+			ResponseHeaderTimeout: 5 * time.Second,
+			// Keep connections alive for efficiency
+			IdleConnTimeout:     30 * time.Second,
+			MaxIdleConns:        10,
+			MaxIdleConnsPerHost: 2,
 		}
-	}
 
-	// Create HTTP client without a default timeout (we'll use context timeouts)
-	httpClient := &http.Client{
-		Transport: transport,
-		// No timeout here - we use context timeouts for request-specific timing
+		// If insecure flag is set, skip TLS verification
+		if server.Insecure {
+			transport.TLSClientConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+
+		// Create HTTP client without a default timeout (we'll use context timeouts)
+		httpClient = &http.Client{
+			Transport: transport,
+			// No timeout here - we use context timeouts for request-specific timing
+		}
 	}
 
 	return &Client{

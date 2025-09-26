@@ -1,18 +1,22 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/trust"
 )
 
 // appVersion is the Argonaut version shown in the ASCII banner.
@@ -23,14 +27,24 @@ func main() {
 	// Set up logging to file
 	setupLogging()
 
-	// Flags: allow overriding ArgoCD config path for tests and custom setups
-	var cfgPathFlag string
+	// Flags: allow overriding ArgoCD config path and TLS trust settings
+	var (
+		cfgPathFlag string
+		caCertFlag  string
+		caPathFlag  string
+	)
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&cfgPathFlag, "argocd-config", "", "Path to ArgoCD CLI config file")
 	// Alias
 	fs.StringVar(&cfgPathFlag, "config", "", "Path to ArgoCD CLI config file (alias)")
+	// TLS trust flags
+	fs.StringVar(&caCertFlag, "cacert", "", "Path to CA certificate bundle (PEM format)")
+	fs.StringVar(&caPathFlag, "capath", "", "Directory containing CA certificates (*.pem, *.crt)")
 	_ = fs.Parse(os.Args[1:])
+
+	// Set up TLS trust configuration
+	setupTLSTrust(caCertFlag, caPathFlag)
 
 	// Create the initial model
 	m := NewModel()
@@ -145,4 +159,46 @@ func createFileStatusHandler() services.StatusChangeHandler {
 			logger.Debug(msg.Message)
 		}
 	}
+}
+
+// setupTLSTrust configures TLS trust using the trust package
+func setupTLSTrust(caCertFile, caCertDir string) {
+	// Configure trust options
+	opts := trust.Options{
+		CACertFile: caCertFile,
+		CACertDir:  caCertDir,
+		Timeout:    30 * time.Second, // Default HTTP timeout
+		MinTLS:     tls.VersionTLS12, // Minimum TLS 1.2
+	}
+
+	// Load certificate pool
+	pool, err := trust.LoadPool(opts)
+	if err != nil {
+		cblog.With("component", "tls").Error("Failed to load certificate pool", "err", err)
+		fmt.Fprintf(os.Stderr, "TLS configuration failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Hint: Use --cacert or --capath to add trusted CAs, or install your CA in the OS trust store\n")
+		os.Exit(1)
+	}
+
+	// Create HTTP client with trust configuration
+	httpClient, _ := trust.NewHTTP(pool, opts.MinTLS, opts.Timeout)
+
+	// Set the HTTP client globally for all API operations
+	api.SetHTTPClient(httpClient)
+
+	// Log successful trust setup
+	var certSources []string
+	if caCertFile != "" {
+		certSources = append(certSources, "1 file")
+	}
+	if caCertDir != "" {
+		certSources = append(certSources, "dir certs")
+	}
+
+	sourceStr := "system roots"
+	if len(certSources) > 0 {
+		sourceStr += " + " + strings.Join(certSources, " + ")
+	}
+
+	cblog.With("component", "tls").Info("TLS trust configured", "sources", sourceStr)
 }
