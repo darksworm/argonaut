@@ -322,8 +322,8 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 			}
 		}
 
-		// Wait briefly then send an update (reduced for faster tests)
-		time.Sleep(100 * time.Millisecond)
+		// Wait for UI to have time to render initial state before sending update
+		time.Sleep(1500 * time.Millisecond)
 
 		// Send sync status update in SSE format
 		updateLines := []string{
