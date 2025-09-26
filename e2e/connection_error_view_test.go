@@ -4,6 +4,7 @@ package main
 
 import (
     "fmt"
+    "strings"
     "testing"
     "time"
 )
@@ -14,8 +15,8 @@ func TestConnectionErrorViewCopy(t *testing.T) {
     tf := NewTUITest(t)
     t.Cleanup(tf.Cleanup)
 
-    // Point to a port that is likely closed to trigger a quick connection error
-    baseURL := "http://127.0.0.1:9"
+    // Point to a port that is definitely unreachable to trigger immediate connection error
+    baseURL := "http://127.0.0.1:1"
     cfgPath, err := tf.SetupWorkspace()
     if err != nil { t.Fatalf("setup workspace: %v", err) }
     if err := WriteArgoConfig(cfgPath, baseURL); err != nil {
@@ -26,22 +27,28 @@ func TestConnectionErrorViewCopy(t *testing.T) {
         t.Fatalf("start app: %v", err)
     }
 
-    // Expect connection error view, and the tip about context/login; and not to include redundant server line
-    if !tf.WaitForPlain("Connection Error", 4*time.Second) {
+    // Expect connection error view with all expected content
+    if !tf.WaitForPlain("Connection Error", 3*time.Second) {
         t.Log(tf.SnapshotPlain())
         t.Fatal("expected Connection Error header")
     }
-    if !tf.WaitForPlain("Tip: Ensure you are using the correct Argo CD context", 2*time.Second) {
-        t.Log(tf.SnapshotPlain())
+
+    // Check all expected content in a single snapshot to avoid sequential waits
+    snapshot := tf.SnapshotPlain()
+
+    if !strings.Contains(snapshot, "Tip: Ensure you are using the correct Argo CD context") {
+        t.Log("Snapshot:", snapshot)
         t.Fatal("expected context tip")
     }
-    if !tf.WaitForPlain("argocd login", 2*time.Second) {
-        t.Log(tf.SnapshotPlain())
+
+    if !strings.Contains(snapshot, "argocd login") {
+        t.Log("Snapshot:", snapshot)
         t.Fatal("expected argocd login hint")
     }
+
     notExpected := fmt.Sprintf("ArgoCD Server: %s", baseURL)
-    if tf.WaitForPlain(notExpected, 1*time.Second) {
-        t.Log(tf.SnapshotPlain())
+    if strings.Contains(snapshot, notExpected) {
+        t.Log("Snapshot:", snapshot)
         t.Fatal("did not expect explicit server line in connection error view")
     }
 }
