@@ -97,28 +97,23 @@ jobs:
           shasum -a 256 * > checksums.txt
           cd ..
 
-      - name: List files for upload
-        id: files
-        run: |
-          cd pr-artifacts
-          files=$(ls -1 | grep -v checksums.txt | jq -R -s -c 'split("\n")[:-1]')
-          echo "files=$files" >> $GITHUB_OUTPUT
-
       - name: Upload Linux binaries
         uses: actions/upload-artifact@v4
         with:
           name: linux-binaries-${{ steps.version.outputs.version }}
-          path: pr-artifacts/argonaut-*-linux-*
+          path: |
+            pr-artifacts/*linux*
+            pr-artifacts/argonaut
           retention-days: 30
-        if: contains(steps.files.outputs.files, 'linux')
+          if-no-files-found: ignore
 
       - name: Upload macOS binaries
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries-${{ steps.version.outputs.version }}
-          path: pr-artifacts/argonaut-*-darwin-*
+          path: pr-artifacts/*darwin*
           retention-days: 30
-        if: contains(steps.files.outputs.files, 'darwin')
+          if-no-files-found: ignore
 
       - name: Upload DEB packages
         uses: actions/upload-artifact@v4
@@ -126,7 +121,7 @@ jobs:
           name: deb-packages-${{ steps.version.outputs.version }}
           path: pr-artifacts/*.deb
           retention-days: 30
-        if: contains(steps.files.outputs.files, '.deb')
+          if-no-files-found: ignore
 
       - name: Upload RPM packages
         uses: actions/upload-artifact@v4
@@ -134,7 +129,7 @@ jobs:
           name: rpm-packages-${{ steps.version.outputs.version }}
           path: pr-artifacts/*.rpm
           retention-days: 30
-        if: contains(steps.files.outputs.files, '.rpm')
+          if-no-files-found: ignore
 
       - name: Upload APK packages
         uses: actions/upload-artifact@v4
@@ -142,7 +137,7 @@ jobs:
           name: apk-packages-${{ steps.version.outputs.version }}
           path: pr-artifacts/*.apk
           retention-days: 30
-        if: contains(steps.files.outputs.files, '.apk')
+          if-no-files-found: ignore
 
       - name: Upload checksums
         uses: actions/upload-artifact@v4
@@ -166,8 +161,8 @@ jobs:
             const baseUrl = `https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
 
             // Categorize files
-            const linuxBinaries = artifactFiles.filter(f => f.includes('linux'));
-            const macosBinaries = artifactFiles.filter(f => f.includes('darwin'));
+            const linuxBinaries = artifactFiles.filter(f => f.includes('linux') || (f === 'argonaut' && !f.includes('darwin')));
+            const macosBinaries = artifactFiles.filter(f => f.includes('darwin') || f.includes('macos'));
             const debPackages = artifactFiles.filter(f => f.endsWith('.deb'));
             const rpmPackages = artifactFiles.filter(f => f.endsWith('.rpm'));
             const apkPackages = artifactFiles.filter(f => f.endsWith('.apk'));
@@ -175,23 +170,23 @@ jobs:
             let downloadLinks = [];
 
             if (linuxBinaries.length > 0) {
-              downloadLinks.push(`- 🐧 [Linux Binaries](${baseUrl}/linux-binaries-${version}) (${linuxBinaries.length} files)`);
+              downloadLinks.push(`- 🐧 [Linux Binaries](${baseUrl}/linux-binaries-${version}.zip) (${linuxBinaries.length} files)`);
             }
 
             if (macosBinaries.length > 0) {
-              downloadLinks.push(`- 🍎 [macOS Binaries](${baseUrl}/macos-binaries-${version}) (${macosBinaries.length} files)`);
+              downloadLinks.push(`- 🍎 [macOS Binaries](${baseUrl}/macos-binaries-${version}.zip) (${macosBinaries.length} files)`);
             }
 
             if (debPackages.length > 0) {
-              downloadLinks.push(`- 📦 [DEB Packages](${baseUrl}/deb-packages-${version}) (${debPackages.length} files)`);
+              downloadLinks.push(`- 📦 [DEB Packages](${baseUrl}/deb-packages-${version}.zip) (${debPackages.length} files)`);
             }
 
             if (rpmPackages.length > 0) {
-              downloadLinks.push(`- 📦 [RPM Packages](${baseUrl}/rpm-packages-${version}) (${rpmPackages.length} files)`);
+              downloadLinks.push(`- 📦 [RPM Packages](${baseUrl}/rpm-packages-${version}.zip) (${rpmPackages.length} files)`);
             }
 
             if (apkPackages.length > 0) {
-              downloadLinks.push(`- 📦 [APK Packages](${baseUrl}/apk-packages-${version}) (${apkPackages.length} files)`);
+              downloadLinks.push(`- 📦 [APK Packages](${baseUrl}/apk-packages-${version}.zip) (${apkPackages.length} files)`);
             }
 
             const artifactList = downloadLinks.join('\n');
