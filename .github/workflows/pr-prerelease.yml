@@ -96,14 +96,12 @@ jobs:
           cd pr-artifacts
           shasum -a 256 * > checksums.txt
           cd ..
-          # Create archive
-          tar -czf argonaut-${{ steps.version.outputs.version }}-prerelease.tar.gz -C pr-artifacts .
 
-      - name: Upload artifacts to PR
+      - name: Upload individual artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: argonaut-${{ steps.version.outputs.version }}-prerelease
-          path: argonaut-${{ steps.version.outputs.version }}-prerelease.tar.gz
+          name: argonaut-${{ steps.version.outputs.version }}-binaries-and-packages
+          path: pr-artifacts/
           retention-days: 30
 
       - name: Comment on PR with download link
@@ -112,36 +110,51 @@ jobs:
           script: |
             const fs = require('fs');
             const version = '${{ steps.version.outputs.version }}';
+            const artifactName = `argonaut-${version}-binaries-and-packages`;
 
             // List artifacts in pr-artifacts directory
             const artifactFiles = fs.readdirSync('pr-artifacts').filter(f => f !== 'checksums.txt');
             const checksums = fs.readFileSync('pr-artifacts/checksums.txt', 'utf8');
 
-            const artifactList = artifactFiles.map(file => `- \`${file}\``).join('\n');
+            // Generate direct download links for each file
+            const baseUrl = `https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const artifactList = artifactFiles.map(file => {
+              // Extract file type for better categorization
+              const ext = file.split('.').pop();
+              let category = '';
+              if (['deb', 'rpm', 'apk'].includes(ext)) {
+                category = '📦 ';
+              } else if (file.includes('linux') || file.includes('darwin')) {
+                category = '🔧 ';
+              }
+              return `- ${category}[\`${file}\`](${baseUrl}/${artifactName}/${file})`;
+            }).join('\n');
 
             const comment = `## 🚀 Pre-release Build Available
 
             A pre-release build has been created for this PR with version \`${version}\`.
 
-            ### Download Artifacts
-            You can download the build artifacts from the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
-
-            ### Built Artifacts
+            ### 📥 Direct Downloads
             ${artifactList}
 
-            ### Checksums
-            \`\`\`
-            ${checksums}
-            \`\`\`
-
-            ### Docker Image
-            A pre-release Docker image is also available:
+            ### 🐳 Docker Image
             \`\`\`bash
             docker pull ghcr.io/${{ github.repository }}:${version}
             \`\`\`
 
-            > **Note:** This is a pre-release build for testing purposes only.
-            > The version includes \`-dev\` to clearly indicate it's not an official release.
+            ### 🔍 Checksums
+            <details>
+            <summary>Click to expand checksums</summary>
+
+            \`\`\`
+            ${checksums}
+            \`\`\`
+            </details>
+
+            ### 📋 Alternative Download
+            You can also download all files as a zip from the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+            > **Note:** This is a pre-release build for testing purposes only. The version includes \`-dev\` to clearly indicate it's not an official release.
 
             ---
             *This comment will be updated on each push to the PR.*`;
