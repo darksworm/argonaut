@@ -3,6 +3,7 @@
 package main
 
 import (
+    "strings"
     "testing"
     "time"
 )
@@ -23,10 +24,19 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
         t.Fatalf("start app: %v", err)
     }
 
-    // Wait for app ready status (stable marker)
-    if ok := tf.WaitForPlain("Ready", 3*time.Second); !ok {
+    // Wait for app to fully load - need to see clusters loaded, not just "Ready"
+    if ok := tf.WaitForPlain("cluster-a", 4*time.Second); !ok {
         t.Log(tf.SnapshotPlain())
-        t.Fatal("did not see ready status")
+        t.Fatal("did not see cluster data loaded")
+    }
+
+    // Wait for loading text to disappear to ensure UI is fully stable
+    for i := 0; i < 20; i++ {
+        snapshot := tf.SnapshotPlain()
+        if !strings.Contains(snapshot, "Connecting to Argo CD") {
+            break
+        }
+        time.Sleep(100 * time.Millisecond)
     }
 
     // Enter help
