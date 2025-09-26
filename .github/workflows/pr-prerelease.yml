@@ -1,0 +1,182 @@
+name: PR Pre-release Build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+  pull-requests: write
+  packages: write
+
+jobs:
+  check-release-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      is_release_pr: ${{ steps.check.outputs.is_release_pr }}
+    steps:
+      - name: Check if this is a release-please PR
+        id: check
+        run: |
+          if [[ "${{ github.event.pull_request.user.login }}" == "github-actions[bot]" ]] && [[ "${{ github.event.pull_request.title }}" =~ ^chore\(main\): ]]; then
+            echo "is_release_pr=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-prerelease:
+    needs: check-release-pr
+    if: needs.check-release-pr.outputs.is_release_pr == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create snapshot version
+        id: version
+        run: |
+          # Extract version from release-please PR branch or use commit SHA
+          if [[ "${{ github.event.pull_request.head.ref }}" =~ release-please--branches--main--components--argonaut ]]; then
+            # Try to extract version from PR title or description
+            VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP 'release \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+            if [[ -z "$VERSION" ]]; then
+              VERSION="snapshot-$(git rev-parse --short HEAD)"
+            else
+              VERSION="${VERSION}-rc.$(git rev-parse --short HEAD)"
+            fi
+          else
+            VERSION="snapshot-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building pre-release version: $VERSION"
+
+      - name: Run GoReleaser in snapshot mode
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: nightly
+          args: build --config .goreleaser.release.yml --snapshot --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package artifacts
+        run: |
+          mkdir -p pr-artifacts
+          # Copy built binaries
+          find dist/ -name "argonaut*" -type f -executable -exec cp {} pr-artifacts/ \;
+          # Create checksums
+          cd pr-artifacts
+          shasum -a 256 * > checksums.txt
+          cd ..
+          # Create archive
+          tar -czf argonaut-${{ steps.version.outputs.version }}-prerelease.tar.gz -C pr-artifacts .
+
+      - name: Upload artifacts to PR
+        uses: actions/upload-artifact@v4
+        with:
+          name: argonaut-${{ steps.version.outputs.version }}-prerelease
+          path: argonaut-${{ steps.version.outputs.version }}-prerelease.tar.gz
+          retention-days: 30
+
+      - name: Comment on PR with download link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const version = '${{ steps.version.outputs.version }}';
+
+            // List artifacts in pr-artifacts directory
+            const artifactFiles = fs.readdirSync('pr-artifacts').filter(f => f !== 'checksums.txt');
+            const checksums = fs.readFileSync('pr-artifacts/checksums.txt', 'utf8');
+
+            const artifactList = artifactFiles.map(file => `- \`${file}\``).join('\n');
+
+            const comment = `## 🚀 Pre-release Build Available
+
+            A pre-release build has been created for this PR with version \`${version}\`.
+
+            ### Download Artifacts
+            You can download the build artifacts from the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+            ### Built Artifacts
+            ${artifactList}
+
+            ### Checksums
+            \`\`\`
+            ${checksums}
+            \`\`\`
+
+            ### Docker Image
+            A pre-release Docker image is also available:
+            \`\`\`bash
+            docker pull ghcr.io/${{ github.repository }}:${version}
+            \`\`\`
+
+            ---
+            *This comment will be updated on each push to the PR.*`;
+
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('🚀 Pre-release Build Available')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+
+      - name: Build and push Docker image with pre-release tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag ghcr.io/${{ github.repository }}:${VERSION} \
+            --tag ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }} \
+            --push \
+            --file Dockerfile.v2 \
+            .
