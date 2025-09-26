@@ -194,12 +194,23 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 	}
 
 	// Load client certificate if provided
-	clientCert, err := trust.LoadClientCertificate(clientCertFile, clientKeyFile)
-	if err != nil {
-		cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
-		fmt.Fprintf(os.Stderr, "Client certificate configuration failed: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Hint: Ensure --client-crt and --client-crt-key point to valid certificate files\n")
-		os.Exit(1)
+	var clientCert *tls.Certificate
+	var err error
+
+	if clientCertFile != "" && clientKeyFile != "" {
+		cblog.With("component", "tls").Info("Loading client certificate for mutual TLS authentication",
+			"cert", clientCertFile, "key", clientKeyFile)
+		clientCert, err = trust.LoadClientCertificate(clientCertFile, clientKeyFile)
+		if err != nil {
+			cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
+			fmt.Fprintf(os.Stderr, "Client certificate configuration failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Hint: Ensure --client-crt and --client-crt-key point to valid certificate files\n")
+			os.Exit(1)
+		}
+		cblog.With("component", "tls").Info("Client certificate loaded successfully")
+	} else if clientCertFile != "" || clientKeyFile != "" {
+		cblog.With("component", "tls").Warn("Incomplete client certificate configuration - both --client-crt and --client-crt-key are required")
+		fmt.Fprintf(os.Stderr, "Warning: Both --client-crt and --client-crt-key must be provided for client certificate authentication\n")
 	}
 
 	// Create HTTP client with trust configuration
