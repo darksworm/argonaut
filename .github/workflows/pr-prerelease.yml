@@ -83,27 +83,49 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug GoReleaser output
+        run: |
+          echo "=== Contents of dist/ directory ==="
+          find dist/ -type f -ls || true
+          echo "=== All files by name ==="
+          find dist/ -type f -name "*" | sort || true
+
       - name: Package artifacts
         run: |
           mkdir -p pr-artifacts
-          # Copy built binaries
-          find dist/ -name "argonaut*" -type f -executable -exec cp {} pr-artifacts/ \;
-          # Copy Linux packages (deb, rpm, apk)
-          find dist/ -name "*.deb" -exec cp {} pr-artifacts/ \;
-          find dist/ -name "*.rpm" -exec cp {} pr-artifacts/ \;
-          find dist/ -name "*.apk" -exec cp {} pr-artifacts/ \;
+
+          # Copy binaries from GoReleaser build directories with proper naming
+          find dist/ -path "*/go-standard_*" -name "argonaut" -type f | while read file; do
+            # Extract platform info from path
+            platform_dir=$(basename $(dirname "$file"))
+            # go-standard_darwin_amd64_v1 -> darwin-amd64
+            platform=$(echo "$platform_dir" | sed 's/go-standard_//; s/_v[0-9.]*$//')
+            platform_clean=$(echo "$platform" | sed 's/_/-/g')
+            cp "$file" "pr-artifacts/argonaut-${platform_clean}"
+            echo "Copied: $file -> pr-artifacts/argonaut-${platform_clean}"
+          done
+
+          # Copy packages
+          find dist/ -name "*.deb" -exec cp {} pr-artifacts/ \; 2>/dev/null || true
+          find dist/ -name "*.rpm" -exec cp {} pr-artifacts/ \; 2>/dev/null || true
+          find dist/ -name "*.apk" -exec cp {} pr-artifacts/ \; 2>/dev/null || true
+
           # Create checksums
           cd pr-artifacts
-          shasum -a 256 * > checksums.txt
+          echo "=== Files copied to pr-artifacts ==="
+          ls -la
+          if [ "$(ls -A)" ]; then
+            shasum -a 256 * > checksums.txt
+          else
+            echo "No files found!" > checksums.txt
+          fi
           cd ..
 
       - name: Upload Linux binaries
         uses: actions/upload-artifact@v4
         with:
           name: linux-binaries-${{ steps.version.outputs.version }}
-          path: |
-            pr-artifacts/*linux*
-            pr-artifacts/argonaut
+          path: pr-artifacts/argonaut-linux-*
           retention-days: 30
           if-no-files-found: ignore
 
@@ -111,7 +133,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries-${{ steps.version.outputs.version }}
-          path: pr-artifacts/*darwin*
+          path: pr-artifacts/argonaut-darwin-*
           retention-days: 30
           if-no-files-found: ignore
 
