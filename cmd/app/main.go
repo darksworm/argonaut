@@ -163,6 +163,11 @@ func createFileStatusHandler() services.StatusChangeHandler {
 
 // setupTLSTrust configures TLS trust using the trust package
 func setupTLSTrust(caCertFile, caCertDir string) {
+	// Only configure custom TLS trust if flags or environment variables are provided
+	if caCertFile == "" && caCertDir == "" && os.Getenv("SSL_CERT_FILE") == "" && os.Getenv("SSL_CERT_DIR") == "" {
+		return
+	}
+
 	// Configure trust options
 	opts := trust.Options{
 		CACertFile: caCertFile,

@@ -40,7 +40,30 @@ func NewClient(server *model.Server) *Client {
 
 	// Use custom HTTP client if available
 	if customHTTPClient != nil {
-		httpClient = customHTTPClient
+		// Clone the custom client to avoid modifying the shared instance
+		httpClient = &http.Client{
+			Transport:     customHTTPClient.Transport,
+			CheckRedirect: customHTTPClient.CheckRedirect,
+			Jar:           customHTTPClient.Jar,
+			Timeout:       customHTTPClient.Timeout,
+		}
+
+		// If insecure flag is set, we need to modify the transport
+		if server.Insecure {
+			// Clone the transport to avoid modifying the shared one
+			if transport, ok := httpClient.Transport.(*http.Transport); ok {
+				clonedTransport := transport.Clone()
+				if clonedTransport.TLSClientConfig == nil {
+					clonedTransport.TLSClientConfig = &tls.Config{}
+				} else {
+					// Clone TLS config to avoid modifying shared config
+					clonedTLSConfig := clonedTransport.TLSClientConfig.Clone()
+					clonedTransport.TLSClientConfig = clonedTLSConfig
+				}
+				clonedTransport.TLSClientConfig.InsecureSkipVerify = true
+				httpClient.Transport = clonedTransport
+			}
+		}
 	} else {
 		// Create HTTP transport with fast connection timeouts
 		transport := &http.Transport{
