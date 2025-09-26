@@ -240,6 +240,9 @@ var (
 	// Selection highlight style (matches ListView active items)
 	selectedStyle = lipgloss.NewStyle().
 			Background(magentaBright)
+	// Cursor sitting on a selected row should stand out
+	cursorOnSelectedStyle = lipgloss.NewStyle().
+				Background(cyanBright)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().
@@ -870,7 +873,6 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 	return "..."
 }
 
-
 // readLogContent reads the actual log file content
 func (m *Model) readLogContent() string {
 	// Try to read the log file path from environment (set by setupLogging)
@@ -905,7 +907,6 @@ func (m *Model) readLogContent() string {
 	header := "ArgoCD Application Logs\n\nPress q to return to main view.\n\n"
 	return header + "--- Log Content ---\n\n" + highlightedLogText
 }
-
 
 // renderErrorView displays API errors in a user-friendly format
 func (m *Model) renderErrorView() string {

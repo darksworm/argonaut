@@ -230,13 +230,15 @@ func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 		row = clipAnsiToWidth(row, fullRowWidth)
 	}
 
-	// Apply selection highlight (matches ListView backgroundColor)
-	if active {
+	// Apply highlight: use a distinct style when cursor overlaps a selected row
+	if isCursor && isSelected {
+		row = cursorOnSelectedStyle.Render(row)
+	} else if active { // cursor or selected
 		row = selectedStyle.Render(row)
-		// After styling, clip again defensively (some terminals render bold differently)
-		if lipgloss.Width(row) > fullRowWidth {
-			row = clipAnsiToWidth(row, fullRowWidth)
-		}
+	}
+	// After styling, clip again defensively (some terminals render bold differently)
+	if lipgloss.Width(row) > fullRowWidth {
+		row = clipAnsiToWidth(row, fullRowWidth)
 	}
 
 	return row
