@@ -78,12 +78,12 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building pre-release version: $VERSION"
 
-      - name: Run GoReleaser build only (no publishing)
+      - name: Run GoReleaser release with dev tags (no publishing)
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: nightly
-          args: build --config .goreleaser.release.yml --snapshot --clean --skip=docker,aur,nix,nfpm
+          args: release --config .goreleaser.release.yml --snapshot --clean --skip=aur,nix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,6 +92,10 @@ jobs:
           mkdir -p pr-artifacts
           # Copy built binaries
           find dist/ -name "argonaut*" -type f -executable -exec cp {} pr-artifacts/ \;
+          # Copy Linux packages (deb, rpm, apk)
+          find dist/ -name "*.deb" -exec cp {} pr-artifacts/ \;
+          find dist/ -name "*.rpm" -exec cp {} pr-artifacts/ \;
+          find dist/ -name "*.apk" -exec cp {} pr-artifacts/ \;
           # Create checksums
           cd pr-artifacts
           shasum -a 256 * > checksums.txt
@@ -134,8 +138,14 @@ jobs:
             ${checksums}
             \`\`\`
 
+            ### Docker Image
+            A pre-release Docker image is also available:
+            \`\`\`bash
+            docker pull ghcr.io/${{ github.repository }}:${version}
+            \`\`\`
+
             > **Note:** This is a pre-release build for testing purposes only.
-            > Docker images and distribution packages are only built for official releases.
+            > The version includes \`-dev\` to clearly indicate it's not an official release.
 
             ---
             *This comment will be updated on each push to the PR.*`;
