@@ -60,24 +60,46 @@ func LoadPool(opts Options) (*x509.CertPool, error) {
 
 	// Add certificates from directory (--capath or SSL_CERT_DIR)
 	if d := first(opts.CACertDir, os.Getenv("SSL_CERT_DIR")); d != "" {
-		err := filepath.WalkDir(d, func(p string, e fs.DirEntry, werr error) error {
-			if werr != nil {
-				return werr
+		// Determine if this is from explicit flag or environment variable
+		isFromFlag := opts.CACertDir != ""
+
+		// Handle colon-separated directory paths (OpenSSL standard)
+		dirs := strings.Split(d, ":")
+		for _, dir := range dirs {
+			dir = strings.TrimSpace(dir)
+			if dir == "" {
+				continue
 			}
-			if e.IsDir() {
-				return nil
+
+			// Check if directory exists
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				if isFromFlag && len(dirs) == 1 {
+					// Single explicit directory from flag should fail if it doesn't exist
+					return nil, fmt.Errorf("failed to load certificates from directory %s: %w", dir, err)
+				}
+				// Skip non-existent directories in colon-separated lists or multi-dir flags
+				continue
 			}
-			if !hasSuffix(p, ".pem", ".crt") {
-				return nil
-			}
-			b, err := os.ReadFile(p)
+
+			err := filepath.WalkDir(dir, func(p string, e fs.DirEntry, werr error) error {
+				if werr != nil {
+					return werr
+				}
+				if e.IsDir() {
+					return nil
+				}
+				if !hasSuffix(p, ".pem", ".crt") {
+					return nil
+				}
+				b, err := os.ReadFile(p)
+				if err != nil {
+					return fmt.Errorf("failed to read CA cert file %s: %w", p, err)
+				}
+				return add(p, b)
+			})
 			if err != nil {
-				return fmt.Errorf("failed to read CA cert file %s: %w", p, err)
+				return nil, fmt.Errorf("failed to load certificates from directory %s: %w", dir, err)
 			}
-			return add(p, b)
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to load certificates from directory %s: %w", d, err)
 		}
 	}
 

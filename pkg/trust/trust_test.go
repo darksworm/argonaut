@@ -306,6 +306,201 @@ func TestLoadPool_FlagPrecedenceOverEnv(t *testing.T) {
 	// This is harder to test directly, but we can at least verify it succeeds
 }
 
+func TestLoadPool_ColonSeparatedCertDir(t *testing.T) {
+	// Create test CA
+	_, _, certPEM, err := testCA()
+	if err != nil {
+		t.Fatalf("Failed to create test CA: %v", err)
+	}
+
+	// Create temporary directories
+	tmpDir1, err := os.MkdirTemp("", "test-ca-dir1-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir 1: %v", err)
+	}
+	defer os.RemoveAll(tmpDir1)
+
+	tmpDir2, err := os.MkdirTemp("", "test-ca-dir2-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir 2: %v", err)
+	}
+	defer os.RemoveAll(tmpDir2)
+
+	// Write certificates to both directories
+	certFile1 := filepath.Join(tmpDir1, "ca1.pem")
+	certFile2 := filepath.Join(tmpDir2, "ca2.crt")
+
+	if err := os.WriteFile(certFile1, certPEM, 0644); err != nil {
+		t.Fatalf("Failed to write cert file 1: %v", err)
+	}
+	if err := os.WriteFile(certFile2, certPEM, 0644); err != nil {
+		t.Fatalf("Failed to write cert file 2: %v", err)
+	}
+
+	// Test with colon-separated SSL_CERT_DIR
+	oldEnv := os.Getenv("SSL_CERT_DIR")
+	defer os.Setenv("SSL_CERT_DIR", oldEnv)
+
+	colonSeparated := tmpDir1 + ":" + tmpDir2
+	os.Setenv("SSL_CERT_DIR", colonSeparated)
+
+	opts := Options{}
+	pool, err := LoadPool(opts)
+
+	if err != nil {
+		t.Fatalf("LoadPool should succeed with colon-separated SSL_CERT_DIR: %v", err)
+	}
+
+	if pool == nil {
+		t.Fatal("LoadPool should return a non-nil pool")
+	}
+
+	// Should have certificates from both directories
+	subjects := pool.Subjects()
+	if len(subjects) == 0 {
+		t.Fatal("Pool should contain certificates from both directories")
+	}
+}
+
+func TestLoadPool_ColonSeparatedCertDirWithSpaces(t *testing.T) {
+	// Create test CA
+	_, _, certPEM, err := testCA()
+	if err != nil {
+		t.Fatalf("Failed to create test CA: %v", err)
+	}
+
+	// Create temporary directory
+	tmpDir, err := os.MkdirTemp("", "test-ca-dir-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write certificate
+	certFile := filepath.Join(tmpDir, "ca.pem")
+	if err := os.WriteFile(certFile, certPEM, 0644); err != nil {
+		t.Fatalf("Failed to write cert file: %v", err)
+	}
+
+	// Test with colon-separated SSL_CERT_DIR that has spaces and empty entries
+	oldEnv := os.Getenv("SSL_CERT_DIR")
+	defer os.Setenv("SSL_CERT_DIR", oldEnv)
+
+	// Include spaces around paths and empty entries (common in env vars)
+	colonSeparated := " " + tmpDir + " : : /nonexistent/dir :"
+	os.Setenv("SSL_CERT_DIR", colonSeparated)
+
+	opts := Options{}
+	pool, err := LoadPool(opts)
+
+	// Should succeed despite non-existent directories and spaces
+	if err != nil {
+		t.Fatalf("LoadPool should succeed with spaced colon-separated SSL_CERT_DIR: %v", err)
+	}
+
+	if pool == nil {
+		t.Fatal("LoadPool should return a non-nil pool")
+	}
+
+	// Should have certificate from the valid directory
+	subjects := pool.Subjects()
+	if len(subjects) == 0 {
+		t.Fatal("Pool should contain certificate from valid directory")
+	}
+}
+
+func TestLoadPool_FlagWithColonSeparatedDirs(t *testing.T) {
+	// Create test CA
+	_, _, certPEM, err := testCA()
+	if err != nil {
+		t.Fatalf("Failed to create test CA: %v", err)
+	}
+
+	// Create temporary directories
+	tmpDir1, err := os.MkdirTemp("", "test-ca-flag1-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir 1: %v", err)
+	}
+	defer os.RemoveAll(tmpDir1)
+
+	tmpDir2, err := os.MkdirTemp("", "test-ca-flag2-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir 2: %v", err)
+	}
+	defer os.RemoveAll(tmpDir2)
+
+	// Write certificates to both directories
+	certFile1 := filepath.Join(tmpDir1, "ca1.pem")
+	certFile2 := filepath.Join(tmpDir2, "ca2.crt")
+
+	if err := os.WriteFile(certFile1, certPEM, 0644); err != nil {
+		t.Fatalf("Failed to write cert file 1: %v", err)
+	}
+	if err := os.WriteFile(certFile2, certPEM, 0644); err != nil {
+		t.Fatalf("Failed to write cert file 2: %v", err)
+	}
+
+	// Test with colon-separated --capath flag (should work with existing dirs)
+	colonSeparated := tmpDir1 + ":" + tmpDir2
+	opts := Options{CACertDir: colonSeparated}
+	pool, err := LoadPool(opts)
+
+	if err != nil {
+		t.Fatalf("LoadPool should succeed with colon-separated flag dirs: %v", err)
+	}
+
+	if pool == nil {
+		t.Fatal("LoadPool should return a non-nil pool")
+	}
+
+	// Should have certificates from both directories
+	subjects := pool.Subjects()
+	if len(subjects) == 0 {
+		t.Fatal("Pool should contain certificates from both flag directories")
+	}
+}
+
+func TestLoadPool_FlagWithColonSeparatedDirsOneNonExistent(t *testing.T) {
+	// Create test CA
+	_, _, certPEM, err := testCA()
+	if err != nil {
+		t.Fatalf("Failed to create test CA: %v", err)
+	}
+
+	// Create one temporary directory
+	tmpDir, err := os.MkdirTemp("", "test-ca-flag-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write certificate
+	certFile := filepath.Join(tmpDir, "ca.pem")
+	if err := os.WriteFile(certFile, certPEM, 0644); err != nil {
+		t.Fatalf("Failed to write cert file: %v", err)
+	}
+
+	// Test with colon-separated --capath flag with one non-existent directory
+	// Should succeed and skip the non-existent directory
+	colonSeparated := tmpDir + ":/nonexistent/dir"
+	opts := Options{CACertDir: colonSeparated}
+	pool, err := LoadPool(opts)
+
+	if err != nil {
+		t.Fatalf("LoadPool should succeed with mixed existing/non-existing flag dirs: %v", err)
+	}
+
+	if pool == nil {
+		t.Fatal("LoadPool should return a non-nil pool")
+	}
+
+	// Should have certificate from the existing directory
+	subjects := pool.Subjects()
+	if len(subjects) == 0 {
+		t.Fatal("Pool should contain certificate from existing flag directory")
+	}
+}
+
 func TestNewHTTP(t *testing.T) {
 	// Create test cert pool
 	opts := Options{}
