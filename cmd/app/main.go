@@ -29,9 +29,11 @@ func main() {
 
 	// Flags: allow overriding ArgoCD config path and TLS trust settings
 	var (
-		cfgPathFlag string
-		caCertFlag  string
-		caPathFlag  string
+		cfgPathFlag    string
+		caCertFlag     string
+		caPathFlag     string
+		clientCertFlag string
+		clientKeyFlag  string
 	)
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -41,10 +43,13 @@ func main() {
 	// TLS trust flags
 	fs.StringVar(&caCertFlag, "cacert", "", "Path to CA certificate bundle (PEM format)")
 	fs.StringVar(&caPathFlag, "capath", "", "Directory containing CA certificates (*.pem, *.crt)")
+	// Client certificate authentication flags
+	fs.StringVar(&clientCertFlag, "client-crt", "", "Path to client certificate file (PEM format)")
+	fs.StringVar(&clientKeyFlag, "client-crt-key", "", "Path to client certificate private key file (PEM format)")
 	_ = fs.Parse(os.Args[1:])
 
 	// Set up TLS trust configuration
-	setupTLSTrust(caCertFlag, caPathFlag)
+	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
 
 	// Create the initial model
 	m := NewModel()
@@ -162,18 +167,21 @@ func createFileStatusHandler() services.StatusChangeHandler {
 }
 
 // setupTLSTrust configures TLS trust using the trust package
-func setupTLSTrust(caCertFile, caCertDir string) {
+func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) {
 	// Only configure custom TLS trust if flags or environment variables are provided
-	if caCertFile == "" && caCertDir == "" && os.Getenv("SSL_CERT_FILE") == "" && os.Getenv("SSL_CERT_DIR") == "" {
+	if caCertFile == "" && caCertDir == "" && clientCertFile == "" && clientKeyFile == "" &&
+		os.Getenv("SSL_CERT_FILE") == "" && os.Getenv("SSL_CERT_DIR") == "" {
 		return
 	}
 
 	// Configure trust options
 	opts := trust.Options{
-		CACertFile: caCertFile,
-		CACertDir:  caCertDir,
-		Timeout:    30 * time.Second, // Default HTTP timeout
-		MinTLS:     tls.VersionTLS12, // Minimum TLS 1.2
+		CACertFile:     caCertFile,
+		CACertDir:      caCertDir,
+		ClientCertFile: clientCertFile,
+		ClientKeyFile:  clientKeyFile,
+		Timeout:        30 * time.Second, // Default HTTP timeout
+		MinTLS:         tls.VersionTLS12, // Minimum TLS 1.2
 	}
 
 	// Load certificate pool
@@ -185,8 +193,17 @@ func setupTLSTrust(caCertFile, caCertDir string) {
 		os.Exit(1)
 	}
 
+	// Load client certificate if provided
+	clientCert, err := trust.LoadClientCertificate(clientCertFile, clientKeyFile)
+	if err != nil {
+		cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
+		fmt.Fprintf(os.Stderr, "Client certificate configuration failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Hint: Ensure --client-crt and --client-crt-key point to valid certificate files\n")
+		os.Exit(1)
+	}
+
 	// Create HTTP client with trust configuration
-	httpClient, _ := trust.NewHTTP(pool, opts.MinTLS, opts.Timeout)
+	httpClient, _ := trust.NewHTTP(pool, clientCert, opts.MinTLS, opts.Timeout)
 
 	// Set the HTTP client globally for all API operations
 	api.SetHTTPClient(httpClient)
@@ -205,5 +222,10 @@ func setupTLSTrust(caCertFile, caCertDir string) {
 		sourceStr += " + " + strings.Join(certSources, " + ")
 	}
 
-	cblog.With("component", "tls").Info("TLS trust configured", "sources", sourceStr)
+	var authMethod string
+	if clientCert != nil {
+		authMethod = " + client cert auth"
+	}
+
+	cblog.With("component", "tls").Info("TLS trust configured", "sources", sourceStr+authMethod)
 }

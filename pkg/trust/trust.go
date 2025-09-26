@@ -18,10 +18,12 @@ import (
 
 // Options configures certificate loading and HTTP client behavior
 type Options struct {
-	CACertFile string        // Path to PEM bundle file
-	CACertDir  string        // Directory containing *.pem or *.crt files
-	Timeout    time.Duration // HTTP client timeout
-	MinTLS     uint16        // Minimum TLS version
+	CACertFile     string        // Path to PEM bundle file
+	CACertDir      string        // Directory containing *.pem or *.crt files
+	ClientCertFile string        // Path to client certificate file
+	ClientKeyFile  string        // Path to client certificate private key file
+	Timeout        time.Duration // HTTP client timeout
+	MinTLS         uint16        // Minimum TLS version
 }
 
 // LoadPool creates a certificate pool with system roots plus optional extras
@@ -87,15 +89,37 @@ func LoadPool(opts Options) (*x509.CertPool, error) {
 	return pool, nil
 }
 
-// NewHTTP creates an HTTP client with the given certificate pool and TLS settings
+// LoadClientCertificate loads a client certificate and private key for mutual TLS authentication
+func LoadClientCertificate(certFile, keyFile string) (*tls.Certificate, error) {
+	if certFile == "" || keyFile == "" {
+		return nil, nil
+	}
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load client certificate: %w", err)
+	}
+
+	return &cert, nil
+}
+
+// NewHTTP creates an HTTP client with the given certificate pool, client cert, and TLS settings
 // The timeout parameter is ignored - timeouts should be controlled per-request via context
-func NewHTTP(pool *x509.CertPool, minTLS uint16, timeout time.Duration) (*http.Client, context.Context) {
+func NewHTTP(pool *x509.CertPool, clientCert *tls.Certificate, minTLS uint16, timeout time.Duration) (*http.Client, context.Context) {
+	// Create TLS config with CA pool and optional client certificate
+	tlsConfig := &tls.Config{
+		RootCAs:    pool,
+		MinVersion: minTLS,
+	}
+
+	// Add client certificate if provided
+	if clientCert != nil {
+		tlsConfig.Certificates = []tls.Certificate{*clientCert}
+	}
+
 	// Create transport with TLS configuration and reasonable connection timeouts
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			RootCAs:    pool,
-			MinVersion: minTLS,
-		},
+		TLSClientConfig: tlsConfig,
 		// Connection establishment timeout - should be fast
 		DialContext: (&net.Dialer{
 			Timeout:   5 * time.Second,
