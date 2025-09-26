@@ -31,6 +31,11 @@ type Palette struct {
 	SelectedBG       color.Color // selected row bg (usually == Accent)
 	CursorSelectedBG color.Color // cursor on selected row bg
 	Border           color.Color // border color
+
+	// Neutrals/backgrounds
+	MutedBG color.Color // low-contrast background (e.g., inactive buttons)
+	ShadeBG color.Color // subtle row highlight background
+	DarkBG  color.Color // dark panel background when needed
 }
 
 // Default returns the stock palette matching the previous hardcoded colors.
@@ -49,6 +54,9 @@ func Default() Palette {
 		SelectedBG:       lipgloss.Color("13"), // same as Accent by default
 		CursorSelectedBG: lipgloss.Color("14"), // cyan
 		Border:           lipgloss.Color("13"),
+		MutedBG:          lipgloss.Color("238"),
+		ShadeBG:          lipgloss.Color("240"),
+		DarkBG:           lipgloss.Color("0"),
 	}
 }
 
@@ -90,5 +98,8 @@ func FromEnv(base Palette) Palette {
 	set("ARGONAUT_BG_SELECTED", func(c color.Color) { base.SelectedBG = c })
 	set("ARGONAUT_BG_CURSOR_SELECTED", func(c color.Color) { base.CursorSelectedBG = c })
 	set("ARGONAUT_COLOR_BORDER", func(c color.Color) { base.Border = c })
+	set("ARGONAUT_BG_MUTED", func(c color.Color) { base.MutedBG = c })
+	set("ARGONAUT_BG_SHADE", func(c color.Color) { base.ShadeBG = c })
+	set("ARGONAUT_BG_DARK", func(c color.Color) { base.DarkBG = c })
 	return base
 }

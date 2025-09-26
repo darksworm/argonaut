@@ -27,6 +27,11 @@ var (
 	unknownColor   = lipgloss.Color("8")  // Dim for Unknown
 	cyanBright     = lipgloss.Color("14") // Cyan accents
 	whiteBright    = lipgloss.Color("15") // Bright white
+
+	// Neutral backgrounds used in various components
+	mutedBG = lipgloss.Color("238") // low-contrast bg
+	shadeBG = lipgloss.Color("240") // subtle row highlight
+	darkBG  = lipgloss.Color("0")   // dark panel background
 )
 
 // HighlightLogLine applies syntax highlighting to a single log line
@@ -694,7 +699,7 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	// Buttons: highlight selected using stronger contrast
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(mutedBG).Foreground(whiteBright).Padding(0, 2)
 	yesBtn := inactive.Render("Yes")
 	cancelBtn := inactive.Render("Cancel")
 	if m.state.Modals.ConfirmSyncSelected == 0 {
@@ -1211,7 +1216,7 @@ func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerH
 	}
 	// Build inner confirmation modal (bordered) with title
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(mutedBG).Foreground(whiteBright).Padding(0, 2)
 	yesBtn := inactive.Render("Yes")
 	noBtn := inactive.Render("No")
 	if rollback.ConfirmSelected == 0 {

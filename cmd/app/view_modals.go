@@ -14,7 +14,7 @@ func (m *Model) renderHelpModal() string {
 
 	// Small keycap style to make keys pop
 	keycap := func(s string) string {
-		return lipgloss.NewStyle().Foreground(whiteBright).Background(lipgloss.Color("238")).Padding(0, 1).Render(s)
+		return lipgloss.NewStyle().Foreground(whiteBright).Background(mutedBG).Padding(0, 1).Render(s)
 	}
 	mono := func(s string) string { return lipgloss.NewStyle().Foreground(cyanBright).Render(s) }
 	bullet := func() string { return lipgloss.NewStyle().Foreground(dimColor).Render("•") }
@@ -79,7 +79,7 @@ func (m *Model) renderDiffLoadingSpinner() string {
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
-		Background(lipgloss.Color("0")).
+		Background(darkBG).
 		Foreground(whiteBright).
 		Padding(1, 2).
 		Bold(true).
@@ -94,7 +94,7 @@ func (m *Model) renderTreeLoadingSpinner() string {
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
-		Background(lipgloss.Color("0")).
+		Background(darkBG).
 		Foreground(whiteBright).
 		Padding(1, 2).
 		Bold(true).

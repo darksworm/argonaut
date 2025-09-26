@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/theme"
+	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // applyTheme updates global color variables and derived styles used
@@ -31,4 +32,12 @@ func applyTheme(p theme.Palette) {
 	selectedStyle = lipgloss.NewStyle().Background(p.SelectedBG)
 	cursorOnSelectedStyle = lipgloss.NewStyle().Background(p.CursorSelectedBG)
 	statusStyle = lipgloss.NewStyle().Foreground(dimColor)
+
+	// Neutral backgrounds
+	mutedBG = p.MutedBG
+	shadeBG = p.ShadeBG
+	darkBG = p.DarkBG
+
+	// Propagate to tree view package
+	treeview.ApplyTheme(p)
 }

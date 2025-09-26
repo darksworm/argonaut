@@ -20,7 +20,7 @@ import (
 func NewModel() *Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	s.Style = lipgloss.NewStyle().Foreground(magentaBright)
 
 	// Initialize tables using helpers
 	appsTable := newAppsTable()

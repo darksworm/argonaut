@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/theme"
 )
 
 // TreeView wraps a simple interactive tree for displaying ArgoCD resource trees.
@@ -56,6 +57,16 @@ var (
 	colorWhite  = lipgloss.Color("15")
 	selectBG    = lipgloss.Color("13")
 )
+
+// ApplyTheme updates the tree view color palette from the app theme.
+func ApplyTheme(p theme.Palette) {
+	colorGreen = p.Success
+	colorYellow = p.Progress
+	colorRed = p.Danger
+	colorGray = p.Gray
+	colorWhite = p.Text
+	selectBG = p.SelectedBG
+}
 
 func statusStyle(s string) lipgloss.Style {
 	switch strings.ToLower(s) {

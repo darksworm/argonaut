@@ -59,10 +59,10 @@ func (m *Model) renderTreePanel(availableRows int) string {
 		line := lines[i]
 		// Highlight the selected line
 		if i == cursorIdx {
-			// Add selection indicator
+			// Add subtle selection background for the entire row in tree panel
 			line = lipgloss.NewStyle().
-				Background(lipgloss.Color("240")).
-				Foreground(lipgloss.Color("255")).
+				Background(shadeBG).
+				Foreground(whiteBright).
 				Render(line)
 		}
 		visibleLines = append(visibleLines, line)
