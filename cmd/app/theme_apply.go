@@ -31,6 +31,7 @@ func applyTheme(p theme.Palette) {
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(yellowBright)
 	selectedStyle = lipgloss.NewStyle().Background(p.SelectedBG)
 	cursorOnSelectedStyle = lipgloss.NewStyle().Background(p.CursorSelectedBG)
+	cursorStyle = lipgloss.NewStyle().Background(p.CursorBG)
 	statusStyle = lipgloss.NewStyle().Foreground(dimColor)
 
 	// Neutral backgrounds

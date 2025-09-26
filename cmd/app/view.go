@@ -242,12 +242,15 @@ var (
 			Bold(true).
 			Foreground(yellowBright)
 
-	// Selection highlight style (matches ListView active items)
+		// Selection highlight style (matches ListView active items)
 	selectedStyle = lipgloss.NewStyle().
 			Background(magentaBright)
 	// Cursor sitting on a selected row should stand out
 	cursorOnSelectedStyle = lipgloss.NewStyle().
 				Background(cyanBright)
+	// Cursor on unselected row
+	cursorStyle = lipgloss.NewStyle().
+			Background(cyanBright)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().
