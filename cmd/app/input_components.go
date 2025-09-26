@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
+	th "github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -444,6 +445,12 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.SearchQuery = ""
 
 		switch cmd {
+		case "theme":
+			if arg == "" {
+				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Themes: " + strings.Join(th.Names(), ", ")} }
+			}
+			applyTheme(th.FromEnv(th.FromName(arg)))
+			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Theme set to " + strings.ToLower(arg)} }
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.

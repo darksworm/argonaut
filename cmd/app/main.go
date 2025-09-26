@@ -28,9 +28,6 @@ func main() {
 	// Set up logging to file
 	setupLogging()
 
-	// Apply theme at startup (can be overridden via env)
-	applyTheme(theme.FromEnv(theme.Default()))
-
 	// Flags: allow overriding ArgoCD config path and TLS trust settings
 	var (
 		cfgPathFlag    string
@@ -38,6 +35,7 @@ func main() {
 		caPathFlag     string
 		clientCertFlag string
 		clientKeyFlag  string
+		themeFlag      string
 	)
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -53,7 +51,16 @@ func main() {
 	// Client certificate authentication flags
 	fs.StringVar(&clientCertFlag, "client-cert", "", "Path to client certificate file (PEM format)")
 	fs.StringVar(&clientKeyFlag, "client-cert-key", "", "Path to client certificate private key file (PEM format)")
+	fs.StringVar(&themeFlag, "theme", "", "UI theme preset (e.g., nord, dracula, oxocarbon)")
 	_ = fs.Parse(os.Args[1:])
+
+	// Apply theme after flags/env are known
+	baseTheme := theme.Default()
+	if themeFlag != "" {
+		baseTheme = theme.FromName(themeFlag)
+	}
+	baseTheme = theme.FromEnv(baseTheme)
+	applyTheme(baseTheme)
 
 	// Set up TLS trust configuration
 	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
