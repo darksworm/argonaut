@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.0](https://github.com/darksworm/argonaut/compare/v1.16.1...v2.0.0) (2025-09-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* go rewrite ([#84](https://github.com/darksworm/argonaut/issues/84))
+
+### Features
+
+* add client certificate authentication support ([fb1413f](https://github.com/darksworm/argonaut/commit/fb1413f71a52005bcdc7729aecf487af63260599))
+* add GitHub Actions workflow for PR pre-release builds ([692003f](https://github.com/darksworm/argonaut/commit/692003f84c77f5245d8ff1d2080a38d74c011f5b))
+* add TLS certificate trust feature with comprehensive e2e tests ([35d3277](https://github.com/darksworm/argonaut/commit/35d32773bb4a43a7508ea2145d6666c130cc087d))
+* go rewrite ([#84](https://github.com/darksworm/argonaut/issues/84)) ([c574906](https://github.com/darksworm/argonaut/commit/c5749060cdbfd2cbbf157f470a086b60a54577eb))
+
+
+### Bug Fixes
+
+* critical TLS implementation issues affecting test stability ([7f99eb7](https://github.com/darksworm/argonaut/commit/7f99eb746929ab8a1c522cdcfc195f6088e3f648))
+* **e2e:** ensure streaming test sees initial state before update ([b36229f](https://github.com/darksworm/argonaut/commit/b36229fc507759b636f2213e3a61c129fb11d173))
+* help test flakiness in CI by waiting for full app initialization ([4085017](https://github.com/darksworm/argonaut/commit/40850176415e17167c77eb3d2a00c68e70d6b658))
+* SSL_CERT_DIR colon-separated directory support [P1] ([732f4c2](https://github.com/darksworm/argonaut/commit/732f4c2dbc2dc93eeb45073d44428780eee0d793))
+
 ## [1.16.0](https://github.com/darksworm/argonaut/compare/v1.15.1...v1.16.0) (2025-09-06)
 
 
