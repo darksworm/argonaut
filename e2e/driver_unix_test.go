@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -596,4 +597,70 @@ func MockArgoServerSync(validToken string) (*httptest.Server, *SyncRecorder, err
 func jsonEscape(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
+}
+
+// MockArgoServerHTTPS creates an HTTPS test server using provided certificate files
+func MockArgoServerHTTPS(certFile, keyFile string) (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte(`{}`)) })
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		// return one simple app with cluster and project metadata
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
+	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[
+            {"kind":"Deployment","name":"demo","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"Synced"},
+            {"kind":"ReplicaSet","name":"demo-rs","namespace":"default","version":"v1","group":"apps","uid":"rs-1","status":"Synced","parentRefs":[{"uid":"dep-1","kind":"Deployment","name":"demo","namespace":"default","group":"apps","version":"v1"}]}
+        ]}`))
+	})
+	// apps watch stream
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "application/json")
+		lines := []string{
+			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
+		}
+		for _, ln := range lines {
+			_, _ = w.Write([]byte(ln + "\n"))
+			if fl != nil {
+				fl.Flush()
+			}
+		}
+	})
+
+	srv := httptest.NewUnstartedServer(mux)
+
+	// Load the certificate and key
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load certificate: %v", err)
+	}
+
+	// Configure TLS
+	srv.TLS = &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	srv.StartTLS()
+	return srv, nil
+}
+
+// WriteArgoConfigHTTPS writes an ArgoCD CLI config pointing to an HTTPS server without insecure flag
+func WriteArgoConfigHTTPS(path, baseURL string) error {
+	return WriteArgoConfigHTTPSWithToken(path, baseURL, "test-token")
+}
+
+// WriteArgoConfigHTTPSWithToken writes a CLI config using a specific token for HTTPS server
+func WriteArgoConfigHTTPSWithToken(path, baseURL, token string) error {
+	var y bytes.Buffer
+	y.WriteString("contexts:\n")
+	y.WriteString("  - name: default\n    server: " + baseURL + "\n    user: default-user\n")
+	y.WriteString("servers:\n")
+	y.WriteString("  - server: " + baseURL + "\n    insecure: false\n")  // Note: insecure: false for TLS validation
+	y.WriteString("users:\n")
+	y.WriteString("  - name: default-user\n    auth-token: " + token + "\n")
+	y.WriteString("current-context: default\n")
+	return os.WriteFile(path, y.Bytes(), 0o644)
 }
