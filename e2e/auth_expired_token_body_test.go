@@ -28,7 +28,7 @@ func TestExpiredTokenStructuredBodyShowsAuthRequired(t *testing.T) {
         t.Fatalf("start app: %v", err)
     }
 
-    if !tf.WaitForPlain("AUTHENTICATION REQUIRED", 4*time.Second) {
+    if !tf.WaitForPlain("AUTHENTICATION REQUIRED", 3*time.Second) {
         t.Log(tf.SnapshotPlain())
         t.Fatal("expected AUTHENTICATION REQUIRED for expired token structured body")
     }

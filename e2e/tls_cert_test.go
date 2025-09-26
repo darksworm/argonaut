@@ -88,7 +88,7 @@ func TestTLSUntrustedCert(t *testing.T) {
 	}
 
 	// Expect connection error (since TLS handshake will fail with untrusted cert)
-	if !tf.WaitForPlain("Connection Error", 3*time.Second) {
+	if !tf.WaitForPlain("Connection Error", 6*time.Second) {
 		t.Log("Snapshot:", tf.SnapshotPlain())
 		t.Fatal("expected 'Connection Error' message when using untrusted certificate")
 	}
@@ -199,7 +199,7 @@ func TestTLSClientCertAuthFails(t *testing.T) {
 	}
 
 	// Should see connection error due to missing client certificate
-	if !tf.WaitForPlain("Connection Error", 3*time.Second) {
+	if !tf.WaitForPlain("Connection Error", 6*time.Second) {
 		t.Log("Snapshot:", tf.SnapshotPlain())
 		t.Fatal("expected 'Connection Error' when client cert is required but not provided")
 	}

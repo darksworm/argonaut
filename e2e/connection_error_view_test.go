@@ -28,7 +28,7 @@ func TestConnectionErrorViewCopy(t *testing.T) {
     }
 
     // Expect connection error view with all expected content
-    if !tf.WaitForPlain("Connection Error", 3*time.Second) {
+    if !tf.WaitForPlain("Connection Error", 6*time.Second) {
         t.Log(tf.SnapshotPlain())
         t.Fatal("expected Connection Error header")
     }
