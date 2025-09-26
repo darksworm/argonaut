@@ -414,3 +414,4 @@
 * **resize:** proper display on small width terminals ([23f9e7f](https://github.com/darksworm/argonaut/commit/23f9e7f2252cd3b889d3c7d368f30f90b33c1a6a))
 * **resource-stream:** adjust Box properties for consistent layout behavior ([14528ec](https://github.com/darksworm/argonaut/commit/14528ec12bee6b8f46c51f6104cef580bd382656))
 * **stream:** add AbortSignal support and cancelation wiring ([04162ce](https://github.com/darksworm/argonaut/commit/04162ce1e49d1bc1fcc420abdccda49ea7aba4a0))
+
