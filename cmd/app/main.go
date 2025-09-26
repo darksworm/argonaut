@@ -195,11 +195,11 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 
 	// Load client certificate if provided
 	var clientCert *tls.Certificate
-	var err error
 
 	if clientCertFile != "" && clientKeyFile != "" {
 		cblog.With("component", "tls").Info("Loading client certificate for mutual TLS authentication",
 			"cert", clientCertFile, "key", clientKeyFile)
+		var err error
 		clientCert, err = trust.LoadClientCertificate(clientCertFile, clientKeyFile)
 		if err != nil {
 			cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
