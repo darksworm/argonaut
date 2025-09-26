@@ -3,6 +3,7 @@
 package main
 
 import (
+    "strings"
     "testing"
     "time"
 )
@@ -30,12 +31,15 @@ func TestInvalidTokenShowsAuthRequired(t *testing.T) {
     }
 
     // Expect authentication required banner and instructions
-    if !tf.WaitForPlain("AUTHENTICATION REQUIRED", 4*time.Second) {
+    if !tf.WaitForPlain("AUTHENTICATION REQUIRED", 3*time.Second) {
         t.Log(tf.SnapshotPlain())
         t.Fatal("expected AUTHENTICATION REQUIRED with invalid token")
     }
-    if !tf.WaitForPlain("argocd login", 2*time.Second) {
-        t.Log(tf.SnapshotPlain())
+
+    // Check login instructions in the same snapshot to avoid sequential wait
+    snapshot := tf.SnapshotPlain()
+    if !strings.Contains(snapshot, "argocd login") {
+        t.Log("Snapshot:", snapshot)
         t.Fatal("expected login instructions")
     }
 }

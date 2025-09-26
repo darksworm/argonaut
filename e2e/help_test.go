@@ -25,18 +25,18 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
     }
 
     // Wait for app to fully load - need to see clusters loaded, not just "Ready"
-    if ok := tf.WaitForPlain("cluster-a", 4*time.Second); !ok {
+    if ok := tf.WaitForPlain("cluster-a", 3*time.Second); !ok {
         t.Log(tf.SnapshotPlain())
         t.Fatal("did not see cluster data loaded")
     }
 
     // Wait for loading text to disappear to ensure UI is fully stable
-    for i := 0; i < 20; i++ {
+    for i := 0; i < 10; i++ {
         snapshot := tf.SnapshotPlain()
         if !strings.Contains(snapshot, "Connecting to Argo CD") {
             break
         }
-        time.Sleep(100 * time.Millisecond)
+        time.Sleep(50 * time.Millisecond)
     }
 
     // Enter help
