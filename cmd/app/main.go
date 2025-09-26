@@ -40,12 +40,15 @@ func main() {
 	fs.StringVar(&cfgPathFlag, "argocd-config", "", "Path to ArgoCD CLI config file")
 	// Alias
 	fs.StringVar(&cfgPathFlag, "config", "", "Path to ArgoCD CLI config file (alias)")
-	// TLS trust flags
-	fs.StringVar(&caCertFlag, "cacert", "", "Path to CA certificate bundle (PEM format)")
-	fs.StringVar(&caPathFlag, "capath", "", "Directory containing CA certificates (*.pem, *.crt)")
+    // TLS trust flags (unified naming)
+    fs.StringVar(&caCertFlag, "ca-cert", "", "Path to CA certificate bundle (PEM format)")
+    fs.StringVar(&caPathFlag, "ca-path", "", "Directory containing CA certificates (*.pem, *.crt)")
+    // Backward-compatible aliases
+    fs.StringVar(&caCertFlag, "cacert", "", "Path to CA certificate bundle (alias)")
+    fs.StringVar(&caPathFlag, "capath", "", "Directory containing CA certificates (alias)")
 	// Client certificate authentication flags
-	fs.StringVar(&clientCertFlag, "client-crt", "", "Path to client certificate file (PEM format)")
-	fs.StringVar(&clientKeyFlag, "client-crt-key", "", "Path to client certificate private key file (PEM format)")
+	fs.StringVar(&clientCertFlag, "client-cert", "", "Path to client certificate file (PEM format)")
+	fs.StringVar(&clientKeyFlag, "client-cert-key", "", "Path to client certificate private key file (PEM format)")
 	_ = fs.Parse(os.Args[1:])
 
 	// Set up TLS trust configuration
@@ -59,7 +62,7 @@ func main() {
 
 	// Try to read the ArgoCD CLI config file
 	server, err := loadArgoConfig(cfgPathFlag)
-	if err != nil {
+    if err != nil {
 		cblog.With("component", "app").Error("Could not load Argo CD config", "err", err)
 		cblog.With("component", "app").Info("Please run 'argocd login' to configure and authenticate")
 		// Set to nil - the app will show auth-required mode
@@ -188,10 +191,10 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 	pool, err := trust.LoadPool(opts)
 	if err != nil {
 		cblog.With("component", "tls").Error("Failed to load certificate pool", "err", err)
-		fmt.Fprintf(os.Stderr, "TLS configuration failed: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Hint: Use --cacert or --capath to add trusted CAs, or install your CA in the OS trust store\n")
-		os.Exit(1)
-	}
+        fmt.Fprintf(os.Stderr, "TLS configuration failed: %v\n", err)
+        fmt.Fprintf(os.Stderr, "Hint: Use --ca-cert or --ca-path to add trusted CAs, or install your CA in the OS trust store\n")
+        os.Exit(1)
+    }
 
 	// Load client certificate if provided
 	var clientCert *tls.Certificate
@@ -204,13 +207,13 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 		if err != nil {
 			cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
 			fmt.Fprintf(os.Stderr, "Client certificate configuration failed: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Hint: Ensure --client-crt and --client-crt-key point to valid certificate files\n")
+			fmt.Fprintf(os.Stderr, "Hint: Ensure --client-cert and --client-cert-key point to valid certificate files\n")
 			os.Exit(1)
 		}
 		cblog.With("component", "tls").Info("Client certificate loaded successfully")
 	} else if clientCertFile != "" || clientKeyFile != "" {
-		cblog.With("component", "tls").Warn("Incomplete client certificate configuration - both --client-crt and --client-crt-key are required")
-		fmt.Fprintf(os.Stderr, "Warning: Both --client-crt and --client-crt-key must be provided for client certificate authentication\n")
+		cblog.With("component", "tls").Warn("Incomplete client certificate configuration - both --client-cert and --client-cert-key are required")
+		fmt.Fprintf(os.Stderr, "Warning: Both --client-cert and --client-cert-key must be provided for client certificate authentication\n")
 	}
 
 	// Create HTTP client with trust configuration
