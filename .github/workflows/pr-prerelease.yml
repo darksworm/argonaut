@@ -63,27 +63,27 @@ jobs:
       - name: Create snapshot version
         id: version
         run: |
-          # Extract version from release-please PR title
+          # Extract version from release-please PR title and add -dev suffix
           if [[ "${{ github.event.pull_request.head.ref }}" =~ ^release-please--branches--main ]]; then
             # Extract version from PR title: "chore(main): release X.Y.Z"
-            VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP 'release \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
-            if [[ -z "$VERSION" ]]; then
-              VERSION="snapshot-$(git rev-parse --short HEAD)"
+            BASE_VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP 'release \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+            if [[ -z "$BASE_VERSION" ]]; then
+              VERSION="dev-snapshot-$(git rev-parse --short HEAD)"
             else
-              VERSION="${VERSION}-rc.$(git rev-parse --short HEAD)"
+              VERSION="${BASE_VERSION}-dev-rc.$(git rev-parse --short HEAD)"
             fi
           else
-            VERSION="snapshot-$(git rev-parse --short HEAD)"
+            VERSION="dev-snapshot-$(git rev-parse --short HEAD)"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building pre-release version: $VERSION"
 
-      - name: Run GoReleaser in snapshot mode
+      - name: Run GoReleaser build only (no publishing)
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: nightly
-          args: build --config .goreleaser.release.yml --snapshot --clean
+          args: build --config .goreleaser.release.yml --snapshot --clean --skip=docker,aur,nix,nfpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -134,11 +134,8 @@ jobs:
             ${checksums}
             \`\`\`
 
-            ### Docker Image
-            A pre-release Docker image is also available:
-            \`\`\`bash
-            docker pull ghcr.io/${{ github.repository }}:${version}
-            \`\`\`
+            > **Note:** This is a pre-release build for testing purposes only.
+            > Docker images and distribution packages are only built for official releases.
 
             ---
             *This comment will be updated on each push to the PR.*`;
@@ -173,13 +170,3 @@ jobs:
               });
             }
 
-      - name: Build and push Docker image with pre-release tag
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --tag ghcr.io/${{ github.repository }}:${VERSION} \
-            --tag ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }} \
-            --push \
-            --file Dockerfile.v2 \
-            .
