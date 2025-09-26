@@ -22,10 +22,13 @@ jobs:
       - name: Check if this is a release-please PR
         id: check
         run: |
-          if [[ "${{ github.event.pull_request.user.login }}" == "github-actions[bot]" ]] && [[ "${{ github.event.pull_request.title }}" =~ ^chore\(main\): ]]; then
+          # Check if this is a release-please PR by branch name and title pattern
+          if [[ "${{ github.event.pull_request.head.ref }}" =~ ^release-please--branches--main ]] && [[ "${{ github.event.pull_request.title }}" =~ ^chore\(main\):\ release ]]; then
             echo "is_release_pr=true" >> $GITHUB_OUTPUT
+            echo "Detected release-please PR: ${{ github.event.pull_request.title }}"
           else
             echo "is_release_pr=false" >> $GITHUB_OUTPUT
+            echo "Not a release-please PR - Branch: ${{ github.event.pull_request.head.ref }}, Title: ${{ github.event.pull_request.title }}"
           fi
 
   build-prerelease:
@@ -60,9 +63,9 @@ jobs:
       - name: Create snapshot version
         id: version
         run: |
-          # Extract version from release-please PR branch or use commit SHA
-          if [[ "${{ github.event.pull_request.head.ref }}" =~ release-please--branches--main--components--argonaut ]]; then
-            # Try to extract version from PR title or description
+          # Extract version from release-please PR title
+          if [[ "${{ github.event.pull_request.head.ref }}" =~ ^release-please--branches--main ]]; then
+            # Extract version from PR title: "chore(main): release X.Y.Z"
             VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP 'release \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
             if [[ -z "$VERSION" ]]; then
               VERSION="snapshot-$(git rev-parse --short HEAD)"
