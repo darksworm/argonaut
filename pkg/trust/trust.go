@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -87,19 +88,32 @@ func LoadPool(opts Options) (*x509.CertPool, error) {
 }
 
 // NewHTTP creates an HTTP client with the given certificate pool and TLS settings
+// The timeout parameter is ignored - timeouts should be controlled per-request via context
 func NewHTTP(pool *x509.CertPool, minTLS uint16, timeout time.Duration) (*http.Client, context.Context) {
-	// Create transport with TLS configuration
+	// Create transport with TLS configuration and reasonable connection timeouts
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:    pool,
 			MinVersion: minTLS,
 		},
+		// Connection establishment timeout - should be fast
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		// Keep connections alive for efficiency
+		IdleConnTimeout:     30 * time.Second,
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 2,
 	}
 
-	// Create HTTP client
+	// Create HTTP client WITHOUT a default timeout
+	// Timeouts should be controlled per-request via context to avoid breaking streaming connections
 	hc := &http.Client{
 		Transport: tr,
-		Timeout:   timeout,
+		// No timeout here - we use context timeouts for request-specific timing
 	}
 
 	// Create context with HTTP client for oauth2 compatibility
