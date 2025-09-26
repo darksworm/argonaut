@@ -315,7 +315,7 @@ func TestNewHTTP(t *testing.T) {
 	}
 
 	// Test NewHTTP
-	client, ctx := NewHTTP(pool, tls.VersionTLS12, 30*time.Second)
+	client, ctx := NewHTTP(pool, nil, tls.VersionTLS12, 30*time.Second)
 
 	if client == nil {
 		t.Fatal("NewHTTP should return a non-nil client")
@@ -325,9 +325,9 @@ func TestNewHTTP(t *testing.T) {
 		t.Fatal("NewHTTP should return a non-nil context")
 	}
 
-	// Verify client configuration
-	if client.Timeout != 30*time.Second {
-		t.Errorf("Expected timeout 30s, got %v", client.Timeout)
+	// Verify client configuration - timeout should be zero to allow streaming
+	if client.Timeout != 0 {
+		t.Errorf("Expected no client timeout (0), got %v", client.Timeout)
 	}
 
 	// Verify transport configuration
@@ -392,6 +392,132 @@ func TestHasSuffix(t *testing.T) {
 				t.Errorf("hasSuffix(%q, %v) = %v, want %v", tt.s, tt.suffixes, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestLoadClientCertificate(t *testing.T) {
+	// Create test CA and client cert
+	caCert, caKey, _, err := testCA()
+	if err != nil {
+		t.Fatalf("Failed to create test CA: %v", err)
+	}
+
+	// Generate client certificate
+	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate client key: %v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(3),
+		Subject: pkix.Name{
+			Organization:  []string{"Test Client"},
+			Country:       []string{"US"},
+			Province:      []string{""},
+			Locality:      []string{"Test"},
+			StreetAddress: []string{""},
+			PostalCode:    []string{""},
+			CommonName:    "test-client",
+		},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	// Create certificate signed by CA (using the same CA instance)
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &clientKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("Failed to create client certificate: %v", err)
+	}
+
+	// Encode certificate as PEM
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	// Encode private key as PEM
+	keyDER, err := x509.MarshalPKCS8PrivateKey(clientKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal private key: %v", err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+
+	// Write to temporary files
+	certFile, err := os.CreateTemp("", "client-cert-*.pem")
+	if err != nil {
+		t.Fatalf("Failed to create cert temp file: %v", err)
+	}
+	defer os.Remove(certFile.Name())
+
+	keyFile, err := os.CreateTemp("", "client-key-*.pem")
+	if err != nil {
+		t.Fatalf("Failed to create key temp file: %v", err)
+	}
+	defer os.Remove(keyFile.Name())
+
+	if _, err := certFile.Write(certPEM); err != nil {
+		t.Fatalf("Failed to write cert file: %v", err)
+	}
+	certFile.Close()
+
+	if _, err := keyFile.Write(keyPEM); err != nil {
+		t.Fatalf("Failed to write key file: %v", err)
+	}
+	keyFile.Close()
+
+	// Test loading valid client certificate
+	cert, err := LoadClientCertificate(certFile.Name(), keyFile.Name())
+	if err != nil {
+		t.Fatalf("LoadClientCertificate should succeed with valid files: %v", err)
+	}
+
+	if cert == nil {
+		t.Fatal("LoadClientCertificate should return non-nil certificate")
+	}
+
+	// Verify certificate has expected properties
+	if len(cert.Certificate) == 0 {
+		t.Fatal("Certificate should have at least one certificate")
+	}
+
+	// Test loading with invalid cert file
+	_, err = LoadClientCertificate("/nonexistent/cert.pem", keyFile.Name())
+	if err == nil {
+		t.Fatal("LoadClientCertificate should fail with non-existent cert file")
+	}
+
+	// Test loading with invalid key file
+	_, err = LoadClientCertificate(certFile.Name(), "/nonexistent/key.pem")
+	if err == nil {
+		t.Fatal("LoadClientCertificate should fail with non-existent key file")
+	}
+
+	// Test loading with mismatched cert and key
+	// Create another key that doesn't match the certificate
+	wrongKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate wrong key: %v", err)
+	}
+
+	wrongKeyDER, err := x509.MarshalPKCS8PrivateKey(wrongKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal wrong key: %v", err)
+	}
+	wrongKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: wrongKeyDER})
+
+	wrongKeyFile, err := os.CreateTemp("", "wrong-key-*.pem")
+	if err != nil {
+		t.Fatalf("Failed to create wrong key temp file: %v", err)
+	}
+	defer os.Remove(wrongKeyFile.Name())
+
+	if _, err := wrongKeyFile.Write(wrongKeyPEM); err != nil {
+		t.Fatalf("Failed to write wrong key file: %v", err)
+	}
+	wrongKeyFile.Close()
+
+	_, err = LoadClientCertificate(certFile.Name(), wrongKeyFile.Name())
+	if err == nil {
+		t.Fatal("LoadClientCertificate should fail with mismatched cert and key")
 	}
 }
 

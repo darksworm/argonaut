@@ -100,7 +100,7 @@ func TestIntegration_HTTPSServerWithCustomCA(t *testing.T) {
 			t.Skipf("Cannot create pool without system certs: %v", err)
 		}
 
-		client, _ := NewHTTP(pool, opts.MinTLS, opts.Timeout)
+		client, _ := NewHTTP(pool, nil, opts.MinTLS, opts.Timeout)
 
 		// This should fail because server cert is not trusted
 		resp, err := client.Get(server.URL)
@@ -141,7 +141,7 @@ func TestIntegration_HTTPSServerWithCustomCA(t *testing.T) {
 			t.Fatalf("Failed to load pool: %v", err)
 		}
 
-		client, _ := NewHTTP(pool, opts.MinTLS, opts.Timeout)
+		client, _ := NewHTTP(pool, nil, opts.MinTLS, opts.Timeout)
 
 		// This should succeed because server cert is now trusted
 		resp, err := client.Get(server.URL)
@@ -185,7 +185,7 @@ func TestIntegration_HTTPSServerWithCustomCA(t *testing.T) {
 			t.Fatalf("Failed to load pool: %v", err)
 		}
 
-		client, _ := NewHTTP(pool, opts.MinTLS, opts.Timeout)
+		client, _ := NewHTTP(pool, nil, opts.MinTLS, opts.Timeout)
 
 		// This should succeed because CA is loaded from env var
 		resp, err := client.Get(server.URL)
@@ -259,7 +259,7 @@ func TestIntegration_OAuth2Context(t *testing.T) {
 		t.Fatalf("Failed to load pool: %v", err)
 	}
 
-	client, ctx := NewHTTP(pool, opts.MinTLS, opts.Timeout)
+	client, ctx := NewHTTP(pool, nil, opts.MinTLS, opts.Timeout)
 
 	// Test that the context contains the HTTP client for oauth2 usage
 	t.Run("ContextContainsHTTPClient", func(t *testing.T) {
