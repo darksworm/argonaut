@@ -97,11 +97,58 @@ jobs:
           shasum -a 256 * > checksums.txt
           cd ..
 
-      - name: Upload individual artifacts
+      - name: List files for upload
+        id: files
+        run: |
+          cd pr-artifacts
+          files=$(ls -1 | grep -v checksums.txt | jq -R -s -c 'split("\n")[:-1]')
+          echo "files=$files" >> $GITHUB_OUTPUT
+
+      - name: Upload Linux binaries
         uses: actions/upload-artifact@v4
         with:
-          name: argonaut-${{ steps.version.outputs.version }}-binaries-and-packages
-          path: pr-artifacts/
+          name: linux-binaries-${{ steps.version.outputs.version }}
+          path: pr-artifacts/argonaut-*-linux-*
+          retention-days: 30
+        if: contains(steps.files.outputs.files, 'linux')
+
+      - name: Upload macOS binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries-${{ steps.version.outputs.version }}
+          path: pr-artifacts/argonaut-*-darwin-*
+          retention-days: 30
+        if: contains(steps.files.outputs.files, 'darwin')
+
+      - name: Upload DEB packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-packages-${{ steps.version.outputs.version }}
+          path: pr-artifacts/*.deb
+          retention-days: 30
+        if: contains(steps.files.outputs.files, '.deb')
+
+      - name: Upload RPM packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-packages-${{ steps.version.outputs.version }}
+          path: pr-artifacts/*.rpm
+          retention-days: 30
+        if: contains(steps.files.outputs.files, '.rpm')
+
+      - name: Upload APK packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-packages-${{ steps.version.outputs.version }}
+          path: pr-artifacts/*.apk
+          retention-days: 30
+        if: contains(steps.files.outputs.files, '.apk')
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums-${{ steps.version.outputs.version }}
+          path: pr-artifacts/checksums.txt
           retention-days: 30
 
       - name: Comment on PR with download link
@@ -110,32 +157,58 @@ jobs:
           script: |
             const fs = require('fs');
             const version = '${{ steps.version.outputs.version }}';
-            const artifactName = `argonaut-${version}-binaries-and-packages`;
 
             // List artifacts in pr-artifacts directory
             const artifactFiles = fs.readdirSync('pr-artifacts').filter(f => f !== 'checksums.txt');
             const checksums = fs.readFileSync('pr-artifacts/checksums.txt', 'utf8');
 
-            // Generate direct download links for each file
+            // Generate download links for categorized artifacts
             const baseUrl = `https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const artifactList = artifactFiles.map(file => {
-              // Extract file type for better categorization
-              const ext = file.split('.').pop();
-              let category = '';
-              if (['deb', 'rpm', 'apk'].includes(ext)) {
-                category = '📦 ';
-              } else if (file.includes('linux') || file.includes('darwin')) {
-                category = '🔧 ';
-              }
-              return `- ${category}[\`${file}\`](${baseUrl}/${artifactName}/${file})`;
-            }).join('\n');
+
+            // Categorize files
+            const linuxBinaries = artifactFiles.filter(f => f.includes('linux'));
+            const macosBinaries = artifactFiles.filter(f => f.includes('darwin'));
+            const debPackages = artifactFiles.filter(f => f.endsWith('.deb'));
+            const rpmPackages = artifactFiles.filter(f => f.endsWith('.rpm'));
+            const apkPackages = artifactFiles.filter(f => f.endsWith('.apk'));
+
+            let downloadLinks = [];
+
+            if (linuxBinaries.length > 0) {
+              downloadLinks.push(`- 🐧 [Linux Binaries](${baseUrl}/linux-binaries-${version}) (${linuxBinaries.length} files)`);
+            }
+
+            if (macosBinaries.length > 0) {
+              downloadLinks.push(`- 🍎 [macOS Binaries](${baseUrl}/macos-binaries-${version}) (${macosBinaries.length} files)`);
+            }
+
+            if (debPackages.length > 0) {
+              downloadLinks.push(`- 📦 [DEB Packages](${baseUrl}/deb-packages-${version}) (${debPackages.length} files)`);
+            }
+
+            if (rpmPackages.length > 0) {
+              downloadLinks.push(`- 📦 [RPM Packages](${baseUrl}/rpm-packages-${version}) (${rpmPackages.length} files)`);
+            }
+
+            if (apkPackages.length > 0) {
+              downloadLinks.push(`- 📦 [APK Packages](${baseUrl}/apk-packages-${version}) (${apkPackages.length} files)`);
+            }
+
+            const artifactList = downloadLinks.join('\n');
 
             const comment = `## 🚀 Pre-release Build Available
 
             A pre-release build has been created for this PR with version \`${version}\`.
 
-            ### 📥 Direct Downloads
+            ### 📥 Download by Category
             ${artifactList}
+
+            ### 🔍 Individual Files
+            <details>
+            <summary>Click to see all ${artifactFiles.length} files</summary>
+
+            ${artifactFiles.map(f => `- \`${f}\``).join('\n')}
+            </details>
 
             ### 🐳 Docker Image
             \`\`\`bash
@@ -152,7 +225,7 @@ jobs:
             </details>
 
             ### 📋 Alternative Download
-            You can also download all files as a zip from the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            You can also browse all artifacts from the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
 
             > **Note:** This is a pre-release build for testing purposes only. The version includes \`-dev\` to clearly indicate it's not an official release.
 
