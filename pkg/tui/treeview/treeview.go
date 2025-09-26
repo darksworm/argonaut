@@ -383,27 +383,27 @@ func (v *TreeView) View() string {
 				line += hint
 			}
 		}
-        if i == v.selIdx {
-            // Selection should emphasize only the first segment (disclosure/prefix + kind)
-            // while keeping name/status with their regular styles. The outer panel
-            // adds a full-row background; we only override it for the first segment.
-            name := n.name
-            if n.namespace != "" {
-                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-            }
-            status := n.health
-            if status == "" {
-                status = n.status
-            }
+		if i == v.selIdx {
+			// Selection should emphasize only the first segment (disclosure/prefix + kind)
+			// while keeping name/status with their regular styles. The outer panel
+			// adds a full-row background; we only override it for the first segment.
+			name := n.name
+			if n.namespace != "" {
+				name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+			}
+			status := n.health
+			if status == "" {
+				status = n.status
+			}
 
-            ps := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(prefix + disc)
-            ks := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(n.kind)
-            // Keep default styles (no selection background) for name and status
-            ns := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
-            st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
-            line = ps + ks + " " + ns + " " + st
-            line = padRight(line, v.innerWidth())
-        }
+			ps := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(prefix + disc)
+			ks := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(n.kind)
+			// Keep default styles (no selection background) for name and status
+			ns := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
+			st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+			line = ps + ks + " " + ns + " " + st
+			line = padRight(line, v.innerWidth())
+		}
 		b.WriteString(line)
 		if i < len(v.order)-1 {
 			b.WriteString("\n")
