@@ -28,8 +28,10 @@ func (m *Model) renderBanner() string {
 			}
 		}
 		total := max(0, m.state.Terminal.Cols-2)
+		// Decide showing version based on WIDTH only (not height)
+		withVersion := m.state.Terminal.Cols >= 72
 		// Add a one-space right margin after the badge to balance with left padding
-		top := joinWithRightAlignment(first, m.renderSmallBadge(false, true)+" ", total)
+		top := joinWithRightAlignment(first, m.renderSmallBadge(false, withVersion)+" ", total)
 		if rest != "" {
 			return top + "\n" + rest
 		}
@@ -77,8 +79,8 @@ func (m *Model) renderCompactBanner() string {
 		lbl.Render("proj:") + " " + val.Render(pr),
 	}
 
-	// Determine if we are in very small mode (tight width/height).
-	tiny := m.state.Terminal.Rows <= 18 || m.state.Terminal.Cols <= 60
+	// Determine if we are in very small mode (tight width only).
+	tiny := m.state.Terminal.Cols <= 60
 	badge := m.renderSmallBadge(false, !tiny) // hide version in tiny mode
 	badgeW := lipgloss.Width(badge)
 	sep := "  "
