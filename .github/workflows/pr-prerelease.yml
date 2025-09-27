@@ -95,16 +95,17 @@ jobs:
         with:
           base_name: argonaut-next
           dist_tag: next
-        secrets: inherit
+          version: ${{ steps.version.outputs.version }}
+        secrets:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: NPM integration tests (pre-release)
         uses: ./.github/actions/test-npm-install
         with:
           node-version: 20
           package-name: argonaut-next
-          package-version: 0.0.0 # ignored for dist-tag installs
-        env:
-          NPM_CONFIG_TAG: next
+          package-version: 0.0.0
+          dist-tag: next
 
       - name: Package artifacts
         run: |

@@ -11,6 +11,18 @@ on:
         required: false
         type: string
         description: npm dist-tag to use (default: latest)
+      tag:
+        required: false
+        type: string
+        description: Git tag (e.g., v1.16.0). If provided, overrides auto-detection.
+      version:
+        required: false
+        type: string
+        description: Version without v prefix. If provided, overrides detection.
+    secrets:
+      NPM_TOKEN:
+        required: true
+        description: Auth token for npm publish
   workflow_dispatch:
     inputs:
       base_name:
@@ -32,6 +44,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -48,13 +62,24 @@ jobs:
       - name: Derive version from tag
         id: ver
         run: |
-          TAG="${GITHUB_REF##*/}"
-          if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
-            # Try to get the latest tag
-            TAG=$(git describe --tags --abbrev=0 || true)
+          # Prefer inputs if provided
+          TAG=${{ inputs.tag && format('{0}', inputs.tag) || '""' }}
+          VER=${{ inputs.version && format('{0}', inputs.version) || '""' }}
+          if [ -z "$VER" ]; then
+            if [ -n "$TAG" ]; then
+              VER="${TAG#v}"
+            else
+              # fallback to current ref tag
+              TAG="${GITHUB_REF##*/}"
+              if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
+                git fetch --tags --force || true
+                TAG=$(git describe --tags --abbrev=0 || true)
+              fi
+              VER="${TAG#v}"
+            fi
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Build binaries with GoReleaser (no publish)
         env:
@@ -139,5 +164,5 @@ jobs:
           NPM_DIST_TAG: ${{ inputs.dist_tag || github.event.inputs.dist_tag || 'latest' }}
         run: |
           set -euo pipefail
-          (cd npm-build/* && [ -f package.json ] && jq -r .name package.json); ls npm-build
-          (cd npm-build/${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }} && npm publish --access public --tag "$NPM_DIST_TAG")
+          PKG_BASE=${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+          (cd npm-build/${PKG_BASE} && npm publish --access public --tag "$NPM_DIST_TAG")

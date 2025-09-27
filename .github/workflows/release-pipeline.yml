@@ -34,6 +34,10 @@ jobs:
     with:
       base_name: argonaut
       dist_tag: latest
+      tag: ${{ needs.release-please.outputs.tag_name }}
+      version: ${{ needs.release-please.outputs.tag_name }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
 
   goreleaser:
