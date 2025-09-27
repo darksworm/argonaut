@@ -90,6 +90,22 @@ jobs:
           echo "=== All files by name ==="
           find dist/ -type f -name "*" | sort || true
 
+      - name: Publish npm pre-release packages (argonaut-next)
+        uses: ./.github/workflows/publish-npm.yml
+        with:
+          base_name: argonaut-next
+          dist_tag: next
+        secrets: inherit
+
+      - name: NPM integration tests (pre-release)
+        uses: ./.github/actions/test-npm-install
+        with:
+          node-version: 20
+          package-name: argonaut-next
+          package-version: 0.0.0 # ignored for dist-tag installs
+        env:
+          NPM_CONFIG_TAG: next
+
       - name: Package artifacts
         run: |
           mkdir -p pr-artifacts
@@ -278,4 +294,3 @@ jobs:
                 body: comment
               });
             }
-
