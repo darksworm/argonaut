@@ -47,7 +47,7 @@ func LoadPool(opts Options) (*x509.CertPool, error) {
 		return nil
 	}
 
-    // Add certificates from file (--ca-cert or SSL_CERT_FILE)
+	// Add certificates from file (--ca-cert or SSL_CERT_FILE)
 	if f := first(opts.CACertFile, os.Getenv("SSL_CERT_FILE")); f != "" {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -58,7 +58,7 @@ func LoadPool(opts Options) (*x509.CertPool, error) {
 		}
 	}
 
-    // Add certificates from directory (--ca-path or SSL_CERT_DIR)
+	// Add certificates from directory (--ca-path or SSL_CERT_DIR)
 	if d := first(opts.CACertDir, os.Getenv("SSL_CERT_DIR")); d != "" {
 		// Determine if this is from explicit flag or environment variable
 		isFromFlag := opts.CACertDir != ""

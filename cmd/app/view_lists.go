@@ -169,7 +169,7 @@ func (m *Model) renderListHeader() string {
 func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 	// Selection checking (matches ListView isChecked logic)
 	isSelected := m.state.Selections.HasSelectedApp(app.Name)
-	active := isCursor || isSelected
+	// Determine highlight state
 
 	// Get project name (for future use)
 	_ = "default"
@@ -230,10 +230,12 @@ func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 		row = clipAnsiToWidth(row, fullRowWidth)
 	}
 
-	// Apply highlight: use a distinct style when cursor overlaps a selected row
+	// Apply highlight with distinct styles
 	if isCursor && isSelected {
 		row = cursorOnSelectedStyle.Render(row)
-	} else if active { // cursor or selected
+	} else if isCursor {
+		row = cursorStyle.Render(row)
+	} else if isSelected {
 		row = selectedStyle.Render(row)
 	}
 	// After styling, clip again defensively (some terminals render bold differently)
@@ -257,7 +259,7 @@ func (m *Model) renderSimpleRow(label string, isCursor bool) string {
 		isSelected = m.state.Selections.HasProject(label)
 	}
 
-	active := isCursor || isSelected
+	// Determine highlight state
 
 	// Calculate available width for simple rows (full content width minus padding)
 	contentWidth := m.contentInnerWidth()
@@ -267,7 +269,11 @@ func (m *Model) renderSimpleRow(label string, isCursor bool) string {
 	row := padRight(truncatedLabel, contentWidth)
 
 	// Apply selection highlight if active
-	if active {
+	if isCursor && isSelected {
+		return cursorOnSelectedStyle.Render(row)
+	} else if isCursor {
+		return cursorStyle.Render(row)
+	} else if isSelected {
 		return selectedStyle.Render(row)
 	}
 	return row

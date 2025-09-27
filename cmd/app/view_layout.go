@@ -26,7 +26,8 @@ func (m *Model) renderTreePanel(availableRows int) string {
 	viewportHeight := availableRows
 	cursorIdx := 0
 	if m.treeView != nil {
-		cursorIdx = m.treeView.SelectedIndex()
+		// Account for blank separator lines inserted between app roots
+		cursorIdx = m.treeView.SelectedLineIndex()
 	}
 	scrollOffset := m.treeScrollOffset
 
@@ -53,18 +54,10 @@ func (m *Model) renderTreePanel(availableRows int) string {
 	// Save the adjusted scroll offset back
 	m.treeScrollOffset = scrollOffset
 
-	// Extract visible lines and highlight the selected one
+	// Extract visible lines
 	visibleLines := []string{}
 	for i := scrollOffset; i < min(scrollOffset+viewportHeight, totalLines); i++ {
 		line := lines[i]
-		// Highlight the selected line
-		if i == cursorIdx {
-			// Add selection indicator
-			line = lipgloss.NewStyle().
-				Background(lipgloss.Color("240")).
-				Foreground(lipgloss.Color("255")).
-				Render(line)
-		}
 		visibleLines = append(visibleLines, line)
 	}
 

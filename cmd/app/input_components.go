@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
+	th "github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -113,8 +114,8 @@ func (m *Model) renderEnhancedSearchBar() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	// Content matching SearchBar layout
-	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
+		// Content matching SearchBar layout
+	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(cyanBright).Render("Search")
 
 	// Compute widths to make input fill the full row (no trailing help text)
 	totalWidth := m.state.Terminal.Cols
@@ -223,11 +224,11 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	dimSuggestion := ""
 	if firstPlain != "" && len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
 		suggestionSuffix := firstPlain[len(currentInput):]
-		dimSuggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
+		dimSuggestion = lipgloss.NewStyle().Foreground(dimColor).Render(suggestionSuffix)
 	}
 
 	// Prompt + colored input + optional dim suggestion
-	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // light gray
+	promptStyle := lipgloss.NewStyle().Foreground(dimColor) // thematic dim
 	prompt := promptStyle.Render("> ")
 	content := prompt + inputText + dimSuggestion
 	if w := lipgloss.Width(content); w < maxWidth {
@@ -444,6 +445,12 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.SearchQuery = ""
 
 		switch cmd {
+		case "theme":
+			if arg == "" {
+				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Themes: " + strings.Join(th.Names(), ", ")} }
+			}
+			applyTheme(th.FromEnv(th.FromName(arg)))
+			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Theme set to " + strings.ToLower(arg)} }
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.

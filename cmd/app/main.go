@@ -16,6 +16,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/trust"
 )
 
@@ -34,22 +35,32 @@ func main() {
 		caPathFlag     string
 		clientCertFlag string
 		clientKeyFlag  string
+		themeFlag      string
 	)
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&cfgPathFlag, "argocd-config", "", "Path to ArgoCD CLI config file")
 	// Alias
 	fs.StringVar(&cfgPathFlag, "config", "", "Path to ArgoCD CLI config file (alias)")
-    // TLS trust flags (unified naming)
-    fs.StringVar(&caCertFlag, "ca-cert", "", "Path to CA certificate bundle (PEM format)")
-    fs.StringVar(&caPathFlag, "ca-path", "", "Directory containing CA certificates (*.pem, *.crt)")
-    // Backward-compatible aliases
-    fs.StringVar(&caCertFlag, "cacert", "", "Path to CA certificate bundle (alias)")
-    fs.StringVar(&caPathFlag, "capath", "", "Directory containing CA certificates (alias)")
+	// TLS trust flags (unified naming)
+	fs.StringVar(&caCertFlag, "ca-cert", "", "Path to CA certificate bundle (PEM format)")
+	fs.StringVar(&caPathFlag, "ca-path", "", "Directory containing CA certificates (*.pem, *.crt)")
+	// Backward-compatible aliases
+	fs.StringVar(&caCertFlag, "cacert", "", "Path to CA certificate bundle (alias)")
+	fs.StringVar(&caPathFlag, "capath", "", "Directory containing CA certificates (alias)")
 	// Client certificate authentication flags
 	fs.StringVar(&clientCertFlag, "client-cert", "", "Path to client certificate file (PEM format)")
 	fs.StringVar(&clientKeyFlag, "client-cert-key", "", "Path to client certificate private key file (PEM format)")
+	fs.StringVar(&themeFlag, "theme", "", "UI theme preset (e.g., nord, dracula, oxocarbon)")
 	_ = fs.Parse(os.Args[1:])
+
+	// Apply theme after flags/env are known
+	baseTheme := theme.Default()
+	if themeFlag != "" {
+		baseTheme = theme.FromName(themeFlag)
+	}
+	baseTheme = theme.FromEnv(baseTheme)
+	applyTheme(baseTheme)
 
 	// Set up TLS trust configuration
 	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
@@ -62,7 +73,7 @@ func main() {
 
 	// Try to read the ArgoCD CLI config file
 	server, err := loadArgoConfig(cfgPathFlag)
-    if err != nil {
+	if err != nil {
 		cblog.With("component", "app").Error("Could not load Argo CD config", "err", err)
 		cblog.With("component", "app").Info("Please run 'argocd login' to configure and authenticate")
 		// Set to nil - the app will show auth-required mode
@@ -191,10 +202,10 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 	pool, err := trust.LoadPool(opts)
 	if err != nil {
 		cblog.With("component", "tls").Error("Failed to load certificate pool", "err", err)
-        fmt.Fprintf(os.Stderr, "TLS configuration failed: %v\n", err)
-        fmt.Fprintf(os.Stderr, "Hint: Use --ca-cert or --ca-path to add trusted CAs, or install your CA in the OS trust store\n")
-        os.Exit(1)
-    }
+		fmt.Fprintf(os.Stderr, "TLS configuration failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Hint: Use --ca-cert or --ca-path to add trusted CAs, or install your CA in the OS trust store\n")
+		os.Exit(1)
+	}
 
 	// Load client certificate if provided
 	var clientCert *tls.Certificate

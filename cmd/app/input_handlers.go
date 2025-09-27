@@ -327,7 +327,7 @@ func (m *Model) handleGoToTop() (tea.Model, tea.Cmd) {
 	}
 
 	m.state.Navigation.SelectedIdx = 0
-	m.listScrollOffset = 0 // Reset scroll to top for list views
+	m.listScrollOffset = 0              // Reset scroll to top for list views
 	m.state.Navigation.LastGPressed = 0 // Reset double-g state
 	return m, nil
 }
@@ -581,7 +581,6 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-
 
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

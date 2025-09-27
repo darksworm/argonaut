@@ -440,7 +440,7 @@ func TestLoadPool_FlagWithColonSeparatedDirs(t *testing.T) {
 		t.Fatalf("Failed to write cert file 2: %v", err)
 	}
 
-    // Test with colon-separated --ca-path flag (should work with existing dirs)
+	// Test with colon-separated --ca-path flag (should work with existing dirs)
 	colonSeparated := tmpDir1 + ":" + tmpDir2
 	opts := Options{CACertDir: colonSeparated}
 	pool, err := LoadPool(opts)
@@ -480,7 +480,7 @@ func TestLoadPool_FlagWithColonSeparatedDirsOneNonExistent(t *testing.T) {
 		t.Fatalf("Failed to write cert file: %v", err)
 	}
 
-    // Test with colon-separated --ca-path flag with one non-existent directory
+	// Test with colon-separated --ca-path flag with one non-existent directory
 	// Should succeed and skip the non-existent directory
 	colonSeparated := tmpDir + ":/nonexistent/dir"
 	opts := Options{CACertDir: colonSeparated}
