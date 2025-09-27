@@ -28,7 +28,7 @@ func (m *Model) renderBanner() string {
 			}
 		}
 		total := max(0, m.state.Terminal.Cols-2)
-		top := joinWithRightAlignment(first, m.renderSmallBadge(false), total)
+		top := joinWithRightAlignment(first, m.renderSmallBadge(false, true), total)
 		if rest != "" {
 			return top + "\n" + rest
 		}
@@ -76,31 +76,76 @@ func (m *Model) renderCompactBanner() string {
 		lbl.Render("proj:") + " " + val.Render(pr),
 	}
 
-	badge := m.renderSmallBadge(false)
+	// Determine if we are in very small mode (tight width/height).
+	tiny := m.state.Terminal.Rows <= 18 || m.state.Terminal.Cols <= 60
+	badge := m.renderSmallBadge(false, !tiny) // hide version in tiny mode
 	badgeW := lipgloss.Width(badge)
 	sep := "  "
 
-	// Fill as many tokens as fit on the first line next to the badge
-	avail := total - badgeW - 1
-	if avail < 10 {
-		avail = total // if too tight, let tokens use full width; joinWithRightAlignment will push badge to edge
-	}
-	var line1Tokens, line2Tokens []string
-	widthSoFar := 0
-	for i, t := range tokens {
-		tw := lipgloss.Width(t)
-		extra := 0
-		if i > 0 {
-			extra = lipgloss.Width(sep)
-		}
-		if widthSoFar+extra+tw <= avail || len(line1Tokens) == 0 {
+	// Helper to try fit tokens into 2 lines (first with badge on right)
+	tryFit := func(tok []string, avail1 int, avail2 int) (l1, l2 []string, ok bool) {
+		w := 0
+		for i, t := range tok {
+			tw := lipgloss.Width(t)
+			add := tw
 			if i > 0 {
-				widthSoFar += extra
+				add += lipgloss.Width(sep)
 			}
-			line1Tokens = append(line1Tokens, t)
-			widthSoFar += tw
-		} else {
-			line2Tokens = append(line2Tokens, t)
+			if w+add <= avail1 || len(l1) == 0 { // ensure at least first token gets in
+				if i > 0 {
+					w += lipgloss.Width(sep)
+				}
+				l1 = append(l1, t)
+				w += tw
+			} else {
+				l2 = append(l2, t)
+			}
+		}
+		// Check second line fits as a whole (no clipping)
+		line2 := strings.Join(l2, sep)
+		if lipgloss.Width(line2) <= avail2 {
+			return l1, l2, true
+		}
+		return l1, l2, false
+	}
+
+	// Start with breadcrumb tokens in order host > cls > ns > proj
+	avail1 := total - badgeW - 1
+	if avail1 < 8 {
+		avail1 = total // if badge too wide, allow fill and we may drop it below
+	}
+	line1Tokens, line2Tokens, ok := tryFit(tokens, avail1, total)
+	if !ok {
+		// Drop the badge and try again
+		badge = ""
+		badgeW = 0
+		avail1 = total
+		line1Tokens, line2Tokens, ok = tryFit(tokens, avail1, total)
+	}
+	if !ok {
+		// Drop tokens progressively: ctx (host), then cls, then ns
+		dropOrder := []int{0, 1, 2}
+		// Build working copy of tokens
+		work := append([]string{}, tokens...)
+		for _, di := range dropOrder {
+			if di < len(work) {
+				// remove element at di
+				work = append(work[:di], work[di+1:]...)
+				line1Tokens, line2Tokens, ok = tryFit(work, avail1, total)
+				if ok {
+					tokens = work
+					break
+				}
+			}
+		}
+		if !ok {
+			// As a last resort, keep only the last element (project) if any
+			if len(work) > 0 {
+				tokens = work[len(work)-1:]
+			} else {
+				tokens = nil
+			}
+			line1Tokens, line2Tokens, _ = tryFit(tokens, avail1, total)
 		}
 	}
 
@@ -116,7 +161,7 @@ func (m *Model) renderCompactBanner() string {
 }
 
 // renderSmallBadge renders the compact badge used in narrow terminals.
-func (m *Model) renderSmallBadge(grayscale bool) string {
+func (m *Model) renderSmallBadge(grayscale bool, withVersion bool) string {
 	st := lipgloss.NewStyle().
 		Bold(true).
 		PaddingLeft(1).
@@ -126,7 +171,11 @@ func (m *Model) renderSmallBadge(grayscale bool) string {
 	} else {
 		st = st.Background(cyanBright).Foreground(whiteBright)
 	}
-	return st.Render("Argonaut " + appVersion)
+	text := "Argonaut"
+	if withVersion {
+		text += " " + appVersion
+	}
+	return st.Render(text)
 }
 
 func (m *Model) renderContextBlock(isNarrow bool) string {
