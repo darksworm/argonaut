@@ -130,11 +130,9 @@ func (m *Model) renderListView(availableRows int) string {
 // renderListHeader - matches ListView header row with responsive widths
 func (m *Model) renderListHeader() string {
 	if m.state.Navigation.View == model.ViewApps {
-		// Fixed-width columns with full text headers
+		// Responsive widths matching row rendering
 		contentWidth := m.contentInnerWidth()
-		syncWidth := 12
-		healthWidth := 15
-		nameWidth := max(10, contentWidth-syncWidth-healthWidth-2)
+		nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
 
 		nameHeader := headerStyle.Render("NAME")
 		syncHeader := headerStyle.Render("SYNC")
