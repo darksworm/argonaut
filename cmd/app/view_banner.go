@@ -9,6 +9,11 @@ import (
 )
 
 func (m *Model) renderBanner() string {
+	// If the terminal is short, collapse the header into 1–2 lines
+	if m.state.Terminal.Rows <= 22 {
+		return m.renderCompactBanner()
+	}
+
 	isNarrow := m.state.Terminal.Cols <= 100
 	if isNarrow {
 		// Float the small badge to the right of the first context line to save vertical space.
@@ -23,7 +28,9 @@ func (m *Model) renderBanner() string {
 			}
 		}
 		total := max(0, m.state.Terminal.Cols-2)
-		top := joinWithRightAlignment(first, m.renderSmallBadge(false), total)
+		// Width-based decision to show app version in badge
+		withVersion := m.state.Terminal.Cols >= 72
+		top := joinWithRightAlignment(first, m.renderSmallBadge(false, withVersion)+" ", total)
 		if rest != "" {
 			return top + "\n" + rest
 		}
@@ -45,7 +52,7 @@ func (m *Model) renderBanner() string {
 }
 
 // renderSmallBadge renders the compact badge used in narrow terminals.
-func (m *Model) renderSmallBadge(grayscale bool) string {
+func (m *Model) renderSmallBadge(grayscale bool, withVersion bool) string {
 	st := lipgloss.NewStyle().
 		Bold(true).
 		PaddingLeft(1).
@@ -55,7 +62,109 @@ func (m *Model) renderSmallBadge(grayscale bool) string {
 	} else {
 		st = st.Background(cyanBright).Foreground(whiteBright)
 	}
-	return st.Render("Argonaut " + appVersion)
+	text := "Argonaut"
+	if withVersion {
+		text += " " + appVersion
+	}
+	return st.Render(text)
+}
+
+// renderCompactBanner produces a 1–2 line banner optimized for low terminal height.
+// Right-aligned shows the small badge; left-aligned shows a breadcrumb
+// (ctx > cls > ns > proj). If it doesn't fit on 1 line beside the badge, the
+// breadcrumb wraps to a second line; if it still doesn't fit, the badge is
+// hidden; then the breadcrumb drops context, then cluster, then namespace
+// until it fits.
+func (m *Model) renderCompactBanner() string {
+	total := max(0, m.state.Terminal.Cols-2)
+
+	host := "—"
+	if m.state.Server != nil {
+		host = hostFromURL(m.state.Server.BaseURL)
+	}
+	cls := scopeToText(m.state.Selections.ScopeClusters)
+	ns := scopeToText(m.state.Selections.ScopeNamespaces)
+	pr := scopeToText(m.state.Selections.ScopeProjects)
+
+	parts := []string{host, cls, ns, pr}
+	// Build breadcrumb tokens with dim separators
+	sep := " " + lipgloss.NewStyle().Foreground(dimColor).Render(">") + " "
+	joinParts := func(items []string) string {
+		// drop empty/placeholder
+		xs := make([]string, 0, len(items))
+		for _, s := range items {
+			if strings.TrimSpace(s) != "" && s != "—" {
+				xs = append(xs, s)
+			}
+		}
+		if len(xs) == 0 {
+			xs = []string{"—"}
+		}
+		return strings.Join(xs, sep)
+	}
+
+	// Tiny width: don't show version in badge
+	withVersion := m.state.Terminal.Cols >= 72
+	badge := m.renderSmallBadge(false, withVersion)
+	rb := badge
+	if rb != "" {
+		rb += " "
+	}
+
+	// Try to fit full breadcrumb alongside badge on line 1
+	line1 := joinParts(parts)
+	// Always add one space of left padding to align with content box
+	left1 := " " + line1
+	if lipgloss.Width(left1)+lipgloss.Width(rb) <= total {
+		return joinWithRightAlignment(left1, rb, total)
+	}
+
+	// If doesn't fit, move some tokens to line 2 (keep badge on line 1)
+	// Try host+cls on line 1; ns+proj on line 2
+	left1 = " " + joinParts(parts[:2])
+	left2 := " " + joinParts(parts[2:])
+	if lipgloss.Width(left1)+lipgloss.Width(rb) <= total && lipgloss.Width(left2) <= total {
+		top := joinWithRightAlignment(left1, rb, total)
+		bottom := joinWithRightAlignment(left2, "", total)
+		return top + "\n" + bottom
+	}
+
+	// Drop the badge and try full breadcrumb on two lines
+	rb = ""
+	left1 = " " + joinParts(parts[:2])
+	left2 = " " + joinParts(parts[2:])
+	if lipgloss.Width(left1) <= total && lipgloss.Width(left2) <= total {
+		return left1 + "\n" + left2
+	}
+
+	// Drop context, then cluster, then namespace until it fits in two lines
+	dropOrders := [][]int{{0}, {1}, {2}}
+	for _, toDrop := range dropOrders {
+		w := make([]string, 0, len(parts))
+		drop := make(map[int]bool)
+		for _, di := range toDrop {
+			drop[di] = true
+		}
+		for i, s := range parts {
+			if !drop[i] {
+				w = append(w, s)
+			}
+		}
+		left1 = " " + joinParts(w[:min(2, len(w))])
+		if len(w) > 2 {
+			left2 = " " + joinParts(w[2:])
+		} else {
+			left2 = ""
+		}
+		if lipgloss.Width(left1) <= total && (left2 == "" || lipgloss.Width(left2) <= total) {
+			if left2 == "" {
+				return left1
+			}
+			return left1 + "\n" + left2
+		}
+	}
+	// Fallback: just show whatever fits on one line
+	return clipAnsiToWidth(" "+joinParts(parts), total)
 }
 
 func (m *Model) renderContextBlock(isNarrow bool) string {

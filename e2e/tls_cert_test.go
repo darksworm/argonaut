@@ -26,10 +26,10 @@ func TestTLSInvalidCertFile(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-    // Start argonaut with invalid --ca-cert path - this should fail during TLS setup
-    if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath, "--ca-cert=/nonexistent/cert.pem"}); err != nil {
-        t.Fatalf("start app: %v", err)
-    }
+	// Start argonaut with invalid --ca-cert path - this should fail during TLS setup
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath, "--ca-cert=/nonexistent/cert.pem"}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
 
 	// Expect TLS configuration failure message and hints
 	if !tf.WaitForPlain("TLS configuration failed", 3*time.Second) {
@@ -39,15 +39,15 @@ func TestTLSInvalidCertFile(t *testing.T) {
 
 	// Should already contain hints in the snapshot
 	snapshot := tf.SnapshotPlain()
-    if !strings.Contains(snapshot, "--ca-cert") {
-        t.Log("Snapshot:", snapshot)
-        t.Fatal("expected hint about --ca-cert flag")
-    }
+	if !strings.Contains(snapshot, "--ca-cert") {
+		t.Log("Snapshot:", snapshot)
+		t.Fatal("expected hint about --ca-cert flag")
+	}
 
-    if !strings.Contains(snapshot, "--ca-path") {
-        t.Log("Snapshot:", snapshot)
-        t.Fatal("expected hint about --ca-path flag")
-    }
+	if !strings.Contains(snapshot, "--ca-path") {
+		t.Log("Snapshot:", snapshot)
+		t.Fatal("expected hint about --ca-path flag")
+	}
 }
 
 // TestTLSUntrustedCert tests that argonaut shows connection error when encountering untrusted certificate
@@ -82,10 +82,10 @@ func TestTLSUntrustedCert(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-    // Start argonaut without --ca-cert flag - this should show connection error due to untrusted cert
-    if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
-        t.Fatalf("start app: %v", err)
-    }
+	// Start argonaut without --ca-cert flag - this should show connection error due to untrusted cert
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
 
 	// Expect connection error (since TLS handshake will fail with untrusted cert)
 	if !tf.WaitForPlain("Connection Error", 6*time.Second) {
@@ -134,10 +134,10 @@ func TestTLSTrustedCert(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-    // Start argonaut WITH --ca-cert flag pointing to our CA certificate
-    if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath, "--ca-cert=" + caCertPath}); err != nil {
-        t.Fatalf("start app: %v", err)
-    }
+	// Start argonaut WITH --ca-cert flag pointing to our CA certificate
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath, "--ca-cert=" + caCertPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
 
 	// Wait for the app to load and show normal UI state
 	// The app shows cluster-a from our mock server, indicating successful TLS connection
@@ -194,9 +194,9 @@ func TestTLSClientCertAuthFails(t *testing.T) {
 	}
 
 	// Start argonaut without client cert - should fail with TLS handshake error
-    if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath, "--ca-cert=" + caCertPath}); err != nil {
-        t.Fatalf("start app: %v", err)
-    }
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath, "--ca-cert=" + caCertPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
 
 	// Should see connection error due to missing client certificate
 	if !tf.WaitForPlain("Connection Error", 6*time.Second) {
@@ -243,12 +243,12 @@ func TestTLSClientCertAuthSucceeds(t *testing.T) {
 	// Start argonaut WITH client cert and CA cert
 	if err := tf.StartAppArgs([]string{
 		"-argocd-config=" + cfgPath,
-        "--ca-cert=" + caCertPath,
-        "--client-cert=" + clientCertPath,
-        "--client-cert-key=" + clientKeyPath,
-    }); err != nil {
-        t.Fatalf("start app with client cert: %v", err)
-    }
+		"--ca-cert=" + caCertPath,
+		"--client-cert=" + clientCertPath,
+		"--client-cert-key=" + clientKeyPath,
+	}); err != nil {
+		t.Fatalf("start app with client cert: %v", err)
+	}
 
 	// Wait for the app to load and show normal UI state with successful client cert auth
 	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
