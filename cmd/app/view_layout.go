@@ -26,7 +26,12 @@ func (m *Model) renderTreePanel(availableRows int) string {
 	viewportHeight := availableRows
 	cursorIdx := 0
 	if m.treeView != nil {
-		cursorIdx = m.treeView.SelectedIndex()
+		// Account for blank separator lines inserted between app roots
+		if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+			cursorIdx = s.SelectedLineIndex()
+		} else {
+			cursorIdx = m.treeView.SelectedIndex()
+		}
 	}
 	scrollOffset := m.treeScrollOffset
 
@@ -53,18 +58,10 @@ func (m *Model) renderTreePanel(availableRows int) string {
 	// Save the adjusted scroll offset back
 	m.treeScrollOffset = scrollOffset
 
-	// Extract visible lines and highlight the selected one
+	// Extract visible lines
 	visibleLines := []string{}
 	for i := scrollOffset; i < min(scrollOffset+viewportHeight, totalLines); i++ {
 		line := lines[i]
-		// Highlight the selected line
-		if i == cursorIdx {
-			// Add selection indicator
-			line = lipgloss.NewStyle().
-				Background(lipgloss.Color("240")).
-				Foreground(lipgloss.Color("255")).
-				Render(line)
-		}
 		visibleLines = append(visibleLines, line)
 	}
 
@@ -187,7 +184,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		if m.state.Diff != nil && m.state.Diff.Loading {
-			badge := m.renderSmallBadge(true)
+			badge := m.renderSmallBadge(true, m.state.Terminal.Cols >= 72)
 			badgeLayer := lipgloss.NewLayer(badge).X(1).Y(1).Z(1)
 			modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(2)
 			canvas := lipgloss.NewCanvas(baseLayer, badgeLayer, modalLayer)

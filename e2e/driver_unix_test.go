@@ -659,7 +659,7 @@ func WriteArgoConfigHTTPSWithToken(path, baseURL, token string) error {
 	y.WriteString("contexts:\n")
 	y.WriteString("  - name: default\n    server: " + baseURL + "\n    user: default-user\n")
 	y.WriteString("servers:\n")
-	y.WriteString("  - server: " + baseURL + "\n    insecure: false\n")  // Note: insecure: false for TLS validation
+	y.WriteString("  - server: " + baseURL + "\n    insecure: false\n") // Note: insecure: false for TLS validation
 	y.WriteString("users:\n")
 	y.WriteString("  - name: default-user\n    auth-token: " + token + "\n")
 	y.WriteString("current-context: default\n")

@@ -445,6 +445,40 @@ func (v *TreeView) SelectedIndex() int { return v.selIdx }
 // VisibleCount returns the number of currently visible nodes in DFS order.
 func (v *TreeView) VisibleCount() int { return len(v.order) }
 
+// SelectedLineIndex returns the index of the selected line in the rendered
+// output, accounting for the blank separator lines inserted between app
+// roots in View().
+func (v *TreeView) SelectedLineIndex() int {
+	if v.selIdx <= 0 || v.selIdx >= len(v.order) {
+		if v.selIdx < 0 {
+			return 0
+		}
+		return min(v.selIdx, max(0, len(v.order)-1))
+	}
+	gaps := 0
+	for i := 1; i <= v.selIdx && i < len(v.order); i++ {
+		if v.order[i].parent == nil {
+			gaps++
+		}
+	}
+	return v.selIdx + gaps
+}
+
+// VisibleLineCount returns the number of lines produced by View(), which is
+// the number of visible nodes plus the number of blank separators (roots-1).
+func (v *TreeView) VisibleLineCount() int {
+	roots := 0
+	for _, n := range v.order {
+		if n.parent == nil {
+			roots++
+		}
+	}
+	if roots > 0 {
+		roots--
+	}
+	return len(v.order) + roots
+}
+
 func padRight(s string, width int) string {
 	w := lipgloss.Width(s)
 	if w >= width {
