@@ -1,0 +1,168 @@
+name: Publish npm packages (Go binary)
+
+on:
+  workflow_call:
+    inputs:
+      base_name:
+        required: false
+        type: string
+        description: Base npm package name (default: argonaut)
+      dist_tag:
+        required: false
+        type: string
+        description: npm dist-tag to use (default: latest)
+      tag:
+        required: false
+        type: string
+        description: Git tag (e.g., v1.16.0). If provided, overrides auto-detection.
+      version:
+        required: false
+        type: string
+        description: Version without v prefix. If provided, overrides detection.
+    secrets:
+      NPM_TOKEN:
+        required: true
+        description: Auth token for npm publish
+  workflow_dispatch:
+    inputs:
+      base_name:
+        description: Base npm package name (default: argonaut)
+        required: false
+        default: argonaut
+      dist_tag:
+        description: npm dist-tag to use (default: latest)
+        required: false
+        default: latest
+  release:
+    types: [published]
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          install-only: true
+
+      - name: Derive version from tag
+        id: ver
+        run: |
+          # Prefer inputs if provided
+          TAG=${{ inputs.tag && format('{0}', inputs.tag) || '""' }}
+          VER=${{ inputs.version && format('{0}', inputs.version) || '""' }}
+          if [ -z "$VER" ]; then
+            if [ -n "$TAG" ]; then
+              VER="${TAG#v}"
+            else
+              # fallback to current ref tag
+              TAG="${GITHUB_REF##*/}"
+              if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
+                git fetch --tags --force || true
+                TAG=$(git describe --tags --abbrev=0 || true)
+              fi
+              VER="${TAG#v}"
+            fi
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Build binaries with GoReleaser (no publish)
+        env:
+          GORELEASER_CURRENT_TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          goreleaser release --clean --skip=publish --skip=announce --config .goreleaser.release.yml
+
+      - name: Set up Node for npm publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Configure npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Prepare npm platform packages
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+        run: |
+          set -euo pipefail
+          mkdir -p npm-build
+          # Mapping between GoReleaser archives and npm package naming
+          # Expect archives: dist/argonaut-${VERSION}-{os}-{arch}.tar.gz
+          for OS in darwin linux; do
+            for ARCH in amd64 arm64; do
+              ARCHFILE="$ARCH"
+              NAME_OS="$OS"
+              NAME_ARCH="$ARCH"
+              if [ "$ARCH" = amd64 ]; then NAME_ARCH=x64; fi
+              ARCHIVE="dist/argonaut-${VERSION}-${OS}-${ARCH}.tar.gz"
+              if [ ! -f "$ARCHIVE" ]; then
+                echo "Skipping missing $ARCHIVE"; continue; fi
+              PKGDIR="npm-build/${PKG_BASE}-${OS}-${ARCH}"
+              mkdir -p "$PKGDIR/bin"
+              tar -xzf "$ARCHIVE" -C "$PKGDIR/bin" argonaut || tar -xzf "$ARCHIVE" -C "$PKGDIR/bin"
+              # Template package.json
+              sed \
+                -e "s/__NAME__/${OS}-${ARCH}/g" \
+                -e "s/__VERSION__/${VERSION}/g" \
+                -e "s/__OS__/${OS}/g" \
+                -e "s/__CPU__/${NAME_ARCH}/g" \
+                -e "s/__BINARY__/argonaut/g" \
+                npm/platform-template/package.json > "$PKGDIR/package.json"
+              # Replace base in package name
+              sed -i "s/^\(\s*\"name\"\s*:\s*\)\"argonaut-/${PKG_BASE}-/" "$PKGDIR/package.json"
+            done
+          done
+
+      - name: Publish platform packages to npm
+        env:
+          NPM_DIST_TAG: ${{ inputs.dist_tag || github.event.inputs.dist_tag || 'latest' }}
+        run: |
+          set -euo pipefail
+          for PKG in npm-build/*; do
+            echo "Publishing $PKG"
+            (cd "$PKG" && npm publish --access public --tag "$NPM_DIST_TAG")
+          done
+
+      - name: Prepare top-level runner package
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+        run: |
+          set -euo pipefail
+          RUNNER="npm/runner"
+          WORK="npm-build/${PKG_BASE}"
+          mkdir -p "$WORK"
+          rsync -a "$RUNNER/" "$WORK/"
+          # replace placeholders
+          sed -i "s/0.0.0-REPLACED/${VERSION}/g" "$WORK/package.json"
+          # rename package and optionalDependencies to use base name
+          sed -i "s/\"name\": \"argonaut\"/\"name\": \"${PKG_BASE}\"/" "$WORK/package.json"
+          sed -i "s/argonaut-/${PKG_BASE}-/g" "$WORK/package.json"
+
+      - name: Publish top-level package to npm
+        env:
+          NPM_DIST_TAG: ${{ inputs.dist_tag || github.event.inputs.dist_tag || 'latest' }}
+        run: |
+          set -euo pipefail
+          PKG_BASE=${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+          (cd npm-build/${PKG_BASE} && npm publish --access public --tag "$NPM_DIST_TAG")

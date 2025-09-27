@@ -1,0 +1,54 @@
+name: test-npm-install
+description: Install Argonaut from npm and verify it runs
+
+inputs:
+  node-version:
+    description: Node.js version to use
+    required: true
+  package-name:
+    description: Package name to install (default: argonaut)
+    required: false
+    default: argonaut
+  package-version:
+    description: Tag or version to install (e.g., v1.16.0 or 1.16.0)
+    required: true
+  dist-tag:
+    description: npm dist-tag to install (e.g., next). If provided, overrides package-version.
+    required: false
+    default: ""
+  test-mode:
+    description: Reserved
+    required: false
+    default: release
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Normalize version
+      id: ver
+      shell: bash
+      run: |
+        VER="${{ inputs.package-version }}"
+        VER="${VER#v}"
+        echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+    - name: Install package from npm
+      shell: bash
+      run: |
+        set -euo pipefail
+        NAME="${{ inputs.package-name }}"
+        if [ -n "${{ inputs.dist-tag }}" ]; then
+          npm i -g "$NAME@${{ inputs.dist-tag }}"
+        else
+          npm i -g "$NAME@${{ steps.ver.outputs.version }}"
+        fi
+        which "$NAME" || which argonaut || true
+        "$NAME" --version || argonaut --version || true
+        # basic smoke test: print help
+        "$NAME" --help >/dev/null || argonaut --help >/dev/null
