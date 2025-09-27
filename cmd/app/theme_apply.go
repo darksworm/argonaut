@@ -10,6 +10,16 @@ import (
 // throughout the TUI. Call this early at startup and whenever the theme
 // changes.
 func applyTheme(p theme.Palette) {
+	// Defensive defaults for optional fields
+	if p.CursorBG == nil {
+		p.CursorBG = p.CursorSelectedBG
+	}
+	if p.Border == nil {
+		p.Border = p.Accent
+	}
+	if p.SelectedBG == nil {
+		p.SelectedBG = p.Accent
+	}
 	// Base colors
 	magentaBright = p.Accent
 	yellowBright = p.Warning
