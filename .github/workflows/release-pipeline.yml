@@ -27,6 +27,11 @@ jobs:
           release-type: go
 
   # npm publish disabled - not distributing via npm
+  publish-npm:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    uses: ./.github/workflows/publish-npm.yml
+
 
   goreleaser:
     needs: release-please
@@ -116,4 +121,21 @@ jobs:
           install-source: ${{ needs.release-please.outputs.tag_name }}
           test-mode: release
 
-  # npm integration tests removed - not distributing via npm
+  npm-integration-tests:
+    needs: [release-please, publish-npm]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22, latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test npm installation on Node.js ${{ matrix.node-version }}
+        uses: ./.github/actions/test-npm-install
+        with:
+          node-version: ${{ matrix.node-version }}
+          test-mode: release
+          package-version: ${{ needs.release-please.outputs.tag_name }}
