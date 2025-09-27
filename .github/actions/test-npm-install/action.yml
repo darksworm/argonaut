@@ -5,6 +5,10 @@ inputs:
   node-version:
     description: Node.js version to use
     required: true
+  package-name:
+    description: Package name to install (default: argonaut)
+    required: false
+    default: argonaut
   package-version:
     description: Tag or version to install (e.g., v1.16.0 or 1.16.0)
     required: true
@@ -34,9 +38,9 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        npm i -g argonaut@"${{ steps.ver.outputs.version }}"
-        which argonaut
-        argonaut --version || true
+        NAME="${{ inputs.package-name }}"
+        npm i -g "$NAME@${{ steps.ver.outputs.version }}"
+        which "$NAME" || which argonaut || true
+        "$NAME" --version || argonaut --version || true
         # basic smoke test: print help
-        argonaut --help >/dev/null
-
+        "$NAME" --help >/dev/null || argonaut --help >/dev/null

@@ -2,7 +2,25 @@ name: Publish npm packages (Go binary)
 
 on:
   workflow_call:
+    inputs:
+      base_name:
+        required: false
+        type: string
+        description: Base npm package name (default: argonaut)
+      dist_tag:
+        required: false
+        type: string
+        description: npm dist-tag to use (default: latest)
   workflow_dispatch:
+    inputs:
+      base_name:
+        description: Base npm package name (default: argonaut)
+        required: false
+        default: argonaut
+      dist_tag:
+        description: npm dist-tag to use (default: latest)
+        required: false
+        default: latest
   release:
     types: [published]
 
@@ -59,6 +77,7 @@ jobs:
       - name: Prepare npm platform packages
         env:
           VERSION: ${{ steps.ver.outputs.version }}
+          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
         run: |
           set -euo pipefail
           mkdir -p npm-build
@@ -73,7 +92,7 @@ jobs:
               ARCHIVE="dist/argonaut-${VERSION}-${OS}-${ARCH}.tar.gz"
               if [ ! -f "$ARCHIVE" ]; then
                 echo "Skipping missing $ARCHIVE"; continue; fi
-              PKGDIR="npm-build/argonaut-${OS}-${ARCH}"
+              PKGDIR="npm-build/${PKG_BASE}-${OS}-${ARCH}"
               mkdir -p "$PKGDIR/bin"
               tar -xzf "$ARCHIVE" -C "$PKGDIR/bin" argonaut || tar -xzf "$ARCHIVE" -C "$PKGDIR/bin"
               # Template package.json
@@ -84,31 +103,41 @@ jobs:
                 -e "s/__CPU__/${NAME_ARCH}/g" \
                 -e "s/__BINARY__/argonaut/g" \
                 npm/platform-template/package.json > "$PKGDIR/package.json"
+              # Replace base in package name
+              sed -i "s/^\(\s*\"name\"\s*:\s*\)\"argonaut-/${PKG_BASE}-/" "$PKGDIR/package.json"
             done
           done
 
       - name: Publish platform packages to npm
+        env:
+          NPM_DIST_TAG: ${{ inputs.dist_tag || github.event.inputs.dist_tag || 'latest' }}
         run: |
           set -euo pipefail
           for PKG in npm-build/*; do
             echo "Publishing $PKG"
-            (cd "$PKG" && npm publish --access public)
+            (cd "$PKG" && npm publish --access public --tag "$NPM_DIST_TAG")
           done
 
       - name: Prepare top-level runner package
         env:
           VERSION: ${{ steps.ver.outputs.version }}
+          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
         run: |
           set -euo pipefail
           RUNNER="npm/runner"
-          WORK="npm-build/argonaut"
+          WORK="npm-build/${PKG_BASE}"
           mkdir -p "$WORK"
           rsync -a "$RUNNER/" "$WORK/"
           # replace placeholders
           sed -i "s/0.0.0-REPLACED/${VERSION}/g" "$WORK/package.json"
+          # rename package and optionalDependencies to use base name
+          sed -i "s/\"name\": \"argonaut\"/\"name\": \"${PKG_BASE}\"/" "$WORK/package.json"
+          sed -i "s/argonaut-/${PKG_BASE}-/g" "$WORK/package.json"
 
       - name: Publish top-level package to npm
+        env:
+          NPM_DIST_TAG: ${{ inputs.dist_tag || github.event.inputs.dist_tag || 'latest' }}
         run: |
           set -euo pipefail
-          (cd npm-build/argonaut && npm publish --access public)
-
+          (cd npm-build/* && [ -f package.json ] && jq -r .name package.json); ls npm-build
+          (cd npm-build/${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }} && npm publish --access public --tag "$NPM_DIST_TAG")

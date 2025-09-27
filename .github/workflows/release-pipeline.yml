@@ -31,6 +31,9 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     uses: ./.github/workflows/publish-npm.yml
+    with:
+      base_name: argonaut
+      dist_tag: latest
 
 
   goreleaser:
@@ -138,4 +141,5 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           test-mode: release
+          package-name: argonaut
           package-version: ${{ needs.release-please.outputs.tag_name }}
