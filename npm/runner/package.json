@@ -1,19 +1,16 @@
 {
-  "name": "argonaut",
+  "name": "argonaut-cli",
   "version": "0.0.0-REPLACED",
   "description": "Argonaut CLI (Go binary via per-platform npm packages)",
   "license": "GPL-3.0-or-later",
-  "bin": {
-    "argonaut": "bin/run.js"
-  },
   "scripts": {
-    "postinstall": "node scripts/install.js"
+    "postinstall": "node scripts/postinstall.js"
   },
   "optionalDependencies": {
-    "argonaut-darwin-arm64": "0.0.0-REPLACED",
-    "argonaut-darwin-amd64": "0.0.0-REPLACED",
-    "argonaut-linux-amd64": "0.0.0-REPLACED",
-    "argonaut-linux-arm64": "0.0.0-REPLACED"
+    "argonaut-cli-darwin-arm64": "0.0.0-REPLACED",
+    "argonaut-cli-darwin-amd64": "0.0.0-REPLACED",
+    "argonaut-cli-linux-amd64": "0.0.0-REPLACED",
+    "argonaut-cli-linux-arm64": "0.0.0-REPLACED"
   }
 }
 

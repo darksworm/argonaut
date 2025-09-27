@@ -1,10 +1,13 @@
 {
-  "name": "argonaut-__NAME__",
+  "name": "__PKG_BASE__-__NAME__",
   "version": "__VERSION__",
   "description": "Argonaut CLI (__NAME__)",
   "license": "GPL-3.0-or-later",
   "os": ["__OS__"],
   "cpu": ["__CPU__"],
+  "bin": {
+    "argonaut": "bin/__BINARY__"
+  },
   "files": ["bin/__BINARY__"],
   "repository": {
     "type": "git",

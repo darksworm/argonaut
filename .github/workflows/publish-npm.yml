@@ -6,13 +6,13 @@ on:
       base_name:
         required: false
         type: string
-        default: argonaut
-        description: Base npm package name (default: argonaut)
+        default: argonaut-cli
+        description: "Base npm package name (default: argonaut-cli)"
       dist_tag:
         required: false
         type: string
         default: latest
-        description: npm dist-tag to use (default: latest)
+        description: "npm dist-tag to use (default: latest)"
       tag:
         required: false
         type: string
@@ -21,6 +21,15 @@ on:
         required: false
         type: string
         description: Version without v prefix. If provided, overrides detection.
+      use_existing_artifacts:
+        required: false
+        type: boolean
+        default: false
+        description: Whether to use existing artifacts instead of running GoReleaser
+      artifacts_name:
+        required: false
+        type: string
+        description: Name of the artifacts to download (when use_existing_artifacts is true)
     secrets:
       NPM_TOKEN:
         required: true
@@ -28,11 +37,11 @@ on:
   workflow_dispatch:
     inputs:
       base_name:
-        description: Base npm package name (default: argonaut)
+        description: "Base npm package name (default: argonaut-cli)"
         required: false
-        default: argonaut
+        default: argonaut-cli
       dist_tag:
-        description: npm dist-tag to use (default: latest)
+        description: "npm dist-tag to use (default: latest)"
         required: false
         default: latest
   release:
@@ -47,18 +56,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Go
+        if: ${{ inputs.use_existing_artifacts != true }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
       - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        if: ${{ inputs.use_existing_artifacts != true }}
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: nightly
           install-only: true
 
       - name: Derive version from tag
@@ -79,61 +90,86 @@ jobs:
               fi
               VER="${TAG#v}"
             fi
+          else
+            # If version is provided but no tag, create a synthetic tag for GoReleaser
+            if [ -z "$TAG" ]; then
+              TAG="v${VER}"
+            fi
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
+      - name: Download existing artifacts
+        if: ${{ inputs.use_existing_artifacts == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifacts_name }}
+          path: dist
+
       - name: Build binaries with GoReleaser (no publish)
-        env:
-          GORELEASER_CURRENT_TAG: ${{ steps.ver.outputs.tag }}
+        if: ${{ inputs.use_existing_artifacts != true }}
         run: |
-          goreleaser release --clean --skip=publish --skip=announce --config .goreleaser.release.yml
+          # For prerelease/dev versions, use snapshot mode
+          if [[ "${{ steps.ver.outputs.version }}" == *"-dev"* ]] || [[ "${{ steps.ver.outputs.version }}" == *"-rc"* ]] || [[ "${{ steps.ver.outputs.version }}" == "dev-"* ]]; then
+            echo "Building snapshot for prerelease version: ${{ steps.ver.outputs.version }}"
+            goreleaser release --clean --skip=publish --skip=announce --skip=docker --snapshot --config .goreleaser.release.yml
+          else
+            echo "Building release for version: ${{ steps.ver.outputs.version }}"
+            export GORELEASER_CURRENT_TAG="${{ steps.ver.outputs.tag }}"
+            goreleaser release --clean --skip=publish --skip=announce --config .goreleaser.release.yml
+          fi
 
       - name: Set up Node for npm publish
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Configure npm auth
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Prepare npm platform packages
         env:
           VERSION: ${{ steps.ver.outputs.version }}
-          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut-cli' }}
         run: |
           set -euo pipefail
           mkdir -p npm-build
           # Mapping between GoReleaser archives and npm package naming
-          # Expect archives: dist/argonaut-${VERSION}-{os}-{arch}.tar.gz
+          # For snapshot builds, archives are named: argonaut-<snapshot-version>-{os}-{arch}.tar.gz
+          # For regular builds, archives are named: argonaut-${VERSION}-{os}-{arch}.tar.gz
           for OS in darwin linux; do
             for ARCH in amd64 arm64; do
               ARCHFILE="$ARCH"
               NAME_OS="$OS"
               NAME_ARCH="$ARCH"
               if [ "$ARCH" = amd64 ]; then NAME_ARCH=x64; fi
+
+              # Try to find the archive - first try expected name, then search for snapshot name
               ARCHIVE="dist/argonaut-${VERSION}-${OS}-${ARCH}.tar.gz"
               if [ ! -f "$ARCHIVE" ]; then
-                echo "Skipping missing $ARCHIVE"; continue; fi
+                # Look for snapshot archives
+                ARCHIVE=$(find dist/ -name "argonaut-*-${OS}-${ARCH}.tar.gz" | head -1)
+                if [ -z "$ARCHIVE" ]; then
+                  echo "Skipping missing archive for ${OS}-${ARCH}"; continue
+                fi
+              fi
+
+              echo "Using archive: $ARCHIVE"
               PKGDIR="npm-build/${PKG_BASE}-${OS}-${ARCH}"
               mkdir -p "$PKGDIR/bin"
               tar -xzf "$ARCHIVE" -C "$PKGDIR/bin" argonaut || tar -xzf "$ARCHIVE" -C "$PKGDIR/bin"
               # Template package.json
               sed \
+                -e "s/__PKG_BASE__/${PKG_BASE}/g" \
                 -e "s/__NAME__/${OS}-${ARCH}/g" \
                 -e "s/__VERSION__/${VERSION}/g" \
                 -e "s/__OS__/${OS}/g" \
                 -e "s/__CPU__/${NAME_ARCH}/g" \
                 -e "s/__BINARY__/argonaut/g" \
                 npm/platform-template/package.json > "$PKGDIR/package.json"
-              # Replace base in package name
-              sed -i "s/^\(\s*\"name\"\s*:\s*\)\"argonaut-/${PKG_BASE}-/" "$PKGDIR/package.json"
             done
           done
+
 
       - name: Publish platform packages to npm
         env:
@@ -142,13 +178,33 @@ jobs:
           set -euo pipefail
           for PKG in npm-build/*; do
             echo "Publishing $PKG"
-            (cd "$PKG" && npm publish --access public --tag "$NPM_DIST_TAG")
+            PACKAGE_NAME=$(grep -o '"name": "[^"]*"' "$PKG/package.json" | cut -d'"' -f4)
+
+            # Check if package exists
+            if npm view "$PACKAGE_NAME" >/dev/null 2>&1; then
+              echo "Package $PACKAGE_NAME exists, publishing normally"
+              (cd "$PKG" && npm publish --access public --tag "$NPM_DIST_TAG")
+            else
+              echo "Package $PACKAGE_NAME doesn't exist, creating with initial version"
+              # For first-time publish, create with version 0.0.1-init, then publish the real version
+              CURRENT_VERSION=$(grep -o '"version": "[^"]*"' "$PKG/package.json" | cut -d'"' -f4)
+              sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"0.0.1-init\"/" "$PKG/package.json"
+
+              echo "Creating initial package version..."
+              (cd "$PKG" && npm publish --access public --tag init)
+
+              # Now publish the actual version
+              sed -i "s/\"version\": \"0.0.1-init\"/\"version\": \"${{ steps.ver.outputs.version }}\"/" "$PKG/package.json"
+
+              echo "Publishing actual version..."
+              (cd "$PKG" && npm publish --access public --tag "$NPM_DIST_TAG")
+            fi
           done
 
       - name: Prepare top-level runner package
         env:
           VERSION: ${{ steps.ver.outputs.version }}
-          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+          PKG_BASE: ${{ inputs.base_name || github.event.inputs.base_name || 'argonaut-cli' }}
         run: |
           set -euo pipefail
           RUNNER="npm/runner"
@@ -157,9 +213,9 @@ jobs:
           rsync -a "$RUNNER/" "$WORK/"
           # replace placeholders
           sed -i "s/0.0.0-REPLACED/${VERSION}/g" "$WORK/package.json"
-          # rename package and optionalDependencies to use base name
-          sed -i "s/\"name\": \"argonaut\"/\"name\": \"${PKG_BASE}\"/" "$WORK/package.json"
-          sed -i "s/argonaut-/${PKG_BASE}-/g" "$WORK/package.json"
+          # The package name is already set correctly in npm/runner/package.json
+          # Update optionalDependencies to use base name - they should already be correct
+          # No need to modify since npm/runner/package.json already has the correct names
 
       - name: Publish top-level package to npm
         env:
@@ -167,4 +223,24 @@ jobs:
         run: |
           set -euo pipefail
           PKG_BASE=${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
-          (cd npm-build/${PKG_BASE} && npm publish --access public --tag "$NPM_DIST_TAG")
+          PACKAGE_NAME="$PKG_BASE"
+
+          # Check if package exists
+          if npm view "$PACKAGE_NAME" >/dev/null 2>&1; then
+            echo "Package $PACKAGE_NAME exists, publishing normally"
+            (cd npm-build/${PKG_BASE} && npm publish --access public --tag "$NPM_DIST_TAG")
+          else
+            echo "Package $PACKAGE_NAME doesn't exist, creating with initial version"
+            # For first-time publish, create with version 0.0.1-init, then publish the real version
+            CURRENT_VERSION=$(grep -o '"version": "[^"]*"' "npm-build/${PKG_BASE}/package.json" | cut -d'"' -f4)
+            sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"0.0.1-init\"/" "npm-build/${PKG_BASE}/package.json"
+
+            echo "Creating initial package version..."
+            (cd npm-build/${PKG_BASE} && npm publish --access public --tag init)
+
+            # Now publish the actual version
+            sed -i "s/\"version\": \"0.0.1-init\"/\"version\": \"${{ steps.ver.outputs.version }}\"/" "npm-build/${PKG_BASE}/package.json"
+
+            echo "Publishing actual version..."
+            (cd npm-build/${PKG_BASE} && npm publish --access public --tag "$NPM_DIST_TAG")
+          fi

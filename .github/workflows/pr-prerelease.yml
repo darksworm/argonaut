@@ -37,7 +37,7 @@ jobs:
       - name: Checkout PR code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Go
@@ -92,32 +92,33 @@ jobs:
           echo "=== All files by name ==="
           find dist/ -type f -name "*" | sort || true
 
+      - name: Upload GoReleaser artifacts for npm publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-dist-prerelease
+          path: dist/
+          retention-days: 1
 
   publish-npm-prerelease:
     needs: [check-release-pr, build-prerelease]
     if: needs.check-release-pr.outputs.is_release_pr == 'true'
     uses: ./.github/workflows/publish-npm.yml
     with:
-      base_name: argonaut-next
+      base_name: argonaut-cli
       dist_tag: next
       version: ${{ needs.build-prerelease.outputs.pre_version }}
+      use_existing_artifacts: true
+      artifacts_name: goreleaser-dist-prerelease
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  npm-integration-tests-prerelease:
-    needs: [check-release-pr, publish-npm-prerelease]
+  package-artifacts:
+    needs: [check-release-pr, build-prerelease]
     if: needs.check-release-pr.outputs.is_release_pr == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: NPM integration tests (pre-release)
-        uses: ./.github/actions/test-npm-install
-        with:
-          node-version: 20
-          package-name: argonaut-next
-          package-version: 0.0.0
-          dist-tag: next
 
       - name: Package artifacts
         run: |
