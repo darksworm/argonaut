@@ -135,8 +135,9 @@ func (m *Model) renderListHeader() string {
 		nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
 
 		nameHeader := headerStyle.Render("NAME")
-		syncHeader := headerStyle.Render("SYNC")
-		healthHeader := headerStyle.Render("HEALTH")
+		// Compact headers to save space: S = Sync, H = Health
+		syncHeader := headerStyle.Render("S")
+		healthHeader := headerStyle.Render("H")
 
 		nameCell := padRight(clipAnsiToWidth(nameHeader, nameWidth), nameWidth)
 		syncCell := padLeft(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
