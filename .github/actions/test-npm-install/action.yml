@@ -6,14 +6,14 @@ inputs:
     description: Node.js version to use
     required: true
   package-name:
-    description: Package name to install (default: argonaut)
+    description: "Package name to install (default: argonaut)"
     required: false
     default: argonaut
   package-version:
-    description: Tag or version to install (e.g., v1.16.0 or 1.16.0)
+    description: "Tag or version to install (e.g., v1.16.0 or 1.16.0)"
     required: true
   dist-tag:
-    description: npm dist-tag to install (e.g., next). If provided, overrides package-version.
+    description: "npm dist-tag to install (e.g., next). If provided, overrides package-version."
     required: false
     default: ""
   test-mode:
@@ -38,17 +38,45 @@ runs:
         VER="${VER#v}"
         echo "version=$VER" >> "$GITHUB_OUTPUT"
 
-    - name: Install package from npm
+    - name: Wait for package availability and install
       shell: bash
       run: |
         set -euo pipefail
         NAME="${{ inputs.package-name }}"
+
+        # Determine target version/tag
         if [ -n "${{ inputs.dist-tag }}" ]; then
-          npm i -g "$NAME@${{ inputs.dist-tag }}"
+          TARGET="$NAME@${{ inputs.dist-tag }}"
         else
-          npm i -g "$NAME@${{ steps.ver.outputs.version }}"
+          TARGET="$NAME@${{ steps.ver.outputs.version }}"
         fi
-        which "$NAME" || which argonaut || true
-        "$NAME" --version || argonaut --version || true
-        # basic smoke test: print help
-        "$NAME" --help >/dev/null || argonaut --help >/dev/null
+
+        # Wait for package to be available (retry up to 10 times with 30s intervals)
+        echo "Waiting for package $TARGET to be available..."
+        for i in {1..10}; do
+          if npm view "$TARGET" version >/dev/null 2>&1; then
+            echo "Package $TARGET is available!"
+            break
+          fi
+          echo "Attempt $i/10: Package not yet available, waiting 30 seconds..."
+          sleep 30
+        done
+
+        # Install the package
+        echo "Installing $TARGET globally..."
+        npm i -g "$TARGET"
+
+        # Add npm global bin to PATH
+        NPM_BIN_PATH=$(npm bin -g)
+        echo "$NPM_BIN_PATH" >> $GITHUB_PATH
+        export PATH="$NPM_BIN_PATH:$PATH"
+
+        # Test the installation
+        echo "Testing argonaut installation..."
+        which argonaut
+        argonaut --version
+
+        # Basic smoke test: print help
+        echo "Running smoke test..."
+        argonaut --help >/dev/null
+        echo "✅ All tests passed!"

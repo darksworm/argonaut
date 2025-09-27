@@ -26,16 +26,16 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: go
 
-  # npm publish disabled - not distributing via npm
   publish-npm:
-    needs: release-please
+    needs: [release-please, goreleaser]
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     uses: ./.github/workflows/publish-npm.yml
     with:
-      base_name: argonaut
+      base_name: argonaut-cli
       dist_tag: latest
       tag: ${{ needs.release-please.outputs.tag_name }}
-      version: ${{ needs.release-please.outputs.tag_name }}
+      use_existing_artifacts: true
+      artifacts_name: goreleaser-dist-release
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -48,8 +48,12 @@ jobs:
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # Fetch recent tags for GoReleaser changelog generation
+          fetch-depth: 100
           ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Fetch tags for GoReleaser
+        run: git fetch --tags --force
 
       - name: Setup Git identity
         run: |
@@ -104,6 +108,13 @@ jobs:
           GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
           TAG: ${{ needs.release-please.outputs.tag_name }}
 
+      - name: Upload GoReleaser artifacts for npm publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-dist-release
+          path: dist/
+          retention-days: 1
+
   integration-tests:
     needs: [release-please, goreleaser]
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
@@ -128,22 +139,3 @@ jobs:
           install-source: ${{ needs.release-please.outputs.tag_name }}
           test-mode: release
 
-  npm-integration-tests:
-    needs: [release-please, publish-npm]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [18, 20, 22, latest]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Test npm installation on Node.js ${{ matrix.node-version }}
-        uses: ./.github/actions/test-npm-install
-        with:
-          node-version: ${{ matrix.node-version }}
-          test-mode: release
-          package-name: argonaut
-          package-version: ${{ needs.release-please.outputs.tag_name }}
