@@ -1,3 +1,5 @@
+name: release-pipeline
+
 on:
   push:
     branches:
@@ -9,8 +11,6 @@ permissions:
   pull-requests: write
   packages: write
   id-token: write
-
-name: release-pipeline
 
 jobs:
   release-please:
