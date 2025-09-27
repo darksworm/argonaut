@@ -53,18 +53,10 @@ func (m *Model) renderTreePanel(availableRows int) string {
 	// Save the adjusted scroll offset back
 	m.treeScrollOffset = scrollOffset
 
-	// Extract visible lines and highlight the selected one
+	// Extract visible lines
 	visibleLines := []string{}
 	for i := scrollOffset; i < min(scrollOffset+viewportHeight, totalLines); i++ {
 		line := lines[i]
-		// Highlight the selected line
-		if i == cursorIdx {
-			// Add subtle selection background for the entire row in tree panel
-			line = lipgloss.NewStyle().
-				Background(shadeBG).
-				Foreground(whiteBright).
-				Render(line)
-		}
 		visibleLines = append(visibleLines, line)
 	}
 
