@@ -28,7 +28,8 @@ func (m *Model) renderBanner() string {
 			}
 		}
 		total := max(0, m.state.Terminal.Cols-2)
-		top := joinWithRightAlignment(first, m.renderSmallBadge(false, true), total)
+		// Add a one-space right margin after the badge to balance with left padding
+		top := joinWithRightAlignment(first, m.renderSmallBadge(false, true)+" ", total)
 		if rest != "" {
 			return top + "\n" + rest
 		}
@@ -151,7 +152,12 @@ func (m *Model) renderCompactBanner() string {
 
 	left1 := strings.Join(line1Tokens, sep)
 	// Add one space padding on the left to align with the main content box
-	top := joinWithRightAlignment(" "+left1, badge, total)
+	// Add a right margin outside the badge so the colored badge doesn't touch the edge
+	rb := badge
+	if rb != "" {
+		rb += " "
+	}
+	top := joinWithRightAlignment(" "+left1, rb, total)
 	if len(line2Tokens) == 0 {
 		return top
 	}
