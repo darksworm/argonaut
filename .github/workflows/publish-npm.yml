@@ -6,10 +6,12 @@ on:
       base_name:
         required: false
         type: string
+        default: argonaut
         description: Base npm package name (default: argonaut)
       dist_tag:
         required: false
         type: string
+        default: latest
         description: npm dist-tag to use (default: latest)
       tag:
         required: false
