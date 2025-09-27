@@ -26,7 +26,8 @@ func (m *Model) renderTreePanel(availableRows int) string {
 	viewportHeight := availableRows
 	cursorIdx := 0
 	if m.treeView != nil {
-		cursorIdx = m.treeView.SelectedIndex()
+		// Account for blank separator lines inserted between app roots
+		cursorIdx = m.treeView.SelectedLineIndex()
 	}
 	scrollOffset := m.treeScrollOffset
 
