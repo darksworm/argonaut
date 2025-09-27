@@ -31,6 +31,8 @@ jobs:
     needs: check-release-pr
     if: needs.check-release-pr.outputs.is_release_pr == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      pre_version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout PR code
         uses: actions/checkout@v4
@@ -90,15 +92,25 @@ jobs:
           echo "=== All files by name ==="
           find dist/ -type f -name "*" | sort || true
 
-      - name: Publish npm pre-release packages (argonaut-next)
-        uses: ./.github/workflows/publish-npm.yml
-        with:
-          base_name: argonaut-next
-          dist_tag: next
-          version: ${{ steps.version.outputs.version }}
-        secrets:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  publish-npm-prerelease:
+    needs: [check-release-pr, build-prerelease]
+    if: needs.check-release-pr.outputs.is_release_pr == 'true'
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      base_name: argonaut-next
+      dist_tag: next
+      version: ${{ needs.build-prerelease.outputs.pre_version }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  npm-integration-tests-prerelease:
+    needs: [check-release-pr, publish-npm-prerelease]
+    if: needs.check-release-pr.outputs.is_release_pr == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: NPM integration tests (pre-release)
         uses: ./.github/actions/test-npm-install
         with:
