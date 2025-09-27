@@ -104,18 +104,14 @@ func (m *Model) renderCompactBanner() string {
 		}
 	}
 
-	right1 := strings.Join(line1Tokens, sep)
-	if right1 != "" {
-		right1 += " "
-	}
-	right1 += badge
-
-	top := joinWithRightAlignment("", right1, total)
+	left1 := strings.Join(line1Tokens, sep)
+	// Add one space padding on the left to align with the main content box
+	top := joinWithRightAlignment(" "+left1, badge, total)
 	if len(line2Tokens) == 0 {
 		return top
 	}
-	right2 := strings.Join(line2Tokens, sep)
-	bottom := joinWithRightAlignment("", right2, total)
+	left2 := strings.Join(line2Tokens, sep)
+	bottom := joinWithRightAlignment(" "+left2, "", total)
 	return top + "\n" + bottom
 }
 
