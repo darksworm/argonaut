@@ -140,8 +140,10 @@ func (m *Model) renderListHeader() string {
 		healthHeader := headerStyle.Render("H")
 
 		nameCell := padRight(clipAnsiToWidth(nameHeader, nameWidth), nameWidth)
-		syncCell := padLeft(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
-		healthCell := padLeft(clipAnsiToWidth(healthHeader, healthWidth), healthWidth)
+		// For narrow columns (width<=2), row cells tend to start at the left edge
+		// (e.g., "V "), so left-align compact headers for visual alignment.
+		syncCell := padRight(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
+		healthCell := padRight(clipAnsiToWidth(healthHeader, healthWidth), healthWidth)
 
 		header := fmt.Sprintf("%s %s %s", nameCell, syncCell, healthCell)
 		// Guarantee exact width to prevent underline overflow
