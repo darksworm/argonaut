@@ -9,6 +9,11 @@ import (
 )
 
 func (m *Model) renderBanner() string {
+	// If the terminal is short, collapse the header into 1–2 lines
+	if m.state.Terminal.Rows <= 22 {
+		return m.renderCompactBanner()
+	}
+
 	isNarrow := m.state.Terminal.Cols <= 100
 	if isNarrow {
 		// Float the small badge to the right of the first context line to save vertical space.
@@ -42,6 +47,76 @@ func (m *Model) renderBanner() string {
 	}
 	total := max(0, m.state.Terminal.Cols-2)
 	return joinWithRightAlignment(left, right, total)
+}
+
+// renderCompactBanner produces a 1–2 line banner optimized for low terminal height.
+// Right-aligned it shows: ctx/cls/ns/proj details and the small badge (logo).
+// If details don't fit on one line beside the badge, they wrap to a second line
+// while the badge remains on the first line.
+func (m *Model) renderCompactBanner() string {
+	total := max(0, m.state.Terminal.Cols-2)
+
+	// Build compact details tokens
+	host := "—"
+	if m.state.Server != nil {
+		host = hostFromURL(m.state.Server.BaseURL)
+	}
+	cls := scopeToText(m.state.Selections.ScopeClusters)
+	ns := scopeToText(m.state.Selections.ScopeNamespaces)
+	pr := scopeToText(m.state.Selections.ScopeProjects)
+
+	lbl := lipgloss.NewStyle().Foreground(whiteBright)
+	val := lipgloss.NewStyle().Foreground(cyanBright)
+
+	// tokens like: "ctx: host", "cls: ...", etc.
+	tokens := []string{
+		lbl.Render("ctx:") + " " + val.Render(host),
+		lbl.Render("cls:") + " " + val.Render(cls),
+		lbl.Render("ns:") + " " + val.Render(ns),
+		lbl.Render("proj:") + " " + val.Render(pr),
+	}
+
+	badge := m.renderSmallBadge(false)
+	badgeW := lipgloss.Width(badge)
+	sep := "  "
+
+	// Fill as many tokens as fit on the first line next to the badge
+	avail := total - badgeW - 1
+	if avail < 10 {
+		avail = total // if too tight, let tokens use full width; joinWithRightAlignment will push badge to edge
+	}
+	var line1Tokens, line2Tokens []string
+	widthSoFar := 0
+	for i, t := range tokens {
+		tw := lipgloss.Width(t)
+		extra := 0
+		if i > 0 {
+			extra = lipgloss.Width(sep)
+		}
+		if widthSoFar+extra+tw <= avail || len(line1Tokens) == 0 {
+			if i > 0 {
+				widthSoFar += extra
+			}
+			line1Tokens = append(line1Tokens, t)
+			widthSoFar += tw
+		} else {
+			line2Tokens = append(line2Tokens, t)
+		}
+	}
+
+	right1 := strings.Join(line1Tokens, sep)
+	if right1 != "" {
+		right1 += " "
+	}
+	right1 += badge
+
+	top := joinWithRightAlignment("", right1, total)
+	if len(line2Tokens) == 0 {
+		return top
+	}
+	right2 := strings.Join(line2Tokens, sep)
+	bottom := joinWithRightAlignment("", right2, total)
+	return top + "\n" + bottom
 }
 
 // renderSmallBadge renders the compact badge used in narrow terminals.
