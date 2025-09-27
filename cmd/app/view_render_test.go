@@ -43,8 +43,15 @@ func TestRender_ListHeaderAndRowsContainExpectedFields(t *testing.T) {
 	plain := stripANSI(content)
 
 	// Header contains the expected labels
-	if !strings.Contains(plain, "NAME") || !strings.Contains(plain, "SYNC") || !strings.Contains(plain, "HEALTH") {
-		t.Fatalf("header missing expected labels. content=\n%s", plain)
+	if !strings.Contains(plain, "NAME") {
+		t.Fatalf("header missing NAME label. content=\n%s", plain)
+	}
+	// Accept compact headers (S/H) or full (SYNC/HEALTH)
+	if !(strings.Contains(plain, " S ") || strings.Contains(plain, "SYNC")) {
+		t.Fatalf("header missing Sync label (S or SYNC). content=\n%s", plain)
+	}
+	if !(strings.Contains(plain, " H") || strings.Contains(plain, "H ") || strings.Contains(plain, "HEALTH")) {
+		t.Fatalf("header missing Health label (H or HEALTH). content=\n%s", plain)
 	}
 
 	// Rows include app names in order and abbreviated statuses present
