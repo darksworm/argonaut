@@ -59,6 +59,30 @@ func (m *Model) handleNavigationDown() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// treeViewportHeight computes the number of rows available to render the
+// tree panel body, mirroring the layout math in renderMainLayout/renderTreePanel.
+func (m *Model) treeViewportHeight() int {
+	const (
+		BORDER_LINES       = 2
+		TABLE_HEADER_LINES = 0
+		TAG_LINE           = 0
+		STATUS_LINES       = 1
+	)
+	header := m.renderBanner()
+	headerLines := countLines(header)
+	searchLines := 0
+	if m.state.Mode == model.ModeSearch {
+		searchLines = 1 // search bar is single-line
+	}
+	commandLines := 0
+	if m.state.Mode == model.ModeCommand {
+		commandLines = 1 // command bar is single-line
+	}
+	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
+	return max(0, availableRows)
+}
+
 // handleToggleSelection toggles selection of current item (space key)
 func (m *Model) handleToggleSelection() (tea.Model, tea.Cmd) {
 	visibleItems := m.getVisibleItemsForCurrentView()
@@ -727,47 +751,64 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "up", "k", "down", "j":
 			if m.treeView != nil {
-				oldIdx := m.treeView.SelectedIndex()
+				// Use line-based indices to account for blank separators between app roots
+				oldLine := m.treeView.SelectedIndex()
+				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+					oldLine = s.SelectedLineIndex()
+				}
 				updatedModel, _ := m.treeView.Update(msg)
 				m.treeView = updatedModel.(*treeview.TreeView)
-				newIdx := m.treeView.SelectedIndex()
+				newLine := m.treeView.SelectedIndex()
+				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+					newLine = s.SelectedLineIndex()
+				}
 
 				// Adjust scroll based on cursor movement
 				if msg.String() == "up" || msg.String() == "k" {
 					// Moving up - ensure cursor is visible at top
-					if newIdx < oldIdx && newIdx < m.treeScrollOffset {
-						m.treeScrollOffset = newIdx
+					if newLine < oldLine && newLine < m.treeScrollOffset {
+						m.treeScrollOffset = newLine
 					}
 				} else {
 					// Moving down - ensure cursor is visible at bottom
-					viewportHeight := m.state.Terminal.Rows - 10 // Approximate overhead
-					if newIdx > oldIdx && newIdx >= m.treeScrollOffset+viewportHeight {
-						m.treeScrollOffset = newIdx - viewportHeight + 1
+					viewportHeight := m.treeViewportHeight()
+					if newLine > oldLine && newLine >= m.treeScrollOffset+viewportHeight {
+						m.treeScrollOffset = newLine - viewportHeight + 1
 					}
 				}
 			}
 			return m, nil
 		case "left", "h", "right", "l", "enter":
 			if m.treeView != nil {
-				oldIdx := m.treeView.SelectedIndex()
+				oldLine := m.treeView.SelectedIndex()
+				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+					oldLine = s.SelectedLineIndex()
+				}
 				oldCount := m.treeView.VisibleCount()
 				updatedModel, _ := m.treeView.Update(msg)
 				m.treeView = updatedModel.(*treeview.TreeView)
-				newIdx := m.treeView.SelectedIndex()
+				newLine := m.treeView.SelectedIndex()
+				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+					newLine = s.SelectedLineIndex()
+				}
 				newCount := m.treeView.VisibleCount()
 
 				// If the visible count changed (expand/collapse) or cursor moved,
 				// ensure cursor stays in viewport
-				if oldCount != newCount || oldIdx != newIdx {
-					viewportHeight := m.state.Terminal.Rows - 10
+				if oldCount != newCount || oldLine != newLine {
+					viewportHeight := m.treeViewportHeight()
 					// Ensure cursor is visible
-					if newIdx < m.treeScrollOffset {
-						m.treeScrollOffset = newIdx
-					} else if newIdx >= m.treeScrollOffset+viewportHeight {
-						m.treeScrollOffset = newIdx - viewportHeight + 1
+					if newLine < m.treeScrollOffset {
+						m.treeScrollOffset = newLine
+					} else if newLine >= m.treeScrollOffset+viewportHeight {
+						m.treeScrollOffset = newLine - viewportHeight + 1
 					}
 					// Clamp scroll to valid range
+					// Use total rendered lines if available to account for separators
 					maxScroll := max(0, newCount-viewportHeight)
+					if v, ok := interface{}(m.treeView).(interface{ VisibleLineCount() int }); ok {
+						maxScroll = max(0, v.VisibleLineCount()-viewportHeight)
+					}
 					if m.treeScrollOffset > maxScroll {
 						m.treeScrollOffset = maxScroll
 					}
@@ -796,7 +837,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "G":
 			// Go to bottom
 			if m.treeView != nil {
+				// Use rendered line count if available
 				totalItems := m.treeView.VisibleCount()
+				if v, ok := interface{}(m.treeView).(interface{ VisibleLineCount() int }); ok {
+					totalItems = v.VisibleLineCount()
+				}
 				currentIdx := m.treeView.SelectedIndex()
 				// Send multiple "down" keys to move to bottom
 				for i := currentIdx; i < totalItems-1; i++ {
@@ -805,7 +850,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.treeView = updatedModel.(*treeview.TreeView)
 				}
 				// Scroll to show the bottom item
-				viewportHeight := m.state.Terminal.Rows - 10
+				viewportHeight := m.treeViewportHeight()
 				m.treeScrollOffset = max(0, totalItems-viewportHeight)
 			}
 			return m, nil
