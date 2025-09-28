@@ -64,7 +64,8 @@ func calculateColumnWidths(availableWidth int) (nameWidth, syncWidth, healthWidt
 		// Very narrow: minimal widths (icons only)
 		syncWidth = 2   // Just icon
 		healthWidth = 2 // Just icon
-		nameWidth = max(8, availableWidth-syncWidth-healthWidth-sep)
+		// Ensure minimum viable name width
+		nameWidth = max(1, availableWidth-syncWidth-healthWidth-sep)
 	} else {
 		// Wide: full widths
 		syncWidth = 12   // SYNC column

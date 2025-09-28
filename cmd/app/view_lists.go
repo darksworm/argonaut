@@ -135,22 +135,34 @@ func (m *Model) renderListHeader() string {
 		nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
 
 		nameHeader := headerStyle.Render("NAME")
-		// Compact headers to save space: S = Sync, H = Health
-		syncHeader := headerStyle.Render("S")
-		healthHeader := headerStyle.Render("H")
+		// Responsive headers based on column width
+		var syncHeader, healthHeader string
+		if syncWidth >= 5 {
+			syncHeader = headerStyle.Render("SYNC")
+		} else {
+			// In narrow mode, content has format "V " (icon + space), so header should be "S " to align
+			syncHeader = headerStyle.Render("S ")
+		}
+		if healthWidth >= 7 {
+			healthHeader = headerStyle.Render("HEALTH")
+		} else {
+			// In narrow mode, content has format "V " (icon + space), so header should be "H " to align
+			healthHeader = headerStyle.Render("H ")
+		}
 
 		nameCell := padRight(clipAnsiToWidth(nameHeader, nameWidth), nameWidth)
-		// For narrow columns (width<=2), row cells tend to start at the left edge
-		// (e.g., "V "), so left-align compact headers for visual alignment.
-		syncCell := padRight(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
-		healthCell := padRight(clipAnsiToWidth(healthHeader, healthWidth), healthWidth)
+		// Align headers with content: sync and health cells use padLeft (right-aligned)
+		syncCell := padLeft(clipAnsiToWidth(syncHeader, syncWidth), syncWidth)
+		healthCell := padLeft(clipAnsiToWidth(healthHeader, healthWidth), healthWidth)
 
 		header := fmt.Sprintf("%s %s %s", nameCell, syncCell, healthCell)
-		// Guarantee exact width to prevent underline overflow
-		if lipgloss.Width(header) < contentWidth {
-			header = padRight(header, contentWidth)
-		} else if lipgloss.Width(header) > contentWidth {
-			header = clipAnsiToWidth(header, contentWidth)
+		// Use same width calculation as rows to ensure perfect alignment
+		fullRowWidth := nameWidth + syncWidth + healthWidth + 2 // +2 for separators
+		headerWidth := lipgloss.Width(header)
+		if headerWidth < fullRowWidth {
+			header = padRight(header, fullRowWidth)
+		} else if headerWidth > fullRowWidth {
+			header = clipAnsiToWidth(header, fullRowWidth)
 		}
 		return header
 	}
