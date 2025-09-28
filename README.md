@@ -97,15 +97,6 @@ You can download binaries and packages in from the [**latest release**](https://
 
 </details>
 
-<details>
-  <summary><strong>npm (Linux/macOS)</strong></summary>
-
-```bash
-npm i --global argonaut-cli
-```
-</details>
-
-
 ## ⚡ Quickstart
 ```bash
 # Log in to your Argo CD server

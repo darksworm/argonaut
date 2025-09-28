@@ -92,44 +92,6 @@ jobs:
           echo "=== All files by name ==="
           find dist/ -type f -name "*" | sort || true
 
-      - name: Upload GoReleaser artifacts for npm publishing
-        uses: actions/upload-artifact@v4
-        with:
-          name: goreleaser-dist-prerelease
-          path: dist/
-          retention-days: 1
-
-  # NOTE: npm publishing for prereleases is disabled to avoid
-  # overlapping versions with real releases. We still build and
-  # upload artifacts for validation, but skip npm publish entirely.
-  # If needed in the future, re-enable by restoring the job below.
-  # publish-npm-prerelease:
-  #   needs: [check-release-pr, build-prerelease]
-  #   if: needs.check-release-pr.outputs.is_release_pr == 'true'
-  #   uses: ./.github/workflows/publish-npm.yml
-  #   with:
-  #     base_name: argonaut-cli
-  #     dist_tag: next
-  #     version: ${{ needs.build-prerelease.outputs.pre_version }}
-  #     use_existing_artifacts: true
-  #     artifacts_name: goreleaser-dist-prerelease
-  #   secrets:
-  #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  package-artifacts:
-    needs: [check-release-pr, build-prerelease]
-    if: needs.check-release-pr.outputs.is_release_pr == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download existing artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: goreleaser-dist-prerelease
-          path: dist
-
       - name: Package artifacts
         run: |
           mkdir -p pr-artifacts

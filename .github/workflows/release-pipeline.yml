@@ -26,20 +26,6 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: go
 
-  publish-npm:
-    needs: [release-please, goreleaser]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    uses: ./.github/workflows/publish-npm.yml
-    with:
-      base_name: argonaut-cli
-      dist_tag: latest
-      tag: ${{ needs.release-please.outputs.tag_name }}
-      use_existing_artifacts: true
-      artifacts_name: goreleaser-dist-release
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-
   goreleaser:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
