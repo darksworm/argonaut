@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/darksworm/argonaut/compare/v2.0.2...v2.0.3) (2025-09-28)
+
+
+### Bug Fixes
+
+* **ci:** disabled npm publishing for pre-releases ([b7e07f3](https://github.com/darksworm/argonaut/commit/b7e07f37f19e92ac0291b9cc75e3f78c42b53d64))
+
 ## [2.0.2](https://github.com/darksworm/argonaut/compare/v2.0.1...v2.0.2) (2025-09-28)
 
 
