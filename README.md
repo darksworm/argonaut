@@ -1,12 +1,15 @@
 # 🐙 Argonaut — Argo CD TUI
 
+> 💥
+> &nbsp; v2.0.0 - rewritten in go!
+
 [![NPM Downloads](https://img.shields.io/npm/dm/argonaut-cli?style=flat-square&label=npm+downloads)](https://www.npmjs.com/package/argonaut-cli)
 [![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)
 [![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
 [![codecov](https://img.shields.io/codecov/c/github/darksworm/argonaut?token=4MYA3DR30R&style=flat-square)](https://codecov.io/github/darksworm/argonaut)
 [![Mutation testing badge](https://img.shields.io/endpoint?style=flat-square&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fdarksworm%2Fargonaut%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/darksworm/argonaut/main)
 
-Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **React + Ink**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
+Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **Bubbletea**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
 
 > ❤️ 🐶
 > &nbsp;Inspired by the great UX of [k9s](https://k9scli.io) — but for Argo CD.
@@ -34,14 +37,6 @@ The install script automatically detects your system (including musl vs glibc on
 You can also install a specific version:
 ```bash
 curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh -s -- v1.13.0
-```
-</details>
-
-<details>
-  <summary><strong>npm (Linux/macOS)</strong></summary>
-
-```bash
-npm i --global argonaut-cli
 ```
 </details>
 
@@ -102,6 +97,14 @@ You can download binaries and packages in from the [**latest release**](https://
 
 </details>
 
+<details>
+  <summary><strong>npm (Linux/macOS)</strong></summary>
+
+```bash
+npm i --global argonaut-cli
+```
+</details>
+
 
 ## ⚡ Quickstart
 ```bash
@@ -128,10 +131,13 @@ argonaut
 
 ## 📸 Screenshots
 
-### **Apps**  
+### **Live Apps**  
 <img src="assets/argonaut_apps.png" alt="Apps list"/>
 
-### **Resources**  
+### **Sync**
+<img src="assets/argonaut_sync.png" alt="Sync apps"/>
+
+### **Live Resources**
 <img src="assets/argonaut_resources.png" alt="Resources view"/>
 
 ### **Diff**  
@@ -140,30 +146,17 @@ argonaut
 ### **Rollback**  
 <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
 
-## Docker
-- Prebuilt images are published for releases to `ghcr.io/darksworm/argonaut`.
-- Local builds work cross-platform via a multi-stage Dockerfile.
+## Advanced Features
 
-Pull and run:
-
-```bash
-docker run --rm -it ghcr.io/darksworm/argonaut:latest
-```
-
-Build locally and run:
+### Client certificate authentication
+Argonaut supports client certificate authentication. You just need to pass a couple arguments to the argonaut command:
 
 ```bash
-# Build (uses buildx automatically if enabled)
-bun run docker:build
-
-# Run (pass CLI flags after image name)
-bun run docker:run
+argonaut --client-cert=/path/to/cert --client-cert-key=/path/to/key
 ```
 
-Multi-arch build with buildx (optional):
+### Self-signed certificates
+If your Argo CD server uses a self-signed certificate, you can provide a custom CA certificate to trust:
 
 ```bash
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/darksworm/argonaut:dev .
-```
+argonaut --ca-cert=/path/to/ca.crt
