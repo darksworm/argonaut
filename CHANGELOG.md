@@ -1,5 +1,47 @@
 # Changelog
 
+## [2.0.0](https://github.com/darksworm/argonaut/compare/v1.16.1...v2.0.0) (2025-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* go rewrite ([#84](https://github.com/darksworm/argonaut/issues/84))
+
+### Features
+
+* add client certificate authentication support ([fb1413f](https://github.com/darksworm/argonaut/commit/fb1413f71a52005bcdc7729aecf487af63260599))
+* add detailed logging for client certificate configuration ([79f4760](https://github.com/darksworm/argonaut/commit/79f47605f2e4cdfbe7d596c3c0cb474d29cb2fe7))
+* add GitHub Actions workflow for PR pre-release builds ([692003f](https://github.com/darksworm/argonaut/commit/692003f84c77f5245d8ff1d2080a38d74c011f5b))
+* add TLS certificate trust feature with comprehensive e2e tests ([35d3277](https://github.com/darksworm/argonaut/commit/35d32773bb4a43a7508ea2145d6666c130cc087d))
+* **apps view:** when cursor is on a selected app, use a distinct highlight (cyan) so the active row stands out ([3dda852](https://github.com/darksworm/argonaut/commit/3dda852b606e2e9e5d0bc87f64684e99fa02be6a))
+* go rewrite ([#84](https://github.com/darksworm/argonaut/issues/84)) ([c574906](https://github.com/darksworm/argonaut/commit/c5749060cdbfd2cbbf157f470a086b60a54577eb))
+* improve pre-release workflow with individual file downloads ([efcd260](https://github.com/darksworm/argonaut/commit/efcd26070c5bf887f39f17a8eeb640dfb673bd2e))
+* publishing to npm ([1949f94](https://github.com/darksworm/argonaut/commit/1949f9419a385b1e5bc57bbe17181a78c51a358b))
+* **treeview:** limit selection highlight to prefix+kind in resource tree; update golden snapshot ([4d886f8](https://github.com/darksworm/argonaut/commit/4d886f8e4b690c694d4acdce0e4840db8b2ffc87))
+
+
+### Bug Fixes
+
+* add .zip extension to download links and improve file detection ([aca5e5c](https://github.com/darksworm/argonaut/commit/aca5e5c8fc531f03eb6e341839afc998461a6d92))
+* **apps header:** align compact S/H headers with row icons at narrow widths; update tests and golden ([d12b30c](https://github.com/darksworm/argonaut/commit/d12b30c48cd23508458d057937eb4480c29ede68))
+* **apps table:** use responsive column widths for header (calculateColumnWidths) so SYNC values align with header at narrow widths ([8782411](https://github.com/darksworm/argonaut/commit/87824119eff091b0920465a8285d73302ecbc98e))
+* **ci:** download artifacts ([abe764b](https://github.com/darksworm/argonaut/commit/abe764ba16bb5e5aa4ee83d724ab4398c4e204a5))
+* create separate artifacts by file type for easier downloads ([44a3557](https://github.com/darksworm/argonaut/commit/44a35570d780d1041f4f5db7765adfcc9fb4908b))
+* critical TLS implementation issues affecting test stability ([7f99eb7](https://github.com/darksworm/argonaut/commit/7f99eb746929ab8a1c522cdcfc195f6088e3f648))
+* **e2e:** ensure streaming test sees initial state before update ([b36229f](https://github.com/darksworm/argonaut/commit/b36229fc507759b636f2213e3a61c129fb11d173))
+* help test flakiness in CI by waiting for full app initialization ([4085017](https://github.com/darksworm/argonaut/commit/40850176415e17167c77eb3d2a00c68e70d6b658))
+* **pr-prerelease:** use correct version output reference in package-artifacts job ([fdfb968](https://github.com/darksworm/argonaut/commit/fdfb9687756ab339fd12051ab4e2e4701dfa3582))
+* properly detect and copy macOS binaries from GoReleaser subdirectories ([c350e6d](https://github.com/darksworm/argonaut/commit/c350e6d215a9379e3e29b5cd81e8e91736ba4bc0))
+* remove paths-ignore that was blocking workflow trigger on markdown changes ([9c639f2](https://github.com/darksworm/argonaut/commit/9c639f2f9c471a80564a56ef8a60578918cf8655))
+* resolve variable redeclaration error in client certificate logging ([c16b5de](https://github.com/darksworm/argonaut/commit/c16b5deda57e9f8006ecf1b33e56c41de59600c4))
+* SSL_CERT_DIR colon-separated directory support [P1] ([732f4c2](https://github.com/darksworm/argonaut/commit/732f4c2dbc2dc93eeb45073d44428780eee0d793))
+* **tree scroll:** keyboard handler uses line-based indices (SelectedLineIndex/VisibleLineCount) and exact viewport height to stay in sync with rendered separators ([16e1f4a](https://github.com/darksworm/argonaut/commit/16e1f4af891a056ffed4e51aa1f689e05cf6a5bc))
+* **tree:** remove panel row shading and correct scrolling across app separators; feat(banner): compact header + width-based version; update goldens ([5ef37d6](https://github.com/darksworm/argonaut/commit/5ef37d67141fef657bac1bf3c3c9ddbcc7c34ff8))
+* **ui:** align status column headers with content at all terminal widths ([9195479](https://github.com/darksworm/argonaut/commit/91954794da538b93893bec8f3c45d307e9b3f179))
+* unify cli param names ([87bb7f8](https://github.com/darksworm/argonaut/commit/87bb7f82e4fdc5f7faa37316a02d679b2c55c069))
+* **workflows:** add missing default values for workflow_call inputs ([6a67282](https://github.com/darksworm/argonaut/commit/6a67282e62f53d0311d4eff2121d7d00238abaaa))
+* **workflows:** move name field to top of release-pipeline.yml ([8b6ac3a](https://github.com/darksworm/argonaut/commit/8b6ac3a7e38f429ecd75e14f9ee9d10b868f6172))
+
 ## [1.16.0](https://github.com/darksworm/argonaut/compare/v1.15.1...v1.16.0) (2025-09-06)
 
 
