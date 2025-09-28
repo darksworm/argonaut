@@ -222,7 +222,7 @@ jobs:
           NPM_DIST_TAG: ${{ inputs.dist_tag || github.event.inputs.dist_tag || 'latest' }}
         run: |
           set -euo pipefail
-          PKG_BASE=${{ inputs.base_name || github.event.inputs.base_name || 'argonaut' }}
+          PKG_BASE=${{ inputs.base_name || github.event.inputs.base_name || 'argonaut-cli' }}
           PACKAGE_NAME="$PKG_BASE"
 
           # Check if package exists
