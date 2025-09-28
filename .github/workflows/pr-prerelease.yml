@@ -99,18 +99,22 @@ jobs:
           path: dist/
           retention-days: 1
 
-  publish-npm-prerelease:
-    needs: [check-release-pr, build-prerelease]
-    if: needs.check-release-pr.outputs.is_release_pr == 'true'
-    uses: ./.github/workflows/publish-npm.yml
-    with:
-      base_name: argonaut-cli
-      dist_tag: next
-      version: ${{ needs.build-prerelease.outputs.pre_version }}
-      use_existing_artifacts: true
-      artifacts_name: goreleaser-dist-prerelease
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  # NOTE: npm publishing for prereleases is disabled to avoid
+  # overlapping versions with real releases. We still build and
+  # upload artifacts for validation, but skip npm publish entirely.
+  # If needed in the future, re-enable by restoring the job below.
+  # publish-npm-prerelease:
+  #   needs: [check-release-pr, build-prerelease]
+  #   if: needs.check-release-pr.outputs.is_release_pr == 'true'
+  #   uses: ./.github/workflows/publish-npm.yml
+  #   with:
+  #     base_name: argonaut-cli
+  #     dist_tag: next
+  #     version: ${{ needs.build-prerelease.outputs.pre_version }}
+  #     use_existing_artifacts: true
+  #     artifacts_name: goreleaser-dist-prerelease
+  #   secrets:
+  #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   package-artifacts:
     needs: [check-release-pr, build-prerelease]
