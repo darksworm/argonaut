@@ -1,5 +1,5 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ NAME                                                              S            H               │
+│ NAME                                                                      SYNC          HEALTH │
 │ app-a                                                                 V Synced       V Healthy │
 │ app-b                                                              ^ OutOfSync      ! Degraded │
 │ app-c                                                                ? Unknown   . Progressing │
