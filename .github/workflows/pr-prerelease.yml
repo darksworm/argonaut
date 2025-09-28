@@ -120,6 +120,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download existing artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: goreleaser-dist-prerelease
+          path: dist
+
       - name: Package artifacts
         run: |
           mkdir -p pr-artifacts
