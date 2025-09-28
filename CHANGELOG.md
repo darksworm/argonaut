@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/darksworm/argonaut/compare/v2.0.1...v2.0.2) (2025-09-28)
+
+
+### Bug Fixes
+
+* **ci:** fixed npm publishing ([1818571](https://github.com/darksworm/argonaut/commit/18185713fb84a3e4df5429af14ffe47d6e735c1a))
+
 ## [2.0.1](https://github.com/darksworm/argonaut/compare/v2.0.0...v2.0.1) (2025-09-28)
 
 
