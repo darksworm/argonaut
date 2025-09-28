@@ -1075,11 +1075,12 @@ func (m *Model) renderRollbackHistory(rollback *model.RollbackState) string {
 
 	// Compute how many rows we can show to avoid overflowing the modal.
 	// This mirrors the height math used in renderRollbackModal.
-	header := m.renderBanner()
-	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+headerLines+STATUS_LINES))
+    header := m.renderBanner()
+    headerLines := countLines(header)
+    const BORDER_LINES = 2
+    const STATUS_LINES = 1
+    const MARGIN_TOP_LINES = 1 // blank line between header and box
+    availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+headerLines+STATUS_LINES+MARGIN_TOP_LINES))
 
 	// Inside the modal we render the following fixed lines when in list mode:
 	// 2 (title + blank) + optional 2 for current revision + 2 (section header + blank)

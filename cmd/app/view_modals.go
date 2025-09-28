@@ -168,17 +168,20 @@ func (m *Model) renderNoServerModal() string {
 }
 
 func (m *Model) renderRollbackModal() string {
-	header := m.renderBanner()
-	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
+    header := m.renderBanner()
+    headerLines := countLines(header)
+    const BORDER_LINES = 2
+    const STATUS_LINES = 1
+    const MARGIN_TOP_LINES = 1 // blank line between header and box
+    overhead := BORDER_LINES + headerLines + STATUS_LINES + MARGIN_TOP_LINES
+    availableRows := max(0, m.state.Terminal.Rows-overhead)
 
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentHeight := max(3, availableRows)
-	innerWidth := max(0, containerWidth-4)
-	innerHeight := max(0, contentHeight-2)
+    containerWidth := max(0, m.state.Terminal.Cols-2)
+    // Expand modal height to fully occupy available space (align with other views)
+    // Use +2 here and adjust overall container height below to avoid clipping the status line.
+    contentHeight := max(3, availableRows+2)
+    innerWidth := max(0, containerWidth-4)
+    innerHeight := max(0, contentHeight-2)
 
 	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
 		var content string
@@ -226,17 +229,21 @@ func (m *Model) renderRollbackModal() string {
 	modalContent = clipAnsiToLines(modalContent, innerHeight)
 	styledContent := modalStyle.Render(modalContent)
 
-	var sections []string
-	sections = append(sections, header)
-	sections = append(sections, styledContent)
+    var sections []string
+    sections = append(sections, header)
+    // Add one blank line margin above the modal box to match other views
+    sections = append(sections, "")
+    sections = append(sections, styledContent)
 	// Add status line to ensure full-height composition like other views
 	status := m.renderStatusLine()
 	sections = append(sections, status)
 
-	content := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	content = clipAnsiToLines(content, totalHeight)
-	return mainContainerStyle.Height(totalHeight).Render(content)
+    content := strings.Join(sections, "\n")
+    // Use full terminal height here to accommodate the taller rollback modal while
+    // keeping the status line visible.
+    totalHeight := m.state.Terminal.Rows
+    content = clipAnsiToLines(content, totalHeight)
+    return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 func (m *Model) renderSimpleModal(title, content string) string {
