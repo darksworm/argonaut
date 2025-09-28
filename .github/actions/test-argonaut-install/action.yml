@@ -102,12 +102,20 @@ runs:
           timeout 15s sh -c "
             # Create a test output file
             TESTFILE=\"/tmp/argonaut_test_output\"
-            
-            # Start argonaut TUI in background with output capture
-            stdbuf -o0 -e0 argonaut > \"\$TESTFILE\" 2>&1 &
+
+            # Start argonaut TUI in background with output capture using script for PTY
+            # The script command provides a pseudo-TTY which the TUI needs
+            # Detect script command type and use appropriate syntax
+            if script --version 2>&1 | grep -q \"util-linux\"; then
+                # GNU script (most Linux distributions)
+                timeout 10 script --quiet --command \"argonaut\" \"\$TESTFILE\" &
+            else
+                # BSD script or others - use basic syntax
+                timeout 10 script -q \"\$TESTFILE\" argonaut &
+            fi
             TUI_PID=\$!
-            
-            echo \"🚀 Started argonaut TUI with PID: \$TUI_PID\"
+
+            echo \"🚀 Started argonaut TUI with PID: \$TUI_PID (using script for PTY)\"
             
             # Give the TUI time to initialize
             sleep 4

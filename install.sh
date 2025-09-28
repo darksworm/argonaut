@@ -41,24 +41,8 @@ case "$arch" in
   *) echo "Unsupported architecture: $arch" >&2; exit 1 ;;
 esac
 
-# Detect libc implementation (musl vs glibc) for Linux systems
+# Use standard variant for all Linux systems (musl targets no longer built)
 libc_suffix=""
-if [ "$os" = "linux" ]; then
-  # Try to detect musl libc
-  if ldd --version 2>&1 | grep -q musl; then
-    libc_suffix="-musl"
-  elif [ -f /lib/libc.musl-x86_64.so.1 ] || [ -f /lib/libc.musl-aarch64.so.1 ]; then
-    libc_suffix="-musl"
-  elif getconf GNU_LIBC_VERSION >/dev/null 2>&1; then
-    # This is glibc, no suffix needed
-    libc_suffix=""
-  else
-    # Fallback: check if we're running on Alpine (common musl distro)
-    if [ -f /etc/alpine-release ]; then
-      libc_suffix="-musl"
-    fi
-  fi
-fi
 
 if [ -z "$VERSION" ]; then
   # use curl to fetch the latest version from GitHub
@@ -76,11 +60,7 @@ url="https://github.com/${REPO}/releases/download/v${VERSION}/${filename}"
 
 # Inform user about detected system
 if [ "$os" = "linux" ]; then
-  if [ -n "$libc_suffix" ]; then
-    echo "Detected musl libc system, downloading musl variant..."
-  else
-    echo "Detected glibc system, downloading standard variant..."
-  fi
+  echo "Detected Linux system, downloading standard variant..."
 fi
 
 echo "Downloading $url..."
@@ -93,21 +73,10 @@ else
 fi
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
-# Download with fallback for musl systems
+# Download the release
 if ! curl -s -L -o "$tmp/$filename" "$url" || [ ! -s "$tmp/$filename" ]; then
-  if [ "$os" = "linux" ] && [ -n "$libc_suffix" ]; then
-    echo "Musl variant not found, falling back to standard glibc version..."
-    filename="${BIN}-${VERSION}-${os}-${arch}.tar.gz"
-    url="https://github.com/${REPO}/releases/download/v${VERSION}/${filename}"
-    echo "Downloading $url..."
-    if ! curl -s -L -o "$tmp/$filename" "$url" || [ ! -s "$tmp/$filename" ]; then
-      echo "Error: Failed to download $filename" >&2
-      exit 1
-    fi
-  else
-    echo "Error: Failed to download $filename" >&2
-    exit 1
-  fi
+  echo "Error: Failed to download $filename" >&2
+  exit 1
 fi
 
 tar -xzf "$tmp/$filename" -C "$tmp"
