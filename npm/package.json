@@ -1,6 +1,6 @@
 {
   "name": "argonaut-cli",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Argonaut CLI (Go binary via per-platform npm packages)",
   "license": "GPL-3.0-or-later",
   "scripts": {
