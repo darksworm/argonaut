@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/darksworm/argonaut/compare/v2.0.0...v2.0.1) (2025-09-28)
+
+
+### Bug Fixes
+
+* align rollback modal spacing and height without hiding status line ([dcae1ec](https://github.com/darksworm/argonaut/commit/dcae1ec58c8e2d1a29bd7af2f5a58d4316f3f278))
+
 ## [2.0.0](https://github.com/darksworm/argonaut/compare/v1.16.1...v2.0.0) (2025-09-28)
 
 
