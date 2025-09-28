@@ -1,7 +1,7 @@
 # 🐙 Argonaut — Argo CD TUI
 
 > 💥
-> &nbsp; v2.0.0 - rewritten in go!
+> &nbsp; v2 - rewritten in golang!
 
 [![NPM Downloads](https://img.shields.io/npm/dm/argonaut-cli?style=flat-square&label=npm+downloads)](https://www.npmjs.com/package/argonaut-cli)
 [![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)

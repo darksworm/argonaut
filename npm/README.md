@@ -73,3 +73,11 @@ The container needs access to your Argo CD configuration for authentication. The
 You can download binaries and packages in from the [**latest release**](https://github.com/darksworm/argonaut/releases/latest).
 
 </details>
+
+---
+
+If for some reason you still want to use the NPM package, you can install v1.16.0 (the last version published to NPM) with:
+
+```bash
+npm install -g argonaut-cli@1.6.0
+```
