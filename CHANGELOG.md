@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/darksworm/argonaut/compare/v2.1.1...v2.1.2) (2025-09-29)
+
+
+### Bug Fixes
+
+* truncate commit messages to single line in rollback view ([b4ca3b7](https://github.com/darksworm/argonaut/commit/b4ca3b7d55a3eb2d759d1b0d7ad6d120d24bb5ce))
+
 ## [2.1.1](https://github.com/darksworm/argonaut/compare/v2.1.0...v2.1.1) (2025-09-29)
 
 
