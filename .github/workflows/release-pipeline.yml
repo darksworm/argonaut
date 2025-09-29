@@ -26,6 +26,35 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: go
 
+      - name: Mark release as pre-release
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const tag = '${{ steps.release.outputs.tag_name }}';
+
+            console.log(`Marking release ${tag} as pre-release...`);
+
+            // Get the release by tag
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag
+            });
+
+            // Update the release to mark it as pre-release
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              prerelease: true
+            });
+
+            console.log(`✅ Release ${tag} marked as pre-release until GoReleaser completes`);
+            console.log(`🔗 Release URL: ${release.html_url}`);
+
   goreleaser:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
@@ -100,6 +129,35 @@ jobs:
           name: goreleaser-dist-release
           path: dist/
           retention-days: 1
+
+      - name: Mark release as final
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const tag = '${{ needs.release-please.outputs.tag_name }}';
+
+            console.log(`Marking release ${tag} as final release...`);
+
+            // Get the release by tag
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag
+            });
+
+            // Update the release to mark it as final (not pre-release)
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              prerelease: false
+            });
+
+            console.log(`🎉 Release ${tag} marked as final release!`);
+            console.log(`🔗 Release URL: ${release.html_url}`);
+            console.log(`📦 GoReleaser build and release process completed successfully`);
 
   integration-tests:
     needs: [release-please, goreleaser]
