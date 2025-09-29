@@ -263,6 +263,7 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 	defer stream.Close()
 
 	scanner := bufio.NewScanner(stream)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 	cblog.With("component", "api").Info("WatchApplications: starting to read from stream")
 	for scanner.Scan() {
 		if ctx.Err() != nil {
@@ -509,6 +510,7 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 	cblog.With("component", "api").Debug("Resource tree stream established", "app", appName)
 
 	scanner := bufio.NewScanner(stream)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 	eventCount := 0
 	for scanner.Scan() {
 		if ctx.Err() != nil {
