@@ -1131,10 +1131,13 @@ func (m *Model) renderRollbackHistory(rollback *model.RollbackState) string {
 		if row.Author != nil && row.Message != nil {
 			authorStyle := lipgloss.NewStyle().Foreground(yellowBright)
 			messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-			// Leave message uncapped here; we clip to rowMaxWidth below.
+			// Truncate commit message to single line to prevent overflow
+			message := strings.ReplaceAll(*row.Message, "\n", " ")
+			message = strings.ReplaceAll(message, "\r", " ")
+			message = truncateWithEllipsis(message, 60)
 			line += fmt.Sprintf(" %s: %s",
 				authorStyle.Render(*row.Author),
-				messageStyle.Render(*row.Message))
+				messageStyle.Render(message))
 		} else if row.MetaError != nil {
 			errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
 			line += " " + errorStyle.Render("(metadata unavailable)")
