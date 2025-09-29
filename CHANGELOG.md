@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0](https://github.com/darksworm/argonaut/compare/v2.1.2...v2.2.0) (2025-09-29)
+
+
+### Features
+
+* add --version and --help command line flags ([194a9bd](https://github.com/darksworm/argonaut/commit/194a9bd6122d6f515ee08ae9c3e8058cbaf82cb5))
+* add colorful styling to --help output using lipgloss ([0754fe5](https://github.com/darksworm/argonaut/commit/0754fe50a25cab0b9652df5e9bb729dd76773e3d))
+
 ## [2.1.2](https://github.com/darksworm/argonaut/compare/v2.1.1...v2.1.2) (2025-09-29)
 
 
