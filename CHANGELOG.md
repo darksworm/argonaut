@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/darksworm/argonaut/compare/v2.0.3...v2.1.0) (2025-09-29)
+
+
+### Features
+
+* add in-app upgrade system with GitHub releases integration ([41cd5f0](https://github.com/darksworm/argonaut/commit/41cd5f048784d1b65960e35ca03ce87dd8ca63dc))
+
+
+### Bug Fixes
+
+* update install script and integration tests ([0ed406f](https://github.com/darksworm/argonaut/commit/0ed406f905a85e8bbede23b5af0418883e6d0da5))
+
 ## [2.0.3](https://github.com/darksworm/argonaut/compare/v2.0.2...v2.0.3) (2025-09-28)
 
 
