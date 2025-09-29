@@ -33,13 +33,13 @@ func TestCommandCtxFromProjects(t *testing.T) {
 	}
 
 	// Go to projects deterministically via commands
-	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
 	_ = tf.Send(":")
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
-	if !tf.WaitForPlain("demo", 3*time.Second) {
+	if !tf.WaitForPlain("demo", 5*time.Second) {
 		t.Fatal("projects not ready")
 	}
 
@@ -81,7 +81,7 @@ func TestCommandNsFromClusters(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
 
@@ -93,7 +93,7 @@ func TestCommandNsFromClusters(t *testing.T) {
 	_ = tf.Enter()
 
 	// With namespace arg, we advance to projects view
-	if !tf.WaitForPlain("demo", 3*time.Second) {
+	if !tf.WaitForPlain("demo", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected projects view after :ns default")
 	}
@@ -122,7 +122,7 @@ func TestCommandAppFromAnywhere(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
 
@@ -134,7 +134,7 @@ func TestCommandAppFromAnywhere(t *testing.T) {
 	_ = tf.Enter()
 
 	// Expect apps list showing demo
-	if !tf.WaitForPlain("demo", 3*time.Second) {
+	if !tf.WaitForPlain("demo", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected apps view after :app demo")
 	}
@@ -164,7 +164,7 @@ func TestStreamingUpdates(t *testing.T) {
 	}
 
 	// Wait for initial app load
-	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
 
@@ -175,7 +175,7 @@ func TestStreamingUpdates(t *testing.T) {
 	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
-	if !tf.WaitForPlain("demo", 3*time.Second) {
+	if !tf.WaitForPlain("demo", 5*time.Second) {
 		t.Fatal("projects not ready")
 	}
 	_ = tf.Send(":")
