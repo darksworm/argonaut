@@ -34,9 +34,13 @@ func main() {
 		caPathFlag     string
 		clientCertFlag string
 		clientKeyFlag  string
+		showVersion    bool
+		showHelp       bool
 	)
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
+	fs.BoolVar(&showVersion, "version", false, "Show version information and exit")
+	fs.BoolVar(&showHelp, "help", false, "Show help information and exit")
 	fs.StringVar(&cfgPathFlag, "argocd-config", "", "Path to ArgoCD CLI config file")
 	// Alias
 	fs.StringVar(&cfgPathFlag, "config", "", "Path to ArgoCD CLI config file (alias)")
@@ -49,7 +53,38 @@ func main() {
 	// Client certificate authentication flags
 	fs.StringVar(&clientCertFlag, "client-cert", "", "Path to client certificate file (PEM format)")
 	fs.StringVar(&clientKeyFlag, "client-cert-key", "", "Path to client certificate private key file (PEM format)")
-	_ = fs.Parse(os.Args[1:])
+
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			showHelp = true
+		} else {
+			fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	// Handle --version flag
+	if showVersion {
+		fmt.Println(appVersion)
+		return
+	}
+
+	// Handle --help flag
+	if showHelp {
+		fmt.Printf("argonaut - Interactive terminal UI for Argo CD\n\n")
+		fmt.Printf("Usage: %s [options]\n\n", os.Args[0])
+		fmt.Printf("Options:\n")
+		fs.SetOutput(os.Stdout)
+		fs.PrintDefaults()
+		fmt.Printf("\nPrerequisites:\n")
+		fmt.Printf("  • ArgoCD CLI must be installed and configured\n")
+		fmt.Printf("  • Run 'argocd login <server>' to authenticate before using argonaut\n")
+		fmt.Printf("\nOptional dependencies:\n")
+		fmt.Printf("  • delta - Enhanced diff viewer for better syntax highlighting\n")
+		fmt.Printf("    Install: https://github.com/dandavison/delta\n")
+		fmt.Printf("\nFor more information, visit: https://github.com/darksworm/argonaut\n")
+		return
+	}
 
 	// Set up TLS trust configuration
 	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
