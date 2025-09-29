@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
@@ -22,6 +23,97 @@ import (
 // appVersion is the Argonaut version shown in the ASCII banner.
 // Override at build time: go build -ldflags "-X main.appVersion=1.16.0"
 var appVersion = "dev"
+
+// Color definitions for help output (matching app theme)
+var (
+	helpTitleColor     = lipgloss.Color("14") // Cyan
+	helpSectionColor   = lipgloss.Color("11") // Yellow
+	helpHighlightColor = lipgloss.Color("10") // Green
+	helpTextColor      = lipgloss.Color("15") // Bright white
+	helpDimColor       = lipgloss.Color("8")  // Dim
+	helpUrlColor       = lipgloss.Color("12") // Blue
+)
+
+// renderColorfulHelp creates a beautifully styled help output
+func renderColorfulHelp(fs *flag.FlagSet) string {
+	var help strings.Builder
+
+	// Title with styling
+	titleStyle := lipgloss.NewStyle().Foreground(helpTitleColor).Bold(true)
+	help.WriteString(titleStyle.Render("argonaut"))
+	help.WriteString(" - Interactive terminal UI for Argo CD\n\n")
+
+	// Usage section
+	sectionStyle := lipgloss.NewStyle().Foreground(helpSectionColor).Bold(true)
+	help.WriteString(sectionStyle.Render("USAGE"))
+	help.WriteString("\n  ")
+	help.WriteString(lipgloss.NewStyle().Foreground(helpTextColor).Render("argonaut"))
+	help.WriteString(lipgloss.NewStyle().Foreground(helpDimColor).Render(" [options]"))
+	help.WriteString("\n\n")
+
+	// Options section
+	help.WriteString(sectionStyle.Render("OPTIONS"))
+	help.WriteString("\n")
+
+	// Capture flag defaults to a buffer
+	var flagBuf strings.Builder
+	fs.SetOutput(&flagBuf)
+	fs.PrintDefaults()
+	flagsOutput := flagBuf.String()
+
+	// Style the flags output
+	lines := strings.Split(flagsOutput, "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "  -") {
+			// Flag line - format can be "  -flagname" or "  -flagname type"
+			parts := strings.Fields(line)
+			if len(parts) >= 1 {
+				help.WriteString("  ")
+				help.WriteString(lipgloss.NewStyle().Foreground(helpHighlightColor).Render(parts[0])) // -flagname
+				if len(parts) > 1 {
+					// Has type (like "string")
+					help.WriteString(" " + lipgloss.NewStyle().Foreground(helpTextColor).Render(strings.Join(parts[1:], " ")))
+				}
+				help.WriteString("\n")
+			}
+		} else if strings.HasPrefix(line, "    \t") {
+			// Description line (indented with tab)
+			help.WriteString(lipgloss.NewStyle().Foreground(helpDimColor).Render(line))
+			help.WriteString("\n")
+		}
+	}
+
+	// Prerequisites section
+	help.WriteString("\n")
+	help.WriteString(sectionStyle.Render("PREREQUISITES"))
+	help.WriteString("\n")
+	help.WriteString("  • ")
+	help.WriteString(lipgloss.NewStyle().Foreground(helpHighlightColor).Render("ArgoCD CLI"))
+	help.WriteString(lipgloss.NewStyle().Foreground(helpTextColor).Render(" must be installed and configured"))
+	help.WriteString("\n  • Run ")
+	help.WriteString(lipgloss.NewStyle().Foreground(helpHighlightColor).Render("'argocd login <server>'"))
+	help.WriteString(lipgloss.NewStyle().Foreground(helpTextColor).Render(" to authenticate before using argonaut"))
+	help.WriteString("\n\n")
+
+	// Optional dependencies section
+	help.WriteString(sectionStyle.Render("OPTIONAL DEPENDENCIES"))
+	help.WriteString("\n  • ")
+	help.WriteString(lipgloss.NewStyle().Foreground(helpHighlightColor).Render("delta"))
+	help.WriteString(lipgloss.NewStyle().Foreground(helpTextColor).Render(" - Enhanced diff viewer for better syntax highlighting"))
+	help.WriteString("\n    Install: ")
+	help.WriteString(lipgloss.NewStyle().Foreground(helpUrlColor).Underline(true).Render("https://github.com/dandavison/delta"))
+	help.WriteString("\n\n")
+
+	// Footer
+	help.WriteString("For more information, visit: ")
+	help.WriteString(lipgloss.NewStyle().Foreground(helpUrlColor).Underline(true).Render("https://github.com/darksworm/argonaut"))
+	help.WriteString("\n")
+
+	return help.String()
+}
 
 func main() {
 	// Set up logging to file
@@ -71,18 +163,7 @@ func main() {
 
 	// Handle --help flag
 	if showHelp {
-		fmt.Printf("argonaut - Interactive terminal UI for Argo CD\n\n")
-		fmt.Printf("Usage: %s [options]\n\n", os.Args[0])
-		fmt.Printf("Options:\n")
-		fs.SetOutput(os.Stdout)
-		fs.PrintDefaults()
-		fmt.Printf("\nPrerequisites:\n")
-		fmt.Printf("  • ArgoCD CLI must be installed and configured\n")
-		fmt.Printf("  • Run 'argocd login <server>' to authenticate before using argonaut\n")
-		fmt.Printf("\nOptional dependencies:\n")
-		fmt.Printf("  • delta - Enhanced diff viewer for better syntax highlighting\n")
-		fmt.Printf("    Install: https://github.com/dandavison/delta\n")
-		fmt.Printf("\nFor more information, visit: https://github.com/darksworm/argonaut\n")
+		fmt.Print(renderColorfulHelp(fs))
 		return
 	}
 
