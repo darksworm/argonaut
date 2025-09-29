@@ -125,3 +125,85 @@ jobs:
           install-source: ${{ needs.release-please.outputs.tag_name }}
           test-mode: release
 
+  aur-integration-tests:
+    needs: [release-please, goreleaser]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - archlinux:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test argonaut AUR installation and functionality
+        shell: bash
+        run: |
+          echo "🏗️ Testing argonaut AUR installation on ${{ matrix.distro }}"
+          echo "📦 Testing AUR package installation via yay"
+
+          docker run --rm ${{ matrix.distro }} sh -c '
+            set -e
+            echo "=== System Information ==="
+            echo "Distribution: ${{ matrix.distro }}"
+            uname -a
+
+            echo "=== Installing Base Dependencies ==="
+            pacman -Syu --noconfirm
+            pacman -S --noconfirm base-devel git sudo
+            echo "✅ Installed base dependencies"
+
+            echo "=== Setting up AUR user ==="
+            useradd -m -G wheel auruser
+            echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+            echo "✅ Created AUR user with sudo privileges"
+
+            echo "=== Installing yay AUR helper ==="
+            su - auruser -c "
+              git clone https://aur.archlinux.org/yay.git
+              cd yay
+              makepkg -si --noconfirm
+              echo \"✅ yay installed successfully\"
+            "
+
+            echo "=== Installing argonaut from AUR ==="
+            su - auruser -c "
+              yay -S argonaut --noconfirm
+              echo \"✅ argonaut installed from AUR\"
+            "
+
+            echo "=== Verifying Installation ==="
+            if ! command -v argonaut >/dev/null 2>&1; then
+              echo "❌ ERROR: argonaut command not found after AUR installation"
+              echo "PATH: $PATH"
+              exit 1
+            fi
+            echo "✅ Argonaut binary installed and available in PATH"
+
+            # Get binary info
+            echo "📍 Binary location: $(which argonaut)"
+            echo "📊 Binary size: $(ls -lh $(which argonaut) | awk '\''{print $5}'\'')"
+
+            echo "=== Testing Basic Functionality ==="
+            # Test version command
+            argonaut --version || {
+              echo "❌ ERROR: argonaut --version failed"
+              exit 1
+            }
+            echo "✅ Version command works"
+
+            # Test help command
+            argonaut --help || {
+              echo "❌ ERROR: argonaut --help failed"
+              exit 1
+            }
+            echo "✅ Help command works"
+
+            echo ""
+            echo "🎉 ✅ AUR INSTALLATION TEST PASSED on ${{ matrix.distro }}"
+            echo "   📦 AUR Installation: SUCCESS"
+            echo "   🔧 Basic Commands: SUCCESS"
+          '
+
