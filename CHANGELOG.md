@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/darksworm/argonaut/compare/v2.1.0...v2.1.1) (2025-09-29)
+
+
+### Bug Fixes
+
+* increase scanner buffer size to handle large ArgoCD payloads ([f74e497](https://github.com/darksworm/argonaut/commit/f74e49707c9773da1baac1ce47b97c6549840de7))
+
 ## [2.1.0](https://github.com/darksworm/argonaut/compare/v2.0.3...v2.1.0) (2025-09-29)
 
 
