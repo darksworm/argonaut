@@ -46,10 +46,10 @@ runs:
             apk add --no-cache --quiet curl ca-certificates
             echo "✅ Installed dependencies via apk (musl system detected)"
           elif command -v dnf >/dev/null 2>&1; then
-            dnf install -y -q curl ca-certificates
+            dnf install -y -q curl ca-certificates util-linux
             echo "✅ Installed dependencies via dnf"
           elif command -v yum >/dev/null 2>&1; then
-            yum install -y -q curl ca-certificates
+            yum install -y -q curl ca-certificates util-linux
             echo "✅ Installed dependencies via yum"
           elif command -v pacman >/dev/null 2>&1; then
             pacman -Sy --noconfirm --quiet curl ca-certificates
