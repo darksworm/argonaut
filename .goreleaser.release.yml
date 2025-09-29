@@ -33,6 +33,7 @@ aurs:
   - name: argonaut-bin
     description: A GitOps CLI tool for managing ArgoCD applications
     homepage: https://github.com/darksworm/argonaut
+    license: GPL-3.0-or-later
     private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
     git_url: ssh://aur@aur.archlinux.org/argonaut-bin.git
     provides: [argonaut]
