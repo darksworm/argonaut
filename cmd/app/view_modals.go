@@ -168,20 +168,20 @@ func (m *Model) renderNoServerModal() string {
 }
 
 func (m *Model) renderRollbackModal() string {
-    header := m.renderBanner()
-    headerLines := countLines(header)
-    const BORDER_LINES = 2
-    const STATUS_LINES = 1
-    const MARGIN_TOP_LINES = 1 // blank line between header and box
-    overhead := BORDER_LINES + headerLines + STATUS_LINES + MARGIN_TOP_LINES
-    availableRows := max(0, m.state.Terminal.Rows-overhead)
+	header := m.renderBanner()
+	headerLines := countLines(header)
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	const MARGIN_TOP_LINES = 1 // blank line between header and box
+	overhead := BORDER_LINES + headerLines + STATUS_LINES + MARGIN_TOP_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
-    containerWidth := max(0, m.state.Terminal.Cols-2)
-    // Expand modal height to fully occupy available space (align with other views)
-    // Use +2 here and adjust overall container height below to avoid clipping the status line.
-    contentHeight := max(3, availableRows+2)
-    innerWidth := max(0, containerWidth-4)
-    innerHeight := max(0, contentHeight-2)
+	containerWidth := max(0, m.state.Terminal.Cols-2)
+	// Expand modal height to fully occupy available space (align with other views)
+	// Use +2 here and adjust overall container height below to avoid clipping the status line.
+	contentHeight := max(3, availableRows+2)
+	innerWidth := max(0, containerWidth-4)
+	innerHeight := max(0, contentHeight-2)
 
 	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
 		var content string
@@ -229,21 +229,21 @@ func (m *Model) renderRollbackModal() string {
 	modalContent = clipAnsiToLines(modalContent, innerHeight)
 	styledContent := modalStyle.Render(modalContent)
 
-    var sections []string
-    sections = append(sections, header)
-    // Add one blank line margin above the modal box to match other views
-    sections = append(sections, "")
-    sections = append(sections, styledContent)
+	var sections []string
+	sections = append(sections, header)
+	// Add one blank line margin above the modal box to match other views
+	sections = append(sections, "")
+	sections = append(sections, styledContent)
 	// Add status line to ensure full-height composition like other views
 	status := m.renderStatusLine()
 	sections = append(sections, status)
 
-    content := strings.Join(sections, "\n")
-    // Use full terminal height here to accommodate the taller rollback modal while
-    // keeping the status line visible.
-    totalHeight := m.state.Terminal.Rows
-    content = clipAnsiToLines(content, totalHeight)
-    return mainContainerStyle.Height(totalHeight).Render(content)
+	content := strings.Join(sections, "\n")
+	// Use full terminal height here to accommodate the taller rollback modal while
+	// keeping the status line visible.
+	totalHeight := m.state.Terminal.Rows
+	content = clipAnsiToLines(content, totalHeight)
+	return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 func (m *Model) renderSimpleModal(title, content string) string {
@@ -280,4 +280,206 @@ func (m *Model) renderSimpleModal(title, content string) string {
 	content = strings.Join(sections, "\n")
 	totalHeight := m.state.Terminal.Rows - 1
 	return mainContainerStyle.Height(totalHeight).Render(content)
+}
+
+// renderUpgradeConfirmModal renders the upgrade confirmation modal
+func (m *Model) renderUpgradeConfirmModal() string {
+	if m.state.UI.UpdateInfo == nil {
+		return ""
+	}
+
+	updateInfo := m.state.UI.UpdateInfo
+
+	// Modal styling with reduced padding for smaller terminals
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Padding(1, 2).
+		Width(68).
+		AlignHorizontal(lipgloss.Center)
+
+	// Title with icon
+	title := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true).
+		Render("🚀 Upgrade Available")
+
+	// Version info with styling (clean up version strings)
+	cleanCurrent := strings.TrimPrefix(updateInfo.CurrentVersion, "v")
+	cleanLatest := strings.TrimPrefix(updateInfo.LatestVersion, "v")
+
+	currentVersion := lipgloss.NewStyle().
+		Foreground(dimColor).
+		Render(cleanCurrent)
+
+	latestVersion := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true).
+		Render(cleanLatest)
+
+	arrow := lipgloss.NewStyle().
+		Foreground(yellowBright).
+		Render("→")
+
+	versionInfo := fmt.Sprintf("Current: %s %s Latest: %s",
+		currentVersion, arrow, latestVersion)
+
+	// Package manager notice
+	notice := lipgloss.NewStyle().
+		Foreground(dimColor).
+		Render("If you installed argonaut using a package manager\nplease use it to upgrade instead of this in-app upgrade.")
+
+	// Fixed button styling with consistent dimensions
+	baseButtonStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		Width(12).
+		AlignHorizontal(lipgloss.Center)
+
+	var upgradeButton, cancelButton string
+	if m.state.Modals.UpgradeSelected == 0 {
+		// Upgrade button selected
+		upgradeButton = baseButtonStyle.Copy().
+			Background(cyanBright).
+			Foreground(black).
+			Bold(true).
+			Render("Upgrade")
+		cancelButton = baseButtonStyle.Copy().
+			Background(lipgloss.Color("236")).
+			Foreground(dimColor).
+			Render("Cancel")
+	} else {
+		// Cancel button selected
+		upgradeButton = baseButtonStyle.Copy().
+			Background(lipgloss.Color("236")).
+			Foreground(dimColor).
+			Render("Upgrade")
+		cancelButton = baseButtonStyle.Copy().
+			Background(redColor).
+			Foreground(white).
+			Bold(true).
+			Render("Cancel")
+	}
+
+	// Build modal content with better spacing
+	var content strings.Builder
+	content.WriteString(title)
+	content.WriteString("\n\n")
+	content.WriteString(versionInfo)
+	content.WriteString("\n")
+	content.WriteString(notice)
+	content.WriteString("\n\n")
+
+	// Join buttons horizontally with proper spacing
+	buttonsRow := lipgloss.JoinHorizontal(lipgloss.Top, upgradeButton, "    ", cancelButton)
+	// Center the buttons within the modal content area
+	content.WriteString(lipgloss.NewStyle().
+		AlignHorizontal(lipgloss.Center).
+		Render(buttonsRow))
+
+	return modalStyle.Render(content.String())
+}
+
+// renderUpgradeLoadingModal renders the upgrade loading modal
+func (m *Model) renderUpgradeLoadingModal() string {
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Padding(1, 2).
+		Width(50).
+		AlignHorizontal(lipgloss.Center)
+
+	title := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true).
+		Render("Upgrading...")
+
+	spinner := m.spinner.View()
+
+	content := fmt.Sprintf("%s\n\n%s Downloading and installing update...\n\nPlease wait...",
+		title, spinner)
+
+	return modalStyle.Render(content)
+}
+
+// renderUpgradeErrorModal renders the upgrade error modal with manual installation instructions
+func (m *Model) renderUpgradeErrorModal() string {
+	if m.state.Modals.UpgradeError == nil {
+		return ""
+	}
+
+	errorMsg := *m.state.Modals.UpgradeError
+
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(redColor).
+		Padding(1, 2).
+		Width(80).
+		AlignHorizontal(lipgloss.Center)
+
+	title := lipgloss.NewStyle().
+		Foreground(redColor).
+		Bold(true).
+		Render("Upgrade Failed")
+
+	// Format the error message nicely
+	content := fmt.Sprintf("%s\n\n%s\n\nPress Enter or Esc to close", title, errorMsg)
+
+	return modalStyle.Render(content)
+}
+
+// renderUpgradeSuccessModal renders the upgrade success modal
+func (m *Model) renderUpgradeSuccessModal() string {
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2).
+		Width(60).
+		AlignHorizontal(lipgloss.Center)
+
+	// Title with icon
+	title := lipgloss.NewStyle().
+		Foreground(syncedColor).
+		Bold(true).
+		Render("🎉 Upgrade Complete!")
+
+	// Success checkmark
+	checkmark := lipgloss.NewStyle().
+		Foreground(syncedColor).
+		Bold(true).
+		Render("✓")
+
+	// Success message
+	successMsg := lipgloss.NewStyle().
+		Foreground(whiteBright).
+		Render("Successfully upgraded to the latest version")
+
+	// Restart instruction with emphasis
+	restartLabel := lipgloss.NewStyle().
+		Foreground(yellowBright).
+		Bold(true).
+		Render("Next step:")
+
+	restartMsg := lipgloss.NewStyle().
+		Foreground(whiteBright).
+		Render("Restart argonaut to use the new version")
+
+	// Action instruction with styling
+	actionMsg := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true).
+		Render("Press Enter or Esc to exit")
+
+	// Build content with better spacing and structure
+	var content strings.Builder
+	content.WriteString(title)
+	content.WriteString("\n\n")
+	content.WriteString(fmt.Sprintf("%s %s", checkmark, successMsg))
+	content.WriteString("\n\n")
+	content.WriteString(restartLabel)
+	content.WriteString("\n")
+	content.WriteString(restartMsg)
+	content.WriteString("\n\n")
+	content.WriteString(actionMsg)
+
+	return modalStyle.Render(content.String())
 }

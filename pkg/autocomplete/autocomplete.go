@@ -112,6 +112,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			TakesArg:    false,
 			ArgType:     "",
 		},
+		{
+			Command:     "upgrade",
+			Aliases:     []string{"upgrade", "update"},
+			Description: "Upgrade to the latest version",
+			TakesArg:    false,
+			ArgType:     "",
+		},
 	}
 
 	// Build alias map

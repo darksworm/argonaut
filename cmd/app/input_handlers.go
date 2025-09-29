@@ -735,6 +735,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleErrorModeKeys(msg)
 	case model.ModeConnectionError:
 		return m.handleConnectionErrorModeKeys(msg)
+	case model.ModeUpgrade:
+		return m.handleUpgradeModeKeys(msg)
+	case model.ModeUpgradeError:
+		return m.handleUpgradeErrorModeKeys(msg)
+	case model.ModeUpgradeSuccess:
+		return m.handleUpgradeSuccessModeKeys(msg)
 	}
 
 	// Tree view keys when in normal mode

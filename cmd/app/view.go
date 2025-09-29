@@ -27,6 +27,11 @@ var (
 	unknownColor   = lipgloss.Color("8")  // Dim for Unknown
 	cyanBright     = lipgloss.Color("14") // Cyan accents
 	whiteBright    = lipgloss.Color("15") // Bright white
+
+	// Additional colors for modals
+	black    = lipgloss.Color("0")  // Black
+	white    = lipgloss.Color("15") // White (alias for whiteBright)
+	redColor = lipgloss.Color("9")  // Red
 )
 
 // HighlightLogLine applies syntax highlighting to a single log line
@@ -1075,12 +1080,12 @@ func (m *Model) renderRollbackHistory(rollback *model.RollbackState) string {
 
 	// Compute how many rows we can show to avoid overflowing the modal.
 	// This mirrors the height math used in renderRollbackModal.
-    header := m.renderBanner()
-    headerLines := countLines(header)
-    const BORDER_LINES = 2
-    const STATUS_LINES = 1
-    const MARGIN_TOP_LINES = 1 // blank line between header and box
-    availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+headerLines+STATUS_LINES+MARGIN_TOP_LINES))
+	header := m.renderBanner()
+	headerLines := countLines(header)
+	const BORDER_LINES = 2
+	const STATUS_LINES = 1
+	const MARGIN_TOP_LINES = 1 // blank line between header and box
+	availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+headerLines+STATUS_LINES+MARGIN_TOP_LINES))
 
 	// Inside the modal we render the following fixed lines when in list mode:
 	// 2 (title + blank) + optional 2 for current revision + 2 (section header + blank)

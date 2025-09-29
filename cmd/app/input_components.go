@@ -725,6 +725,9 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "quit", "q", "q!", "exit":
 			// Exit the application
 			return m, func() tea.Msg { return model.QuitMsg{} }
+		case "upgrade", "update":
+			// Trigger upgrade process
+			return m, func() tea.Msg { return model.UpgradeRequestedMsg{} }
 		default:
 			// Unknown: set status for feedback
 			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown command: " + raw} }

@@ -356,3 +356,31 @@ type ResourceTreeStreamMsg struct {
 	AppName  string
 	TreeJSON []byte
 }
+
+// Update Messages - for version checking and updates
+
+// UpdateCheckCompletedMsg is sent when update check is completed
+type UpdateCheckCompletedMsg struct {
+	UpdateInfo *UpdateInfo
+	Error      error
+}
+
+// SetUpdateInfoMsg sets the update information in UI state
+type SetUpdateInfoMsg struct {
+	UpdateInfo *UpdateInfo
+}
+
+// UpgradeRequestedMsg is sent when user requests an upgrade
+type UpgradeRequestedMsg struct{}
+
+// UpgradeProgressMsg indicates upgrade progress
+type UpgradeProgressMsg struct {
+	Stage   string // "downloading", "replacing", "restarting"
+	Message string
+}
+
+// UpgradeCompletedMsg is sent when upgrade is completed
+type UpgradeCompletedMsg struct {
+	Success bool
+	Error   error
+}

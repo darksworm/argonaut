@@ -177,6 +177,26 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// Upgrade modal (confirmation, loading, success, or error state)
+	if m.state.Mode == model.ModeUpgrade || m.state.Mode == model.ModeUpgradeError || m.state.Mode == model.ModeUpgradeSuccess {
+		modal := ""
+		if m.state.Mode == model.ModeUpgradeError {
+			modal = m.renderUpgradeErrorModal()
+		} else if m.state.Mode == model.ModeUpgradeSuccess {
+			modal = m.renderUpgradeSuccessModal()
+		} else if m.state.Modals.UpgradeLoading {
+			modal = m.renderUpgradeLoadingModal()
+		} else {
+			modal = m.renderUpgradeConfirmModal()
+		}
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	if m.state.Mode == model.ModeLoading {
 		modal := m.renderInitialLoadingModal()
 		grayBase := desaturateANSI(baseView)

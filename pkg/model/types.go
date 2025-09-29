@@ -32,6 +32,9 @@ const (
 	ModeRulerLine       Mode = "rulerline"
 	ModeError           Mode = "error"
 	ModeConnectionError Mode = "connection-error"
+	ModeUpgrade         Mode = "upgrade"
+	ModeUpgradeError    Mode = "upgrade-error"
+	ModeUpgradeSuccess  Mode = "upgrade-success"
 )
 
 // App represents an ArgoCD application
@@ -195,4 +198,28 @@ type RollbackRequest struct {
 	DryRun       bool    `json:"dryRun,omitempty"`
 	Prune        bool    `json:"prune,omitempty"`
 	AppNamespace *string `json:"appNamespace,omitempty"`
+}
+
+// InstallMethod represents how argonaut was installed
+type InstallMethod string
+
+const (
+	InstallMethodUnknown InstallMethod = "unknown"
+	InstallMethodBrew    InstallMethod = "brew"
+	InstallMethodAUR     InstallMethod = "aur"
+	InstallMethodDocker  InstallMethod = "docker"
+	InstallMethodManual  InstallMethod = "manual"
+)
+
+// UpdateInfo contains information about available updates
+type UpdateInfo struct {
+	Available        bool          `json:"available"`
+	CurrentVersion   string        `json:"current_version"`
+	LatestVersion    string        `json:"latest_version"`
+	PublishedAt      time.Time     `json:"published_at"`
+	InstallMethod    InstallMethod `json:"install_method"`
+	DownloadURL      string        `json:"download_url,omitempty"`
+	LastChecked      time.Time     `json:"last_checked"`
+	CheckIntervalMin int           `json:"check_interval_min"`
+	NotificationShownAt *time.Time `json:"notification_shown_at,omitempty"`
 }

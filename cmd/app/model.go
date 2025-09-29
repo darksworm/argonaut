@@ -28,6 +28,7 @@ type Model struct {
 	argoService       services.ArgoApiService
 	navigationService services.NavigationService
 	statusService     services.StatusService
+	updateService     services.UpdateService
 
 	// Interactive input components using bubbles
 	inputComponents *InputComponentState
@@ -802,6 +803,59 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Modals.InitialLoading = msg.Loading
 		// Don't trigger load here - let SetModeMsg handle it to avoid duplicates
 
+		return m, nil
+
+	// Update Messages
+	case model.UpdateCheckCompletedMsg:
+		if msg.Error != nil {
+			cblog.With("component", "update").Error("Update check failed", "err", msg.Error)
+			return m, nil
+		}
+		if msg.UpdateInfo != nil {
+			// Check if this is a new update notification (different version or first time)
+			isNewNotification := m.state.UI.UpdateInfo == nil ||
+				!m.state.UI.UpdateInfo.Available ||
+				m.state.UI.UpdateInfo.LatestVersion != msg.UpdateInfo.LatestVersion
+
+			m.state.UI.UpdateInfo = msg.UpdateInfo
+			m.state.UI.IsVersionOutdated = msg.UpdateInfo.Available
+
+			if msg.UpdateInfo.Available {
+				// Set notification timestamp for new notifications
+				if isNewNotification && msg.UpdateInfo.NotificationShownAt == nil {
+					now := time.Now()
+					msg.UpdateInfo.NotificationShownAt = &now
+					m.state.UI.UpdateInfo = msg.UpdateInfo
+				}
+
+				m.state.UI.LatestVersion = &msg.UpdateInfo.LatestVersion
+				cblog.With("component", "update").Info("Update available",
+					"current", msg.UpdateInfo.CurrentVersion,
+					"latest", msg.UpdateInfo.LatestVersion,
+					"install_method", msg.UpdateInfo.InstallMethod)
+			}
+		}
+		return m, nil
+
+	case model.UpgradeRequestedMsg:
+		return m, m.handleUpgradeRequest()
+
+	case model.UpgradeProgressMsg:
+		m.statusService.Set(msg.Message)
+		return m, nil
+
+	case model.UpgradeCompletedMsg:
+		if msg.Success {
+			// Show upgrade success modal
+			m.state.Mode = model.ModeUpgradeSuccess
+			m.state.Modals.UpgradeLoading = false
+		} else {
+			// Show upgrade error modal with detailed instructions
+			errorMsg := msg.Error.Error()
+			m.state.Modals.UpgradeError = &errorMsg
+			m.state.Mode = model.ModeUpgradeError
+			m.state.Modals.UpgradeLoading = false
+		}
 		return m, nil
 	}
 

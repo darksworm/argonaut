@@ -28,11 +28,19 @@ func NewModel() *Model {
 	namespacesTable := newSimpleTable()
 	projectsTable := newSimpleTable()
 
+	// Initialize update service
+	updateService := services.NewUpdateService(services.UpdateServiceConfig{
+		HTTPClient:       nil, // Use default HTTP client
+		GitHubRepo:       "darksworm/argonaut",
+		CheckIntervalMin: 60, // Check every hour
+	})
+
 	return &Model{
 		state:              model.NewAppState(),
 		argoService:        services.NewArgoApiService(nil),
 		navigationService:  services.NewNavigationService(),
 		statusService:      services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
+		updateService:      updateService,
 		inputComponents:    NewInputComponents(),
 		autocompleteEngine: autocomplete.NewAutocompleteEngine(),
 		ready:              false,
@@ -68,6 +76,8 @@ func (m *Model) Init() tea.Cmd {
 		func() tea.Msg { return model.StatusChangeMsg{Status: "Initializing..."} },
 		// Validate authentication if server is configured
 		m.validateAuthentication(),
+		// Start periodic update check (delayed)
+		m.scheduleInitialUpdateCheck(),
 	)
 
 	_ = context.TODO() // keep import stable if unused on some builds

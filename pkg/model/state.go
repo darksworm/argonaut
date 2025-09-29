@@ -85,13 +85,14 @@ func (s *SelectionState) ToggleSelectedApp(app string) {
 
 // UIState holds UI-related state
 type UIState struct {
-	SearchQuery       string  `json:"searchQuery"`
-	ActiveFilter      string  `json:"activeFilter"`
-	Command           string  `json:"command"`
-	IsVersionOutdated bool    `json:"isVersionOutdated"`
-	LatestVersion     *string `json:"latestVersion,omitempty"`
-	CommandInputKey   int     `json:"commandInputKey"`
-	TreeAppName       *string `json:"treeAppName,omitempty"`
+	SearchQuery       string      `json:"searchQuery"`
+	ActiveFilter      string      `json:"activeFilter"`
+	Command           string      `json:"command"`
+	IsVersionOutdated bool        `json:"isVersionOutdated"`
+	LatestVersion     *string     `json:"latestVersion,omitempty"`
+	UpdateInfo        *UpdateInfo `json:"updateInfo,omitempty"`
+	CommandInputKey   int         `json:"commandInputKey"`
+	TreeAppName       *string     `json:"treeAppName,omitempty"`
 }
 
 // ModalState holds modal-related state
@@ -107,6 +108,10 @@ type ModalState struct {
 	InitialLoading  bool    `json:"initialLoading"`
 	RollbackAppName *string `json:"rollbackAppName,omitempty"`
 	SyncViewApp     *string `json:"syncViewApp,omitempty"`
+	// Upgrade confirmation modal state
+	UpgradeSelected int     `json:"upgradeSelected"` // 0 = Continue, 1 = Cancel
+	UpgradeLoading  bool    `json:"upgradeLoading"`
+	UpgradeError    *string `json:"upgradeError,omitempty"` // Error message for upgrade failures
 }
 
 // AppState represents the complete application state for Bubbletea
