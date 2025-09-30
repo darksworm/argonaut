@@ -280,20 +280,9 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 	return m, m.startRollbackSession(appName)
 }
 
-// handleEscape handles escape key (clear filters, exit modes) with debounce
+// handleEscape handles escape key (clear filters, exit modes)
 func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
-	// Debounce escape key to prevent rapid multiple exits
-	now := time.Now().UnixMilli()
-	const ESCAPE_DEBOUNCE_MS = 100 // 100ms debounce (reduced from 200ms)
-
-	if now-m.state.Navigation.LastEscPressed < ESCAPE_DEBOUNCE_MS {
-		// Too soon, ignore this escape
-		return m, nil
-	}
-
-	// Update last escape timestamp
-	m.state.Navigation.LastEscPressed = now
-
+	// Note: Global escape debounce is now handled in handleKeyMsg
 	switch m.state.Mode {
 	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
 		m.state.Mode = model.ModeNormal
@@ -722,6 +711,21 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.String() == "ctrl+c" {
 		return m, func() tea.Msg { return model.QuitMsg{} }
 	}
+
+	// Global escape debounce to prevent rapid consecutive escape key presses
+	if msg.String() == "esc" {
+		now := time.Now().UnixMilli()
+		const GLOBAL_ESCAPE_DEBOUNCE_MS = 100 // 100ms debounce
+
+		if now-m.state.Navigation.LastEscPressed < GLOBAL_ESCAPE_DEBOUNCE_MS {
+			// Too soon, ignore this escape
+			return m, nil
+		}
+
+		// Update last escape timestamp
+		m.state.Navigation.LastEscPressed = now
+	}
+
 	// Mode-specific handling first
 	switch m.state.Mode {
 	case model.ModeSearch:
