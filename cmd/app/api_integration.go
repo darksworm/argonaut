@@ -13,6 +13,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
+	yaml "gopkg.in/yaml.v3"
+
 	"github.com/darksworm/argonaut/pkg/api"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
@@ -213,9 +215,16 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 			}
 
 			// Use NormalizedLiveState and PredictedLiveState as per ArgoCD spec
-			// ArgoCD already provides normalized states, no need for additional cleaning
-			normalizedYAML := d.NormalizedLiveState
-			predictedYAML := d.PredictedLiveState
+			normalizedYAML := ""
+			predictedYAML := ""
+
+			// Convert from JSON to YAML for diff viewing
+			if d.NormalizedLiveState != "" {
+				normalizedYAML = convertJSONToYAML(d.NormalizedLiveState)
+			}
+			if d.PredictedLiveState != "" {
+				predictedYAML = convertJSONToYAML(d.PredictedLiveState)
+			}
 
 			// Filter out resources with identical states (like ArgoCD UI does)
 			if normalizedYAML == predictedYAML {
@@ -291,6 +300,25 @@ func writeTempYAML(prefix string, docs []string) (string, error) {
 	return f.Name(), nil
 }
 
+// convertJSONToYAML converts JSON to YAML format
+func convertJSONToYAML(jsonStr string) string {
+	if jsonStr == "" {
+		return ""
+	}
+
+	var obj interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &obj); err != nil {
+		// If it's not JSON, assume it's already YAML
+		return jsonStr
+	}
+
+	yamlBytes, err := yaml.Marshal(obj)
+	if err != nil {
+		return jsonStr
+	}
+
+	return string(yamlBytes)
+}
 
 // startLoadingResourceTree loads the resource tree for the given app
 func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
@@ -645,12 +673,18 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 		desiredDocs := make([]string, 0)
 		liveDocs := make([]string, 0)
 		for _, d := range diffs {
-			// ArgoCD already provides states, no need for additional cleaning
+			// Convert from JSON to YAML for diff viewing
 			if d.TargetState != "" {
-				desiredDocs = append(desiredDocs, d.TargetState)
+				yamlStr := convertJSONToYAML(d.TargetState)
+				if yamlStr != "" {
+					desiredDocs = append(desiredDocs, yamlStr)
+				}
 			}
 			if d.LiveState != "" {
-				liveDocs = append(liveDocs, d.LiveState)
+				yamlStr := convertJSONToYAML(d.LiveState)
+				if yamlStr != "" {
+					liveDocs = append(liveDocs, yamlStr)
+				}
 			}
 		}
 
