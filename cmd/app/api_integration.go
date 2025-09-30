@@ -16,9 +16,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/api"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/neat"
 	"github.com/darksworm/argonaut/pkg/services"
-	yaml "gopkg.in/yaml.v3"
 )
 
 // startLoadingApplications initiates loading applications from ArgoCD API
@@ -215,15 +213,9 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 			}
 
 			// Use NormalizedLiveState and PredictedLiveState as per ArgoCD spec
-			normalizedYAML := ""
-			predictedYAML := ""
-
-			if d.NormalizedLiveState != "" {
-				normalizedYAML = cleanManifestToYAML(d.NormalizedLiveState)
-			}
-			if d.PredictedLiveState != "" {
-				predictedYAML = cleanManifestToYAML(d.PredictedLiveState)
-			}
+			// ArgoCD already provides normalized states, no need for additional cleaning
+			normalizedYAML := d.NormalizedLiveState
+			predictedYAML := d.PredictedLiveState
 
 			// Filter out resources with identical states (like ArgoCD UI does)
 			if normalizedYAML == predictedYAML {
@@ -299,27 +291,6 @@ func writeTempYAML(prefix string, docs []string) (string, error) {
 	return f.Name(), nil
 }
 
-func cleanManifestToYAML(jsonOrYaml string) string {
-	// Use kubectl-neat implementation to clean the manifest
-	cleaned, err := neat.CleanYAMLToJSON(jsonOrYaml)
-	if err != nil {
-		// If cleaning fails, return original
-		return jsonOrYaml
-	}
-
-	// Convert cleaned JSON back to YAML
-	var obj interface{}
-	if err := json.Unmarshal([]byte(cleaned), &obj); err != nil {
-		return jsonOrYaml
-	}
-
-	yamlBytes, err := yaml.Marshal(obj)
-	if err != nil {
-		return jsonOrYaml
-	}
-
-	return string(yamlBytes)
-}
 
 // startLoadingResourceTree loads the resource tree for the given app
 func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
@@ -674,17 +645,12 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 		desiredDocs := make([]string, 0)
 		liveDocs := make([]string, 0)
 		for _, d := range diffs {
+			// ArgoCD already provides states, no need for additional cleaning
 			if d.TargetState != "" {
-				s := cleanManifestToYAML(d.TargetState)
-				if s != "" {
-					desiredDocs = append(desiredDocs, s)
-				}
+				desiredDocs = append(desiredDocs, d.TargetState)
 			}
 			if d.LiveState != "" {
-				s := cleanManifestToYAML(d.LiveState)
-				if s != "" {
-					liveDocs = append(liveDocs, s)
-				}
+				liveDocs = append(liveDocs, d.LiveState)
 			}
 		}
 
