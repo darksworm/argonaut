@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.3.0](https://github.com/darksworm/argonaut/compare/v2.2.0...v2.3.0) (2025-09-30)
+
+
+### Features
+
+* add no differences modal with improved UX ([d52c867](https://github.com/darksworm/argonaut/commit/d52c867838031c8ac9ed97de629b5e293ce3a0ef))
+* add vim-style quit key bindings ([777e2a2](https://github.com/darksworm/argonaut/commit/777e2a2eafd121e565bab37b2460c6af50ac2fcc))
+* calculate diff just like the argocd web app ([7c1c8fd](https://github.com/darksworm/argonaut/commit/7c1c8fda509e77b48754b0f5ede332b2252300dc))
+* disable q key for quitting app in normal mode ([918d58d](https://github.com/darksworm/argonaut/commit/918d58d0ba3c085cf07fabe5ceba250d1af9490f))
+* mark releases as pre-release during build process ([82e75e1](https://github.com/darksworm/argonaut/commit/82e75e1fa904cd4c121bb8e98588a5097cc79597))
+* show 'no difference' when trying to diff a synced app ([7b1fbe3](https://github.com/darksworm/argonaut/commit/7b1fbe3a3be082ba74dcfeb81a4cd49047f75a5f))
+* simplify no-diff modal interaction ([42f3bfd](https://github.com/darksworm/argonaut/commit/42f3bfd7923199a0b68afa9922277648722eb27d))
+* support more common vim commands to close the app ([1ed4966](https://github.com/darksworm/argonaut/commit/1ed4966fa5ce173dbba8650cd6f2edb4f4bfa8ac))
+
 ## [2.2.0](https://github.com/darksworm/argonaut/compare/v2.1.2...v2.2.0) (2025-09-29)
 
 
