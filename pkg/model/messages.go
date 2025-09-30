@@ -5,7 +5,7 @@ import (
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 )
 
-// Navigation Messages - correspond to TypeScript navigation actions
+//✓ Navigation Messages
 
 // SetViewMsg sets the current view
 type SetViewMsg struct {
@@ -32,7 +32,7 @@ type UpdateLastEscPressedMsg struct {
 	Timestamp int64
 }
 
-// Selection Messages - correspond to TypeScript selection actions
+//✓ Selection Messages
 
 // SetScopeClustersMsg sets the cluster scope
 type SetScopeClustersMsg struct {
@@ -62,7 +62,7 @@ type ClearLowerLevelSelectionsMsg struct {
 	View View
 }
 
-// UI Messages - correspond to TypeScript UI actions
+//✓ UI Messages
 
 // SetSearchQueryMsg sets the search query
 type SetSearchQueryMsg struct {
@@ -95,7 +95,7 @@ type SetLatestVersionMsg struct {
 // ClearFiltersMsg clears all filters
 type ClearFiltersMsg struct{}
 
-// Modal Messages - correspond to TypeScript modal actions
+//✓ Modal Messages
 
 // SetConfirmTargetMsg sets the confirm target
 type SetConfirmTargetMsg struct {
@@ -125,7 +125,7 @@ type SetSyncViewAppMsg struct {
 // ClearModalsMsg clears all modal state
 type ClearModalsMsg struct{}
 
-// Server/Data Messages - correspond to TypeScript data actions
+//✓ Server/Data Messages
 
 // SetAppsMsg sets the applications list
 type SetAppsMsg struct {

@@ -173,7 +173,7 @@ func main() {
 	// Create the initial model
 	m := NewModel()
 
-	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
+	//✓ Load Argo CD CLI configuration
 	cblog.With("component", "app").Info("Loading Argo CD config…")
 
 	// Try to read the ArgoCD CLI config file
@@ -242,7 +242,7 @@ func setupLogging() {
 	cblog.With("component", "app").Info("Argo CD Apps started", "logFile", f.Name())
 }
 
-// loadArgoConfig loads ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
+//✓ loadArgoConfig loads ArgoCD CLI configuration
 func loadArgoConfig(overridePath string) (*model.Server, error) {
 	// Read CLI config file (override path if specified)
 	var (

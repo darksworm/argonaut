@@ -382,7 +382,7 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 		app.LastSyncAt = &argoApp.Status.OperationState.StartedAt
 	}
 
-	// Normalize status values to match TypeScript app
+	//✓ Normalize status values to ensure non-empty states
 	if app.Sync == "" {
 		app.Sync = "Unknown"
 	}

@@ -9,7 +9,7 @@ import (
 
 func (m *Model) renderHelpModal() string {
 
-	// Layout toggle (match earlier TS threshold)
+	//✓ Layout toggle based on terminal width
 	isWide := m.state.Terminal.Cols >= 60
 
 	// Small keycap style to make keys pop
@@ -56,7 +56,7 @@ func (m *Model) renderHelpModal() string {
 	}, "")
 
 	var helpSections []string
-	// Add a blank line between sections to mimic Ink's marginTop=1
+	//✓ Add a blank line between sections for readability
 	helpSections = append(helpSections, m.renderHelpSection("GENERAL", general, isWide))
 	helpSections = append(helpSections, "")
 	helpSections = append(helpSections, m.renderHelpSection("NAV", nav, isWide))
