@@ -11,6 +11,8 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -931,7 +933,7 @@ func (m *Model) renderErrorView() string {
 		if errorTitle == "" {
 			errorTitle = "Error"
 		}
-		errorContent += titleStyle.Render(strings.Title(strings.ReplaceAll(errorTitle, "_", " "))) + "\n\n"
+		errorContent += titleStyle.Render(cases.Title(language.English).String(strings.ReplaceAll(errorTitle, "_", " "))) + "\n\n"
 
 		// Error code/type
 		if err.Code != "" {
