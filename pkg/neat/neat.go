@@ -132,10 +132,7 @@ func Neat(in string) (string, error) {
 		return draft, fmt.Errorf("error in neatScheduler : %v", err)
 	}
 	if kind == "Pod" {
-		draft, err = neatServiceAccount(draft)
-		if err != nil {
-			return draft, fmt.Errorf("error in neatServiceAccount : %v", err)
-		}
+		draft = neatServiceAccount(draft)
 	}
 
 	// general neating
@@ -147,10 +144,7 @@ func Neat(in string) (string, error) {
 	if err != nil {
 		return draft, fmt.Errorf("error in neatStatus : %v", err)
 	}
-	draft, err = neatEmpty(draft)
-	if err != nil {
-		return draft, fmt.Errorf("error in neatEmpty : %v", err)
-	}
+	draft = neatEmpty(draft)
 
 	return draft, nil
 }
@@ -178,7 +172,7 @@ func neatScheduler(in string) (string, error) {
 	return sjson.Delete(in, "spec.nodeName")
 }
 
-func neatServiceAccount(in string) (string, error) {
+func neatServiceAccount(in string) string {
 	var err error
 	// keep an eye open on https://github.com/tidwall/sjson/issues/11
 	// when it's implemented, we can do:
@@ -207,11 +201,11 @@ func neatServiceAccount(in string) (string, error) {
 	}
 	in, _ = sjson.Delete(in, "spec.serviceAccount") //Deprecated: Use serviceAccountName instead
 
-	return in, nil
+	return in
 }
 
 // neatEmpty removes all zero length elements in the json
-func neatEmpty(in string) (string, error) {
+func neatEmpty(in string) string {
 	var err error
 	jsonResult := gjson.Parse(in)
 	var empties []string
@@ -231,7 +225,7 @@ func neatEmpty(in string) (string, error) {
 			}
 		}
 	}
-	return in, nil
+	return in
 }
 
 // findEmptyPathsRecursive builds a list of paths that point to zero length elements

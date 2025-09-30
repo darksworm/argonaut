@@ -95,11 +95,11 @@ func (m *StreamRecoveryManager) ReportStreamFailure(id string, err error) {
 
 	// Start recovery process
 	m.wg.Add(1)
-	go m.recoverStream(stream, err)
+	go m.recoverStream(stream)
 }
 
 // recoverStream attempts to recover a failed stream
-func (m *StreamRecoveryManager) recoverStream(stream *StreamConnection, originalErr error) {
+func (m *StreamRecoveryManager) recoverStream(stream *StreamConnection) {
 	defer m.wg.Done()
 
 	m.logger.Info("Starting recovery for stream %s", stream.ID)

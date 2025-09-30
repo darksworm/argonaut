@@ -41,8 +41,8 @@ func HighlightLogLine(line string) string {
 	}
 
 	// Use a more sophisticated parser that handles quoted strings
-	parts, err := parseLogLineParts(line)
-	if err != nil || len(parts) < 3 {
+	parts := parseLogLineParts(line)
+	if len(parts) < 3 {
 		return line // Fallback to original line if parsing fails
 	}
 
@@ -125,7 +125,7 @@ func HighlightLogLine(line string) string {
 }
 
 // parseLogLineParts parses a log line into parts, properly handling quoted strings
-func parseLogLineParts(line string) ([]string, error) {
+func parseLogLineParts(line string) []string {
 	var parts []string
 	var current strings.Builder
 	inQuotes := false
@@ -164,7 +164,7 @@ func parseLogLineParts(line string) ([]string, error) {
 		parts = append(parts, current.String())
 	}
 
-	return parts, nil
+	return parts
 }
 
 // looksLikeTimestamp checks if a string resembles a timestamp
