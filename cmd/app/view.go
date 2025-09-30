@@ -950,7 +950,7 @@ func (m *Model) renderErrorView() string {
 		}
 
 		// Additional context (if available)
-		if err.Context != nil && len(err.Context) > 0 {
+		if len(err.Context) > 0 {
 			contextStyle := lipgloss.NewStyle().Foreground(unknownColor)
 			errorContent += "\nContext:\n"
 			for key, value := range err.Context {

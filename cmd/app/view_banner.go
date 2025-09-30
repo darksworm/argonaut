@@ -130,7 +130,6 @@ func (m *Model) renderCompactBanner() string {
 	}
 
 	// Drop the badge and try full breadcrumb on two lines
-	rb = ""
 	left1 = " " + joinParts(parts[:2])
 	left2 = " " + joinParts(parts[2:])
 	if lipgloss.Width(left1) <= total && lipgloss.Width(left2) <= total {

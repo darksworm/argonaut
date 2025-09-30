@@ -338,22 +338,22 @@ func (m *Model) renderUpgradeConfirmModal() string {
 	var upgradeButton, cancelButton string
 	if m.state.Modals.UpgradeSelected == 0 {
 		// Upgrade button selected
-		upgradeButton = baseButtonStyle.Copy().
+		upgradeButton = baseButtonStyle.
 			Background(cyanBright).
 			Foreground(black).
 			Bold(true).
 			Render("Upgrade")
-		cancelButton = baseButtonStyle.Copy().
+		cancelButton = baseButtonStyle.
 			Background(lipgloss.Color("236")).
 			Foreground(dimColor).
 			Render("Cancel")
 	} else {
 		// Cancel button selected
-		upgradeButton = baseButtonStyle.Copy().
+		upgradeButton = baseButtonStyle.
 			Background(lipgloss.Color("236")).
 			Foreground(dimColor).
 			Render("Upgrade")
-		cancelButton = baseButtonStyle.Copy().
+		cancelButton = baseButtonStyle.
 			Background(redColor).
 			Foreground(white).
 			Bold(true).
