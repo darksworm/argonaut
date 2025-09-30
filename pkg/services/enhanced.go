@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"sync"
 
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
@@ -15,8 +14,6 @@ import (
 // EnhancedArgoApiService provides enhanced ArgoApiService with recovery and degradation
 type EnhancedArgoApiService struct {
 	appService      *api.ApplicationService
-	watchCancel     context.CancelFunc
-	mu              sync.RWMutex
 	recoveryManager *StreamRecoveryManager
 	degradationMgr  *GracefulDegradationManager
 }
