@@ -83,5 +83,5 @@ hive-mind-prompt-*.txt
 argocd/install.yaml
 logs/
 
-# Local worktrees not to be tracked
-/hello/
+.argocd-portforward.pid
+
