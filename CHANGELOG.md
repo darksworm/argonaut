@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/darksworm/argonaut/compare/v2.3.0...v2.3.1) (2025-09-30)
+
+
+### Bug Fixes
+
+* make the escape debouncer global ([a3f4dbb](https://github.com/darksworm/argonaut/commit/a3f4dbb9be07751eb0ac12c1aaa51a537113c90f))
+
 ## [2.3.0](https://github.com/darksworm/argonaut/compare/v2.2.0...v2.3.0) (2025-09-30)
 
 
