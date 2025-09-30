@@ -193,7 +193,7 @@ defer cancel()
 - Cleaner, more readable code
 
 **Commits:**
-- (pending)
+- `0c84e36` refactor: consolidate duplicate context timeout patterns
 
 ---
 
