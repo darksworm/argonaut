@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss/v2"
@@ -74,33 +75,31 @@ func (m *Model) renderHelpModal() string {
 	return m.renderFullScreenViewWithOptions("", body, m.renderStatusLine(), FullScreenViewOptions{ContentBordered: true, BorderColor: magentaBright})
 }
 
-func (m *Model) renderDiffLoadingSpinner() string {
-	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
+// renderSimpleLoadingModal creates a simple loading modal with spinner and message
+func (m *Model) renderSimpleLoadingModal(message string, borderColor color.Color, minWidth int) string {
+	spinnerContent := fmt.Sprintf("%s %s", m.spinner.View(), message)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(yellowBright).
+		BorderForeground(borderColor).
 		Background(lipgloss.Color("0")).
 		Foreground(whiteBright).
 		Padding(1, 2).
-		Bold(true).
-		Align(lipgloss.Center)
+		Bold(true)
+
+	width := max(minWidth, lipgloss.Width(spinnerContent)+4)
+	spinnerStyle = spinnerStyle.Width(width)
+
 	outer := lipgloss.NewStyle().Padding(1, 1)
 	return outer.Render(spinnerStyle.Render(spinnerContent))
 }
 
+func (m *Model) renderDiffLoadingSpinner() string {
+	return m.renderSimpleLoadingModal("Loading diff...", yellowBright, 24)
+}
+
 // renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
 func (m *Model) renderTreeLoadingSpinner() string {
-	spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
-	spinnerStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Background(lipgloss.Color("0")).
-		Foreground(whiteBright).
-		Padding(1, 2).
-		Bold(true).
-		Align(lipgloss.Center)
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(spinnerStyle.Render(spinnerContent))
+	return m.renderSimpleLoadingModal("Loading resources...", cyanBright, 24)
 }
 
 // renderRollbackLoadingModal displays a centered modal while rollback is loading/executing
@@ -113,58 +112,19 @@ func (m *Model) renderRollbackLoadingModal() string {
 			msg = "Loading rollback for " + *m.state.Modals.RollbackAppName + "…"
 		}
 	}
-	content := m.spinner.View() + " " + statusStyle.Render(msg)
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Padding(1, 2)
-	minW := 28
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
+	return m.renderSimpleLoadingModal(statusStyle.Render(msg), outOfSyncColor, 28)
 }
 
 func (m *Model) renderSyncLoadingModal() string {
-	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
-	content := msg
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Padding(1, 2)
-	minW := 24
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
+	return m.renderSimpleLoadingModal(statusStyle.Render("Syncing…"), cyanBright, 24)
 }
 
 func (m *Model) renderInitialLoadingModal() string {
-	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading..."))
-	content := msg
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		Padding(1, 2)
-	minW := 32
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
+	return m.renderSimpleLoadingModal(statusStyle.Render("Loading..."), magentaBright, 32)
 }
 
 func (m *Model) renderNoServerModal() string {
-	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Connecting to Argo CD..."))
-	content := msg
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(magentaBright).
-		Padding(1, 2)
-	minW := 40
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
+	return m.renderSimpleLoadingModal(statusStyle.Render("Connecting to Argo CD..."), magentaBright, 40)
 }
 
 func (m *Model) renderRollbackModal() string {
