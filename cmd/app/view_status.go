@@ -102,7 +102,7 @@ func (m *Model) renderStatusLine() string {
 	return line
 }
 
-//✓ Helper functions for status display
+// Helper functions for status display
 
 func (m *Model) getSyncIcon(sync string) string {
 	switch sync {

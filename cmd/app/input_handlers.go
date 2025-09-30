@@ -11,7 +11,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
-//✓ Navigation handlers
+// Navigation handlers
 
 // handleNavigationUp moves cursor up with bounds checking
 func (m *Model) handleNavigationUp() (tea.Model, tea.Cmd) {
@@ -153,7 +153,7 @@ func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
 	}
 
 	if result.ShouldResetNavigation {
-		//✓ Reset index and clear transient UI filters
+		// Reset index and clear transient UI filters
 		m.state.Navigation.SelectedIdx = 0
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""

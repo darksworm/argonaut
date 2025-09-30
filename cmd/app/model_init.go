@@ -97,7 +97,7 @@ func (m *Model) validateAuthentication() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		//✓ Validate user info to ensure authentication works
+		// Validate user info to ensure authentication works
 		if err := appService.GetUserInfo(ctx); err != nil {
 			cblog.With("component", "auth").Error("Authentication validation failed", "err", err)
 

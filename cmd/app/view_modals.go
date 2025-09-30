@@ -9,7 +9,7 @@ import (
 
 func (m *Model) renderHelpModal() string {
 
-	//✓ Layout toggle based on terminal width
+	// Layout toggle based on terminal width
 	isWide := m.state.Terminal.Cols >= 60
 
 	// Small keycap style to make keys pop
@@ -56,7 +56,7 @@ func (m *Model) renderHelpModal() string {
 	}, "")
 
 	var helpSections []string
-	//✓ Add a blank line between sections for readability
+	// Add a blank line between sections for readability
 	helpSections = append(helpSections, m.renderHelpSection("GENERAL", general, isWide))
 	helpSections = append(helpSections, "")
 	helpSections = append(helpSections, m.renderHelpSection("NAV", nav, isWide))

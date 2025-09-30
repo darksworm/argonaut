@@ -12,13 +12,13 @@ import (
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
-//✓ InputComponentState manages interactive input components
+// InputComponentState manages interactive input components
 type InputComponentState struct {
 	searchInput  textinput.Model
 	commandInput textinput.Model
 }
 
-//✓ NewInputComponents creates a new input component state
+// NewInputComponents creates a new input component state
 func NewInputComponents() *InputComponentState {
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search..."
@@ -96,32 +96,32 @@ func (ic *InputComponentState) ClearCommandInput() {
 	ic.commandInput.SetValue("")
 }
 
-//✓ Enhanced view functions that use bubbles textinput
+// Enhanced view functions that use bubbles textinput
 
-//✓ renderEnhancedSearchBar renders an interactive search bar using bubbles textinput
+// renderEnhancedSearchBar renders an interactive search bar using bubbles textinput
 func (m *Model) renderEnhancedSearchBar() string {
 	if m.state.Mode != model.ModeSearch {
 		return ""
 	}
 
-	//✓ Search bar with rounded border
+	// Search bar with rounded border
 	searchBarStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	//✓ Search label styling
+	// Search label styling
 	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
 
-	//✓ Compute widths to make input fill the full row (no trailing help text)
+	// Compute widths to make input fill the full row (no trailing help text)
 	totalWidth := m.state.Terminal.Cols
-	//✓ Make the OUTER width match the main bordered box outer width (cols-2)
-	//✓ Inner content width is then outer - borders(2) - padding(2) = cols-6
+	// Make the OUTER width match the main bordered box outer width (cols-2)
+	// Inner content width is then outer - borders(2) - padding(2) = cols-6
 	styleWidth := maxInt(0, totalWidth-2)
 	innerWidth := maxInt(0, styleWidth-4)
 
-	//✓ Allocate remaining width to the input field
+	// Allocate remaining width to the input field
 	baseUsed := lipgloss.Width(searchLabel) + 1 /*space*/
 	minInput := 5
 	inputWidth := maxInt(minInput, innerWidth-baseUsed)
@@ -136,22 +136,22 @@ func (m *Model) renderEnhancedSearchBar() string {
 	return searchBarStyle.Width(styleWidth).Render(content)
 }
 
-//✓ renderEnhancedCommandBar renders an interactive command bar using bubbles textinput
+// renderEnhancedCommandBar renders an interactive command bar using bubbles textinput
 func (m *Model) renderEnhancedCommandBar() string {
 	if m.state.Mode != model.ModeCommand {
 		return ""
 	}
 
-	//✓ Command bar with rounded border
+	// Command bar with rounded border
 	commandBarStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	//✓ Compute widths for full-row input (no label, fill full width)
+	// Compute widths for full-row input (no label, fill full width)
 	totalWidth := m.state.Terminal.Cols
-	//✓ Match OUTER width of main content border (cols-2); inner width = cols-6
+	// Match OUTER width of main content border (cols-2); inner width = cols-6
 	styleWidth := maxInt(0, totalWidth-2)
 	innerWidth := maxInt(0, styleWidth-4)
 	minInput := 5
@@ -165,12 +165,12 @@ func (m *Model) renderEnhancedCommandBar() string {
 	return commandBarStyle.Width(styleWidth).Render(commandInputView)
 }
 
-//✓ renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
+// renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
 func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	currentInput := m.inputComponents.GetCommandValue()
 
-	//✓ The autocomplete engine expects a leading ':', but command mode doesn't include it
-	//✓ in the text input (it's only used to enter the mode). So prepend it for the query.
+	// The autocomplete engine expects a leading ':', but command mode doesn't include it
+	// in the text input (it's only used to enter the mode). So prepend it for the query.
 	query := currentInput
 	if !strings.HasPrefix(query, ":") {
 		query = ":" + query
@@ -182,7 +182,7 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 		firstPlain = strings.TrimPrefix(suggestions[0], ":")
 	}
 
-	//✓ Style the current input, colorizing the argument validity for known commands
+	// Style the current input, colorizing the argument validity for known commands
 	inputText := currentInput
 	parts := strings.Fields(currentInput)
 	if len(parts) >= 1 {
@@ -229,9 +229,9 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	return content
 }
 
-//✓ Enhanced input handling for bubbles integration
+// Enhanced input handling for bubbles integration
 
-//✓ handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
+// handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
 func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -304,7 +304,7 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	}
 }
 
-//✓ handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
+// handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
 func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -730,9 +730,9 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 	}
 }
 
-//✓ Enhanced mode entry handlers that activate bubbles inputs
+// Enhanced mode entry handlers that activate bubbles inputs
 
-//✓ handleEnhancedEnterSearchMode switches to search mode and activates textinput
+// handleEnhancedEnterSearchMode switches to search mode and activates textinput
 func (m *Model) handleEnhancedEnterSearchMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeSearch
 	m.state.UI.SearchQuery = ""
@@ -741,7 +741,7 @@ func (m *Model) handleEnhancedEnterSearchMode() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-//✓ handleEnhancedEnterCommandMode switches to command mode and activates textinput
+// handleEnhancedEnterCommandMode switches to command mode and activates textinput
 func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeCommand
 	m.state.UI.Command = ""

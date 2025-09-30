@@ -15,14 +15,14 @@ import (
 	"golang.org/x/text/language"
 )
 
-//✓ Color mappings for the application
+// Color mappings for the application
 var (
-	//✓ Color scheme for UI elements
+	// Color scheme for UI elements
 	magentaBright = lipgloss.Color("13") // Selection highlight
 	yellowBright  = lipgloss.Color("11") // Headers
 	dimColor      = lipgloss.Color("8")  // Dimmed text
 
-	//✓ Status colors for sync and health states
+	// Status colors for sync and health states
 	syncedColor    = lipgloss.Color("10") // Green for Synced/Healthy
 	outOfSyncColor = lipgloss.Color("9")  // Red for OutOfSync/Degraded
 	progressColor  = lipgloss.Color("11") // Yellow for Progressing
@@ -224,39 +224,39 @@ func isLikelyComponent(s string) bool {
 	return hasLetter && len(s) > 1 && len(s) < 50
 }
 
-//✓ Styles for UI components
+// Styles for UI components
 var (
-	//✓ Main container style
+	// Main container style
 	mainContainerStyle = lipgloss.NewStyle().
 				PaddingLeft(1).
 				PaddingRight(1)
 
-	//✓ Border style for main content area
-	//✓ Add inner padding for readability; width calculations account for it
+	// Border style for main content area
+	// Add inner padding for readability; width calculations account for it
 	contentBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(magentaBright).
 				PaddingLeft(1).
 				PaddingRight(1)
 
-	//✓ Header styles
+	// Header styles
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(yellowBright)
 
-	//✓ Selection highlight style
+	// Selection highlight style
 	selectedStyle = lipgloss.NewStyle().
 			Background(magentaBright)
-	//✓ Cursor sitting on a selected row should stand out
+	// Cursor sitting on a selected row should stand out
 	cursorOnSelectedStyle = lipgloss.NewStyle().
 				Background(cyanBright)
 
-	//✓ Status bar style
+	// Status bar style
 	statusStyle = lipgloss.NewStyle().
 			Foreground(dimColor)
 )
 
-//✓ ASCII icons for status indicators
+// ASCII icons for status indicators
 const (
 	checkIcon = "V"
 	warnIcon  = "!"
@@ -265,7 +265,7 @@ const (
 	dotIcon   = "."
 )
 
-//✓ View implements tea.Model.View
+// View implements tea.Model.View
 func (m *Model) View() string {
 	m.renderCount++
 	cblog.With("component", "view").Debug("View() called",
@@ -279,7 +279,7 @@ func (m *Model) View() string {
 		return statusStyle.Render("Starting…")
 	}
 
-	//✓ Map modes to appropriate views
+	// Map modes to appropriate views
 	switch m.state.Mode {
 	case model.ModeLoading:
 		// Show regular layout with the initial loading modal overlay instead of a separate loading view
@@ -422,8 +422,8 @@ func padRight(s string, width int) string {
 }
 
 func (m *Model) getVisibleItems() []interface{} {
-	//✓ Derive unique groups and filtered apps from current state
-	//✓ 1) Gather filtered apps through selected scopes
+	// Derive unique groups and filtered apps from current state
+	// 1) Gather filtered apps through selected scopes
 	apps := m.state.Apps
 	cblog.With("component", "view").Debug("getVisibleItems called",
 		"total_apps", len(apps),
