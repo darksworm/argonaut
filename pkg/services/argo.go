@@ -63,11 +63,16 @@ type ArgoApiEvent struct {
 
 // ResourceDiff represents a resource difference
 type ResourceDiff struct {
-	Kind        string `json:"kind"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	LiveState   string `json:"liveState,omitempty"`
-	TargetState string `json:"targetState,omitempty"`
+	Group               string `json:"group,omitempty"`
+	Kind                string `json:"kind"`
+	Name                string `json:"name"`
+	Namespace           string `json:"namespace"`
+	LiveState           string `json:"liveState,omitempty"`
+	TargetState         string `json:"targetState,omitempty"`
+	Diff                string `json:"diff,omitempty"`
+	Hook                bool   `json:"hook,omitempty"`
+	NormalizedLiveState string `json:"normalizedLiveState,omitempty"`
+	PredictedLiveState  string `json:"predictedLiveState,omitempty"`
 }
 
 // ArgoApiServiceImpl provides a concrete implementation of ArgoApiService
@@ -261,8 +266,16 @@ func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model
 	out := make([]ResourceDiff, len(diffs))
 	for i, d := range diffs {
 		out[i] = ResourceDiff{
-			Kind: d.Kind, Name: d.Name, Namespace: d.Namespace,
-			LiveState: d.LiveState, TargetState: d.TargetState,
+			Group:               d.Group,
+			Kind:                d.Kind,
+			Name:                d.Name,
+			Namespace:           d.Namespace,
+			LiveState:           d.LiveState,
+			TargetState:         d.TargetState,
+			Diff:                d.Diff,
+			Hook:                d.Hook,
+			NormalizedLiveState: d.NormalizedLiveState,
+			PredictedLiveState:  d.PredictedLiveState,
 		}
 	}
 	return out, nil

@@ -206,29 +206,44 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
 		}
 
-		desiredDocs := make([]string, 0)
-		liveDocs := make([]string, 0)
+		normalizedDocs := make([]string, 0)
+		predictedDocs := make([]string, 0)
 		for _, d := range diffs {
-			if d.TargetState != "" {
-				s := cleanManifestToYAML(d.TargetState)
-				if s != "" {
-					desiredDocs = append(desiredDocs, s)
-				}
+			// Filter out hook resources (like ArgoCD UI does)
+			if d.Hook {
+				continue
 			}
-			if d.LiveState != "" {
-				s := cleanManifestToYAML(d.LiveState)
-				if s != "" {
-					liveDocs = append(liveDocs, s)
-				}
+
+			// Use NormalizedLiveState and PredictedLiveState as per ArgoCD spec
+			normalizedYAML := ""
+			predictedYAML := ""
+
+			if d.NormalizedLiveState != "" {
+				normalizedYAML = cleanManifestToYAML(d.NormalizedLiveState)
+			}
+			if d.PredictedLiveState != "" {
+				predictedYAML = cleanManifestToYAML(d.PredictedLiveState)
+			}
+
+			// Filter out resources with identical states (like ArgoCD UI does)
+			if normalizedYAML == predictedYAML {
+				continue
+			}
+
+			if normalizedYAML != "" {
+				normalizedDocs = append(normalizedDocs, normalizedYAML)
+			}
+			if predictedYAML != "" {
+				predictedDocs = append(predictedDocs, predictedYAML)
 			}
 		}
 
-		if len(desiredDocs) == 0 && len(liveDocs) == 0 {
+		if len(normalizedDocs) == 0 && len(predictedDocs) == 0 {
 			return model.StatusChangeMsg{Status: "No diffs"}
 		}
 
-		leftFile, _ := writeTempYAML("live-", liveDocs)
-		rightFile, _ := writeTempYAML("desired-", desiredDocs)
+		leftFile, _ := writeTempYAML("current-", normalizedDocs)
+		rightFile, _ := writeTempYAML("predicted-", predictedDocs)
 
 		// Build raw unified diff via git (no color so delta can format it)
 		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--no-color", "--", leftFile, rightFile)

@@ -108,11 +108,16 @@ type RevisionMetadataResponse struct {
 
 // ManagedResourceDiff represents ArgoCD managed resource diff item
 type ManagedResourceDiff struct {
-	Kind        string `json:"kind"`
-	Namespace   string `json:"namespace"`
-	Name        string `json:"name"`
-	TargetState string `json:"targetState,omitempty"`
-	LiveState   string `json:"liveState,omitempty"`
+	Group               string `json:"group,omitempty"`
+	Kind                string `json:"kind,omitempty"`
+	Namespace           string `json:"namespace,omitempty"`
+	Name                string `json:"name,omitempty"`
+	TargetState         string `json:"targetState,omitempty"`
+	LiveState           string `json:"liveState,omitempty"`
+	Diff                string `json:"diff,omitempty"`
+	Hook                bool   `json:"hook,omitempty"`
+	NormalizedLiveState string `json:"normalizedLiveState,omitempty"`
+	PredictedLiveState  string `json:"predictedLiveState,omitempty"`
 }
 
 // ManagedResourcesResponse represents response for managed resources
