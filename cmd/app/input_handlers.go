@@ -402,7 +402,18 @@ func (m *Model) handleHelpModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleNoDiffModeKeys handles input when in no-diff modal mode
 func (m *Model) handleNoDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case "esc":
+		// Use debounce for esc key to prevent rapid dismissals
+		now := time.Now().UnixMilli()
+		const ESCAPE_DEBOUNCE_MS = 100
+		if now-m.state.Navigation.LastEscPressed < ESCAPE_DEBOUNCE_MS {
+			return m, nil // Too soon, ignore
+		}
+		m.state.Navigation.LastEscPressed = now
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	case "q":
+		// q key closes the modal immediately
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	}
