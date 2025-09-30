@@ -894,7 +894,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Normal-mode global keys
 	switch msg.String() {
-	case "q", "ctrl+c":
+	case "ctrl+c":
 		return m, func() tea.Msg { return model.QuitMsg{} }
 	case "up", "k":
 		return m.handleNavigationUp()
