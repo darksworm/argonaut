@@ -12,7 +12,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
-// InputComponentState manages interactive input components
+//✓ InputComponentState manages interactive input components
 type InputComponentState struct {
 	searchInput  textinput.Model
 	commandInput textinput.Model
@@ -98,9 +98,9 @@ func (ic *InputComponentState) ClearCommandInput() {
 	ic.commandInput.SetValue("")
 }
 
-// Enhanced view functions that use bubbles textinput
+//✓ Enhanced view functions that use bubbles textinput
 
-// renderEnhancedSearchBar renders an interactive search bar using bubbles textinput
+//✓ renderEnhancedSearchBar renders an interactive search bar using bubbles textinput
 func (m *Model) renderEnhancedSearchBar() string {
 	if m.state.Mode != model.ModeSearch {
 		return ""
@@ -138,7 +138,7 @@ func (m *Model) renderEnhancedSearchBar() string {
 	return searchBarStyle.Width(styleWidth).Render(content)
 }
 
-// renderEnhancedCommandBar renders an interactive command bar using bubbles textinput
+//✓ renderEnhancedCommandBar renders an interactive command bar using bubbles textinput
 func (m *Model) renderEnhancedCommandBar() string {
 	if m.state.Mode != model.ModeCommand {
 		return ""
@@ -167,7 +167,7 @@ func (m *Model) renderEnhancedCommandBar() string {
 	return commandBarStyle.Width(styleWidth).Render(commandInputView)
 }
 
-// renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
+//✓ renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
 func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	currentInput := m.inputComponents.GetCommandValue()
 
@@ -236,9 +236,9 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	return content
 }
 
-// Enhanced input handling for bubbles integration
+//✓ Enhanced input handling for bubbles integration
 
-// handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
+//✓ handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
 func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -315,7 +315,7 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	}
 }
 
-// handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
+//✓ handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
 func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -741,9 +741,9 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 	}
 }
 
-// Enhanced mode entry handlers that activate bubbles inputs
+//✓ Enhanced mode entry handlers that activate bubbles inputs
 
-// handleEnhancedEnterSearchMode switches to search mode and activates textinput
+//✓ handleEnhancedEnterSearchMode switches to search mode and activates textinput
 func (m *Model) handleEnhancedEnterSearchMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeSearch
 	m.state.UI.SearchQuery = ""
@@ -752,7 +752,7 @@ func (m *Model) handleEnhancedEnterSearchMode() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleEnhancedEnterCommandMode switches to command mode and activates textinput
+//✓ handleEnhancedEnterCommandMode switches to command mode and activates textinput
 func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeCommand
 	m.state.UI.Command = ""
