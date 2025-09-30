@@ -36,30 +36,21 @@ type UserAction struct {
 
 // ErrorHandlerImpl provides a concrete implementation of ErrorHandler
 type ErrorHandlerImpl struct {
-	logger       *log.Logger
-	logFile      *os.File
-	errorHistory []ArgonautError
-	historyMu    sync.RWMutex
-	maxHistory   int
-	notifyFunc   func(*ArgonautError) // Callback for UI notifications
+	logger     *log.Logger
+	logFile    *os.File
+	notifyFunc func(*ArgonautError) // Callback for UI notifications
 }
 
 // ErrorHandlerConfig configures the error handler
 type ErrorHandlerConfig struct {
 	LogFilePath    string
-	MaxHistory     int
 	NotifyCallback func(*ArgonautError)
 }
 
 // NewErrorHandler creates a new error handler with the given configuration
 func NewErrorHandler(config ErrorHandlerConfig) (*ErrorHandlerImpl, error) {
 	handler := &ErrorHandlerImpl{
-		maxHistory: config.MaxHistory,
 		notifyFunc: config.NotifyCallback,
-	}
-
-	if handler.maxHistory <= 0 {
-		handler.maxHistory = 100 // Default history size
 	}
 
 	// Set up logging
@@ -101,15 +92,13 @@ func GetDefaultHandler() *ErrorHandlerImpl {
 
 		config := ErrorHandlerConfig{
 			LogFilePath: logFilePath,
-			MaxHistory:  100,
 		}
 
 		handler, err := NewErrorHandler(config)
 		if err != nil {
 			// Fallback to basic handler
 			handler = &ErrorHandlerImpl{
-				logger:     log.Default(),
-				maxHistory: 100,
+				logger: log.Default(),
 			}
 		}
 

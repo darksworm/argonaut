@@ -26,7 +26,6 @@ func NewErrorHandler() (*ErrorHandler, error) {
 
 	handler, err := apperrors.NewErrorHandler(apperrors.ErrorHandlerConfig{
 		LogFilePath: logFile.Name(),
-		MaxHistory:  50,
 		NotifyCallback: func(err *apperrors.ArgonautError) {
 			// This will be called when errors occur
 			// Can be used for additional TUI notifications
