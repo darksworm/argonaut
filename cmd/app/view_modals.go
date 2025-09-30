@@ -487,8 +487,7 @@ func (m *Model) renderUpgradeSuccessModal() string {
 // renderNoDiffModal renders a simple modal for when there are no differences
 func (m *Model) renderNoDiffModal() string {
 	msg := "✓ " + statusStyle.Render("No differences found")
-	hint := lipgloss.NewStyle().Foreground(dimColor).Render("Esc or q to close")
-	content := msg + "\n" + hint
+	content := msg
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(syncedColor).
