@@ -722,7 +722,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Show help modal
 			m.state.Mode = model.ModeHelp
 			return m, nil
-		case "quit", "q", "q!", "exit":
+		case "quit", "q", "q!", "wq", "wq!", "exit":
 			// Exit the application
 			return m, func() tea.Msg { return model.QuitMsg{} }
 		case "upgrade", "update":
