@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	stdErrors "errors"
 
@@ -34,7 +33,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
 
 		// Create context with timeout (shorter timeout for initial loading)
-		ctx, cancel := contextWithTimeout(5 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutQuick)
 		defer cancel()
 
 		// Create a new ArgoApiService with the current server
@@ -113,7 +112,7 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		ctx, cancel := contextWithTimeout(10 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutStandard)
 		defer cancel()
 		apiService := services.NewArgoApiService(m.state.Server)
 		v, err := apiService.GetAPIVersion(ctx, m.state.Server)
@@ -195,7 +194,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := contextWithTimeout(45 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutLong)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -324,7 +323,7 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
-		ctx, cancel := contextWithTimeout(10 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutStandard)
 		defer cancel()
 
 		argo := services.NewArgoApiService(m.state.Server)
@@ -418,7 +417,7 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := contextWithTimeout(5 * time.Second) // 5 seconds max for sync operations
+		ctx, cancel := contextWithTimeout(timeoutQuick) // 5 seconds max for sync operations
 		defer cancel()
 
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
@@ -460,7 +459,7 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := contextWithTimeout(5 * time.Second) // 5 seconds max for sync operations
+		ctx, cancel := contextWithTimeout(timeoutQuick) // 5 seconds max for sync operations
 		defer cancel()
 
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
@@ -548,7 +547,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := contextWithTimeout(30 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutMedium)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -594,7 +593,7 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := contextWithTimeout(10 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutStandard)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -621,7 +620,7 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := contextWithTimeout(60 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutExtended)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -656,7 +655,7 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := contextWithTimeout(45 * time.Second)
+		ctx, cancel := contextWithTimeout(timeoutLong)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)

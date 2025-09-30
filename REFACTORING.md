@@ -13,6 +13,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 2. [x] **Layout Constants Consolidation** - Extract duplicate layout constant blocks
 3. [x] **Color Code Consolidation** - Centralize all color definitions
 4. [x] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
+5. [x] **Timeout Constants** - Document timeout intent with semantic constants
 
 ### 🚧 In Progress
 - None
@@ -20,20 +21,19 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 ### 📋 Planned
 
 #### High Priority
-5. [ ] **Update() Method** - Break 777-line function into message handlers
-6. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
+6. [ ] **Update() Method** - Break 777-line function into message handlers
+7. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
 
 #### Medium Priority
-7. [ ] **Error Handling Unification** - Consolidate error handling (16 sites)
-8. [ ] **Model Struct Organization** - Group 23 fields into logical components
-9. [ ] **view.go File Split** - Break 1,258-line file into focused files
-10. [ ] **handleKeyMsg() Refactoring** - Improve 249-line function
-11. [ ] **startDiffSession() Refactoring** - Break 95-line function
-12. [ ] **getVisibleItems() Refactoring** - Break 170-line function
+8. [ ] **Error Handling Unification** - Consolidate error handling (16 sites)
+9. [ ] **Model Struct Organization** - Group 23 fields into logical components
+10. [ ] **view.go File Split** - Break 1,258-line file into focused files
+11. [ ] **handleKeyMsg() Refactoring** - Improve 249-line function
+12. [ ] **startDiffSession() Refactoring** - Break 95-line function
+13. [ ] **getVisibleItems() Refactoring** - Break 170-line function
 
 #### Low Priority (Polish)
-13. [ ] **Lipgloss Style Builders** - Reduce 147 inline style creations
-14. [ ] **Timeout Constants** - Document timeout intent
+14. [ ] **Lipgloss Style Builders** - Reduce 147 inline style creations
 15. [ ] **Dimension Constants** - Centralize UI measurements
 16. [ ] **Naming Consistency** - Standardize function names
 
@@ -197,6 +197,49 @@ defer cancel()
 
 ---
 
+### 2025-09-30 - Timeout Constants Documentation
+**Status:** ✅ Completed
+**Files affected:**
+- `cmd/app/context_helpers.go` (modified)
+- `cmd/app/api_integration.go` (modified)
+- `cmd/app/model_init.go` (modified)
+
+**Changes:**
+- Added semantic timeout constants to document intent of each timeout duration
+- Created 5 named constants with descriptive comments:
+  - `timeoutQuick` (5s): Quick operations like sync triggers, app list loading
+  - `timeoutStandard` (10s): Standard operations like API version, resource tree, auth validation
+  - `timeoutMedium` (30s): Medium operations like rollback session loading
+  - `timeoutLong` (45s): Long operations like diff sessions, rollback diffs
+  - `timeoutExtended` (60s): Extended operations like rollback execution
+- Replaced all magic number timeout durations with named constants
+- Removed unused `time` import from `api_integration.go`
+
+**Pattern replaced:**
+```go
+// Before:
+ctx, cancel := contextWithTimeout(10 * time.Second)
+
+// After:
+ctx, cancel := contextWithTimeout(timeoutStandard)
+```
+
+**Tests:**
+- All existing tests pass unchanged
+- Build successful: `go build ./cmd/app` ✓
+- Test suite: `go test ./...` ✓
+
+**Benefits:**
+- Self-documenting code: timeout values now have semantic meaning
+- Easier to understand operation expectations
+- Simpler to adjust timeout categories globally
+- Improved code maintainability
+
+**Commits:**
+- (pending)
+
+---
+
 ## Code Metrics
 
 ### Before Refactoring
@@ -220,7 +263,8 @@ defer cancel()
 - Layout constant duplication: ~~20 lines in 4 blocks~~ → **11 lines in 1 block (45% reduction)** ✅
 - Color code duplication: ~~47 inline lipgloss.Color() calls~~ → **22 centralized constants** ✅
 - Context timeout pattern: ~~11 duplicate 2-line patterns~~ → **1 helper function** ✅
-- Magic numbers: ~50+ inline (colors eliminated, others remain)
+- Timeout magic numbers: ~~11 inline duration values~~ → **5 semantic constants** ✅
+- Magic numbers: ~40+ inline (colors and timeouts eliminated, others remain)
 - Model struct fields: 23 flat fields
 
 ---
