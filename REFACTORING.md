@@ -236,7 +236,7 @@ ctx, cancel := contextWithTimeout(timeoutStandard)
 - Improved code maintainability
 
 **Commits:**
-- (pending)
+- `8feefac` refactor: add semantic constants for timeout durations
 
 ---
 
