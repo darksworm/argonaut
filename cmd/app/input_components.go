@@ -18,15 +18,13 @@ type InputComponentState struct {
 	commandInput textinput.Model
 }
 
-// NewInputComponents creates a new input component state
+//✓ NewInputComponents creates a new input component state
 func NewInputComponents() *InputComponentState {
-	// Create search input
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search..."
 	searchInput.CharLimit = 200
 	searchInput.SetWidth(50)
 
-	// Create command input
 	commandInput := textinput.New()
 	commandInput.Placeholder = "Enter command..."
 	commandInput.CharLimit = 200
@@ -106,24 +104,24 @@ func (m *Model) renderEnhancedSearchBar() string {
 		return ""
 	}
 
-	// Search bar with border (matches SearchBar Box with borderStyle="round" borderColor="yellow")
+	//✓ Search bar with rounded border
 	searchBarStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	// Content matching SearchBar layout
+	//✓ Search label styling
 	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
 
-	// Compute widths to make input fill the full row (no trailing help text)
+	//✓ Compute widths to make input fill the full row (no trailing help text)
 	totalWidth := m.state.Terminal.Cols
-	// Make the OUTER width match the main bordered box outer width (cols-2)
-	// Inner content width is then outer - borders(2) - padding(2) = cols-6
+	//✓ Make the OUTER width match the main bordered box outer width (cols-2)
+	//✓ Inner content width is then outer - borders(2) - padding(2) = cols-6
 	styleWidth := maxInt(0, totalWidth-2)
 	innerWidth := maxInt(0, styleWidth-4)
 
-	// Allocate remaining width to the input field
+	//✓ Allocate remaining width to the input field
 	baseUsed := lipgloss.Width(searchLabel) + 1 /*space*/
 	minInput := 5
 	inputWidth := maxInt(minInput, innerWidth-baseUsed)
@@ -144,16 +142,16 @@ func (m *Model) renderEnhancedCommandBar() string {
 		return ""
 	}
 
-	// Command bar with border (matches CommandBar Box with borderStyle="round" borderColor="yellow")
+	//✓ Command bar with rounded border
 	commandBarStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	// Compute widths for full-row input (no label, fill full width)
+	//✓ Compute widths for full-row input (no label, fill full width)
 	totalWidth := m.state.Terminal.Cols
-	// Match OUTER width of main content border (cols-2); inner width = cols-6
+	//✓ Match OUTER width of main content border (cols-2); inner width = cols-6
 	styleWidth := maxInt(0, totalWidth-2)
 	innerWidth := maxInt(0, styleWidth-4)
 	minInput := 5
@@ -171,24 +169,20 @@ func (m *Model) renderEnhancedCommandBar() string {
 func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	currentInput := m.inputComponents.GetCommandValue()
 
-	// DEBUG: Log what we're working with
-
-	// Build query for the autocomplete engine. The engine expects a leading ':',
-	// but our command mode does not include ':' in the text input; ':' is only
-	// used to enter the mode. So prepend it for querying suggestions.
+	//✓ The autocomplete engine expects a leading ':', but command mode doesn't include it
+	//✓ in the text input (it's only used to enter the mode). So prepend it for the query.
 	query := currentInput
 	if !strings.HasPrefix(query, ":") {
 		query = ":" + query
 	}
 
-	// Get autocomplete suggestions
 	suggestions := m.autocompleteEngine.GetCommandAutocomplete(query, m.state)
 	var firstPlain string
 	if len(suggestions) > 0 {
 		firstPlain = strings.TrimPrefix(suggestions[0], ":")
 	}
 
-	// Style the current input, colorizing the argument validity for known commands
+	//✓ Style the current input, colorizing the argument validity for known commands
 	inputText := currentInput
 	parts := strings.Fields(currentInput)
 	if len(parts) >= 1 {
@@ -226,8 +220,7 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 		dimSuggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
 	}
 
-	// Prompt + colored input + optional dim suggestion
-	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // light gray
+	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	prompt := promptStyle.Render("> ")
 	content := prompt + inputText + dimSuggestion
 	if w := lipgloss.Width(content); w < maxWidth {
@@ -253,13 +246,10 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		}
 		return m, nil
 	case "up", "k":
-		// Navigate results while search is active
 		return m.handleNavigationUp()
 	case "down", "j":
-		// Navigate results while search is active
 		return m.handleNavigationDown()
 	case "esc":
-		// Exit search; if coming from diff mode, return to diff; else normal
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearSearchInput()
 		if m.state.Diff != nil {
@@ -270,7 +260,6 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		}
 		return m, nil
 	case "enter":
-		// Apply search filter and exit search mode or drill down for non-app views
 		searchValue := m.inputComponents.GetSearchValue()
 		if m.state.Mode == model.ModeDiff {
 			// Apply filter to diff view
