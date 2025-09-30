@@ -94,7 +94,7 @@ func (m *Model) validateAuthentication() tea.Cmd {
 
 		// Create API service to validate authentication
 		appService := api.NewApplicationService(m.state.Server)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := contextWithTimeout(10 * time.Second)
 		defer cancel()
 
 		// Validate user info to ensure authentication works

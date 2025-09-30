@@ -12,6 +12,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 1. [x] **Modal Rendering Duplication** - Consolidate 6 duplicate modal functions
 2. [x] **Layout Constants Consolidation** - Extract duplicate layout constant blocks
 3. [x] **Color Code Consolidation** - Centralize all color definitions
+4. [x] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
 
 ### 🚧 In Progress
 - None
@@ -19,12 +20,10 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 ### 📋 Planned
 
 #### High Priority
-4. [ ] **Update() Method** - Break 777-line function into message handlers
-5. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
-6. [ ] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
+5. [ ] **Update() Method** - Break 777-line function into message handlers
+6. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
 
 #### Medium Priority
-6. [ ] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
 7. [ ] **Error Handling Unification** - Consolidate error handling (16 sites)
 8. [ ] **Model Struct Organization** - Group 23 fields into logical components
 9. [ ] **view.go File Split** - Break 1,258-line file into focused files
@@ -155,6 +154,49 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 
 ---
 
+### 2025-09-30 - Context Timeout Pattern Consolidation
+**Status:** ✅ Completed
+**Files affected:**
+- `cmd/app/context_helpers.go` (new)
+- `cmd/app/api_integration.go` (modified)
+- `cmd/app/model_init.go` (modified)
+
+**Changes:**
+- Created `context_helpers.go` with `contextWithTimeout()` helper function
+- Replaced 11 duplicate context.WithTimeout patterns across 2 files
+- Simplified all timeout context creation to use centralized helper
+
+**Pattern replaced:**
+```go
+// Before:
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+
+// After:
+ctx, cancel := contextWithTimeout(10 * time.Second)
+defer cancel()
+```
+
+**Occurrences replaced:**
+- `api_integration.go`: 10 instances (5s, 10s, 30s, 45s, 60s timeouts)
+- `model_init.go`: 1 instance (10s timeout)
+
+**Tests:**
+- All existing tests pass unchanged
+- Build successful: `go build ./cmd/app` ✓
+- Test suite: `go test ./...` ✓
+
+**Benefits:**
+- Eliminates boilerplate code duplication
+- Consistent timeout context creation pattern
+- Easier to modify timeout behavior globally if needed
+- Cleaner, more readable code
+
+**Commits:**
+- (pending)
+
+---
+
 ## Code Metrics
 
 ### Before Refactoring
@@ -177,6 +219,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 - Duplicate modal code: ~~90 lines × 6 functions~~ → **42 lines total (51% reduction)** ✅
 - Layout constant duplication: ~~20 lines in 4 blocks~~ → **11 lines in 1 block (45% reduction)** ✅
 - Color code duplication: ~~47 inline lipgloss.Color() calls~~ → **22 centralized constants** ✅
+- Context timeout pattern: ~~11 duplicate 2-line patterns~~ → **1 helper function** ✅
 - Magic numbers: ~50+ inline (colors eliminated, others remain)
 - Model struct fields: 23 flat fields
 
