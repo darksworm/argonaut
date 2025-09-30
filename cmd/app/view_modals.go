@@ -130,10 +130,7 @@ func (m *Model) renderNoServerModal() string {
 func (m *Model) renderRollbackModal() string {
 	header := m.renderBanner()
 	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	const MARGIN_TOP_LINES = 1 // blank line between header and box
-	overhead := BORDER_LINES + headerLines + STATUS_LINES + MARGIN_TOP_LINES
+	overhead := layoutBorderLines + headerLines + layoutStatusLines + layoutMarginTopLines
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
 	containerWidth := max(0, m.state.Terminal.Cols-2)
@@ -209,9 +206,7 @@ func (m *Model) renderRollbackModal() string {
 func (m *Model) renderSimpleModal(title, content string) string {
 	header := m.renderBanner()
 	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
+	overhead := layoutBorderLines + headerLines + layoutStatusLines
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
 	containerWidth := max(0, m.state.Terminal.Cols-2)

@@ -10,6 +10,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 
 ### ✅ Completed
 1. [x] **Modal Rendering Duplication** - Consolidate 6 duplicate modal functions
+2. [x] **Layout Constants Consolidation** - Extract duplicate layout constant blocks
 
 ### 🚧 In Progress
 - None
@@ -17,12 +18,11 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 ### 📋 Planned
 
 #### High Priority
-2. [ ] **Update() Method** - Break 777-line function into message handlers
-3. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
-4. [ ] **Color Code Consolidation** - Centralize all color definitions
+3. [ ] **Update() Method** - Break 777-line function into message handlers
+4. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
+5. [ ] **Color Code Consolidation** - Centralize all color definitions
 
 #### Medium Priority
-5. [ ] **Layout Constants** - Extract duplicate layout constant blocks
 6. [ ] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
 7. [ ] **Error Handling Unification** - Consolidate error handling (16 sites)
 8. [ ] **Model Struct Organization** - Group 23 fields into logical components
@@ -67,7 +67,47 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 - After: ~18 lines (helper) + ~24 lines (6 wrapper functions) = 42 lines
 - **Reduction: 51% (43 lines saved)**
 
-**Commits:** (pending)
+**Commits:**
+- `77ee0f6` refactor: consolidate duplicate modal rendering functions
+
+---
+
+### 2025-09-30 - Layout Constants Consolidation
+**Status:** ✅ Completed
+**Files affected:**
+- `cmd/app/view_constants.go` (new)
+- `cmd/app/view_modals.go`
+- `cmd/app/view_layout.go`
+- `cmd/app/input_handlers.go`
+- `cmd/app/view.go`
+
+**Changes:**
+- Created new `view_constants.go` file with package-level layout constants:
+  - `layoutBorderLines = 2`
+  - `layoutTableHeaderLines = 0`
+  - `layoutTagLine = 0`
+  - `layoutStatusLines = 1`
+  - `layoutMarginTopLines = 1`
+- Removed 4 duplicate inline `const` blocks from view functions
+- Replaced all references with package-level constants in 5 files
+
+**Tests:**
+- All existing tests pass unchanged
+- Build successful: `go build ./cmd/app` ✓
+- Test suite: `go test ./...` ✓
+
+**Code reduction:**
+- Before: 4 duplicate const blocks (20 lines total)
+- After: 1 centralized const block (11 lines)
+- **Reduction: 45% (9 lines saved)**
+
+**Benefits:**
+- Single source of truth for layout dimensions
+- Easier to adjust layout metrics globally
+- Eliminates risk of inconsistent values across views
+
+**Commits:**
+- (pending)
 
 ---
 
@@ -91,6 +131,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 - Largest function: 777 lines (Update method)
 - Largest file: 1,258 lines (view.go)
 - Duplicate modal code: ~~90 lines × 6 functions~~ → **42 lines total (51% reduction)** ✅
+- Layout constant duplication: ~~20 lines in 4 blocks~~ → **11 lines in 1 block (45% reduction)** ✅
 - Magic numbers: ~50+ inline
 - Model struct fields: 23 flat fields
 

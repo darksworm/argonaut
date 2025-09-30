@@ -329,13 +329,9 @@ func (m *Model) renderFullScreenViewWithOptions(header, content, status string, 
 	// Content section - apply border if requested
 	if opts.ContentBordered {
 		// Calculate available space for bordered content
-		const (
-			BORDER_LINES = 2 // content border top/bottom
-		)
-
 		headerLines := countLines(header)
 		statusLines := countLines(status)
-		overhead := BORDER_LINES + headerLines + statusLines
+		overhead := layoutBorderLines + headerLines + statusLines
 		availableRows := max(1, m.state.Terminal.Rows-overhead)
 
 		// Apply bordered styling with custom color if specified

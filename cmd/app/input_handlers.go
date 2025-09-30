@@ -62,12 +62,6 @@ func (m *Model) handleNavigationDown() (tea.Model, tea.Cmd) {
 // treeViewportHeight computes the number of rows available to render the
 // tree panel body, mirroring the layout math in renderMainLayout/renderTreePanel.
 func (m *Model) treeViewportHeight() int {
-	const (
-		BORDER_LINES       = 2
-		TABLE_HEADER_LINES = 0
-		TAG_LINE           = 0
-		STATUS_LINES       = 1
-	)
 	header := m.renderBanner()
 	headerLines := countLines(header)
 	searchLines := 0
@@ -78,7 +72,7 @@ func (m *Model) treeViewportHeight() int {
 	if m.state.Mode == model.ModeCommand {
 		commandLines = 1 // command bar is single-line
 	}
-	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
+	overhead := layoutBorderLines + headerLines + searchLines + commandLines + layoutTableHeaderLines + layoutTagLine + layoutStatusLines
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 	return max(0, availableRows)
 }

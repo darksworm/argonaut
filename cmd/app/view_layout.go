@@ -91,12 +91,6 @@ func (m *Model) contentInnerWidth() int {
 
 // Main layout
 func (m *Model) renderMainLayout() string {
-	const (
-		BORDER_LINES       = 2
-		TABLE_HEADER_LINES = 0
-		TAG_LINE           = 0
-		STATUS_LINES       = 1
-	)
 	header := m.renderBanner()
 	searchBar := ""
 	if m.state.Mode == model.ModeSearch {
@@ -109,7 +103,7 @@ func (m *Model) renderMainLayout() string {
 	headerLines := countLines(header)
 	searchLines := countLines(searchBar)
 	commandLines := countLines(commandBar)
-	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
+	overhead := layoutBorderLines + headerLines + searchLines + commandLines + layoutTableHeaderLines + layoutTagLine + layoutStatusLines
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 	listRows := max(0, availableRows)
 
