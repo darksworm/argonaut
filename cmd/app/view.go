@@ -294,8 +294,6 @@ func (m *Model) View() string {
 		return "" // External mode returns null in React
 	case model.ModeDiff:
 		return m.renderDiffView()
-	case model.ModeRulerLine:
-		return m.renderOfficeSupplyManager()
 	case model.ModeError:
 		return m.renderErrorView()
 	case model.ModeConnectionError:
@@ -667,9 +665,6 @@ func (m *Model) renderAuthRequiredView() string {
 	})
 }
 
-func (m *Model) renderOfficeSupplyManager() string {
-	return statusStyle.Render("Office supply manager - TODO: implement 1:1")
-}
 func (m *Model) renderConfirmSyncModal() string {
 	if m.state.Modals.ConfirmTarget == nil {
 		return ""

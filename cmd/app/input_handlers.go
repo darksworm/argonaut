@@ -395,8 +395,6 @@ func (m *Model) handleNoDiffModeKeys(_ tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// removed: resources list mode
-
 // handleDiffModeKeys handles navigation and search in diff mode
 func (m *Model) handleDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.state.Diff == nil {

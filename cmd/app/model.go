@@ -329,10 +329,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.treeLoading = false
 		return m, nil
 
-		// removed: resources list loader
-
-		// Old spinner TickMsg removed - now using bubbles spinner
-
 	case model.StructuredErrorMsg:
 		// Handle structured errors with proper error state management
 		if msg.Error != nil {

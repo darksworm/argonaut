@@ -29,7 +29,6 @@ const (
 	ModeExternal        Mode = "external"
 	ModeDiff            Mode = "diff"
 	ModeAuthRequired    Mode = "auth-required"
-	ModeRulerLine       Mode = "rulerline"
 	ModeError           Mode = "error"
 	ModeConnectionError Mode = "connection-error"
 	ModeUpgrade         Mode = "upgrade"
