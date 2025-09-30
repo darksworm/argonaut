@@ -175,7 +175,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const version = '${{ needs.build-prerelease.outputs.pre_version }}';
+            const version = '${{ steps.version.outputs.version }}';
 
             // List artifacts in pr-artifacts directory
             const artifactFiles = fs.readdirSync('pr-artifacts').filter(f => f !== 'checksums.txt');
