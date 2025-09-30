@@ -12,6 +12,7 @@ type NavigationState struct {
 	SelectedIdx    int   `json:"selectedIdx"`
 	LastGPressed   int64 `json:"lastGPressed"`
 	LastEscPressed int64 `json:"lastEscPressed"`
+	LastZPressed   int64 `json:"lastZPressed"`
 }
 
 // SelectionState holds selection-related state using map[string]bool for sets
@@ -172,6 +173,7 @@ func (s *AppState) SaveNavigationState() {
 		SelectedIdx:    s.Navigation.SelectedIdx,
 		LastGPressed:   s.Navigation.LastGPressed,
 		LastEscPressed: s.Navigation.LastEscPressed,
+		LastZPressed:   s.Navigation.LastZPressed,
 	}
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:   copyStringSet(s.Selections.ScopeClusters),
@@ -188,6 +190,7 @@ func (s *AppState) RestoreNavigationState() {
 		s.Navigation.SelectedIdx = s.SavedNavigation.SelectedIdx
 		s.Navigation.LastGPressed = s.SavedNavigation.LastGPressed
 		s.Navigation.LastEscPressed = s.SavedNavigation.LastEscPressed
+		s.Navigation.LastZPressed = s.SavedNavigation.LastZPressed
 		// Clear the saved state after restoration
 		s.SavedNavigation = nil
 	}
@@ -224,6 +227,7 @@ func NewAppState() *AppState {
 			SelectedIdx:    0,
 			LastGPressed:   0,
 			LastEscPressed: 0,
+			LastZPressed:   0,
 		},
 		Selections: *NewSelectionState(),
 		UI: UIState{

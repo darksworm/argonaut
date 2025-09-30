@@ -107,7 +107,7 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 		},
 		{
 			Command:     "quit",
-			Aliases:     []string{"quit", "q", "q!", "exit"},
+			Aliases:     []string{"quit", "q", "q!", "wq", "wq!", "exit"},
 			Description: "Exit the application",
 			TakesArg:    false,
 			ArgType:     "",

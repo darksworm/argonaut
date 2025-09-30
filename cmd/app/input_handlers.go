@@ -945,6 +945,23 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "G":
 		return m.handleGoToBottom()
+	case "Z":
+		now := time.Now().UnixMilli()
+		if m.state.Navigation.LastZPressed > 0 && now-m.state.Navigation.LastZPressed < 500 {
+			// ZZ: save and quit (like vim)
+			return m, func() tea.Msg { return model.QuitMsg{} }
+		}
+		m.state.Navigation.LastZPressed = now
+		return m, nil
+	case "Q":
+		// Check if this is ZQ (quit without saving)
+		now := time.Now().UnixMilli()
+		if m.state.Navigation.LastZPressed > 0 && now-m.state.Navigation.LastZPressed < 500 {
+			// ZQ: quit without saving (like vim)
+			m.state.Navigation.LastZPressed = 0 // Reset Z state
+			return m, func() tea.Msg { return model.QuitMsg{} }
+		}
+		return m, nil
 	}
 	return m, nil
 }
