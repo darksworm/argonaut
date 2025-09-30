@@ -203,9 +203,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// If entering diff mode with content available, show in external pager
 		if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
-			title := m.state.Diff.Title
 			body := strings.Join(m.state.Diff.Content, "\n")
-			return m, m.openTextPager(title, body)
+			return m, m.openTextPager(body)
 		}
 
 		return m, nil

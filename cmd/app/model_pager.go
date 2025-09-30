@@ -20,7 +20,7 @@ type resumeRenderingMsg struct{}
 func (m *Model) SetProgram(p *tea.Program) { m.program = p }
 
 // openTextPager releases the terminal and runs less -R with the given text
-func (m *Model) openTextPager(title, text string) tea.Cmd {
+func (m *Model) openTextPager(text string) tea.Cmd {
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})

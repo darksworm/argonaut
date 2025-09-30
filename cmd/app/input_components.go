@@ -448,7 +448,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.
 			body := m.readLogContent()
-			return m, m.openTextPager("Logs", body)
+			return m, m.openTextPager(body)
 		case "sync":
 			mdl, cmd := m.handleSyncModal()
 			return mdl, cmd

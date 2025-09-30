@@ -389,7 +389,7 @@ func (m *Model) handleHelpModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleNoDiffModeKeys handles input when in no-diff modal mode
-func (m *Model) handleNoDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleNoDiffModeKeys(_ tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Any key press closes the modal
 	m.state.Mode = model.ModeNormal
 	return m, nil
@@ -630,7 +630,7 @@ func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		highlightedContent := strings.Join(highlightedLines, "\n")
 
-		return m, m.openTextPager("Logs", highlightedContent)
+		return m, m.openTextPager(highlightedContent)
 	}
 	return m, nil
 }
@@ -668,7 +668,7 @@ func (m *Model) handleErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			highlightedLines = append(highlightedLines, HighlightLogLine(line))
 		}
 		highlightedContent := strings.Join(highlightedLines, "\n")
-		return m, m.openTextPager("Logs", highlightedContent)
+		return m, m.openTextPager(highlightedContent)
 	}
 	return m, nil
 }
@@ -694,7 +694,7 @@ func (m *Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			highlightedLines = append(highlightedLines, HighlightLogLine(line))
 		}
 		highlightedContent := strings.Join(highlightedLines, "\n")
-		return m, m.openTextPager("Logs", highlightedContent)
+		return m, m.openTextPager(highlightedContent)
 	}
 	return m, nil
 }

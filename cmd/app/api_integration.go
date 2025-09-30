@@ -282,8 +282,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		if formattedOut, ferr := m.runDiffFormatterWithTitle(cleaned, appName); ferr == nil && strings.TrimSpace(formattedOut) != "" {
 			formatted = formattedOut
 		}
-		title := fmt.Sprintf("%s - Live vs Desired", appName)
-		return m.openTextPager(title, formatted)()
+		return m.openTextPager(formatted)()
 	}
 }
 
