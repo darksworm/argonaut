@@ -107,7 +107,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 - Eliminates risk of inconsistent values across views
 
 **Commits:**
-- (pending)
+- `37ad1da` refactor: consolidate duplicate layout constants
 
 ---
 
