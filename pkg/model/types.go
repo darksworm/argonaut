@@ -35,6 +35,7 @@ const (
 	ModeUpgrade         Mode = "upgrade"
 	ModeUpgradeError    Mode = "upgrade-error"
 	ModeUpgradeSuccess  Mode = "upgrade-success"
+	ModeNoDiff          Mode = "no-diff"
 )
 
 // App represents an ArgoCD application

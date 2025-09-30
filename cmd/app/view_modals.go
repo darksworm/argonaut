@@ -483,3 +483,18 @@ func (m *Model) renderUpgradeSuccessModal() string {
 
 	return modalStyle.Render(content.String())
 }
+
+// renderNoDiffModal renders a simple modal for when there are no differences
+func (m *Model) renderNoDiffModal() string {
+	msg := "✓ " + statusStyle.Render("No differences found")
+	content := msg
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2)
+	minW := 28
+	w := max(minW, lipgloss.Width(content)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}

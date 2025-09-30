@@ -197,6 +197,17 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// No diff modal (overlaid on existing content)
+	if m.state.Mode == model.ModeNoDiff {
+		modal := m.renderNoDiffModal()
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	if m.state.Mode == model.ModeLoading {
 		modal := m.renderInitialLoadingModal()
 		grayBase := desaturateANSI(baseView)

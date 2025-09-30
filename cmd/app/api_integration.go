@@ -239,7 +239,12 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		}
 
 		if len(normalizedDocs) == 0 && len(predictedDocs) == 0 {
-			return model.StatusChangeMsg{Status: "No diffs"}
+			// Clear loading spinner before showing no-diff modal
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = false
+			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
 
 		leftFile, _ := writeTempYAML("current-", normalizedDocs)
@@ -253,7 +258,12 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		}
 		cleaned := stripDiffHeader(string(out))
 		if strings.TrimSpace(cleaned) == "" {
-			return model.StatusChangeMsg{Status: "No differences"}
+			// Clear loading spinner before showing no-diff modal
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = false
+			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
 
 		// Clear loading spinner before handing off to viewer/formatter

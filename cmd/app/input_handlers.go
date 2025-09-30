@@ -295,7 +295,7 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	m.state.Navigation.LastEscPressed = now
 
 	switch m.state.Mode {
-	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff:
+	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	default:
@@ -393,6 +393,16 @@ func (m *Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleHelpModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "?":
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+	return m, nil
+}
+
+// handleNoDiffModeKeys handles input when in no-diff modal mode
+func (m *Model) handleNoDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	}
@@ -723,6 +733,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCommandModeKeys(msg)
 	case model.ModeHelp:
 		return m.handleHelpModeKeys(msg)
+	case model.ModeNoDiff:
+		return m.handleNoDiffModeKeys(msg)
 	case model.ModeConfirmSync:
 		return m.handleConfirmSyncKeys(msg)
 	case model.ModeRollback:
