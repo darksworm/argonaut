@@ -112,7 +112,7 @@ func (m *Model) renderEnhancedSearchBar() string {
 		PaddingRight(1)
 
 	// Search label styling
-	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
+	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(cyanBright).Render("Search")
 
 	// Compute widths to make input fill the full row (no trailing help text)
 	totalWidth := m.state.Terminal.Cols
@@ -217,10 +217,10 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	dimSuggestion := ""
 	if firstPlain != "" && len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
 		suggestionSuffix := firstPlain[len(currentInput):]
-		dimSuggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
+		dimSuggestion = lipgloss.NewStyle().Foreground(grayBorder).Render(suggestionSuffix)
 	}
 
-	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
+	promptStyle := lipgloss.NewStyle().Foreground(grayPrompt)
 	prompt := promptStyle.Render("> ")
 	content := prompt + inputText + dimSuggestion
 	if w := lipgloss.Width(content); w < maxWidth {

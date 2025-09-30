@@ -15,7 +15,7 @@ func (m *Model) renderHelpModal() string {
 
 	// Small keycap style to make keys pop
 	keycap := func(s string) string {
-		return lipgloss.NewStyle().Foreground(whiteBright).Background(lipgloss.Color("238")).Padding(0, 1).Render(s)
+		return lipgloss.NewStyle().Foreground(whiteBright).Background(grayInactiveButton).Padding(0, 1).Render(s)
 	}
 	mono := func(s string) string { return lipgloss.NewStyle().Foreground(cyanBright).Render(s) }
 	bullet := func() string { return lipgloss.NewStyle().Foreground(dimColor).Render("•") }
@@ -81,7 +81,7 @@ func (m *Model) renderSimpleLoadingModal(message string, borderColor color.Color
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
-		Background(lipgloss.Color("0")).
+		Background(black).
 		Foreground(whiteBright).
 		Padding(1, 2).
 		Bold(true)
@@ -299,13 +299,13 @@ func (m *Model) renderUpgradeConfirmModal() string {
 			Bold(true).
 			Render("Upgrade")
 		cancelButton = baseButtonStyle.
-			Background(lipgloss.Color("236")).
+			Background(grayButtonDisabled).
 			Foreground(dimColor).
 			Render("Cancel")
 	} else {
 		// Cancel button selected
 		upgradeButton = baseButtonStyle.
-			Background(lipgloss.Color("236")).
+			Background(grayButtonDisabled).
 			Foreground(dimColor).
 			Render("Upgrade")
 		cancelButton = baseButtonStyle.

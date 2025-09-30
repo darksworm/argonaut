@@ -15,27 +15,6 @@ import (
 	"golang.org/x/text/language"
 )
 
-// Color mappings for the application
-var (
-	// Color scheme for UI elements
-	magentaBright = lipgloss.Color("13") // Selection highlight
-	yellowBright  = lipgloss.Color("11") // Headers
-	dimColor      = lipgloss.Color("8")  // Dimmed text
-
-	// Status colors for sync and health states
-	syncedColor    = lipgloss.Color("10") // Green for Synced/Healthy
-	outOfSyncColor = lipgloss.Color("9")  // Red for OutOfSync/Degraded
-	progressColor  = lipgloss.Color("11") // Yellow for Progressing
-	unknownColor   = lipgloss.Color("8")  // Dim for Unknown
-	cyanBright     = lipgloss.Color("14") // Cyan accents
-	whiteBright    = lipgloss.Color("15") // Bright white
-
-	// Additional colors for modals
-	black    = lipgloss.Color("0")  // Black
-	white    = lipgloss.Color("15") // White (alias for whiteBright)
-	redColor = lipgloss.Color("9")  // Red
-)
-
 // HighlightLogLine applies syntax highlighting to a single log line
 func HighlightLogLine(line string) string {
 	if strings.TrimSpace(line) == "" {
@@ -53,14 +32,14 @@ func HighlightLogLine(line string) string {
 
 	// Try to identify timestamp (first part that looks like a timestamp)
 	if partIndex < len(parts) && looksLikeTimestamp(parts[partIndex]) {
-		highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(parts[partIndex]))
+		highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render(parts[partIndex]))
 		highlighted.WriteString(" ")
 		partIndex++
 	}
 
 	// Try to identify time (second part that looks like HH:MM:SS)
 	if partIndex < len(parts) && looksLikeTime(parts[partIndex]) {
-		highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(parts[partIndex]))
+		highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render(parts[partIndex]))
 		highlighted.WriteString(" ")
 		partIndex++
 	}
@@ -70,15 +49,15 @@ func HighlightLogLine(line string) string {
 		var style lipgloss.Style
 		switch strings.ToUpper(parts[partIndex]) {
 		case "DEBUG", "TRACE":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true) // magenta
+			style = lipgloss.NewStyle().Foreground(magentaBright).Bold(true) // magenta
 		case "INFO":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true) // blue
+			style = lipgloss.NewStyle().Foreground(blueBright).Bold(true) // blue
 		case "WARN", "WARNING":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true) // yellow
+			style = lipgloss.NewStyle().Foreground(yellowBright).Bold(true) // yellow
 		case "ERROR", "FATAL":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true) // red
+			style = lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true) // red
 		default:
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true) // white
+			style = lipgloss.NewStyle().Foreground(whiteBright).Bold(true) // white
 		}
 		highlighted.WriteString(style.Render(parts[partIndex]))
 		highlighted.WriteString(" ")
@@ -100,9 +79,9 @@ func HighlightLogLine(line string) string {
 				// Remove quotes from value if present
 				value = strings.Trim(value, `"`)
 
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(key))   // cyan for field names
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("="))    // dim for equals
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(value)) // white for values
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(cyanBright).Render(key))   // cyan for field names
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render("="))      // dim for equals
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(whiteBright).Render(value)) // white for values
 			} else {
 				// Not a proper key=value, just render as is
 				highlighted.WriteString(part)
@@ -110,10 +89,10 @@ func HighlightLogLine(line string) string {
 		} else {
 			// Check if this looks like a component name (no spaces, no special chars)
 			if isLikelyComponent(part) {
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(part)) // green for components
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(syncedColor).Render(part)) // green for components
 			} else {
 				// Regular text
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(part)) // white for regular text
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(whiteBright).Render(part)) // white for regular text
 			}
 		}
 
@@ -396,7 +375,7 @@ var ansiRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
 // desaturateANSI strips ANSI color/style codes and recolors text dim gray
 func desaturateANSI(s string) string {
 	plain := ansiRE.ReplaceAllString(s, "")
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(plain)
+	return lipgloss.NewStyle().Foreground(grayDesaturated).Render(plain)
 }
 
 // padLeft returns s left-padded with spaces to the given visible width (ANSI-aware)
@@ -623,7 +602,7 @@ func (m *Model) renderAuthRequiredView() string {
 	// Auth header with background styling
 	authHeaderStyled := lipgloss.NewStyle().
 		Background(outOfSyncColor).
-		Foreground(lipgloss.Color("15")).
+		Foreground(whiteBright).
 		Bold(true).
 		Render(" AUTHENTICATION REQUIRED ")
 	authHeaderCentered := lipgloss.NewStyle().
@@ -692,7 +671,7 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	// Buttons: highlight selected using stronger contrast
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(grayInactiveButton).Foreground(whiteBright).Padding(0, 2)
 	yesBtn := inactive.Render("Yes")
 	cancelBtn := inactive.Render("Cancel")
 	if m.state.Modals.ConfirmSyncSelected == 0 {
@@ -1213,7 +1192,7 @@ func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerH
 	}
 	// Build inner confirmation modal (bordered) with title
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(grayInactiveButton).Foreground(whiteBright).Padding(0, 2)
 	yesBtn := inactive.Render("Yes")
 	noBtn := inactive.Render("No")
 	if rollback.ConfirmSelected == 0 {

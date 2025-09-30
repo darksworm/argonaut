@@ -11,6 +11,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 ### ✅ Completed
 1. [x] **Modal Rendering Duplication** - Consolidate 6 duplicate modal functions
 2. [x] **Layout Constants Consolidation** - Extract duplicate layout constant blocks
+3. [x] **Color Code Consolidation** - Centralize all color definitions
 
 ### 🚧 In Progress
 - None
@@ -18,9 +19,9 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 ### 📋 Planned
 
 #### High Priority
-3. [ ] **Update() Method** - Break 777-line function into message handlers
-4. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
-5. [ ] **Color Code Consolidation** - Centralize all color definitions
+4. [ ] **Update() Method** - Break 777-line function into message handlers
+5. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
+6. [ ] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
 
 #### Medium Priority
 6. [ ] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
@@ -111,6 +112,49 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 
 ---
 
+### 2025-09-30 - Color Code Consolidation
+**Status:** ✅ Completed
+**Files affected:**
+- `cmd/app/view_constants.go` (modified)
+- `cmd/app/view.go` (modified)
+- `cmd/app/main.go` (modified)
+- `cmd/app/input_components.go` (modified)
+- `cmd/app/view_modals.go` (modified)
+- `cmd/app/model_init.go` (modified)
+- `cmd/app/model_tables.go` (modified)
+- `cmd/app/view_banner.go` (modified)
+- `cmd/app/view_status.go` (modified)
+
+**Changes:**
+- Moved all color constants from `view.go` to `view_constants.go`
+- Added new color constants for all previously inline colors:
+  - Core UI colors: `magentaBright`, `yellowBright`, `dimColor`, `cyanBright`, `whiteBright`, `blueBright`
+  - Status colors: `syncedColor`, `outOfSyncColor`, `progressColor`, `unknownColor`
+  - Modal colors: `black`, `white`, `redColor`
+  - Gray variants: `grayDesaturated`, `grayInactiveButton`, `grayButtonDisabled`
+  - UI-specific: `grayBorder`, `grayPrompt`, `pinkSpinner`, `yellowTable`, `blueTable`, `grayBadgeBg`, `blackBadgeFg`, `grayServerLabel`
+- Replaced all inline `lipgloss.Color()` calls with named constants across 9 files
+- Updated `main.go` help color definitions to reference centralized constants
+
+**Tests:**
+- All existing tests pass unchanged
+- Build successful: `go build ./cmd/app` ✓
+- Test suite: `go test ./...` ✓
+
+**Code reduction:**
+- Before: 47 inline `lipgloss.Color()` calls scattered across 9 files
+- After: 22 centralized color constants in 1 file
+- **Benefits:**
+  - Single source of truth for all application colors
+  - Easier to adjust color scheme globally
+  - Improved code readability with semantic color names
+  - Eliminates magic number color codes
+
+**Commits:**
+- (pending)
+
+---
+
 ## Code Metrics
 
 ### Before Refactoring
@@ -132,7 +176,8 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 - Largest file: 1,258 lines (view.go)
 - Duplicate modal code: ~~90 lines × 6 functions~~ → **42 lines total (51% reduction)** ✅
 - Layout constant duplication: ~~20 lines in 4 blocks~~ → **11 lines in 1 block (45% reduction)** ✅
-- Magic numbers: ~50+ inline
+- Color code duplication: ~~47 inline lipgloss.Color() calls~~ → **22 centralized constants** ✅
+- Magic numbers: ~50+ inline (colors eliminated, others remain)
 - Model struct fields: 23 flat fields
 
 ---
