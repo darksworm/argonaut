@@ -21,7 +21,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/services"
 )
 
-// startLoadingApplications initiates loading applications from ArgoCD API
+//✓ startLoadingApplications initiates loading applications from ArgoCD API
 func (m *Model) startLoadingApplications() tea.Cmd {
 	cblog.With("component", "api_integration").Info("startLoadingApplications called")
 	if m.state.Server == nil {
@@ -40,8 +40,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		// Create a new ArgoApiService with the current server
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		// Load applications
-		// [API] Calling ListApplications - removed printf to avoid TUI interference
+		//✓ Load applications
 		apps, err := apiService.ListApplications(ctx, m.state.Server)
 		if err != nil {
 			// Unwrap structured errors if wrapped
@@ -60,18 +59,17 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 			return model.ApiErrorMsg{Message: err.Error()}
 		}
 
-		// Successfully loaded applications
-		// [API] Successfully loaded applications - removed printf to avoid TUI interference
+		//✓ Successfully loaded applications
 		return model.AppsLoadedMsg{Apps: apps}
 	}
 }
 
-// WatchStartedMsg indicates the watch stream has started
+//✓ WatchStartedMsg indicates the watch stream has started
 type watchStartedMsg struct {
 	eventChan <-chan services.ArgoApiEvent
 }
 
-// startWatchingApplications starts the real-time watch stream
+//✓ startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
 	cblog.With("component", "api_integration").Info("startWatchingApplications called", "watchChan_nil", m.watchChan == nil)
 	if m.state.Server == nil {
@@ -109,7 +107,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 	}
 }
 
-// fetchAPIVersion fetches the ArgoCD API version and updates state
+//✓ fetchAPIVersion fetches the ArgoCD API version and updates state
 func (m *Model) fetchAPIVersion() tea.Cmd {
 	if m.state.Server == nil {
 		return nil
@@ -126,7 +124,7 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 	}
 }
 
-// consumeWatchEvent reads a single service event and converts it to a tea message
+//✓ consumeWatchEvent reads a single service event and converts it to a tea message
 func (m *Model) consumeWatchEvent() tea.Cmd {
 	return func() tea.Msg {
 		if m.watchChan == nil {
@@ -190,7 +188,7 @@ func (m *Model) consumeWatchEvent() tea.Cmd {
 	}
 }
 
-// startDiffSession loads diffs and opens the diff pager
+//✓ startDiffSession loads diffs and opens the diff pager
 func (m *Model) startDiffSession(appName string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -300,7 +298,7 @@ func writeTempYAML(prefix string, docs []string) (string, error) {
 	return f.Name(), nil
 }
 
-// convertJSONToYAML converts JSON to YAML format
+//✓ convertJSONToYAML converts JSON to YAML format
 func convertJSONToYAML(jsonStr string) string {
 	if jsonStr == "" {
 		return ""
@@ -320,7 +318,7 @@ func convertJSONToYAML(jsonStr string) string {
 	return string(yamlBytes)
 }
 
-// startLoadingResourceTree loads the resource tree for the given app
+//✓ startLoadingResourceTree loads the resource tree for the given app
 func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -347,7 +345,7 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 	}
 }
 
-// startWatchingResourceTree starts a streaming watcher for resource tree updates
+//✓ startWatchingResourceTree starts a streaming watcher for resource tree updates
 type treeWatchStartedMsg struct{ cleanup func() }
 
 func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
@@ -400,7 +398,7 @@ func stripDiffHeader(out string) string {
 	return strings.Join(lines[start:], "\n")
 }
 
-// syncSelectedApplications syncs the currently selected applications
+//✓ syncSelectedApplications syncs the currently selected applications
 func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
@@ -453,7 +451,7 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	}
 }
 
-// syncSingleApplication syncs a specific application
+//✓ syncSingleApplication syncs a specific application
 func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
@@ -496,7 +494,7 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	}
 }
 
-// isAuthenticationError checks if an error is related to authentication
+//✓ isAuthenticationError checks if an error is related to authentication
 func isAuthenticationError(errMsg string) bool {
 	authIndicators := []string{
 		"401", "403", "unauthorized", "forbidden", "authentication", "auth",
@@ -511,7 +509,7 @@ func isAuthenticationError(errMsg string) bool {
 	return false
 }
 
-// hasHTTPStatusCtx checks ArgonautError.Context for specific HTTP status codes
+//✓ hasHTTPStatusCtx checks ArgonautError.Context for specific HTTP status codes
 func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 	if err == nil || err.Context == nil {
 		return false
@@ -543,7 +541,7 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 	return false
 }
 
-// startRollbackSession loads deployment history for rollback
+//✓ startRollbackSession loads deployment history for rollback
 func (m *Model) startRollbackSession(appName string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -589,7 +587,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 	}
 }
 
-// loadRevisionMetadata loads git metadata for a specific rollback row
+//✓ loadRevisionMetadata loads git metadata for a specific rollback row
 func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -616,7 +614,7 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 	}
 }
 
-// executeRollback performs the actual rollback operation
+//✓ executeRollback performs the actual rollback operation
 func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -651,7 +649,7 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 	}
 }
 
-// startRollbackDiffSession shows diff between current and selected revision
+//✓ startRollbackDiffSession shows diff between current and selected revision
 func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
