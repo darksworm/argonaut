@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/services"
 )
 
 // handleUpgradeRequest handles the :upgrade command
@@ -207,16 +206,6 @@ func (m *Model) handleUpgradeSuccessModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	return m, nil
 }
 
-// initializeUpdateService initializes the update service in the model
-func (m *Model) initializeUpdateService() {
-	config := services.UpdateServiceConfig{
-		HTTPClient:       nil, // Use default HTTP client
-		GitHubRepo:       "darksworm/argonaut",
-		CheckIntervalMin: 60, // Check every hour
-	}
-	m.updateService = services.NewUpdateService(config)
-}
-
 // scheduleInitialUpdateCheck performs an initial update check after app startup
 func (m *Model) scheduleInitialUpdateCheck() tea.Cmd {
 	return func() tea.Msg {
@@ -242,43 +231,5 @@ func (m *Model) scheduleInitialUpdateCheck() tea.Cmd {
 			UpdateInfo: updateInfo,
 			Error:      nil,
 		}
-	}
-}
-
-// schedulePeriodicUpdateCheck starts a background goroutine for periodic update checks
-func (m *Model) schedulePeriodicUpdateCheck() tea.Cmd {
-	return func() tea.Msg {
-		// Wait before first check to not interfere with app startup
-		time.Sleep(30 * time.Second)
-
-		// Start periodic checking
-		ticker := time.NewTicker(1 * time.Hour)
-		go func() {
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					logger := cblog.With("component", "update")
-					logger.Debug("Performing periodic update check")
-
-					updateInfo, err := m.updateService.CheckForUpdates(appVersion)
-					if err != nil {
-						logger.Debug("Periodic update check failed", "err", err)
-						continue
-					}
-
-					if updateInfo.Available {
-						logger.Info("Update available during periodic check",
-							"current", updateInfo.CurrentVersion,
-							"latest", updateInfo.LatestVersion)
-						// Send update info to UI
-						// Note: In a real implementation, we'd need a way to send this back to the UI
-						// For now, just log it
-					}
-				}
-			}
-		}()
-
-		return nil
 	}
 }
