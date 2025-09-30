@@ -151,7 +151,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
   - Eliminates magic number color codes
 
 **Commits:**
-- (pending)
+- `829ead3` refactor: consolidate all color definitions into centralized constants
 
 ---
 
