@@ -79,12 +79,6 @@ func (m *Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) te
 	return pagerDoneMsg{Err: nil}
 }
 
-// runDiffFormatter runs a non-interactive diff formatter on diffText and returns its output.
-// Priority: ARGONAUT_DIFF_FORMATTER if set; else delta (if present); else return input.
-func (m *Model) runDiffFormatter(diffText string) (string, error) {
-	return m.runDiffFormatterWithTitle(diffText, "")
-}
-
 // runDiffFormatterWithTitle runs a diff formatter with optional resource name for better headers
 func (m *Model) runDiffFormatterWithTitle(diffText string, resourceName string) (string, error) {
 	cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
