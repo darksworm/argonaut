@@ -126,7 +126,7 @@ jobs:
       - name: Upload Linux binaries
         uses: actions/upload-artifact@v4
         with:
-          name: linux-binaries-${{ needs.build-prerelease.outputs.pre_version }}
+          name: linux-binaries-${{ steps.version.outputs.version }}
           path: pr-artifacts/argonaut-linux-*
           retention-days: 30
           if-no-files-found: ignore
@@ -134,7 +134,7 @@ jobs:
       - name: Upload macOS binaries
         uses: actions/upload-artifact@v4
         with:
-          name: macos-binaries-${{ needs.build-prerelease.outputs.pre_version }}
+          name: macos-binaries-${{ steps.version.outputs.version }}
           path: pr-artifacts/argonaut-darwin-*
           retention-days: 30
           if-no-files-found: ignore
@@ -142,7 +142,7 @@ jobs:
       - name: Upload DEB packages
         uses: actions/upload-artifact@v4
         with:
-          name: deb-packages-${{ needs.build-prerelease.outputs.pre_version }}
+          name: deb-packages-${{ steps.version.outputs.version }}
           path: pr-artifacts/*.deb
           retention-days: 30
           if-no-files-found: ignore
@@ -150,7 +150,7 @@ jobs:
       - name: Upload RPM packages
         uses: actions/upload-artifact@v4
         with:
-          name: rpm-packages-${{ needs.build-prerelease.outputs.pre_version }}
+          name: rpm-packages-${{ steps.version.outputs.version }}
           path: pr-artifacts/*.rpm
           retention-days: 30
           if-no-files-found: ignore
@@ -158,7 +158,7 @@ jobs:
       - name: Upload APK packages
         uses: actions/upload-artifact@v4
         with:
-          name: apk-packages-${{ needs.build-prerelease.outputs.pre_version }}
+          name: apk-packages-${{ steps.version.outputs.version }}
           path: pr-artifacts/*.apk
           retention-days: 30
           if-no-files-found: ignore
@@ -166,7 +166,7 @@ jobs:
       - name: Upload checksums
         uses: actions/upload-artifact@v4
         with:
-          name: checksums-${{ needs.build-prerelease.outputs.pre_version }}
+          name: checksums-${{ steps.version.outputs.version }}
           path: pr-artifacts/checksums.txt
           retention-days: 30
 
