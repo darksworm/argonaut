@@ -69,18 +69,21 @@ func (m *Model) renderStatusLine() string {
 		// If even that doesn't fit, rightText stays empty (removes notification entirely)
 	}
 
-	// Add Ready and position
+	// Add Ready and position with proper styling
 	readyText := "Ready"
 	if position != "" {
 		readyText += fmt.Sprintf(" • %s", position)
 	}
 
-	// Combine the full right side text
-	fullRightText := rightText + readyText
+	// Style the ready text separately to ensure consistent dim color
+	styledReadyText := statusStyle.Render(readyText)
+
+	// Combine the full right side text (rightText already contains styled upgrade notification)
+	fullRightText := rightText + styledReadyText
 
 	// Layout matching MainLayout justifyContent="space-between"
 	leftStyled := statusStyle.Render(leftText)
-	rightStyled := statusStyle.Render(fullRightText)
+	rightStyled := fullRightText
 
 	// Available width inside main container (accounts for its padding)
 	available := max(0, m.state.Terminal.Cols-2)
