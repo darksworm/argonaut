@@ -35,7 +35,7 @@ func NewModel() *Model {
 		CheckIntervalMin: 60, // Check every hour
 	})
 
-	return &Model{
+	m := &Model{
 		state:              model.NewAppState(),
 		argoService:        services.NewArgoApiService(nil),
 		navigationService:  services.NewNavigationService(),
@@ -54,7 +54,13 @@ func NewModel() *Model {
 		inPager:            false,
 		treeView:           treeview.NewTreeView(0, 0),
 		treeStream:         make(chan model.ResourceTreeStreamMsg, 64),
+		messageRegistry:    NewMessageRegistry(),
 	}
+
+	// Initialize message handlers
+	m.initMessageHandlers()
+
+	return m
 }
 
 // preserve imports used by other files in this package
