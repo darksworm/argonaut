@@ -136,7 +136,7 @@ func (m *Model) handleResourcesCommand(cmd string, arg string) (tea.Model, tea.C
 	}
 
 	if targetApp == nil {
-		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown app: " + target} }
+		targetApp = &model.App{Name: target}
 	}
 
 	// Clean up any existing tree watchers before starting new ones

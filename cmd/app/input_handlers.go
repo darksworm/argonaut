@@ -278,9 +278,10 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	// Note: Global escape debounce is now handled in handleKeyMsg
 	switch m.state.Mode {
-	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
+	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeDiff, model.ModeNoDiff:
 		m.state.Mode = model.ModeNormal
 		return m, nil
+		// Note: ModeRollback is handled by handleRollbackModeKeys, not here
 	default:
 		curr := m.state.Navigation.View
 		// Edge case: in apps view with an applied filter, first Esc only clears the filter

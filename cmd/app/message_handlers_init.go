@@ -48,7 +48,20 @@ func (m *Model) initMessageHandlers() {
 	registry.Register(model.AppUpdatedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleAppUpdated(msg) })
 	registry.Register(model.AppDeletedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleAppDeleted(msg) })
 	registry.Register(model.StatusChangeMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleStatusChange(msg) })
+	registry.Register(model.ResourceTreeLoadedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleResourceTreeLoaded(msg) })
 	registry.Register(watchStartedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleWatchStarted(msg) })
+	registry.Register(treeWatchStartedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleTreeWatchStarted(msg) })
+
+	// Rollback message handlers
+	registry.Register(model.RollbackHistoryLoadedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackHistoryLoaded(msg) })
+	registry.Register(model.RollbackMetadataLoadedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackMetadataLoaded(msg) })
+	registry.Register(model.RollbackMetadataErrorMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackMetadataError(msg) })
+	registry.Register(model.RollbackExecutedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackExecuted(msg) })
+	registry.Register(model.RollbackNavigationMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackNavigation(msg) })
+	registry.Register(model.RollbackToggleOptionMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackToggleOption(msg) })
+	registry.Register(model.RollbackConfirmMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackConfirm(msg) })
+	registry.Register(model.RollbackCancelMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackCancel(msg) })
+	registry.Register(model.RollbackShowDiffMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleRollbackShowDiff(msg) })
 
 	// Update and upgrade message handlers
 	registry.Register(model.UpdateCheckCompletedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleUpdateCheckCompleted(msg) })
