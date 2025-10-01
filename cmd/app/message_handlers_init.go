@@ -50,6 +50,12 @@ func (m *Model) initMessageHandlers() {
 	registry.Register(model.StatusChangeMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleStatusChange(msg) })
 	registry.Register(watchStartedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleWatchStarted(msg) })
 
+	// Update and upgrade message handlers
+	registry.Register(model.UpdateCheckCompletedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleUpdateCheckCompleted(msg) })
+	registry.Register(model.UpgradeRequestedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleUpgradeRequested(msg) })
+	registry.Register(model.UpgradeProgressMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleUpgradeProgress(msg) })
+	registry.Register(model.UpgradeCompletedMsg{}, func(msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleUpgradeCompleted(msg) })
+
 	cblog.With("component", "registry").Info("Message handlers initialized",
 		"handler_count", registry.HandlersCount())
 }
