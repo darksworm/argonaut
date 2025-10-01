@@ -73,6 +73,9 @@ type Model struct {
 
 	// Message handler registry for type-safe message handling
 	messageRegistry *MessageRegistry
+
+	// Command handler registry for type-safe command handling
+	commandRegistry *CommandRegistry
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

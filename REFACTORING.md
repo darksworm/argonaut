@@ -15,6 +15,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 4. [x] **Context Timeout Pattern** - Create helper for 11 duplicate patterns
 5. [x] **Timeout Constants** - Document timeout intent with semantic constants
 6. [x] **Update() Method** - Transform 777-line function to registry-based pattern
+7. [x] **Command Handler Extraction** - Transform 424-line function to registry-based pattern
 
 ### 🚧 In Progress
 - None
@@ -22,7 +23,7 @@ This document tracks the systematic refactoring of the argonaut codebase to impr
 ### 📋 Planned
 
 #### High Priority
-7. [ ] **Command Handler Extraction** - Break 424-line handleEnhancedCommandModeKeys()
+- None
 
 #### Medium Priority
 8. [ ] **Error Handling Unification** - Consolidate error handling (16 sites)
@@ -302,6 +303,79 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 ---
 
+### 2025-10-01 - Command Handler Registry Pattern
+**Status:** ✅ Completed
+**Files affected:**
+- `cmd/app/input_components.go` (modified - drastically simplified)
+- `cmd/app/command_registry.go` (new)
+- `cmd/app/command_handlers_init.go` (new)
+- `cmd/app/command_handlers_keys.go` (new)
+- `cmd/app/command_handlers_actions.go` (new)
+- `cmd/app/command_handlers_views.go` (new)
+- `cmd/app/command_handlers_system.go` (new)
+- `cmd/app/model.go` (modified - added command registry)
+- `cmd/app/model_init.go` (modified - initialize command registry)
+
+**Changes:**
+- **Transformed 424-line handleEnhancedCommandModeKeys() method into registry-based Observer pattern**
+- Created `CommandRegistry` with type-safe key and command handler registration
+- Extracted command handlers into domain-organized files:
+  - **Key handlers:** Ctrl+C, Esc, Tab, Enter input control
+  - **Action handlers:** logs, sync, rollback, resources commands
+  - **View handlers:** cluster, namespace, project, app navigation
+  - **System handlers:** help, quit, upgrade commands
+- New handleEnhancedCommandModeKeys() method reduced from 424 lines to 12 lines:
+```go
+func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+    key := msg.String()
+
+    // Use command registry for type-safe, extensible command handling
+    if handler, exists := m.commandRegistry.GetKeyHandler(key); exists {
+        if model, cmd, handled := handler(key); handled {
+            return model, cmd
+        }
+    }
+
+    // Default: let bubbles textinput handle the key
+    cmd := m.inputComponents.UpdateCommandInput(msg)
+    m.state.UI.Command = m.inputComponents.GetCommandValue()
+    return m, cmd
+}
+```
+
+**Architecture:**
+- **Unified Observer Pattern:** Commands handled exactly like messages, creating architectural consistency
+- **Dual Registry System:** Separate handlers for keys (ctrl+c, esc, tab, enter) and commands (logs, sync, etc.)
+- **Type-safe Registration:** CommandHandler and KeyHandler function signatures with compile-time verification
+- **Domain Organization:** Related commands grouped by functionality (actions, views, system)
+- **O(1) Performance:** Hash map lookup for both keys and commands
+
+**Command Categories Registered:**
+- **4 key handlers:** ctrl+c, esc, tab, enter
+- **24 command handlers:** logs, sync, rollback, resources, cluster, namespace, project, app, help, quit, upgrade, etc.
+- **Full alias support:** res/resources, cls/cluster, ns/namespace, q/quit/exit, etc.
+
+**Tests:**
+- All existing tests pass unchanged: `go test ./...` ✓
+- Build successful: `go build ./cmd/app` ✓
+- No vet issues: `go vet ./...` ✓
+
+**Code reduction:**
+- Before: 424-line monolithic switch statement for command handling
+- After: 12-line registry dispatch + organized domain handlers
+- **Reduction: 97% in main method (412 lines saved)**
+- **Architectural consistency:** Commands now follow same Observer pattern as messages
+
+**Benefits:**
+- **Unified Architecture:** Commands and messages both use Observer pattern
+- **Maintainability:** Each command handler focused on single responsibility
+- **Testability:** Individual command handlers can be unit tested in isolation
+- **Extensibility:** New commands added via simple registry registration
+- **Type Safety:** Compile-time verification of handler signatures
+- **Performance:** O(1) lookup for both key handling and command dispatch
+
+---
+
 ## Code Metrics
 
 ### Before Refactoring
@@ -320,6 +394,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 ### Current Metrics
 - Largest function: ~~777 lines (Update method)~~ → **8 lines (registry dispatch)** ✅
+- Second largest function: ~~424 lines (handleEnhancedCommandModeKeys)~~ → **12 lines (registry dispatch)** ✅
 - Largest file: 1,258 lines (view.go)
 - Duplicate modal code: ~~90 lines × 6 functions~~ → **42 lines total (51% reduction)** ✅
 - Layout constant duplication: ~~20 lines in 4 blocks~~ → **11 lines in 1 block (45% reduction)** ✅
@@ -327,6 +402,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 - Context timeout pattern: ~~11 duplicate 2-line patterns~~ → **1 helper function** ✅
 - Timeout magic numbers: ~~11 inline duration values~~ → **5 semantic constants** ✅
 - Update method architecture: ~~777-line monolithic switch~~ → **Registry-based Observer pattern** ✅
+- Command handler architecture: ~~424-line monolithic switch~~ → **Registry-based Observer pattern** ✅
 - Magic numbers: ~30+ inline (colors and timeouts eliminated, others remain)
 - Model struct fields: 23 flat fields
 

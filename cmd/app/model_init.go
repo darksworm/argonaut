@@ -55,10 +55,13 @@ func NewModel() *Model {
 		treeView:           treeview.NewTreeView(0, 0),
 		treeStream:         make(chan model.ResourceTreeStreamMsg, 64),
 		messageRegistry:    NewMessageRegistry(),
+		commandRegistry:    NewCommandRegistry(),
 	}
 
 	// Initialize message handlers
 	m.initMessageHandlers()
+	// Initialize command handlers
+	m.initCommandHandlers()
 
 	return m
 }
