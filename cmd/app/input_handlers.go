@@ -1008,8 +1008,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNavigationUp()
 	case "down", "j":
 		return m.handleNavigationDown()
-	case " ":
-		return m.handleToggleSelection()
+    case " ", "space":
+        return m.handleToggleSelection()
 	case "enter":
 		return m.handleDrillDown()
 	case "/":
