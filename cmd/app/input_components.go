@@ -419,7 +419,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				if !existsIn(names, arg) {
 					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown project: " + arg} }
 				}
-			case "app":
+			case "app", "delete":
 				ok := false
 				for _, a := range m.state.Apps {
 					if strings.EqualFold(a.Name, arg) {
@@ -452,6 +452,92 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "sync":
 			mdl, cmd := m.handleSyncModal()
 			return mdl, cmd
+		case "delete", "del":
+			target := arg
+			if target == "" {
+				// Check if we're in apps view
+				if m.state.Navigation.View != model.ViewApps {
+					return m, func() tea.Msg {
+						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for deletion"}
+					}
+				}
+
+				// Use the same logic as handleAppDelete() - check for multi-selection first
+				if len(m.state.Selections.SelectedApps) == 0 {
+					// No apps selected, use current cursor position
+					items := m.getVisibleItemsForCurrentView()
+					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+							target = app.Name
+						}
+					}
+					if target == "" {
+						return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for deletion"} }
+					}
+
+					// Find the app object to get namespace
+					var targetApp *model.App
+					for _, app := range m.state.Apps {
+						if strings.EqualFold(app.Name, target) {
+							targetApp = &app
+							break
+						}
+					}
+					if targetApp == nil {
+						return m, func() tea.Msg { return model.StatusChangeMsg{Status: "App not found: " + target} }
+					}
+
+					// Single app deletion
+					cblog.With("component", "app-delete").Debug(":delete command invoked", "app", target)
+					m.state.Mode = model.ModeConfirmAppDelete
+					m.state.Modals.DeleteAppName = &target
+					m.state.Modals.DeleteAppNamespace = targetApp.Namespace
+					m.state.Modals.DeleteConfirmationKey = ""
+					m.state.Modals.DeleteError = nil
+					m.state.Modals.DeleteLoading = false
+					m.state.Modals.DeleteCascade = true // Default to cascade
+					m.state.Modals.DeletePropagationPolicy = "foreground"
+					return m, nil
+				} else {
+					// Multiple apps selected - use multi-delete logic
+					cblog.With("component", "app-delete").Debug(":delete command invoked for multi-selection", "count", len(m.state.Selections.SelectedApps))
+					multiTarget := "__MULTI__"
+					m.state.Mode = model.ModeConfirmAppDelete
+					m.state.Modals.DeleteAppName = &multiTarget
+					m.state.Modals.DeleteAppNamespace = nil // Not applicable for multi-delete
+					m.state.Modals.DeleteConfirmationKey = ""
+					m.state.Modals.DeleteError = nil
+					m.state.Modals.DeleteLoading = false
+					m.state.Modals.DeleteCascade = true // Default to cascade
+					m.state.Modals.DeletePropagationPolicy = "foreground"
+					return m, nil
+				}
+			} else {
+				// Specific app name provided as argument
+				// Find the app object to get namespace
+				var targetApp *model.App
+				for _, app := range m.state.Apps {
+					if strings.EqualFold(app.Name, target) {
+						targetApp = &app
+						break
+					}
+				}
+				if targetApp == nil {
+					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "App not found: " + target} }
+				}
+
+				// Single app deletion
+				cblog.With("component", "app-delete").Debug(":delete command invoked", "app", target)
+				m.state.Mode = model.ModeConfirmAppDelete
+				m.state.Modals.DeleteAppName = &target
+				m.state.Modals.DeleteAppNamespace = targetApp.Namespace
+				m.state.Modals.DeleteConfirmationKey = ""
+				m.state.Modals.DeleteError = nil
+				m.state.Modals.DeleteLoading = false
+				m.state.Modals.DeleteCascade = true // Default to cascade
+				m.state.Modals.DeletePropagationPolicy = "foreground"
+				return m, nil
+			}
 		case "rollback":
 			target := arg
 			if target == "" {

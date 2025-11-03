@@ -26,6 +26,7 @@ const (
 	ModeHelp            Mode = "help"
 	ModeConfirmSync     Mode = "confirm-sync"
 	ModeRollback        Mode = "rollback"
+	ModeConfirmAppDelete Mode = "confirm-app-delete"
 	ModeExternal        Mode = "external"
 	ModeDiff            Mode = "diff"
 	ModeAuthRequired    Mode = "auth-required"

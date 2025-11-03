@@ -120,3 +120,90 @@ func TestGolden_FullScreenLayout_Sample(t *testing.T) {
 	out := stripANSI(m.renderFullScreenView(header, body, status, true))
 	compareWithGolden(t, "layout_fullscreen_sample", out)
 }
+
+// App Delete Modal Tests
+
+func TestGolden_AppDeleteConfirmModal(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmAppDelete
+
+	// Set up delete modal state
+	appName := "test-app"
+	namespace := "production"
+	m.state.Modals.DeleteAppName = &appName
+	m.state.Modals.DeleteAppNamespace = &namespace
+	m.state.Modals.DeleteCascade = true
+	m.state.Modals.DeletePropagationPolicy = "foreground"
+	m.state.Modals.DeleteConfirmationKey = ""
+	m.state.Modals.DeleteLoading = false
+	m.state.Modals.DeleteError = nil
+
+	out := stripANSI(m.renderAppDeleteConfirmModal())
+	compareWithGolden(t, "modal_app_delete_confirm", out)
+}
+
+func TestGolden_AppDeleteConfirmModal_WithInput(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmAppDelete
+
+	// Set up delete modal state with partial input
+	appName := "my-service"
+	namespace := "staging"
+	m.state.Modals.DeleteAppName = &appName
+	m.state.Modals.DeleteAppNamespace = &namespace
+	m.state.Modals.DeleteCascade = true
+	m.state.Modals.DeletePropagationPolicy = "background"
+	m.state.Modals.DeleteConfirmationKey = "y" // User has typed 'y'
+	m.state.Modals.DeleteLoading = false
+	m.state.Modals.DeleteError = nil
+
+	out := stripANSI(m.renderAppDeleteConfirmModal())
+	compareWithGolden(t, "modal_app_delete_confirm_with_input", out)
+}
+
+func TestGolden_AppDeleteLoadingModal(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmAppDelete
+
+	// Set up delete loading state
+	appName := "delete-test-app"
+	m.state.Modals.DeleteAppName = &appName
+	m.state.Modals.DeleteLoading = true
+	m.state.Modals.DeleteError = nil
+
+	out := stripANSI(m.renderAppDeleteLoadingModal())
+	compareWithGolden(t, "modal_app_delete_loading", out)
+}
+
+func TestGolden_AppDeleteErrorModal(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmAppDelete
+
+	// Set up delete error state
+	appName := "error-app"
+	errorMsg := "Failed to delete application: resource not found"
+	m.state.Modals.DeleteAppName = &appName
+	m.state.Modals.DeleteLoading = false
+	m.state.Modals.DeleteError = &errorMsg
+
+	out := stripANSI(m.renderAppDeleteConfirmModal())
+	compareWithGolden(t, "modal_app_delete_error", out)
+}
+
+func TestGolden_AppDeleteConfirmModal_NoCascade(t *testing.T) {
+	m := buildBaseModel(80, 24)
+	m.state.Mode = model.ModeConfirmAppDelete
+
+	// Set up delete modal with cascade disabled
+	appName := "non-cascade-app"
+	m.state.Modals.DeleteAppName = &appName
+	m.state.Modals.DeleteAppNamespace = nil // No namespace
+	m.state.Modals.DeleteCascade = false
+	m.state.Modals.DeletePropagationPolicy = "orphan"
+	m.state.Modals.DeleteConfirmationKey = ""
+	m.state.Modals.DeleteLoading = false
+	m.state.Modals.DeleteError = nil
+
+	out := stripANSI(m.renderAppDeleteConfirmModal())
+	compareWithGolden(t, "modal_app_delete_confirm_no_cascade", out)
+}

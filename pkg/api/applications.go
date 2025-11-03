@@ -655,6 +655,53 @@ func (s *ApplicationService) RollbackApplication(ctx context.Context, request mo
 	return nil
 }
 
+// DeleteRequest represents a request to delete an application
+type DeleteRequest struct {
+	AppName           string
+	AppNamespace      *string
+	Cascade           bool
+	PropagationPolicy string
+}
+
+// DeleteApplication deletes an application from ArgoCD
+func (s *ApplicationService) DeleteApplication(ctx context.Context, req DeleteRequest) error {
+	if req.AppName == "" {
+		return fmt.Errorf("application name is required")
+	}
+
+	// Build the endpoint path
+	endpoint := fmt.Sprintf("/api/v1/applications/%s", url.PathEscape(req.AppName))
+
+	// Build query parameters
+	params := url.Values{}
+
+	// Set cascade parameter
+	params.Set("cascade", fmt.Sprintf("%t", req.Cascade))
+
+	// Set propagation policy if specified
+	if req.PropagationPolicy != "" {
+		params.Set("propagationPolicy", req.PropagationPolicy)
+	}
+
+	// Add app namespace if specified
+	if req.AppNamespace != nil && *req.AppNamespace != "" {
+		params.Set("appNamespace", *req.AppNamespace)
+	}
+
+	// Add query parameters to endpoint if any
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
+	}
+
+	// Perform the DELETE request
+	_, err := s.client.Delete(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to delete application %s: %w", req.AppName, err)
+	}
+
+	return nil
+}
+
 // ConvertDeploymentHistoryToRollbackRows converts ArgoCD deployment history to rollback rows
 func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model.RollbackRow {
 	rows := make([]model.RollbackRow, 0, len(history))

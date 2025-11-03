@@ -18,6 +18,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/neat"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/services/appdelete"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -455,6 +456,61 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	}
 }
 
+// deleteApplication deletes a specific application
+func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.AppDeleteErrorMsg{
+				AppName: req.AppName,
+				Error:   "No server configured",
+			}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		defer cancel()
+
+		// Create delete service
+		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+
+		// Convert to delete request
+		deleteReq := appdelete.AppDeleteRequest{
+			AppName:           req.AppName,
+			AppNamespace:      req.AppNamespace,
+			Cascade:           req.Cascade,
+			PropagationPolicy: req.PropagationPolicy,
+		}
+
+		cblog.With("component", "app-delete").Info("Starting delete", "app", req.AppName, "cascade", req.Cascade)
+
+		// Execute deletion
+		response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+		if err != nil {
+			cblog.With("component", "app-delete").Error("Delete failed", "app", req.AppName, "err", err)
+			return model.AppDeleteErrorMsg{
+				AppName: req.AppName,
+				Error:   err.Error(),
+			}
+		}
+
+		if !response.Success {
+			errorMsg := "Unknown error"
+			if response.Error != nil {
+				errorMsg = response.Error.Message
+			}
+			cblog.With("component", "app-delete").Error("Delete returned failure", "app", req.AppName, "error", errorMsg)
+			return model.AppDeleteErrorMsg{
+				AppName: req.AppName,
+				Error:   errorMsg,
+			}
+		}
+
+		cblog.With("component", "app-delete").Info("Delete completed", "app", req.AppName)
+		return model.AppDeleteSuccessMsg{AppName: req.AppName}
+	}
+}
+
 // syncSingleApplication syncs a specific application
 func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	if m.state.Server == nil {
@@ -715,5 +771,131 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 			Loading: false,
 		}
 		return model.SetModeMsg{Mode: model.ModeDiff}
+	}
+}
+
+// deleteSelectedApplications deletes the currently selected applications
+func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy string) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+	}
+
+	selectedApps := make([]string, 0, len(m.state.Selections.SelectedApps))
+	for appName := range m.state.Selections.SelectedApps {
+		selectedApps = append(selectedApps, appName)
+	}
+
+	if len(selectedApps) == 0 {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No applications selected"}
+		}
+	}
+
+	return func() tea.Msg {
+		cblog.With("component", "app-delete").Info("Starting sequential multi-delete", "count", len(selectedApps), "cascade", cascade, "policy", propagationPolicy)
+
+		// Reasonable timeout for sequential operations
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Create delete service
+		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+
+		// Delete applications sequentially to avoid race conditions and dependency issues
+		var failedApps []string
+		successCount := 0
+
+		for _, appName := range selectedApps {
+			cblog.With("component", "app-delete").Debug("Deleting app", "app", appName, "progress", fmt.Sprintf("%d/%d", successCount+len(failedApps)+1, len(selectedApps)))
+
+			// Find the app namespace for this app
+			var appNamespace *string
+			for _, app := range m.state.Apps {
+				if app.Name == appName {
+					appNamespace = app.AppNamespace
+					break
+				}
+			}
+
+			err := m.deleteApplicationHelper(ctx, deleteService, appName, appNamespace, cascade, propagationPolicy)
+			if err != nil {
+				cblog.With("component", "app-delete").Error("Failed to delete app", "app", appName, "err", err)
+				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", appName, err))
+			} else {
+				cblog.With("component", "app-delete").Info("Successfully deleted app", "app", appName)
+				successCount++
+			}
+		}
+
+		// Handle results
+		if len(failedApps) > 0 {
+			cblog.With("component", "app-delete").Error("Multi-delete partially failed",
+				"failed", len(failedApps), "succeeded", successCount, "total", len(selectedApps))
+			errorMsg := fmt.Sprintf("Failed to delete %d/%d apps: %s",
+				len(failedApps), len(selectedApps), strings.Join(failedApps, ", "))
+			return model.AppDeleteErrorMsg{
+				AppName: "multiple",
+				Error:   errorMsg,
+			}
+		}
+
+		cblog.With("component", "app-delete").Info("Sequential multi-delete completed successfully", "count", successCount)
+		// Clear selections after successful multi-delete
+		return model.MultiDeleteCompletedMsg{AppCount: successCount, Success: true}
+	}
+}
+
+// deleteApplicationHelper performs the actual deletion of a single app
+func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, appName string, namespace *string, cascade bool, propagationPolicy string) error {
+	deleteReq := appdelete.AppDeleteRequest{
+		AppName:           appName,
+		AppNamespace:      namespace,
+		Cascade:           cascade,
+		PropagationPolicy: propagationPolicy,
+	}
+
+	response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+	if err != nil {
+		return err
+	}
+
+	if !response.Success {
+		errorMsg := "Unknown error"
+		if response.Error != nil {
+			errorMsg = response.Error.Message
+		}
+		return fmt.Errorf("delete failed: %s", errorMsg)
+	}
+
+	return nil
+}
+
+// deleteSingleApplication deletes a specific application
+func (m *Model) deleteSingleApplication(appName string, namespace *string, cascade bool, propagationPolicy string) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.AppDeleteErrorMsg{
+				AppName: appName,
+				Error:   "No server configured",
+			}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		defer cancel()
+
+		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+
+		if err := m.deleteApplicationHelper(ctx, deleteService, appName, namespace, cascade, propagationPolicy); err != nil {
+			return model.AppDeleteErrorMsg{
+				AppName: appName,
+				Error:   fmt.Sprintf("Failed to delete application: %v", err),
+			}
+		}
+
+		return model.AppDeleteSuccessMsg{AppName: appName}
 	}
 }
