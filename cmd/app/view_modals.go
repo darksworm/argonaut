@@ -541,19 +541,37 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 
 	buttons := center.Render(deleteBtn)
 
-	// Options line for cascade toggle (like prune/watch in sync modal)
+	// Options line for cascade toggle and propagation policy
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-	var optsLine strings.Builder
-	optsLine.WriteString(dim.Render("c: Cascade "))
+
+	// Cascade option
+	var cascadeLine strings.Builder
+	cascadeLine.WriteString(dim.Render("c: Cascade "))
 	if m.state.Modals.DeleteCascade {
-		optsLine.WriteString(on.Render("On"))
-		optsLine.WriteString(dim.Render(" (all resources deleted)"))
+		cascadeLine.WriteString(on.Render("On"))
+		cascadeLine.WriteString(dim.Render(" (all resources deleted)"))
 	} else {
-		optsLine.WriteString(dim.Render("Off"))
-		optsLine.WriteString(dim.Render(" (resources orphaned)"))
+		cascadeLine.WriteString(dim.Render("Off"))
+		cascadeLine.WriteString(dim.Render(" (resources orphaned)"))
 	}
-	aux := center.Render(optsLine.String())
+
+	// Propagation policy option
+	var policyLine strings.Builder
+	policyLine.WriteString(dim.Render("p: Policy "))
+	policyLine.WriteString(on.Render(m.state.Modals.DeletePropagationPolicy))
+	switch m.state.Modals.DeletePropagationPolicy {
+	case "foreground":
+		policyLine.WriteString(dim.Render(" (wait for cleanup)"))
+	case "background":
+		policyLine.WriteString(dim.Render(" (async cleanup)"))
+	case "orphan":
+		policyLine.WriteString(dim.Render(" (no cleanup)"))
+	}
+
+	cascadeStr := center.Render(cascadeLine.String())
+	policyStr := center.Render(policyLine.String())
+	aux := cascadeStr + "\n" + policyStr
 
 	// Lines are already centered to innerWidth
 	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
