@@ -674,7 +674,7 @@ func (m *Model) handleAppDelete() (tea.Model, tea.Cmd) {
 				m.state.Modals.DeleteCascade = true // Default to cascade
 				m.state.Modals.DeletePropagationPolicy = "foreground"
 
-				cblog.With("component", "delete").Debug("Opening delete confirmation", "app", app.Name)
+				cblog.With("component", "app-delete").Debug("Opening delete confirmation", "app", app.Name)
 			}
 		}
 	} else {
@@ -689,7 +689,7 @@ func (m *Model) handleAppDelete() (tea.Model, tea.Cmd) {
 		m.state.Modals.DeleteCascade = true // Default to cascade
 		m.state.Modals.DeletePropagationPolicy = "foreground"
 
-		cblog.With("component", "delete").Debug("Opening multi-delete confirmation", "count", len(m.state.Selections.SelectedApps))
+		cblog.With("component", "app-delete").Debug("Opening multi-delete confirmation", "count", len(m.state.Selections.SelectedApps))
 	}
 
 	return m, nil
