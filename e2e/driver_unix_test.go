@@ -288,6 +288,8 @@ func MockArgoServer() (*httptest.Server, error) {
 	// Handle delete operations
 	mux.HandleFunc("/api/v1/applications/demo", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
+			// Add small delay to ensure loading modal is visible
+			time.Sleep(200 * time.Millisecond)
 			w.Header().Set("Content-Type", "application/json")
 			// Return proper AppDeleteResponse with Success field
 			_, _ = w.Write([]byte(`{"Success": true}`))
