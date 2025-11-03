@@ -6,6 +6,7 @@
  │                      Delete                    │ 
  │                                                │ 
  │      c: Cascade On (all resources deleted)     │ 
+ │       p: Policy background (async cleanup)     │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     

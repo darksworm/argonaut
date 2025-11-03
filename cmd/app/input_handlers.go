@@ -624,6 +624,19 @@ func (m *Model) handleConfirmAppDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		// Toggle cascade option
 		m.state.Modals.DeleteCascade = !m.state.Modals.DeleteCascade
 		return m, nil
+	case "p":
+		// Cycle through propagation policies: foreground -> background -> orphan -> foreground
+		switch m.state.Modals.DeletePropagationPolicy {
+		case "foreground":
+			m.state.Modals.DeletePropagationPolicy = "background"
+		case "background":
+			m.state.Modals.DeletePropagationPolicy = "orphan"
+		case "orphan":
+			m.state.Modals.DeletePropagationPolicy = "foreground"
+		default:
+			m.state.Modals.DeletePropagationPolicy = "foreground"
+		}
+		return m, nil
 	default:
 		// Record the key press
 		keyStr := msg.String()

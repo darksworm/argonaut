@@ -383,6 +383,51 @@ func TestHandleConfirmAppDeleteKeys_C_TogglesCascade(t *testing.T) {
 	}
 }
 
+func TestHandleConfirmAppDeleteKeys_P_CyclesPropagationPolicy(t *testing.T) {
+	m := buildDeleteTestModel(100, 30)
+
+	// Set up in delete confirmation mode with foreground policy
+	m.state.Mode = model.ModeConfirmAppDelete
+	appName := "test-app"
+	m.state.Modals.DeleteAppName = &appName
+	m.state.Modals.DeletePropagationPolicy = "foreground"
+
+	// Test cycling through policies
+	testCases := []struct {
+		from string
+		to   string
+	}{
+		{"foreground", "background"},
+		{"background", "orphan"},
+		{"orphan", "foreground"},
+	}
+
+	currentModel := m
+	for _, tc := range testCases {
+		// Verify starting state
+		if currentModel.state.Modals.DeletePropagationPolicy != tc.from {
+			t.Fatalf("Expected policy to start as %s, got %s", tc.from, currentModel.state.Modals.DeletePropagationPolicy)
+		}
+
+		// Press 'p' to cycle
+		keyMsg := testKeyMsg("p")
+		teaModel, cmd := currentModel.handleConfirmAppDeleteKeys(keyMsg)
+		newModel := teaModel.(*Model)
+
+		// Verify new state
+		if newModel.state.Modals.DeletePropagationPolicy != tc.to {
+			t.Fatalf("Expected policy to change from %s to %s, got %s", tc.from, tc.to, newModel.state.Modals.DeletePropagationPolicy)
+		}
+
+		// Should not trigger deletion
+		if cmd != nil {
+			t.Fatalf("Expected no command, but got %v", cmd)
+		}
+
+		currentModel = newModel
+	}
+}
+
 
 // Test keyboard shortcut (Ctrl+D) integration
 func TestCtrlD_InAppsView_TriggersDelete(t *testing.T) {

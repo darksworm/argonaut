@@ -6,6 +6,7 @@
  │                    Delete (y)                  │ 
  │                                                │ 
  │      c: Cascade On (all resources deleted)     │ 
+ │     p: Policy foreground (wait for cleanup)    │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     
