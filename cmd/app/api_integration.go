@@ -483,12 +483,12 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 			PropagationPolicy: req.PropagationPolicy,
 		}
 
-		cblog.With("component", "delete").Info("Starting delete", "app", req.AppName, "cascade", req.Cascade)
+		cblog.With("component", "app-delete").Info("Starting delete", "app", req.AppName, "cascade", req.Cascade)
 
 		// Execute deletion
 		response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
 		if err != nil {
-			cblog.With("component", "delete").Error("Delete failed", "app", req.AppName, "err", err)
+			cblog.With("component", "app-delete").Error("Delete failed", "app", req.AppName, "err", err)
 			return model.AppDeleteErrorMsg{
 				AppName: req.AppName,
 				Error:   err.Error(),
@@ -500,14 +500,14 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 			if response.Error != nil {
 				errorMsg = response.Error.Message
 			}
-			cblog.With("component", "delete").Error("Delete returned failure", "app", req.AppName, "error", errorMsg)
+			cblog.With("component", "app-delete").Error("Delete returned failure", "app", req.AppName, "error", errorMsg)
 			return model.AppDeleteErrorMsg{
 				AppName: req.AppName,
 				Error:   errorMsg,
 			}
 		}
 
-		cblog.With("component", "delete").Info("Delete completed", "app", req.AppName)
+		cblog.With("component", "app-delete").Info("Delete completed", "app", req.AppName)
 		return model.AppDeleteSuccessMsg{AppName: req.AppName}
 	}
 }
@@ -795,6 +795,8 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 	}
 
 	return func() tea.Msg {
+		cblog.With("component", "app-delete").Info("Starting multi-delete", "count", len(selectedApps), "cascade", cascade, "policy", propagationPolicy)
+
 		// Increased timeout for parallel operations
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -855,6 +857,8 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 
 		// Handle results
 		if len(failedApps) > 0 {
+			cblog.With("component", "app-delete").Error("Multi-delete partially failed",
+				"failed", len(failedApps), "succeeded", successCount, "total", len(selectedApps))
 			errorMsg := fmt.Sprintf("Failed to delete %d/%d apps: %s",
 				len(failedApps), len(selectedApps), strings.Join(failedApps, ", "))
 			return model.AppDeleteErrorMsg{
@@ -863,6 +867,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 			}
 		}
 
+		cblog.With("component", "app-delete").Info("Multi-delete completed successfully", "count", successCount)
 		// Clear selections after successful multi-delete
 		return model.MultiDeleteCompletedMsg{AppCount: successCount, Success: true}
 	}
