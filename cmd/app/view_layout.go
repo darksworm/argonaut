@@ -13,10 +13,10 @@ import (
 // renderTreePanel renders the resource tree view inside a bordered container with scrolling
 func (m *Model) renderTreePanel(availableRows int) string {
 	contentWidth := max(0, m.contentInnerWidth())
-	treeContent := "(no data)"
-	if m.treeView != nil {
-		treeContent = m.treeView.View()
-	}
+    treeContent := "(no data)"
+    if m.treeView != nil {
+        treeContent = m.treeView.Render()
+    }
 
 	// Split content into lines for scrolling
 	lines := strings.Split(treeContent, "\n")

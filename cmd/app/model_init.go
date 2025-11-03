@@ -63,9 +63,9 @@ var _ tea.Msg
 
 // Init implements tea.Model.Init
 func (m *Model) Init() tea.Cmd {
-	// Initialize with terminal size request and startup commands
-	var cmds []tea.Cmd
-	cmds = append(cmds, tea.EnterAltScreen, m.spinner.Tick)
+    // Initialize with terminal size request and startup commands
+    var cmds []tea.Cmd
+    cmds = append(cmds, m.spinner.Tick)
 
 	// Show initial loading modal immediately if server is configured
 	if m.state.Server != nil {

@@ -1,12 +1,12 @@
                                                     
- ╭────────────────────────────────────────────────╮ 
- │                                                │ 
- │                Delete my-service?              │ 
- │                                                │ 
- │                      Delete                    │ 
- │                                                │ 
- │      c: Cascade On (all resources deleted)     │ 
- │       p: Policy background (async cleanup)     │ 
- │                                                │ 
- ╰────────────────────────────────────────────────╯ 
+ ╭────────────────────────────────────────────────╮ 
+ │                                                │ 
+ │                Delete my-service?              │ 
+ │                                                │ 
+ │                      Delete                    │ 
+ │                                                │ 
+ │      c: Cascade On (all resources deleted)     │ 
+ │       p: Policy background (async cleanup)     │ 
+ │                                                │ 
+ ╰────────────────────────────────────────────────╯ 
                                                     

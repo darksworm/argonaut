@@ -193,11 +193,9 @@ func main() {
 	m.state.Apps = []model.App{}
 
 	// Create the Bubbletea program
-	p := tea.NewProgram(
-		m,
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+    p := tea.NewProgram(
+        m,
+    )
 
 	// Store program pointer for terminal hand-off (pager integration)
 	m.SetProgram(p)

@@ -1,12 +1,12 @@
                                                     
- ╭────────────────────────────────────────────────╮ 
- │                                                │ 
- │                 Delete test-app?               │ 
- │                                                │ 
- │                    Delete (y)                  │ 
- │                                                │ 
- │      c: Cascade On (all resources deleted)     │ 
- │     p: Policy foreground (wait for cleanup)    │ 
- │                                                │ 
- ╰────────────────────────────────────────────────╯ 
+ ╭────────────────────────────────────────────────╮ 
+ │                                                │ 
+ │                 Delete test-app?               │ 
+ │                                                │ 
+ │                    Delete (y)                  │ 
+ │                                                │ 
+ │      c: Cascade On (all resources deleted)     │ 
+ │     p: Policy foreground (wait for cleanup)    │ 
+ │                                                │ 
+ ╰────────────────────────────────────────────────╯ 
                                                     
