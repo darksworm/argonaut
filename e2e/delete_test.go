@@ -71,13 +71,13 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 	}
 
 	// Verify cascade warning is shown
-	if !strings.Contains(snapshot, "Cascade: ON") {
+	if !strings.Contains(snapshot, "c: Cascade On") {
 		t.Log(snapshot)
 		t.Fatal("delete modal should show cascade warning")
 	}
 
 	// Verify safety instructions
-	if !strings.Contains(snapshot, "Type 'y' to confirm") {
+	if !strings.Contains(snapshot, "Delete (y)") {
 		t.Log(snapshot)
 		t.Fatal("delete modal should show safety instructions")
 	}
@@ -90,7 +90,7 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Modal should still be visible
-	if !tf.WaitForPlain("Delete Application", 1*time.Second) {
+	if !tf.WaitForPlain("Delete demo?", 1*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("modal should still be visible after typing 'n'")
 	}
@@ -173,7 +173,7 @@ func TestDeleteFunctionality_CancelWithNonYKey(t *testing.T) {
 	}
 
 	// Wait for delete confirmation modal to appear and stabilize
-	if !tf.WaitForPlain("Delete Application", 2*time.Second) {
+	if !tf.WaitForPlain("Delete demo?", 2*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("delete confirmation modal not shown")
 	}
@@ -191,7 +191,7 @@ func TestDeleteFunctionality_CancelWithNonYKey(t *testing.T) {
 
 	// Verify modal is still there (showing it responds to input but doesn't delete)
 	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "Delete Application") {
+	if !strings.Contains(snapshot, "Delete demo?") {
 		t.Log(snapshot)
 		t.Fatal("delete modal should still be visible after typing 'n'")
 	}
