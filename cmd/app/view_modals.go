@@ -573,8 +573,46 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 	policyStr := center.Render(policyLine.String())
 	aux := cascadeStr + "\n" + policyStr
 
+	// Check if any selected apps are managed by ApplicationSet and show warning
+	var warningLines []string
+	hasApplicationSetWarning := false
+
+	if isMulti {
+		// Check if any selected apps are ApplicationSet-managed
+		for appName := range m.state.Selections.SelectedApps {
+			for _, app := range m.state.Apps {
+				if app.Name == appName && app.ManagedBy != nil && *app.ManagedBy == "ApplicationSet" {
+					hasApplicationSetWarning = true
+					break
+				}
+			}
+			if hasApplicationSetWarning {
+				break
+			}
+		}
+	} else {
+		// Check if the single selected app is ApplicationSet-managed
+		for _, app := range m.state.Apps {
+			if app.Name == appName && app.ManagedBy != nil && *app.ManagedBy == "ApplicationSet" {
+				hasApplicationSetWarning = true
+				break
+			}
+		}
+	}
+
+	if hasApplicationSetWarning {
+		warningStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+		dimWarning := lipgloss.NewStyle().Foreground(dimColor)
+		warningText := warningStyle.Render("⚠ ApplicationSet Warning")
+		warningDesc := dimWarning.Render("Apps will be recreated in OutOfSync state")
+		warningLines = []string{"", center.Render(warningText), center.Render(warningDesc)}
+	}
+
 	// Lines are already centered to innerWidth
-	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
+	bodyParts := []string{title}
+	bodyParts = append(bodyParts, warningLines...)
+	bodyParts = append(bodyParts, "", buttons, "", aux)
+	body := strings.Join(bodyParts, "\n")
 
 	// Error display if any
 	if m.state.Modals.DeleteError != nil {
