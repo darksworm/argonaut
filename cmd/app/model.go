@@ -294,13 +294,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.AppDeletedMsg:
 		name := msg.AppName
-		filtered := m.state.Apps[:0]
-		for _, a := range m.state.Apps {
-			if a.Name != name {
-				filtered = append(filtered, a)
+		// Remove app while preserving order
+		for i, a := range m.state.Apps {
+			if a.Name == name {
+				// Remove the app at index i by combining slices before and after
+				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+				break
 			}
 		}
-		m.state.Apps = filtered
+		// Keep selection at the same index position
+		// Only adjust if selection is now beyond the list bounds
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
+			m.state.Navigation.SelectedIdx = len(visibleItems) - 1
+		}
 		return m, m.consumeWatchEvent()
 
 	case model.StatusChangeMsg:
@@ -576,6 +583,49 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case model.AppDeleteRequestMsg:
+		// Handle application delete request
+		m.state.Modals.DeleteLoading = true
+		return m, m.deleteApplication(msg)
+
+	case model.AppDeleteSuccessMsg:
+		// Handle successful application deletion
+		m.statusService.Set(fmt.Sprintf("Application %s deleted successfully", msg.AppName))
+
+		// Remove app from local state while preserving order
+		for i, app := range m.state.Apps {
+			if app.Name == msg.AppName {
+				// Remove the app at index i by combining slices before and after
+				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+				break
+			}
+		}
+
+		// Clear modal state and return to normal mode
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.DeleteAppName = nil
+		m.state.Modals.DeleteAppNamespace = nil
+		m.state.Modals.DeleteConfirmationKey = ""
+		m.state.Modals.DeleteError = nil
+		m.state.Modals.DeleteLoading = false
+
+		// Keep selection at the same index position
+		// Only adjust if selection is now beyond the list bounds
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
+			m.state.Navigation.SelectedIdx = len(visibleItems) - 1
+		}
+
+		return m, nil
+
+	case model.AppDeleteErrorMsg:
+		// Handle application deletion error
+		m.statusService.Set(fmt.Sprintf("Failed to delete %s: %s", msg.AppName, msg.Error))
+		m.state.Modals.DeleteError = &msg.Error
+		m.state.Modals.DeleteLoading = false
+		// Keep modal open to show error
+		return m, nil
+
 	case model.MultiSyncCompletedMsg:
 		// Handle multiple app sync completion
 		if msg.Success {
@@ -636,6 +686,30 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Modals.ConfirmSyncLoading = false
 		if m.state.Mode == model.ModeConfirmSync {
 			m.state.Mode = model.ModeNormal
+		}
+		return m, nil
+
+	case model.MultiDeleteCompletedMsg:
+		// Handle multiple app delete completion
+		if msg.Success {
+			m.statusService.Set(fmt.Sprintf("Successfully deleted %d app(s)", msg.AppCount))
+			// Clear selections after successful multi-delete
+			m.state.Selections.SelectedApps = model.NewStringSet()
+		}
+		// Close confirm delete modal/loading state if open
+		m.state.Modals.DeleteAppName = nil
+		m.state.Modals.DeleteAppNamespace = nil
+		m.state.Modals.DeleteConfirmationKey = ""
+		m.state.Modals.DeleteError = nil
+		m.state.Modals.DeleteLoading = false
+		if m.state.Mode == model.ModeConfirmAppDelete {
+			m.state.Mode = model.ModeNormal
+		}
+		// Keep selection at the same index position
+		// Only adjust if selection is now beyond the list bounds
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
+			m.state.Navigation.SelectedIdx = len(visibleItems) - 1
 		}
 		return m, nil
 

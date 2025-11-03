@@ -1,0 +1,15 @@
+                                                    
+ ╭────────────────────────────────────────────────╮ 
+ │                                                │ 
+ │                Delete error-app?               │ 
+ │                                                │ 
+ │                    Delete (y)                  │ 
+ │                                                │ 
+ │       c: Cascade Off (resources orphaned)      │ 
+ │                                                │ 
+ │  Error: Failed to delete application:          │ 
+ │  resource                                      │ 
+ │                    not found                   │ 
+ │                                                │ 
+ ╰────────────────────────────────────────────────╯ 
+                                                    

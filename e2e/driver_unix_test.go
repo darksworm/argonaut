@@ -285,6 +285,14 @@ func MockArgoServer() (*httptest.Server, error) {
 			}
 		}
 	})
+	// Handle delete operations
+	mux.HandleFunc("/api/v1/applications/demo", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.Header().Set("Content-Type", "application/json")
+			// Return empty JSON for successful delete
+			_, _ = w.Write([]byte(`{}`))
+		}
+	})
 	srv := httptest.NewServer(mux)
 	return srv, nil
 }

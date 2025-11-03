@@ -46,6 +46,8 @@ func (m *Model) renderHelpModal() string {
 		keycap("s"), " sync modal (apps view) ", bullet(), " ", keycap("R"), " rollback modal (apps view)",
 		"\n",
 		keycap("r"), " resources (apps view) ", bullet(), " ", keycap("d"), " open diff (apps view)",
+		"\n",
+		keycap("Ctrl+D"), " delete app(s) (apps view)",
 	}, "")
 
 	// MISC (licenses removed)
@@ -482,6 +484,106 @@ func (m *Model) renderUpgradeSuccessModal() string {
 	content.WriteString(actionMsg)
 
 	return modalStyle.Render(content.String())
+}
+
+// renderAppDeleteConfirmModal renders the application delete confirmation modal
+func (m *Model) renderAppDeleteConfirmModal() string {
+	if m.state.Modals.DeleteAppName == nil {
+		return ""
+	}
+
+	appName := *m.state.Modals.DeleteAppName
+	isMulti := appName == "__MULTI__"
+
+	// Modal width: compact and centered (like sync modal)
+	half := m.state.Terminal.Cols / 2
+	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+
+	// Message: make all title text bright and readable
+	var titleLine string
+	{
+		// Build parts with consistent bright styling
+		deletePart := lipgloss.NewStyle().Foreground(whiteBright).Render("Delete ")
+		var subject string
+		if isMulti {
+			subject = fmt.Sprintf("%d application(s)", len(m.state.Selections.SelectedApps))
+		} else {
+			subject = appName
+		}
+		subjectStyled := lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
+		qmark := lipgloss.NewStyle().Foreground(whiteBright).Render("?")
+		titleLine = deletePart + subjectStyled + qmark
+	}
+
+	// Delete button shows confirmation requirement and state
+	active := lipgloss.NewStyle().Background(outOfSyncColor).Foreground(whiteBright).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+
+	var deleteBtn string
+	if m.state.Modals.DeleteConfirmationKey == "y" || m.state.Modals.DeleteConfirmationKey == "Y" {
+		deleteBtn = active.Render("Delete")
+	} else {
+		deleteBtn = inactive.Render("Delete (y)")
+	}
+
+	// Simple rounded border with red accent for danger
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Padding(1, 2).
+		Width(modalWidth)
+
+	// Center helpers
+	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+
+	title := center.Render(titleLine)
+
+	buttons := center.Render(deleteBtn)
+
+	// Options line for cascade toggle (like prune/watch in sync modal)
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+	var optsLine strings.Builder
+	optsLine.WriteString(dim.Render("c: Cascade "))
+	if m.state.Modals.DeleteCascade {
+		optsLine.WriteString(on.Render("On"))
+		optsLine.WriteString(dim.Render(" (all resources deleted)"))
+	} else {
+		optsLine.WriteString(dim.Render("Off"))
+		optsLine.WriteString(dim.Render(" (resources orphaned)"))
+	}
+	aux := center.Render(optsLine.String())
+
+	// Lines are already centered to innerWidth
+	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
+
+	// Error display if any
+	if m.state.Modals.DeleteError != nil {
+		errorMsg := center.Render(lipgloss.NewStyle().
+			Foreground(outOfSyncColor).
+			Render("Error: " + *m.state.Modals.DeleteError))
+		body += "\n\n" + errorMsg
+	}
+
+	// Add outer whitespace so the modal doesn't sit directly on top of content
+	outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right
+	return outer.Render(wrapper.Render(body))
+}
+
+// renderAppDeleteLoadingModal renders the loading state during application deletion
+func (m *Model) renderAppDeleteLoadingModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Deleting application..."))
+	content := msg
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Padding(1, 2)
+	minW := 32
+	w := max(minW, lipgloss.Width(content)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
 }
 
 // renderNoDiffModal renders a simple modal for when there are no differences

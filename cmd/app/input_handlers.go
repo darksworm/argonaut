@@ -602,6 +602,105 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleConfirmAppDeleteKeys handles input when in app delete confirmation mode
+func (m *Model) handleConfirmAppDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc", "ctrl+c":
+		// Cancel deletion and return to normal mode
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.DeleteAppName = nil
+		m.state.Modals.DeleteAppNamespace = nil
+		m.state.Modals.DeleteConfirmationKey = ""
+		m.state.Modals.DeleteError = nil
+		m.state.Modals.DeleteLoading = false
+		return m, nil
+	case "backspace":
+		// Remove the last character from confirmation key
+		if len(m.state.Modals.DeleteConfirmationKey) > 0 {
+			m.state.Modals.DeleteConfirmationKey = m.state.Modals.DeleteConfirmationKey[:len(m.state.Modals.DeleteConfirmationKey)-1]
+		}
+		return m, nil
+	case "c":
+		// Toggle cascade option
+		m.state.Modals.DeleteCascade = !m.state.Modals.DeleteCascade
+		return m, nil
+	default:
+		// Record the key press
+		keyStr := msg.String()
+		if len(keyStr) == 1 {
+			m.state.Modals.DeleteConfirmationKey = keyStr
+
+			// Only trigger deletion if user typed 'y' or 'Y'
+			if keyStr == "y" || keyStr == "Y" {
+				return m.executeAppDeletion()
+			}
+		}
+		return m, nil
+	}
+}
+
+// handleAppDelete initiates the app deletion confirmation
+func (m *Model) handleAppDelete() (tea.Model, tea.Cmd) {
+	// Only work in apps view
+	if m.state.Navigation.View != model.ViewApps {
+		return m, nil
+	}
+
+	if len(m.state.Selections.SelectedApps) == 0 {
+		// If no apps selected, delete current app
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if len(visibleItems) > 0 && m.state.Navigation.SelectedIdx < len(visibleItems) {
+			if app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App); ok {
+				// Single app deletion
+				m.state.Mode = model.ModeConfirmAppDelete
+				m.state.Modals.DeleteAppName = &app.Name
+				m.state.Modals.DeleteAppNamespace = app.Namespace
+				m.state.Modals.DeleteConfirmationKey = ""
+				m.state.Modals.DeleteError = nil
+				m.state.Modals.DeleteLoading = false
+				m.state.Modals.DeleteCascade = true // Default to cascade
+				m.state.Modals.DeletePropagationPolicy = "foreground"
+
+				cblog.With("component", "delete").Debug("Opening delete confirmation", "app", app.Name)
+			}
+		}
+	} else {
+		// Multiple apps selected
+		multiTarget := "__MULTI__"
+		m.state.Mode = model.ModeConfirmAppDelete
+		m.state.Modals.DeleteAppName = &multiTarget
+		m.state.Modals.DeleteAppNamespace = nil // Not applicable for multi-delete
+		m.state.Modals.DeleteConfirmationKey = ""
+		m.state.Modals.DeleteError = nil
+		m.state.Modals.DeleteLoading = false
+		m.state.Modals.DeleteCascade = true // Default to cascade
+		m.state.Modals.DeletePropagationPolicy = "foreground"
+
+		cblog.With("component", "delete").Debug("Opening multi-delete confirmation", "count", len(m.state.Selections.SelectedApps))
+	}
+
+	return m, nil
+}
+
+// executeAppDeletion performs the actual deletion after confirmation
+func (m *Model) executeAppDeletion() (tea.Model, tea.Cmd) {
+	if m.state.Modals.DeleteAppName == nil {
+		return m, nil
+	}
+
+	appName := *m.state.Modals.DeleteAppName
+	isMulti := appName == "__MULTI__"
+	m.state.Modals.DeleteLoading = true
+
+	if isMulti {
+		// Multi-app deletion
+		return m, m.deleteSelectedApplications(m.state.Modals.DeleteCascade, m.state.Modals.DeletePropagationPolicy)
+	} else {
+		// Single app deletion
+		return m, m.deleteSingleApplication(appName, m.state.Modals.DeleteAppNamespace, m.state.Modals.DeleteCascade, m.state.Modals.DeletePropagationPolicy)
+	}
+}
+
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -740,6 +839,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmSyncKeys(msg)
 	case model.ModeRollback:
 		return m.handleRollbackModeKeys(msg)
+	case model.ModeConfirmAppDelete:
+		return m.handleConfirmAppDeleteKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
 	case model.ModeAuthRequired:
@@ -924,6 +1025,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
 		}
+	case "ctrl+d":
+		// Open delete confirmation for selected app (apps view)
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleAppDelete()
+		}
+		return m, nil
 	case "esc":
 		return m.handleEscape()
 	case "g":
