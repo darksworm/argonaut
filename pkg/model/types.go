@@ -50,7 +50,6 @@ type App struct {
 	ClusterLabel *string    `json:"clusterLabel,omitempty"`
 	Namespace    *string    `json:"namespace,omitempty"`
 	AppNamespace *string    `json:"appNamespace,omitempty"`
-	ManagedBy    *string    `json:"managedBy,omitempty"` // e.g., "ApplicationSet"
 }
 
 // Server represents an ArgoCD server configuration

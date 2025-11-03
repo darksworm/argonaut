@@ -18,12 +18,6 @@ type ArgoApplication struct {
 	Metadata struct {
 		Name      string `json:"name"`
 		Namespace string `json:"namespace,omitempty"`
-		OwnerReferences []struct {
-			APIVersion string `json:"apiVersion"`
-			Kind       string `json:"kind"`
-			Name       string `json:"name"`
-			UID        string `json:"uid"`
-		} `json:"ownerReferences,omitempty"`
 	} `json:"metadata"`
 	Spec struct {
 		Project string `json:"project,omitempty"`
@@ -386,15 +380,6 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 		app.LastSyncAt = &argoApp.Status.OperationState.FinishedAt
 	} else if !argoApp.Status.OperationState.StartedAt.IsZero() {
 		app.LastSyncAt = &argoApp.Status.OperationState.StartedAt
-	}
-
-	// Check if app is managed by ApplicationSet
-	for _, ownerRef := range argoApp.Metadata.OwnerReferences {
-		if ownerRef.Kind == "ApplicationSet" {
-			managedBy := "ApplicationSet"
-			app.ManagedBy = &managedBy
-			break
-		}
 	}
 
 	// Normalize status values to match TypeScript app
