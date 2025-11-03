@@ -78,6 +78,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "app",
 		},
 		{
+			Command:     "delete",
+			Aliases:     []string{"delete", "del", "rm"},
+			Description: "Delete application",
+			TakesArg:    true,
+			ArgType:     "app",
+		},
+		{
 			Command:     "resources",
 			Aliases:     []string{"resources", "res", "r"},
 			Description: "Show resources for application",
