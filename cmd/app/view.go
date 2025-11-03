@@ -288,6 +288,8 @@ func (m *Model) View() string {
 		return m.renderHelpModal()
 	case model.ModeRollback:
 		return m.renderRollbackModal()
+	case model.ModeConfirmAppDelete:
+		return m.renderMainLayout()
 	case model.ModeExternal:
 		return "" // External mode returns null in React
 	case model.ModeDiff:

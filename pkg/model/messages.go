@@ -165,9 +165,28 @@ type AppUpdatedMsg struct {
 	App App
 }
 
-// AppDeletedMsg is sent when an app is deleted
+// AppDeletedMsg is sent when an app is deleted (from watch stream)
 type AppDeletedMsg struct {
 	AppName string
+}
+
+// AppDeleteRequestMsg represents a request to delete an application
+type AppDeleteRequestMsg struct {
+	AppName           string
+	AppNamespace      *string
+	Cascade           bool
+	PropagationPolicy string
+}
+
+// AppDeleteSuccessMsg represents a successful application deletion
+type AppDeleteSuccessMsg struct {
+	AppName string
+}
+
+// AppDeleteErrorMsg represents an application deletion error
+type AppDeleteErrorMsg struct {
+	AppName string
+	Error   string
 }
 
 // AuthErrorMsg is sent when authentication is required
@@ -290,6 +309,12 @@ type SyncCompletedMsg struct {
 
 // MultiSyncCompletedMsg indicates multiple app sync has completed
 type MultiSyncCompletedMsg struct {
+	AppCount int
+	Success  bool
+}
+
+// MultiDeleteCompletedMsg indicates multiple app delete has completed
+type MultiDeleteCompletedMsg struct {
 	AppCount int
 	Success  bool
 }

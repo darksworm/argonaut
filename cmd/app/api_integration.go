@@ -18,6 +18,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/neat"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/services/appdelete"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -455,6 +456,61 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	}
 }
 
+// deleteApplication deletes a specific application
+func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.AppDeleteErrorMsg{
+				AppName: req.AppName,
+				Error:   "No server configured",
+			}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		defer cancel()
+
+		// Create delete service
+		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+
+		// Convert to delete request
+		deleteReq := appdelete.AppDeleteRequest{
+			AppName:           req.AppName,
+			AppNamespace:      req.AppNamespace,
+			Cascade:           req.Cascade,
+			PropagationPolicy: req.PropagationPolicy,
+		}
+
+		cblog.With("component", "delete").Info("Starting delete", "app", req.AppName, "cascade", req.Cascade)
+
+		// Execute deletion
+		response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+		if err != nil {
+			cblog.With("component", "delete").Error("Delete failed", "app", req.AppName, "err", err)
+			return model.AppDeleteErrorMsg{
+				AppName: req.AppName,
+				Error:   err.Error(),
+			}
+		}
+
+		if !response.Success {
+			errorMsg := "Unknown error"
+			if response.Error != nil {
+				errorMsg = response.Error.Message
+			}
+			cblog.With("component", "delete").Error("Delete returned failure", "app", req.AppName, "error", errorMsg)
+			return model.AppDeleteErrorMsg{
+				AppName: req.AppName,
+				Error:   errorMsg,
+			}
+		}
+
+		cblog.With("component", "delete").Info("Delete completed", "app", req.AppName)
+		return model.AppDeleteSuccessMsg{AppName: req.AppName}
+	}
+}
+
 // syncSingleApplication syncs a specific application
 func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	if m.state.Server == nil {
@@ -715,5 +771,91 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 			Loading: false,
 		}
 		return model.SetModeMsg{Mode: model.ModeDiff}
+	}
+}
+
+// deleteSelectedApplications deletes the currently selected applications
+func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy string) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+	}
+
+	selectedApps := make([]string, 0, len(m.state.Selections.SelectedApps))
+	for appName := range m.state.Selections.SelectedApps {
+		selectedApps = append(selectedApps, appName)
+	}
+
+	if len(selectedApps) == 0 {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No applications selected"}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		defer cancel()
+
+		// Create delete service
+		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+
+		for _, appName := range selectedApps {
+			// Convert to delete request
+			deleteReq := appdelete.AppDeleteRequest{
+				AppName:           appName,
+				Cascade:           cascade,
+				PropagationPolicy: propagationPolicy,
+			}
+
+			_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+			if err != nil {
+				// Return error for first failed app
+				return model.AppDeleteErrorMsg{
+					AppName: appName,
+					Error:   fmt.Sprintf("Failed to delete %s: %v", appName, err),
+				}
+			}
+		}
+
+		// Clear selections after successful multi-delete
+		return model.MultiDeleteCompletedMsg{AppCount: len(selectedApps), Success: true}
+	}
+}
+
+// deleteSingleApplication deletes a specific application
+func (m *Model) deleteSingleApplication(appName string, namespace *string, cascade bool, propagationPolicy string) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.AppDeleteErrorMsg{
+				AppName: appName,
+				Error:   "No server configured",
+			}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		defer cancel()
+
+		// Create delete service
+		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+
+		// Convert to delete request
+		deleteReq := appdelete.AppDeleteRequest{
+			AppName:           appName,
+			Cascade:           cascade,
+			PropagationPolicy: propagationPolicy,
+		}
+
+		_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+		if err != nil {
+			return model.AppDeleteErrorMsg{
+				AppName: appName,
+				Error:   fmt.Sprintf("Failed to delete application: %v", err),
+			}
+		}
+
+		return model.AppDeleteSuccessMsg{AppName: appName}
 	}
 }

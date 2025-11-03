@@ -208,6 +208,22 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// App Delete modal (confirmation or loading state)
+	if m.state.Mode == model.ModeConfirmAppDelete {
+		modal := ""
+		if m.state.Modals.DeleteLoading {
+			modal = m.renderAppDeleteLoadingModal()
+		} else {
+			modal = m.renderAppDeleteConfirmModal()
+		}
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	if m.state.Mode == model.ModeLoading {
 		modal := m.renderInitialLoadingModal()
 		grayBase := desaturateANSI(baseView)
