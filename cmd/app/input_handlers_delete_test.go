@@ -42,9 +42,10 @@ func buildDeleteTestModel(cols, rows int) *Model {
 
 	// Add a test app to select
 	namespace := "test-namespace"
+	appNamespace := "test-namespace"
 	project := "test-project"
 	m.state.Apps = []model.App{
-		{Name: "test-app", Sync: "Synced", Health: "Healthy", Namespace: &namespace, Project: &project},
+		{Name: "test-app", Sync: "Synced", Health: "Healthy", Namespace: &namespace, AppNamespace: &appNamespace, Project: &project},
 		{Name: "other-app", Sync: "OutOfSync", Health: "Degraded"},
 	}
 
