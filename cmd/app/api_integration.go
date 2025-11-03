@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	stdErrors "errors"
@@ -795,55 +794,28 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 	}
 
 	return func() tea.Msg {
-		cblog.With("component", "app-delete").Info("Starting multi-delete", "count", len(selectedApps), "cascade", cascade, "policy", propagationPolicy)
+		cblog.With("component", "app-delete").Info("Starting sequential multi-delete", "count", len(selectedApps), "cascade", cascade, "policy", propagationPolicy)
 
-		// Increased timeout for parallel operations
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// Reasonable timeout for sequential operations
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		// Create delete service
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
 
-		// Use goroutines for parallel deletion with proper synchronization
-		type deleteResult struct {
-			appName string
-			err     error
-		}
-
-		resultChan := make(chan deleteResult, len(selectedApps))
-		var wg sync.WaitGroup
-
-		// Limit concurrency to avoid overwhelming the server
-		semaphore := make(chan struct{}, 5) // Max 5 concurrent deletions
-
-		for _, appName := range selectedApps {
-			wg.Add(1)
-			go func(name string) {
-				defer wg.Done()
-
-				// Acquire semaphore
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				err := m.deleteApplicationHelper(ctx, deleteService, name, cascade, propagationPolicy)
-				resultChan <- deleteResult{appName: name, err: err}
-			}(appName)
-		}
-
-		// Close results channel when all goroutines are done
-		go func() {
-			wg.Wait()
-			close(resultChan)
-		}()
-
-		// Collect results
+		// Delete applications sequentially to avoid race conditions and dependency issues
 		var failedApps []string
 		successCount := 0
 
-		for result := range resultChan {
-			if result.err != nil {
-				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", result.appName, result.err))
+		for _, appName := range selectedApps {
+			cblog.With("component", "app-delete").Debug("Deleting app", "app", appName, "progress", fmt.Sprintf("%d/%d", successCount+len(failedApps)+1, len(selectedApps)))
+
+			err := m.deleteApplicationHelper(ctx, deleteService, appName, cascade, propagationPolicy)
+			if err != nil {
+				cblog.With("component", "app-delete").Error("Failed to delete app", "app", appName, "err", err)
+				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", appName, err))
 			} else {
+				cblog.With("component", "app-delete").Info("Successfully deleted app", "app", appName)
 				successCount++
 			}
 		}
@@ -860,7 +832,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 			}
 		}
 
-		cblog.With("component", "app-delete").Info("Multi-delete completed successfully", "count", successCount)
+		cblog.With("component", "app-delete").Info("Sequential multi-delete completed successfully", "count", successCount)
 		// Clear selections after successful multi-delete
 		return model.MultiDeleteCompletedMsg{AppCount: successCount, Success: true}
 	}
