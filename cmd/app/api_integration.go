@@ -825,14 +825,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
-				// Convert to delete request
-				deleteReq := appdelete.AppDeleteRequest{
-					AppName:           name,
-					Cascade:           cascade,
-					PropagationPolicy: propagationPolicy,
-				}
-
-				_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+				err := m.deleteApplicationHelper(ctx, deleteService, name, cascade, propagationPolicy)
 				resultChan <- deleteResult{appName: name, err: err}
 			}(appName)
 		}
@@ -873,6 +866,18 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 	}
 }
 
+// deleteApplicationHelper performs the actual deletion of a single app
+func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, appName string, cascade bool, propagationPolicy string) error {
+	deleteReq := appdelete.AppDeleteRequest{
+		AppName:           appName,
+		Cascade:           cascade,
+		PropagationPolicy: propagationPolicy,
+	}
+
+	_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+	return err
+}
+
 // deleteSingleApplication deletes a specific application
 func (m *Model) deleteSingleApplication(appName string, namespace *string, cascade bool, propagationPolicy string) tea.Cmd {
 	if m.state.Server == nil {
@@ -888,18 +893,9 @@ func (m *Model) deleteSingleApplication(appName string, namespace *string, casca
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
 		defer cancel()
 
-		// Create delete service
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
 
-		// Convert to delete request
-		deleteReq := appdelete.AppDeleteRequest{
-			AppName:           appName,
-			Cascade:           cascade,
-			PropagationPolicy: propagationPolicy,
-		}
-
-		_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
-		if err != nil {
+		if err := m.deleteApplicationHelper(ctx, deleteService, appName, cascade, propagationPolicy); err != nil {
 			return model.AppDeleteErrorMsg{
 				AppName: appName,
 				Error:   fmt.Sprintf("Failed to delete application: %v", err),
