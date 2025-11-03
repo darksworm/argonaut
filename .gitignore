@@ -85,3 +85,7 @@ logs/
 
 .argocd-portforward.pid
 
+# Local Go build/test caches (do not commit)
+.gocache/
+.gomodcache/
+.gotmp/
