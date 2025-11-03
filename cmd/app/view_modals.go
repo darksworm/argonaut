@@ -40,7 +40,7 @@ func (m *Model) renderHelpModal() string {
 	actions := strings.Join([]string{
 		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app]",
 		"\n",
-		mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " go up level",
+		mono(":delete"), " [app] ", bullet(), " ", mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " go up level",
 		"\n",
 		// App view hotkeys grouped two per line
 		keycap("s"), " sync modal (apps view) ", bullet(), " ", keycap("R"), " rollback modal (apps view)",
