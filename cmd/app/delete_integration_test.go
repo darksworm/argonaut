@@ -336,8 +336,8 @@ func TestDeleteIntegration_StateConsistency(t *testing.T) {
 	if newModel.state.Modals.DeleteAppName == nil || *newModel.state.Modals.DeleteAppName != expectedApp.Name {
 		t.Fatalf("Expected DeleteAppName to match selected app '%s', got %v", expectedApp.Name, newModel.state.Modals.DeleteAppName)
 	}
-	if newModel.state.Modals.DeleteAppNamespace == nil || *newModel.state.Modals.DeleteAppNamespace != *expectedApp.Namespace {
-		t.Fatalf("Expected DeleteAppNamespace to match selected app '%s', got %v", *expectedApp.Namespace, newModel.state.Modals.DeleteAppNamespace)
+	if newModel.state.Modals.DeleteAppNamespace == nil || *newModel.state.Modals.DeleteAppNamespace != *expectedApp.AppNamespace {
+		t.Fatalf("Expected DeleteAppNamespace to match selected app '%s', got %v", *expectedApp.AppNamespace, newModel.state.Modals.DeleteAppNamespace)
 	}
 
 	// Complete delete confirmation

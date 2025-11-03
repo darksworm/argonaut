@@ -810,7 +810,16 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 		for _, appName := range selectedApps {
 			cblog.With("component", "app-delete").Debug("Deleting app", "app", appName, "progress", fmt.Sprintf("%d/%d", successCount+len(failedApps)+1, len(selectedApps)))
 
-			err := m.deleteApplicationHelper(ctx, deleteService, appName, cascade, propagationPolicy)
+			// Find the app namespace for this app
+			var appNamespace *string
+			for _, app := range m.state.Apps {
+				if app.Name == appName {
+					appNamespace = app.AppNamespace
+					break
+				}
+			}
+
+			err := m.deleteApplicationHelper(ctx, deleteService, appName, appNamespace, cascade, propagationPolicy)
 			if err != nil {
 				cblog.With("component", "app-delete").Error("Failed to delete app", "app", appName, "err", err)
 				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", appName, err))
@@ -839,15 +848,28 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 }
 
 // deleteApplicationHelper performs the actual deletion of a single app
-func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, appName string, cascade bool, propagationPolicy string) error {
+func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, appName string, namespace *string, cascade bool, propagationPolicy string) error {
 	deleteReq := appdelete.AppDeleteRequest{
 		AppName:           appName,
+		AppNamespace:      namespace,
 		Cascade:           cascade,
 		PropagationPolicy: propagationPolicy,
 	}
 
-	_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
-	return err
+	response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+	if err != nil {
+		return err
+	}
+
+	if !response.Success {
+		errorMsg := "Unknown error"
+		if response.Error != nil {
+			errorMsg = response.Error.Message
+		}
+		return fmt.Errorf("delete failed: %s", errorMsg)
+	}
+
+	return nil
 }
 
 // deleteSingleApplication deletes a specific application
@@ -867,7 +889,7 @@ func (m *Model) deleteSingleApplication(appName string, namespace *string, casca
 
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
 
-		if err := m.deleteApplicationHelper(ctx, deleteService, appName, cascade, propagationPolicy); err != nil {
+		if err := m.deleteApplicationHelper(ctx, deleteService, appName, namespace, cascade, propagationPolicy); err != nil {
 			return model.AppDeleteErrorMsg{
 				AppName: appName,
 				Error:   fmt.Sprintf("Failed to delete application: %v", err),

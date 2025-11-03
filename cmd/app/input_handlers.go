@@ -667,7 +667,7 @@ func (m *Model) handleAppDelete() (tea.Model, tea.Cmd) {
 				// Single app deletion
 				m.state.Mode = model.ModeConfirmAppDelete
 				m.state.Modals.DeleteAppName = &app.Name
-				m.state.Modals.DeleteAppNamespace = app.Namespace
+				m.state.Modals.DeleteAppNamespace = app.AppNamespace
 				m.state.Modals.DeleteConfirmationKey = ""
 				m.state.Modals.DeleteError = nil
 				m.state.Modals.DeleteLoading = false
