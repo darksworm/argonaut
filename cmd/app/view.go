@@ -1,16 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"image/color"
-	"os"
-	"regexp"
-	"strings"
-	"time"
+    "fmt"
+    "image/color"
+    "os"
+    "regexp"
+    "strings"
+    "time"
 
-	"github.com/charmbracelet/lipgloss/v2"
-	cblog "github.com/charmbracelet/log"
-	"github.com/darksworm/argonaut/pkg/model"
+    tea "github.com/charmbracelet/bubbletea/v2"
+    "github.com/charmbracelet/lipgloss/v2"
+    cblog "github.com/charmbracelet/log"
+    "github.com/darksworm/argonaut/pkg/model"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -264,45 +265,51 @@ const (
 )
 
 // View implements tea.Model.View - 1:1 mapping from React App.tsx
-func (m *Model) View() string {
-	m.renderCount++
-	cblog.With("component", "view").Debug("View() called",
-		"render_count", m.renderCount,
-		"mode", m.state.Mode,
-		"view", m.state.Navigation.View,
-		"apps_count", len(m.state.Apps))
+func (m *Model) View() tea.View {
+    m.renderCount++
+    cblog.With("component", "view").Debug("View() called",
+        "render_count", m.renderCount,
+        "mode", m.state.Mode,
+        "view", m.state.Navigation.View,
+        "apps_count", len(m.state.Apps))
 
-	// Don't show plain "Starting..." - let renderMainLayout handle the loading modal
-	if !m.ready && m.state.Mode != model.ModeNormal {
-		return statusStyle.Render("Starting…")
-	}
+    var content string
+    // Don't show plain "Starting..." - let renderMainLayout handle the loading modal
+    if !m.ready && m.state.Mode != model.ModeNormal {
+        content = statusStyle.Render("Starting…")
+    } else {
+        // Map React App.tsx switch statement exactly
+        switch m.state.Mode {
+        case model.ModeLoading:
+            // Show regular layout with the initial loading modal overlay instead of a separate loading view
+            content = m.renderMainLayout()
+        case model.ModeAuthRequired:
+            content = m.renderAuthRequiredView()
+        case model.ModeHelp:
+            content = m.renderHelpModal()
+        case model.ModeRollback:
+            content = m.renderRollbackModal()
+        case model.ModeConfirmAppDelete:
+            content = m.renderMainLayout()
+        case model.ModeExternal:
+            content = ""
+        case model.ModeDiff:
+            content = m.renderDiffView()
+        case model.ModeRulerLine:
+            content = m.renderOfficeSupplyManager()
+        case model.ModeError:
+            content = m.renderErrorView()
+        case model.ModeConnectionError:
+            content = m.renderConnectionErrorView()
+        default:
+            content = m.renderMainLayout()
+        }
+    }
 
-	// Map React App.tsx switch statement exactly
-	switch m.state.Mode {
-	case model.ModeLoading:
-		// Show regular layout with the initial loading modal overlay instead of a separate loading view
-		return m.renderMainLayout()
-	case model.ModeAuthRequired:
-		return m.renderAuthRequiredView()
-	case model.ModeHelp:
-		return m.renderHelpModal()
-	case model.ModeRollback:
-		return m.renderRollbackModal()
-	case model.ModeConfirmAppDelete:
-		return m.renderMainLayout()
-	case model.ModeExternal:
-		return "" // External mode returns null in React
-	case model.ModeDiff:
-		return m.renderDiffView()
-	case model.ModeRulerLine:
-		return m.renderOfficeSupplyManager()
-	case model.ModeError:
-		return m.renderErrorView()
-	case model.ModeConnectionError:
-		return m.renderConnectionErrorView()
-	default:
-		return m.renderMainLayout()
-	}
+    v := tea.NewView(content)
+    v.AltScreen = true
+    v.MouseMode = tea.MouseModeCellMotion
+    return v
 }
 
 // countLines returns the number of lines in a rendered string

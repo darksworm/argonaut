@@ -291,125 +291,100 @@ func (v *TreeView) indexOf(n *treeNode) int {
 	return -1
 }
 
-func (v *TreeView) View() string {
-	if len(v.order) == 0 {
-		return "(no resources)"
-	}
-	// Render visible nodes with ASCII tree lines
-	var b strings.Builder
-	// Precompute depths and last-child flags for drawing
-	parentMap := make(map[*treeNode]*treeNode)
-	for _, n := range v.nodesByUID {
-		for _, c := range n.children {
-			parentMap[c] = n
-		}
-	}
+// Render returns the current string representation of the tree.
+func (v *TreeView) Render() string {
+    if len(v.order) == 0 {
+        return "(no resources)"
+    }
+    var b strings.Builder
+    parentMap := make(map[*treeNode]*treeNode)
+    for _, n := range v.nodesByUID {
+        for _, c := range n.children {
+            parentMap[c] = n
+        }
+    }
+    for i, n := range v.order {
+        if n.parent == nil && i > 0 {
+            b.WriteString("\n")
+        }
+        // Build ancestry stack
+        stack := make([]*treeNode, 0)
+        pp := n.parent
+        for pp != nil {
+            stack = append(stack, pp)
+            pp = pp.parent
+        }
+        // reverse stack
+        for l, r := 0, len(stack)-1; l < r; l, r = l+1, r-1 {
+            stack[l], stack[r] = stack[r], stack[l]
+        }
+        var prefixParts []string
+        for _, anc := range stack {
+            if anc.parent == nil {
+                continue
+            }
+            siblings := anc.parent.children
+            last := len(siblings) > 0 && siblings[len(siblings)-1] == anc
+            if last {
+                prefixParts = append(prefixParts, "    ")
+            } else {
+                prefixParts = append(prefixParts, "│   ")
+            }
+        }
+        conn := ""
+        if n.parent != nil {
+            siblings := n.parent.children
+            if len(siblings) > 0 && siblings[len(siblings)-1] == n {
+                conn = "└── "
+            } else {
+                conn = "├── "
+            }
+        }
+        prefix := strings.Join(prefixParts, "") + conn
+        disc := ""
+        if len(n.children) > 0 {
+            if v.expanded[n.uid] {
+                disc = "▾ "
+            } else {
+                disc = "▸ "
+            }
+        }
+        prefixStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(prefix + disc)
+        label := v.renderLabel(n)
+        line := prefixStyled + label
+        if len(n.children) > 0 && !v.expanded[n.uid] {
+            hidden := countDescendants(n)
+            if hidden > 0 {
+                hint := lipgloss.NewStyle().Foreground(colorGray).Render(fmt.Sprintf(" (+%d)", hidden))
+                line += hint
+            }
+        }
+        if i == v.selIdx {
+            name := n.name
+            if n.namespace != "" {
+                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+            }
+            status := n.health
+            if status == "" {
+                status = n.status
+            }
+            ps := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(prefix + disc)
+            ks := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(n.kind)
+            ns := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
+            st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+            line = ps + ks + " " + ns + " " + st
+            line = padRight(line, v.innerWidth())
+        }
+        b.WriteString(line)
+        if i < len(v.order)-1 {
+            b.WriteString("\n")
+        }
+    }
+    return b.String()
+}
 
-	for i, n := range v.order {
-		// Separate app roots visually with a blank line
-		if n.parent == nil && i > 0 {
-			b.WriteString("\n")
-		}
-		// Determine depth by walking parents
-		depth := 0
-		p := n.parent
-		for p != nil {
-			depth++
-			p = p.parent
-		}
-		// Determine prefix
-		var prefixParts []string
-		// Build ancestry stack to know if ancestor is last child
-		stack := make([]*treeNode, 0)
-		pp := n.parent
-		for pp != nil {
-			stack = append(stack, pp)
-			pp = pp.parent
-		}
-		// reverse stack
-		for l, r := 0, len(stack)-1; l < r; l, r = l+1, r-1 {
-			stack[l], stack[r] = stack[r], stack[l]
-		}
-		for _, anc := range stack {
-			// Skip adding a trunk for the synthetic root (no parent)
-			if anc.parent == nil {
-				continue
-			}
-			// is anc last among its siblings?
-			last := false
-			siblings := anc.parent.children
-			if len(siblings) > 0 && siblings[len(siblings)-1] == anc {
-				last = true
-			}
-			if last {
-				prefixParts = append(prefixParts, "    ")
-			} else {
-				prefixParts = append(prefixParts, "│   ")
-			}
-		}
-		// For this node, determine connector relative to its parent
-		conn := ""
-		if n.parent != nil {
-			siblings := n.parent.children
-			if len(siblings) > 0 && siblings[len(siblings)-1] == n {
-				conn = "└── "
-			} else {
-				conn = "├── "
-			}
-		}
-		prefix := strings.Join(prefixParts, "") + conn
-
-		// Disclosure indicator for nodes with children
-		disc := ""
-		if len(n.children) > 0 {
-			if v.expanded[n.uid] {
-				disc = "▾ "
-			} else {
-				disc = "▸ "
-			}
-		}
-
-		// Color non-bracket parts (tree lines, disclosure, kind) as bright white for clarity
-		prefixStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(prefix + disc)
-		// Default line composition without selection background
-		label := v.renderLabel(n)
-		line := prefixStyled + label
-
-		// If collapsed, hint how many items are hidden
-		if len(n.children) > 0 && !v.expanded[n.uid] {
-			hidden := countDescendants(n)
-			if hidden > 0 {
-				hint := lipgloss.NewStyle().Foreground(colorGray).Render(fmt.Sprintf(" (+%d)", hidden))
-				line += hint
-			}
-		}
-		if i == v.selIdx {
-			// Selection should emphasize only the first segment (disclosure/prefix + kind)
-			// while keeping name/status with their regular styles. The outer panel
-			// adds a full-row background; we only override it for the first segment.
-			name := n.name
-			if n.namespace != "" {
-				name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-			}
-			status := n.health
-			if status == "" {
-				status = n.status
-			}
-
-			ps := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(prefix + disc)
-			ks := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(n.kind)
-			// Keep default styles (no selection background) for name and status
-			ns := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
-			st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
-			line = ps + ks + " " + ns + " " + st
-			line = padRight(line, v.innerWidth())
-		}
-		b.WriteString(line)
-		if i < len(v.order)-1 {
-			b.WriteString("\n")
-		}
-	}
-	return b.String()
+func (v *TreeView) View() tea.View {
+    return tea.NewView(v.Render())
 }
 
 func (v *TreeView) renderLabel(n *treeNode) string {

@@ -638,14 +638,18 @@ func (m *Model) handleConfirmAppDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		return m, nil
 	default:
-		// Record the key press
+		// Record the key press, normalizing space handling for Bubble Tea v2
+		// where space may stringify as "space" instead of " ".
 		keyStr := msg.String()
 		if len(keyStr) == 1 {
 			m.state.Modals.DeleteConfirmationKey = keyStr
-
-			// Only trigger deletion if user typed 'y' or 'Y'
 			if keyStr == "y" || keyStr == "Y" {
 				return m.executeAppDeletion()
+			}
+		} else {
+			// Handle space explicitly
+			if msg.Key().Code == tea.KeySpace || keyStr == "space" {
+				m.state.Modals.DeleteConfirmationKey = " "
 			}
 		}
 		return m, nil
@@ -1004,8 +1008,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNavigationUp()
 	case "down", "j":
 		return m.handleNavigationDown()
-	case " ":
-		return m.handleToggleSelection()
+    case " ", "space":
+        return m.handleToggleSelection()
 	case "enter":
 		return m.handleDrillDown()
 	case "/":
