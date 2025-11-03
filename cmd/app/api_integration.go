@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	stdErrors "errors"
@@ -794,32 +795,76 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		// Increased timeout for parallel operations
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		// Create delete service
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
 
-		for _, appName := range selectedApps {
-			// Convert to delete request
-			deleteReq := appdelete.AppDeleteRequest{
-				AppName:           appName,
-				Cascade:           cascade,
-				PropagationPolicy: propagationPolicy,
-			}
+		// Use goroutines for parallel deletion with proper synchronization
+		type deleteResult struct {
+			appName string
+			err     error
+		}
 
-			_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
-			if err != nil {
-				// Return error for first failed app
-				return model.AppDeleteErrorMsg{
-					AppName: appName,
-					Error:   fmt.Sprintf("Failed to delete %s: %v", appName, err),
+		resultChan := make(chan deleteResult, len(selectedApps))
+		var wg sync.WaitGroup
+
+		// Limit concurrency to avoid overwhelming the server
+		semaphore := make(chan struct{}, 5) // Max 5 concurrent deletions
+
+		for _, appName := range selectedApps {
+			wg.Add(1)
+			go func(name string) {
+				defer wg.Done()
+
+				// Acquire semaphore
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				// Convert to delete request
+				deleteReq := appdelete.AppDeleteRequest{
+					AppName:           name,
+					Cascade:           cascade,
+					PropagationPolicy: propagationPolicy,
 				}
+
+				_, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+				resultChan <- deleteResult{appName: name, err: err}
+			}(appName)
+		}
+
+		// Close results channel when all goroutines are done
+		go func() {
+			wg.Wait()
+			close(resultChan)
+		}()
+
+		// Collect results
+		var failedApps []string
+		successCount := 0
+
+		for result := range resultChan {
+			if result.err != nil {
+				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", result.appName, result.err))
+			} else {
+				successCount++
+			}
+		}
+
+		// Handle results
+		if len(failedApps) > 0 {
+			errorMsg := fmt.Sprintf("Failed to delete %d/%d apps: %s",
+				len(failedApps), len(selectedApps), strings.Join(failedApps, ", "))
+			return model.AppDeleteErrorMsg{
+				AppName: "multiple",
+				Error:   errorMsg,
 			}
 		}
 
 		// Clear selections after successful multi-delete
-		return model.MultiDeleteCompletedMsg{AppCount: len(selectedApps), Success: true}
+		return model.MultiDeleteCompletedMsg{AppCount: successCount, Success: true}
 	}
 }
 
