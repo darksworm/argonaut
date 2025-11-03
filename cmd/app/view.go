@@ -548,10 +548,14 @@ func (m *Model) getVisibleItems() []interface{} {
 		for _, pj := range projs {
 			base = append(base, pj)
 		}
-	case model.ViewApps:
-		for _, app := range apps {
-			base = append(base, app)
-		}
+    case model.ViewApps:
+        // Ensure consistent, stable ordering by app name without mutating state
+        appsCopy := make([]model.App, len(apps))
+        copy(appsCopy, apps)
+        sortApps(appsCopy)
+        for _, app := range appsCopy {
+            base = append(base, app)
+        }
 	default:
 		// No-op
 	}
@@ -605,6 +609,17 @@ func sortStrings(items []string) {
 			j--
 		}
 	}
+}
+
+// sortApps sorts a slice of apps by Name (lexicographically, in-place)
+func sortApps(items []model.App) {
+    for i := 1; i < len(items); i++ {
+        j := i
+        for j > 0 && items[j-1].Name > items[j].Name {
+            items[j-1], items[j] = items[j], items[j-1]
+            j--
+        }
+    }
 }
 func (m *Model) renderAuthRequiredView() string {
 	serverText := "—"

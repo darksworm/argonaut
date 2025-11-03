@@ -44,10 +44,10 @@ func buildDeleteTestModel(cols, rows int) *Model {
 	namespace := "test-namespace"
 	appNamespace := "test-namespace"
 	project := "test-project"
-	m.state.Apps = []model.App{
-		{Name: "test-app", Sync: "Synced", Health: "Healthy", Namespace: &namespace, AppNamespace: &appNamespace, Project: &project},
-		{Name: "other-app", Sync: "OutOfSync", Health: "Degraded"},
-	}
+    m.state.Apps = []model.App{
+        {Name: "test-app", Sync: "Synced", Health: "Healthy", Namespace: &namespace, AppNamespace: &appNamespace, Project: &project},
+        {Name: "zzz-other-app", Sync: "OutOfSync", Health: "Degraded"},
+    }
 
 	// Clear modal state
 	m.state.Modals = model.ModalState{}
@@ -105,8 +105,8 @@ func TestHandleAppDelete_MultipleAppsSelected_InitiatesMultiDelete(t *testing.T)
 	m.state.Navigation.SelectedIdx = 0
 
 	// Select multiple apps
-	m.state.Selections.SelectedApps["test-app"] = true
-	m.state.Selections.SelectedApps["other-app"] = true
+    m.state.Selections.SelectedApps["test-app"] = true
+    m.state.Selections.SelectedApps["zzz-other-app"] = true
 
 	// Call handleAppDelete
 	teaModel, cmd := m.handleAppDelete()
