@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.4.0](https://github.com/darksworm/argonaut/compare/v2.3.0...v2.4.0) (2025-11-03)
+
+
+### Features
+
+* add :delete command functionality ([3e119e7](https://github.com/darksworm/argonaut/commit/3e119e7f8c79bed22cd6eabf1eca32d24a0234b9))
+* add application deletion functionality ([74a140c](https://github.com/darksworm/argonaut/commit/74a140ca52bdabe06d9a95fbc2ffd092bada2a73))
+* add ApplicationSet warning in delete modal ([61df323](https://github.com/darksworm/argonaut/commit/61df323faa9ad25466c80f4c07b2c65bce079b1f))
+* add propagation policy toggle to delete modal ([d622802](https://github.com/darksworm/argonaut/commit/d622802fa65f478cd3a7b29230a09b74fd402118))
+
+
+### Bug Fixes
+
+* make :delete command respect multi-selection ([2285d62](https://github.com/darksworm/argonaut/commit/2285d62f6714b1619160f272c99d638a1a8d582e))
+* make the escape debouncer global ([a3f4dbb](https://github.com/darksworm/argonaut/commit/a3f4dbb9be07751eb0ac12c1aaa51a537113c90f))
+* update E2E delete tests for correct modal text matching ([4d5c607](https://github.com/darksworm/argonaut/commit/4d5c60760695de9bbebd6ddac47e5bf2814f558e))
+* use correct Application namespace for delete operations and surface delete failures ([5ab0aff](https://github.com/darksworm/argonaut/commit/5ab0aff448076aef720e8ba5bc3d87ba5d6488cf))
+
+
+### Performance Improvements
+
+* parallelize multi-app deletion for better performance ([55d1391](https://github.com/darksworm/argonaut/commit/55d13917d1921e618aedc348b7e5bb99985ac005))
+
 ## [2.3.0](https://github.com/darksworm/argonaut/compare/v2.2.0...v2.3.0) (2025-09-30)
 
 
