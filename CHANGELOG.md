@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.0](https://github.com/darksworm/argonaut/compare/v2.3.0...v2.4.0) (2025-11-04)
+
+
+### Features
+
+* add application deletion functionality ([565ba04](https://github.com/darksworm/argonaut/commit/565ba047e833039e3f6b979a9e95bf4b9d6152f6))
+* enforce lexicographical ordering for lists ([#107](https://github.com/darksworm/argonaut/issues/107)) ([0f79fc7](https://github.com/darksworm/argonaut/commit/0f79fc778e343ef084f95a314545a01049985e7c))
+
+
+### Bug Fixes
+
+* make the escape debouncer global ([a3f4dbb](https://github.com/darksworm/argonaut/commit/a3f4dbb9be07751eb0ac12c1aaa51a537113c90f))
+* sync command now targets correctly selected app ([5170fb7](https://github.com/darksworm/argonaut/commit/5170fb7c34e33c37c25798e8cc26224de966413e))
+
 ## [2.3.0](https://github.com/darksworm/argonaut/compare/v2.2.0...v2.3.0) (2025-09-30)
 
 
