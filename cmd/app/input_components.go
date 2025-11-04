@@ -438,8 +438,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.Command = ""
 		m.inputComponents.ClearCommandInput()
 
-		// Reset navigation basics
-		m.state.Navigation.SelectedIdx = 0
+		// Clear UI state for all commands
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
 
@@ -698,6 +697,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
 			m.state.Selections.SelectedApps = model.NewStringSet()
+			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
 			m = m.safeChangeView(model.ViewClusters)
 			if arg != "" {
 				// Validate cluster exists
@@ -730,6 +730,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "namespace", "namespaces", "ns":
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
+			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
 			m = m.safeChangeView(model.ViewNamespaces)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			if arg != "" {
@@ -760,6 +761,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "project", "projects", "proj":
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
+			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
 			m = m.safeChangeView(model.ViewProjects)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			if arg != "" {
@@ -786,6 +788,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			return m, nil
 		case "app", "apps":
+			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
 			m = m.safeChangeView(model.ViewApps)
 			if arg != "" {
 				// Select the app and move cursor to it if found

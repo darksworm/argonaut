@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -206,11 +207,57 @@ func (m *Model) handleShowHelp() (tea.Model, tea.Cmd) {
 func (m *Model) handleSyncModal() (tea.Model, tea.Cmd) {
 	if len(m.state.Selections.SelectedApps) == 0 {
 		// If no apps selected, sync current app
+		// Get current app more reliably by checking view and bounds carefully
+		if m.state.Navigation.View != model.ViewApps {
+			// Not in apps view, cannot sync
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Navigate to apps view to sync applications"}
+			}
+		}
+
 		visibleItems := m.getVisibleItemsForCurrentView()
-		if len(visibleItems) > 0 && m.state.Navigation.SelectedIdx < len(visibleItems) {
-			if app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App); ok {
-				target := app.Name
-				m.state.Modals.ConfirmTarget = &target
+		cblog.With("component", "sync").Debug("handleSyncModal: selecting current app",
+			"selectedIdx", m.state.Navigation.SelectedIdx,
+			"visibleItemsCount", len(visibleItems),
+			"view", m.state.Navigation.View,
+			"visibleItemsNames", func() []string {
+				names := make([]string, len(visibleItems))
+				for i, item := range visibleItems {
+					if app, ok := item.(model.App); ok {
+						names[i] = app.Name
+					} else {
+						names[i] = fmt.Sprintf("%v", item)
+					}
+				}
+				return names
+			}())
+
+		// Validate bounds and selection more strictly
+		if len(visibleItems) == 0 {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "No applications visible to sync"}
+			}
+		}
+
+		// Ensure SelectedIdx is within bounds
+		selectedIdx := m.state.Navigation.SelectedIdx
+		if selectedIdx < 0 || selectedIdx >= len(visibleItems) {
+			cblog.With("component", "sync").Warn("SelectedIdx out of bounds, using 0",
+				"selectedIdx", selectedIdx,
+				"visibleItemsCount", len(visibleItems))
+			selectedIdx = 0
+		}
+
+		if app, ok := visibleItems[selectedIdx].(model.App); ok {
+			target := app.Name
+			cblog.With("component", "sync").Info("Setting sync target",
+				"targetApp", target,
+				"selectedIdx", selectedIdx,
+				"correctedIdx", selectedIdx != m.state.Navigation.SelectedIdx)
+			m.state.Modals.ConfirmTarget = &target
+		} else {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Selected item is not an application"}
 			}
 		}
 	} else {
@@ -464,6 +511,9 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.Mode = model.ModeConfirmSync
 
 		if target != nil {
+			cblog.With("component", "sync").Info("Executing sync confirmation",
+				"target", *target,
+				"isMulti", *target == "__MULTI__")
 			if *target == "__MULTI__" {
 				return m, m.syncSelectedApplications(prune)
 			} else {
