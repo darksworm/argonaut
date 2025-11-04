@@ -137,6 +137,9 @@ argonaut
 ### **Rollback**  
 <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
 
+### **Delete apps**  
+<img src="assets/argonaut_delete_apps.png" alt="Delete apps"/>
+
 ## Advanced Features
 
 ### Client certificate authentication
