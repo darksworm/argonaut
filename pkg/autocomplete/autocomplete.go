@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/theme"
 )
 
 // CommandAlias represents a command with its aliases and metadata
@@ -111,6 +112,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			Description: "Go up one level in navigation",
 			TakesArg:    false,
 			ArgType:     "",
+		},
+		{
+			Command:     "theme",
+			Aliases:     []string{"theme"},
+			Description: "Switch UI theme (built-in presets or 'custom')",
+			TakesArg:    true,
+			ArgType:     "theme",
 		},
 		{
 			Command:     "quit",
@@ -250,6 +258,8 @@ func (e *AutocompleteEngine) getArgumentSuggestions(command, argPrefix string, s
 		suggestions = e.getProjectSuggestions(argPrefix, state)
 	case "app":
 		suggestions = e.getAppSuggestions(argPrefix, state)
+	case "theme":
+		suggestions = e.getThemeSuggestions(argPrefix)
 	}
 
 	// Add command prefix to suggestions
@@ -370,6 +380,23 @@ func (e *AutocompleteEngine) getAppSuggestions(prefix string, state *model.AppSt
 
 		if strings.HasPrefix(strings.ToLower(app.Name), prefix) {
 			suggestions = append(suggestions, app.Name)
+		}
+	}
+
+	sort.Strings(suggestions)
+	return suggestions
+}
+
+// getThemeSuggestions returns available theme suggestions
+func (e *AutocompleteEngine) getThemeSuggestions(prefix string) []string {
+	var suggestions []string
+
+	// Get all built-in theme names
+	themeNames := theme.GetAvailableThemes()
+
+	for _, themeName := range themeNames {
+		if strings.HasPrefix(strings.ToLower(themeName), strings.ToLower(prefix)) {
+			suggestions = append(suggestions, themeName)
 		}
 	}
 

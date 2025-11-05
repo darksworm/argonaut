@@ -17,6 +17,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/trust"
 )
 
@@ -126,6 +127,7 @@ func main() {
 		caPathFlag     string
 		clientCertFlag string
 		clientKeyFlag  string
+		themeFlag      string
 		showVersion    bool
 		showHelp       bool
 	)
@@ -145,6 +147,8 @@ func main() {
 	// Client certificate authentication flags
 	fs.StringVar(&clientCertFlag, "client-cert", "", "Path to client certificate file (PEM format)")
 	fs.StringVar(&clientKeyFlag, "client-cert-key", "", "Path to client certificate private key file (PEM format)")
+	// Theme selection flag
+	fs.StringVar(&themeFlag, "theme", "", fmt.Sprintf("UI theme preset (%s)", strings.Join(theme.Names(), ", ")))
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
@@ -169,6 +173,22 @@ func main() {
 
 	// Set up TLS trust configuration
 	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
+
+	// Load and apply theme
+	argonautConfig, err := config.LoadArgonautConfig()
+	if err != nil {
+		cblog.With("component", "app").Warn("Could not load config, using defaults", "err", err)
+		argonautConfig = config.GetDefaultConfig()
+	}
+
+	// Override theme from CLI flag if provided
+	if themeFlag != "" {
+		argonautConfig.Appearance.Theme = themeFlag
+	}
+
+	// Apply theme colors
+	palette := theme.FromConfig(argonautConfig)
+	applyTheme(palette)
 
 	// Create the initial model
 	m := NewModel()

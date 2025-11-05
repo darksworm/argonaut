@@ -8,7 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -811,6 +813,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Show help modal
 			m.state.Mode = model.ModeHelp
 			return m, nil
+		case "theme":
+			return m.handleThemeCommand(arg)
 		case "quit", "q", "q!", "wq", "wq!", "exit":
 			// Exit the application
 			return m, func() tea.Msg { return model.QuitMsg{} }
@@ -848,6 +852,53 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.inputComponents.ClearCommandInput()
 	m.inputComponents.FocusCommandInput()
 	return m, nil
+}
+
+// handleThemeCommand handles the :theme command for switching UI themes
+func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
+	if arg == "" {
+		// Show available themes
+		themeNames := theme.GetAvailableThemes()
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Available themes: " + strings.Join(themeNames, ", ")}
+		}
+	}
+
+	// Validate theme name
+	if arg != "custom" {
+		if _, ok := theme.Get(arg); !ok {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Unknown theme: " + arg + ". Use :theme to see available themes."}
+			}
+		}
+	}
+
+	// Load current config
+	argonautConfig, err := config.LoadArgonautConfig()
+	if err != nil {
+		cblog.Warn("Could not load config, using defaults", "err", err)
+		argonautConfig = config.GetDefaultConfig()
+	}
+
+	// Update theme in config
+	argonautConfig.Appearance.Theme = arg
+
+	// Save the updated config
+	err = config.SaveArgonautConfig(argonautConfig)
+	if err != nil {
+		cblog.Error("Failed to save config", "err", err)
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Failed to save theme configuration: " + err.Error()}
+		}
+	}
+
+	// Apply the new theme
+	palette := theme.FromConfig(argonautConfig)
+	applyTheme(palette)
+
+	return m, func() tea.Msg {
+		return model.StatusChangeMsg{Status: "Theme set to " + strings.ToLower(arg) + " and saved to config"}
+	}
 }
 
 // local helpers
