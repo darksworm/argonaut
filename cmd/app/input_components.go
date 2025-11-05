@@ -444,7 +444,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
 
-		switch cmd {
+		switch canonical {
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.
@@ -891,6 +891,10 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 			selectedIndex = len(m.themeOptions) - 1
 		}
 		m.state.UI.ThemeSelectedIndex = selectedIndex
+
+		// Initialize scroll offset to show the selected theme
+		m.adjustThemeScrollOffset()
+
 		return m, nil
 	}
 

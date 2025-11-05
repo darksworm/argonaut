@@ -281,7 +281,7 @@ func TestThemeCommandAutocomplete(t *testing.T) {
 	}
 
 	// Verify expected themes are present (suggestions will have ":theme " prefix)
-	expectedThemes := []string{":theme oxocarbon", ":theme dracula", ":theme nord", ":theme gruvbox", ":theme custom"}
+	expectedThemes := []string{":theme oxocarbon", ":theme dracula", ":theme nord", ":theme gruvbox", ":theme tokyo-night", ":theme monokai"}
 	suggestionMap := make(map[string]bool)
 	for _, suggestion := range suggestions {
 		suggestionMap[suggestion] = true
