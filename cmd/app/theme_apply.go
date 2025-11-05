@@ -17,6 +17,13 @@ var (
 	mutedBG color.Color
 	shadeBG color.Color
 	darkBG  color.Color
+
+	// Derived foreground colors for themed backgrounds
+	textOnSelected       color.Color
+	textOnCursorSelected color.Color
+	textOnAccent         color.Color
+	textOnInfo           color.Color
+	textOnDanger         color.Color
 )
 
 // applyTheme updates global color variables and derived styles used
@@ -54,11 +61,20 @@ func applyTheme(p theme.Palette) {
 	unknownColor = p.Unknown
 	cyanBright = p.Info
 	whiteBright = p.Text
+	white = whiteBright
+	redColor = outOfSyncColor
 
 	// Store background colors
 	mutedBG = p.MutedBG
 	shadeBG = p.ShadeBG
 	darkBG = p.DarkBG
+
+	// Calculate high-contrast foregrounds for key backgrounds
+	textOnSelected = ensureContrastingForeground(p.SelectedBG, p.Text)
+	textOnCursorSelected = ensureContrastingForeground(p.CursorSelectedBG, textOnSelected)
+	textOnAccent = ensureContrastingForeground(p.Accent, p.Text)
+	textOnInfo = ensureContrastingForeground(p.Info, p.Text)
+	textOnDanger = ensureContrastingForeground(p.Danger, p.Text)
 
 	// Rebuild frequently used styles so they pick up new colors
 	contentBorderStyle = lipgloss.NewStyle().
@@ -68,16 +84,15 @@ func applyTheme(p theme.Palette) {
 		PaddingRight(1)
 
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(yellowBright)
-	selectedFG := ensureContrastingForeground(p.SelectedBG, p.Text)
 	selectedStyle = lipgloss.NewStyle().
 		Background(p.SelectedBG).
-		Foreground(selectedFG)
+		Foreground(textOnSelected)
 	statusStyle = lipgloss.NewStyle().Foreground(dimColor)
 
 	// TODO: Update other styles that depend on theme colors
 	cursorOnSelectedStyle = lipgloss.NewStyle().
 		Background(p.CursorSelectedBG).
-		Foreground(selectedFG)
+		Foreground(textOnCursorSelected)
 	// cursorStyle = lipgloss.NewStyle().Background(p.CursorBG)
 
 	// TODO: Propagate to tree view package when it supports themes
