@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss/v2"
-	"github.com/darksworm/argonaut/pkg/theme"
 )
 
 func (m *Model) renderHelpModal() string {
@@ -632,10 +631,12 @@ func (m *Model) renderNoDiffModal() string {
 
 // renderThemeSelectionModal renders the theme selection overlay
 func (m *Model) renderThemeSelectionModal() string {
-	themeNames := theme.GetAvailableThemes()
+	m.ensureThemeOptionsLoaded()
+	options := m.themeOptions
 
 	// Build theme list with selection highlight
 	var themeLines []string
+	var footer string
 
 	// Title
 	title := lipgloss.NewStyle().
@@ -646,7 +647,7 @@ func (m *Model) renderThemeSelectionModal() string {
 	themeLines = append(themeLines, title, "")
 
 	// Theme options with navigation hint
-	for i, themeName := range themeNames {
+	for i, opt := range options {
 		var line string
 		if i == m.state.UI.ThemeSelectedIndex {
 			// Selected theme - highlighted
@@ -654,17 +655,24 @@ func (m *Model) renderThemeSelectionModal() string {
 				Background(magentaBright).
 				Foreground(textOnAccent).
 				Padding(0, 1).
-				Render("► " + themeName)
+				Render("► " + opt.Display)
+			if opt.Warning {
+				footer = opt.WarningMessage
+				if footer == "" {
+					footer = warningIndicator + " some colors missing from custom theme"
+				}
+			}
 		} else {
 			// Unselected theme
-			line = "  " + themeName
+			line = "  " + opt.Display
 		}
 		themeLines = append(themeLines, line)
 	}
 
-	// Instructions
-	themeLines = append(themeLines, "",
-		lipgloss.NewStyle().Foreground(dimColor).Render("↑↓ Navigate • Enter Select • Esc Cancel"))
+	if footer != "" {
+		themeLines = append(themeLines, "",
+			lipgloss.NewStyle().Foreground(textOnDanger).Render(footer))
+	}
 
 	content := strings.Join(themeLines, "\n")
 
@@ -673,7 +681,7 @@ func (m *Model) renderThemeSelectionModal() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
 		Padding(1, 2).
-		Width(40).
+		Width(44).
 		AlignHorizontal(lipgloss.Left)
 
 	return modalStyle.Render(content)
