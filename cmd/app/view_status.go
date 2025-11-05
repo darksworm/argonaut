@@ -69,14 +69,17 @@ func (m *Model) renderStatusLine() string {
 		// If even that doesn't fit, rightText stays empty (removes notification entirely)
 	}
 
-	// Add Ready and position
-	readyText := "Ready"
+	// Add current status or Ready and position
+	statusText := m.statusService.GetCurrentStatus()
+	if statusText == "" {
+		statusText = "Ready"
+	}
 	if position != "" {
-		readyText += fmt.Sprintf(" • %s", position)
+		statusText += fmt.Sprintf(" • %s", position)
 	}
 
 	// Combine the full right side text
-	fullRightText := rightText + readyText
+	fullRightText := rightText + statusText
 
 	// Layout matching MainLayout justifyContent="space-between"
 	leftStyled := statusStyle.Render(leftText)

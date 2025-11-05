@@ -152,10 +152,9 @@ func applyOverrides(base Palette, overrides map[string]string) Palette {
 	return base
 }
 
-// GetAvailableThemes returns all available theme names including "custom"
+// GetAvailableThemes returns all available preset theme names
 func GetAvailableThemes() []string {
-	names := Names()
-	return append(names, "custom")
+	return Names()
 }
 
 // ValidateCustomTheme checks if a custom theme has all required colors

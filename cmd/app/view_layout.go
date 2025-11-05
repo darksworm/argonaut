@@ -138,6 +138,16 @@ func (m *Model) renderMainLayout() string {
 	baseView := mainContainerStyle.Render(content)
 
 	// Overlays
+	// Theme selection overlay
+	if m.state.Mode == model.ModeTheme {
+		modal := m.renderThemeSelectionModal()
+		baseLayer := lipgloss.NewLayer(baseView)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	// Rollback loading overlay (history load or executing rollback)
 	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && m.state.Rollback.Loading {
 		modal := m.renderRollbackLoadingModal()

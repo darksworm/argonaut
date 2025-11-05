@@ -8,7 +8,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -331,7 +333,7 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	// Note: Global escape debounce is now handled in handleKeyMsg
 	switch m.state.Mode {
-	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
+	case model.ModeSearch, model.ModeCommand, model.ModeTheme, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	default:
@@ -423,6 +425,58 @@ func (m *Model) handleSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleCommandModeKeys handles input when in command mode
 func (m *Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleEnhancedCommandModeKeys(msg)
+}
+
+// handleThemeModeKeys handles input when in theme selection mode
+func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	themeNames := theme.GetAvailableThemes()
+
+	switch msg.String() {
+	case "esc":
+		// Restore original theme when cancelled
+		if m.state.UI.ThemeOriginalName != "" {
+			m.applyThemePreview(m.state.UI.ThemeOriginalName)
+		}
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	case "up", "k":
+		if m.state.UI.ThemeSelectedIndex > 0 {
+			m.state.UI.ThemeSelectedIndex--
+			// Apply theme preview
+			selectedTheme := themeNames[m.state.UI.ThemeSelectedIndex]
+			m.applyThemePreview(selectedTheme)
+		}
+		return m, nil
+	case "down", "j":
+		if m.state.UI.ThemeSelectedIndex < len(themeNames)-1 {
+			m.state.UI.ThemeSelectedIndex++
+			// Apply theme preview
+			selectedTheme := themeNames[m.state.UI.ThemeSelectedIndex]
+			m.applyThemePreview(selectedTheme)
+		}
+		return m, nil
+	case "enter":
+		// Apply selected theme and save to config
+		selectedTheme := themeNames[m.state.UI.ThemeSelectedIndex]
+		newModel, cmd := m.handleThemeCommand(selectedTheme)
+		newModel.state.Mode = model.ModeNormal
+		return newModel, cmd
+	}
+	return m, nil
+}
+
+// applyThemePreview applies a theme temporarily for preview without saving to config
+func (m *Model) applyThemePreview(themeName string) {
+	// Create a temporary config with the preview theme
+	tempConfig := &config.ArgonautConfig{
+		Appearance: config.AppearanceConfig{
+			Theme: themeName,
+		},
+	}
+
+	// Apply the theme temporarily
+	palette := theme.FromConfig(tempConfig)
+	applyTheme(palette)
 }
 
 // handleHelpModeKeys handles input when in help mode
@@ -898,6 +952,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSearchModeKeys(msg)
 	case model.ModeCommand:
 		return m.handleCommandModeKeys(msg)
+	case model.ModeTheme:
+		return m.handleThemeModeKeys(msg)
 	case model.ModeHelp:
 		return m.handleHelpModeKeys(msg)
 	case model.ModeNoDiff:

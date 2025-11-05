@@ -857,13 +857,29 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 // handleThemeCommand handles the :theme command for switching UI themes
 func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 	if arg == "" {
-		// Show available themes directly in a readable format
-		themeNames := theme.GetAvailableThemes()
-		// Format themes with separators for better readability
-		themesFormatted := strings.Join(themeNames, " | ")
-		return m, func() tea.Msg {
-			return model.StatusChangeMsg{Status: "Available themes: " + themesFormatted}
+		// Switch to theme selection mode
+		m.state.Mode = model.ModeTheme
+
+		// Set initial selection to current theme
+		currentTheme := config.DefaultThemeName
+		if currentConfig, err := config.LoadArgonautConfig(); err == nil {
+			currentTheme = currentConfig.Appearance.Theme
 		}
+
+		// Store original theme so we can restore it if cancelled
+		m.state.UI.ThemeOriginalName = currentTheme
+
+		// Find the index of the current theme
+		themeNames := theme.GetAvailableThemes()
+		selectedIndex := 0
+		for i, themeName := range themeNames {
+			if themeName == currentTheme {
+				selectedIndex = i
+				break
+			}
+		}
+		m.state.UI.ThemeSelectedIndex = selectedIndex
+		return m, nil
 	}
 
 	// Validate theme name

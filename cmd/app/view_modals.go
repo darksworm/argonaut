@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/darksworm/argonaut/pkg/theme"
 )
 
 func (m *Model) renderHelpModal() string {
@@ -617,4 +618,53 @@ func (m *Model) renderNoDiffModal() string {
 	wrapper = wrapper.Width(w)
 	outer := lipgloss.NewStyle().Padding(1, 1)
 	return outer.Render(wrapper.Render(content))
+}
+
+// renderThemeSelectionModal renders the theme selection overlay
+func (m *Model) renderThemeSelectionModal() string {
+	themeNames := theme.GetAvailableThemes()
+
+	// Build theme list with selection highlight
+	var themeLines []string
+
+	// Title
+	title := lipgloss.NewStyle().
+		Foreground(yellowBright).
+		Bold(true).
+		Render("Select Theme")
+
+	themeLines = append(themeLines, title, "")
+
+	// Theme options with navigation hint
+	for i, themeName := range themeNames {
+		var line string
+		if i == m.state.UI.ThemeSelectedIndex {
+			// Selected theme - highlighted
+			line = lipgloss.NewStyle().
+				Background(magentaBright).
+				Foreground(white).
+				Padding(0, 1).
+				Render("► " + themeName)
+		} else {
+			// Unselected theme
+			line = "  " + themeName
+		}
+		themeLines = append(themeLines, line)
+	}
+
+	// Instructions
+	themeLines = append(themeLines, "",
+		lipgloss.NewStyle().Foreground(dimColor).Render("↑↓ Navigate • Enter Select • Esc Cancel"))
+
+	content := strings.Join(themeLines, "\n")
+
+	// Modal styling
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Padding(1, 2).
+		Width(40).
+		AlignHorizontal(lipgloss.Left)
+
+	return modalStyle.Render(content)
 }

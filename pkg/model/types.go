@@ -23,6 +23,7 @@ const (
 	ModeLoading         Mode = "loading"
 	ModeSearch          Mode = "search"
 	ModeCommand         Mode = "command"
+	ModeTheme           Mode = "theme"
 	ModeHelp            Mode = "help"
 	ModeConfirmSync     Mode = "confirm-sync"
 	ModeRollback        Mode = "rollback"
