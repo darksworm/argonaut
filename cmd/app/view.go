@@ -1,17 +1,17 @@
 package main
 
 import (
-    "fmt"
-    "image/color"
-    "os"
-    "regexp"
-    "strings"
-    "time"
+	"fmt"
+	"image/color"
+	"os"
+	"regexp"
+	"strings"
+	"time"
 
-    tea "github.com/charmbracelet/bubbletea/v2"
-    "github.com/charmbracelet/lipgloss/v2"
-    cblog "github.com/charmbracelet/log"
-    "github.com/darksworm/argonaut/pkg/model"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
+	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -266,50 +266,50 @@ const (
 
 // View implements tea.Model.View - 1:1 mapping from React App.tsx
 func (m *Model) View() tea.View {
-    m.renderCount++
-    cblog.With("component", "view").Debug("View() called",
-        "render_count", m.renderCount,
-        "mode", m.state.Mode,
-        "view", m.state.Navigation.View,
-        "apps_count", len(m.state.Apps))
+	m.renderCount++
+	cblog.With("component", "view").Debug("View() called",
+		"render_count", m.renderCount,
+		"mode", m.state.Mode,
+		"view", m.state.Navigation.View,
+		"apps_count", len(m.state.Apps))
 
-    var content string
-    // Don't show plain "Starting..." - let renderMainLayout handle the loading modal
-    if !m.ready && m.state.Mode != model.ModeNormal {
-        content = statusStyle.Render("Starting…")
-    } else {
-        // Map React App.tsx switch statement exactly
-        switch m.state.Mode {
-        case model.ModeLoading:
-            // Show regular layout with the initial loading modal overlay instead of a separate loading view
-            content = m.renderMainLayout()
-        case model.ModeAuthRequired:
-            content = m.renderAuthRequiredView()
-        case model.ModeHelp:
-            content = m.renderHelpModal()
-        case model.ModeRollback:
-            content = m.renderRollbackModal()
-        case model.ModeConfirmAppDelete:
-            content = m.renderMainLayout()
-        case model.ModeExternal:
-            content = ""
-        case model.ModeDiff:
-            content = m.renderDiffView()
-        case model.ModeRulerLine:
-            content = m.renderOfficeSupplyManager()
-        case model.ModeError:
-            content = m.renderErrorView()
-        case model.ModeConnectionError:
-            content = m.renderConnectionErrorView()
-        default:
-            content = m.renderMainLayout()
-        }
-    }
+	var content string
+	// Don't show plain "Starting..." - let renderMainLayout handle the loading modal
+	if !m.ready && m.state.Mode != model.ModeNormal {
+		content = statusStyle.Render("Starting…")
+	} else {
+		// Map React App.tsx switch statement exactly
+		switch m.state.Mode {
+		case model.ModeLoading:
+			// Show regular layout with the initial loading modal overlay instead of a separate loading view
+			content = m.renderMainLayout()
+		case model.ModeAuthRequired:
+			content = m.renderAuthRequiredView()
+		case model.ModeHelp:
+			content = m.renderHelpModal()
+		case model.ModeRollback:
+			content = m.renderRollbackModal()
+		case model.ModeConfirmAppDelete:
+			content = m.renderMainLayout()
+		case model.ModeExternal:
+			content = ""
+		case model.ModeDiff:
+			content = m.renderDiffView()
+		case model.ModeRulerLine:
+			content = m.renderOfficeSupplyManager()
+		case model.ModeError:
+			content = m.renderErrorView()
+		case model.ModeConnectionError:
+			content = m.renderConnectionErrorView()
+		default:
+			content = m.renderMainLayout()
+		}
+	}
 
-    v := tea.NewView(content)
-    v.AltScreen = true
-    v.MouseMode = tea.MouseModeCellMotion
-    return v
+	v := tea.NewView(content)
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
 }
 
 // countLines returns the number of lines in a rendered string
@@ -555,14 +555,14 @@ func (m *Model) getVisibleItems() []interface{} {
 		for _, pj := range projs {
 			base = append(base, pj)
 		}
-    case model.ViewApps:
-        // Ensure consistent, stable ordering by app name without mutating state
-        appsCopy := make([]model.App, len(apps))
-        copy(appsCopy, apps)
-        sortApps(appsCopy)
-        for _, app := range appsCopy {
-            base = append(base, app)
-        }
+	case model.ViewApps:
+		// Ensure consistent, stable ordering by app name without mutating state
+		appsCopy := make([]model.App, len(apps))
+		copy(appsCopy, apps)
+		sortApps(appsCopy)
+		for _, app := range appsCopy {
+			base = append(base, app)
+		}
 	default:
 		// No-op
 	}
@@ -620,13 +620,13 @@ func sortStrings(items []string) {
 
 // sortApps sorts a slice of apps by Name (lexicographically, in-place)
 func sortApps(items []model.App) {
-    for i := 1; i < len(items); i++ {
-        j := i
-        for j > 0 && items[j-1].Name > items[j].Name {
-            items[j-1], items[j] = items[j], items[j-1]
-            j--
-        }
-    }
+	for i := 1; i < len(items); i++ {
+		j := i
+		for j > 0 && items[j-1].Name > items[j].Name {
+			items[j-1], items[j] = items[j], items[j-1]
+			j--
+		}
+	}
 }
 func (m *Model) renderAuthRequiredView() string {
 	serverText := "—"
@@ -651,7 +651,7 @@ func (m *Model) renderAuthRequiredView() string {
 	// Auth header with background styling
 	authHeaderStyled := lipgloss.NewStyle().
 		Background(outOfSyncColor).
-		Foreground(lipgloss.Color("15")).
+		Foreground(textOnDanger).
 		Bold(true).
 		Render(" AUTHENTICATION REQUIRED ")
 	authHeaderCentered := lipgloss.NewStyle().
@@ -722,8 +722,10 @@ func (m *Model) renderConfirmSyncModal() string {
 	}
 
 	// Buttons: highlight selected using stronger contrast
-	active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactiveBG := lipgloss.Color("238")
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
 	yesBtn := inactive.Render("Yes")
 	cancelBtn := inactive.Render("Cancel")
 	if m.state.Modals.ConfirmSyncSelected == 0 {
@@ -1243,8 +1245,10 @@ func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerH
 		opts.WriteString(dim.Render("No"))
 	}
 	// Build inner confirmation modal (bordered) with title
-	active := lipgloss.NewStyle().Background(magentaBright).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactiveBG := lipgloss.Color("238")
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
 	yesBtn := inactive.Render("Yes")
 	noBtn := inactive.Render("No")
 	if rollback.ConfirmSelected == 0 {

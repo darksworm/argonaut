@@ -14,8 +14,10 @@ func (m *Model) renderHelpModal() string {
 	isWide := m.state.Terminal.Cols >= 60
 
 	// Small keycap style to make keys pop
+	keycapBG := lipgloss.Color("238")
+	keycapFG := ensureContrastingForeground(keycapBG, whiteBright)
 	keycap := func(s string) string {
-		return lipgloss.NewStyle().Foreground(whiteBright).Background(lipgloss.Color("238")).Padding(0, 1).Render(s)
+		return lipgloss.NewStyle().Background(keycapBG).Foreground(keycapFG).Padding(0, 1).Render(s)
 	}
 	mono := func(s string) string { return lipgloss.NewStyle().Foreground(cyanBright).Render(s) }
 	bullet := func() string { return lipgloss.NewStyle().Foreground(dimColor).Render("•") }
@@ -79,11 +81,13 @@ func (m *Model) renderHelpModal() string {
 
 func (m *Model) renderDiffLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
+	spinnerBG := lipgloss.Color("0")
+	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
-		Background(lipgloss.Color("0")).
-		Foreground(whiteBright).
+		Background(spinnerBG).
+		Foreground(spinnerFG).
 		Padding(1, 2).
 		Bold(true).
 		Align(lipgloss.Center)
@@ -94,11 +98,13 @@ func (m *Model) renderDiffLoadingSpinner() string {
 // renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
 func (m *Model) renderTreeLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
+	spinnerBG := lipgloss.Color("0")
+	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
-		Background(lipgloss.Color("0")).
-		Foreground(whiteBright).
+		Background(spinnerBG).
+		Foreground(spinnerFG).
 		Padding(1, 2).
 		Bold(true).
 		Align(lipgloss.Center)
@@ -338,27 +344,29 @@ func (m *Model) renderUpgradeConfirmModal() string {
 		Width(12).
 		AlignHorizontal(lipgloss.Center)
 
+	neutralBG := lipgloss.Color("236")
+	neutralFG := ensureContrastingForeground(neutralBG, dimColor)
 	var upgradeButton, cancelButton string
 	if m.state.Modals.UpgradeSelected == 0 {
 		// Upgrade button selected
 		upgradeButton = baseButtonStyle.Copy().
 			Background(cyanBright).
-			Foreground(black).
+			Foreground(textOnInfo).
 			Bold(true).
 			Render("Upgrade")
 		cancelButton = baseButtonStyle.Copy().
-			Background(lipgloss.Color("236")).
-			Foreground(dimColor).
+			Background(neutralBG).
+			Foreground(neutralFG).
 			Render("Cancel")
 	} else {
 		// Cancel button selected
 		upgradeButton = baseButtonStyle.Copy().
-			Background(lipgloss.Color("236")).
-			Foreground(dimColor).
+			Background(neutralBG).
+			Foreground(neutralFG).
 			Render("Upgrade")
 		cancelButton = baseButtonStyle.Copy().
 			Background(redColor).
-			Foreground(white).
+			Foreground(textOnDanger).
 			Bold(true).
 			Render("Cancel")
 	}
@@ -518,8 +526,10 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 	}
 
 	// Delete button shows confirmation requirement and state
-	active := lipgloss.NewStyle().Background(outOfSyncColor).Foreground(whiteBright).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(whiteBright).Padding(0, 2)
+	inactiveBG := lipgloss.Color("238")
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(outOfSyncColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
 
 	var deleteBtn string
 	if m.state.Modals.DeleteConfirmationKey == "y" || m.state.Modals.DeleteConfirmationKey == "Y" {
@@ -642,7 +652,7 @@ func (m *Model) renderThemeSelectionModal() string {
 			// Selected theme - highlighted
 			line = lipgloss.NewStyle().
 				Background(magentaBright).
-				Foreground(white).
+				Foreground(textOnAccent).
 				Padding(0, 1).
 				Render("► " + themeName)
 		} else {

@@ -44,9 +44,11 @@ func (m *Model) renderStatusLine() string {
 		available := max(0, m.state.Terminal.Cols-2)
 
 		// Progressive text shortening based on available space
+		upgradeBG := lipgloss.Color("240")
+		upgradeFG := ensureContrastingForeground(upgradeBG, whiteBright)
 		upgradeCmd := lipgloss.NewStyle().
-			Background(lipgloss.Color("240")).
-			Foreground(whiteBright).
+			Background(upgradeBG).
+			Foreground(upgradeFG).
 			Render(":upgrade")
 
 		// Calculate base width (left text + ready + position + spacing)
@@ -57,11 +59,11 @@ func (m *Model) renderStatusLine() string {
 
 		remainingSpace := available - baseWidth
 
-		if remainingSpace >= len("New version available, run ") + 10 { // +10 for styled command
+		if remainingSpace >= len("New version available, run ")+10 { // +10 for styled command
 			rightText = fmt.Sprintf("New version available, run %s • ", upgradeCmd)
-		} else if remainingSpace >= len("please ") + 10 {
+		} else if remainingSpace >= len("please ")+10 {
 			rightText = fmt.Sprintf("please %s • ", upgradeCmd)
-		} else if remainingSpace >= len("pls ") + 10 {
+		} else if remainingSpace >= len("pls ")+10 {
 			rightText = fmt.Sprintf("pls %s • ", upgradeCmd)
 		} else if remainingSpace >= 10 {
 			rightText = fmt.Sprintf("%s • ", upgradeCmd)
