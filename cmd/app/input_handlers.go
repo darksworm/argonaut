@@ -446,6 +446,10 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.state.UI.ThemeOriginalName != "" {
 			m.applyThemePreview(m.state.UI.ThemeOriginalName)
 		}
+		// Clear command state if any
+		m.inputComponents.BlurInputs()
+		m.inputComponents.ClearCommandInput()
+		m.state.UI.Command = ""
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	case "up", "k":
@@ -467,6 +471,10 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 		newModel, cmd := m.handleThemeCommand(selectedTheme)
+		// Clear command state if any
+		newModel.inputComponents.BlurInputs()
+		newModel.inputComponents.ClearCommandInput()
+		newModel.state.UI.Command = ""
 		newModel.state.Mode = model.ModeNormal
 		return newModel, cmd
 	}
