@@ -857,10 +857,12 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 // handleThemeCommand handles the :theme command for switching UI themes
 func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 	if arg == "" {
-		// Show available themes
+		// Show available themes directly in a readable format
 		themeNames := theme.GetAvailableThemes()
+		// Format themes with separators for better readability
+		themesFormatted := strings.Join(themeNames, " | ")
 		return m, func() tea.Msg {
-			return model.StatusChangeMsg{Status: "Available themes: " + strings.Join(themeNames, ", ")}
+			return model.StatusChangeMsg{Status: "Available themes: " + themesFormatted}
 		}
 	}
 
@@ -868,7 +870,7 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 	if arg != "custom" {
 		if _, ok := theme.Get(arg); !ok {
 			return m, func() tea.Msg {
-				return model.StatusChangeMsg{Status: "Unknown theme: " + arg + ". Use :theme to see available themes."}
+				return model.StatusChangeMsg{Status: "Unknown theme: " + arg + ". Type ':theme' to see available themes."}
 			}
 		}
 	}
