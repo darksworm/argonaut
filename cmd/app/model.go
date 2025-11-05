@@ -245,7 +245,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Start consuming events
 		return m, tea.Batch(
 			m.consumeWatchEvent(),
-			func() tea.Msg { return model.StatusChangeMsg{Status: "Watching for changes..."} },
 		)
 
 	// API Event messages

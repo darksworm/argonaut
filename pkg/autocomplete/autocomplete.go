@@ -116,7 +116,7 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 		},
 		{
 			Command:     "theme",
-			Aliases:     []string{"theme"},
+			Aliases:     []string{"theme", "themes"},
 			Description: "Switch UI theme (built-in presets or 'custom')",
 			TakesArg:    true,
 			ArgType:     "theme",
