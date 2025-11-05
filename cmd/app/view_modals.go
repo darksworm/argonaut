@@ -656,26 +656,29 @@ func (m *Model) renderThemeSelectionModal() string {
 
 	themeLines = append(themeLines, title, "")
 
+	// Always reserve space for scroll indicators to keep popup size consistent
+	scrollIndicatorLines := 0
+	if len(options) > maxThemeLines {
+		scrollIndicatorLines = 2 // Reserve space for both up and down indicators
+	}
+
+	availableLines := maxThemeLines - scrollIndicatorLines
+
 	// Calculate visible range with scrolling
 	startIdx := m.state.UI.ThemeScrollOffset
-	endIdx := min(len(options), startIdx+maxThemeLines)
+	endIdx := min(len(options), startIdx+availableLines)
 
 	// Show scroll indicators if needed
 	showUpIndicator := startIdx > 0
 	showDownIndicator := endIdx < len(options)
 
-	// Adjust available lines if we need scroll indicators
-	availableLines := maxThemeLines
+	// Add up indicator if needed
 	if showUpIndicator {
-		availableLines--
 		themeLines = append(themeLines, lipgloss.NewStyle().Foreground(cyanBright).Render("  ▲ more themes above"))
+	} else if scrollIndicatorLines > 0 {
+		// Add empty line to maintain consistent spacing
+		themeLines = append(themeLines, "")
 	}
-	if showDownIndicator {
-		availableLines--
-	}
-
-	// Recalculate end index based on available lines
-	endIdx = min(len(options), startIdx+availableLines)
 
 	// Theme options with navigation hint
 	for i := startIdx; i < endIdx; i++ {
@@ -715,6 +718,9 @@ func (m *Model) renderThemeSelectionModal() string {
 	// Show down indicator after themes
 	if showDownIndicator {
 		themeLines = append(themeLines, lipgloss.NewStyle().Foreground(cyanBright).Render("  ▼ more themes below"))
+	} else if scrollIndicatorLines > 0 {
+		// Add empty line to maintain consistent spacing
+		themeLines = append(themeLines, "")
 	}
 
 	if footer != "" {
