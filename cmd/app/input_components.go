@@ -868,6 +868,11 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 	m.themeOptions = buildThemeOptions(argonautConfig.Custom)
 
 	if arg == "" {
+		// Clear command input state first
+		m.inputComponents.BlurInputs()
+		m.inputComponents.ClearCommandInput()
+		m.state.UI.Command = ""
+
 		// Switch to theme selection mode
 		m.state.Mode = model.ModeTheme
 

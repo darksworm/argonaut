@@ -87,6 +87,13 @@ func (tf *TUITestFramework) SetupWorkspace() (string, error) {
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return "", err
 	}
+
+	// Also ensure ~/.config/argonaut exists for isolated Argonaut config
+	argonautCfgDir := filepath.Join(dir, ".config", "argonaut")
+	if err := os.MkdirAll(argonautCfgDir, 0o755); err != nil {
+		return "", err
+	}
+
 	return filepath.Join(cfgDir, "config"), nil
 }
 
@@ -114,6 +121,9 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 		"LANG=C",
 		"HOME="+tf.workspace,
 		"ARGONAUT_E2E=1",
+		// Force isolated Argonaut config - clear any inherited config paths
+		"ARGONAUT_CONFIG="+filepath.Join(tf.workspace, ".config", "argonaut", "config.toml"),
+		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
 	)
 	env = append(env, extraEnv...)
 	tf.cmd.Env = env
