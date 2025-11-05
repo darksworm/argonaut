@@ -71,11 +71,8 @@ func (m *Model) renderStatusLine() string {
 		// If even that doesn't fit, rightText stays empty (removes notification entirely)
 	}
 
-	// Add current status or Ready and position
-	statusText := m.statusService.GetCurrentStatus()
-	if statusText == "" {
-		statusText = "Ready"
-	}
+	// Always show Ready, ignore status messages
+	statusText := "Ready"
 	if position != "" {
 		statusText += fmt.Sprintf(" • %s", position)
 	}
