@@ -441,7 +441,7 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "esc":
+	case "esc", "q":
 		// Restore original theme when cancelled
 		if m.state.UI.ThemeOriginalName != "" {
 			m.applyThemePreview(m.state.UI.ThemeOriginalName)
@@ -451,6 +451,7 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.state.UI.ThemeSelectedIndex > 0 {
 			m.state.UI.ThemeSelectedIndex--
+			m.adjustThemeScrollOffset()
 			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 			m.applyThemePreview(selectedTheme)
 		}
@@ -458,6 +459,7 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		if m.state.UI.ThemeSelectedIndex < len(m.themeOptions)-1 {
 			m.state.UI.ThemeSelectedIndex++
+			m.adjustThemeScrollOffset()
 			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 			m.applyThemePreview(selectedTheme)
 		}
@@ -484,6 +486,48 @@ func (m *Model) applyThemePreview(themeName string) {
 	// Apply the theme temporarily
 	palette := theme.FromConfig(tempConfig)
 	applyTheme(palette)
+}
+
+// adjustThemeScrollOffset adjusts the scroll offset to keep the selected theme visible
+func (m *Model) adjustThemeScrollOffset() {
+	// Calculate available height for themes (same logic as in renderThemeSelectionModal)
+	headerLines := 2      // title + blank line
+	borderLines := 4      // top + bottom border + padding
+	footerLines := 2      // potential warning message + blank line
+	statusLine := 1       // status line at bottom
+	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
+
+	// Ensure we have a reasonable minimum height
+	maxThemeLines := max(5, maxAvailableHeight)
+
+	// Reserve 2 lines for scroll indicators (up and down) when needed
+	availableLines := maxThemeLines - 2
+
+	selectedIndex := m.state.UI.ThemeSelectedIndex
+	totalOptions := len(m.themeOptions)
+
+	// If all themes fit on screen, no scrolling needed
+	if totalOptions <= maxThemeLines {
+		m.state.UI.ThemeScrollOffset = 0
+		return
+	}
+
+	// Calculate the ideal scroll offset to keep the selected item visible
+	// Try to center the selected item, but adjust if near the boundaries
+	idealOffset := selectedIndex - availableLines/2
+
+	// Ensure we don't scroll past the beginning
+	if idealOffset < 0 {
+		idealOffset = 0
+	}
+
+	// Ensure we don't scroll past the end
+	maxScrollOffset := totalOptions - availableLines
+	if idealOffset > maxScrollOffset {
+		idealOffset = maxScrollOffset
+	}
+
+	m.state.UI.ThemeScrollOffset = idealOffset
 }
 
 // handleHelpModeKeys handles input when in help mode

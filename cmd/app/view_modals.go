@@ -634,7 +634,17 @@ func (m *Model) renderThemeSelectionModal() string {
 	m.ensureThemeOptionsLoaded()
 	options := m.themeOptions
 
-	// Build theme list with selection highlight
+	// Calculate available height for themes (subtract header, footer, borders, etc.)
+	headerLines := 2      // title + blank line
+	borderLines := 4      // top + bottom border + padding
+	footerLines := 2      // potential warning message + blank line
+	statusLine := 1       // status line at bottom
+	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
+
+	// Ensure we have a reasonable minimum height
+	maxThemeLines := max(5, maxAvailableHeight)
+
+	// Build theme list with selection highlight and scrolling
 	var themeLines []string
 	var footer string
 
@@ -646,16 +656,42 @@ func (m *Model) renderThemeSelectionModal() string {
 
 	themeLines = append(themeLines, title, "")
 
+	// Calculate visible range with scrolling
+	startIdx := m.state.UI.ThemeScrollOffset
+	endIdx := min(len(options), startIdx+maxThemeLines)
+
+	// Show scroll indicators if needed
+	showUpIndicator := startIdx > 0
+	showDownIndicator := endIdx < len(options)
+
+	// Adjust available lines if we need scroll indicators
+	availableLines := maxThemeLines
+	if showUpIndicator {
+		availableLines--
+		themeLines = append(themeLines, lipgloss.NewStyle().Foreground(cyanBright).Render("  ▲ more themes above"))
+	}
+	if showDownIndicator {
+		availableLines--
+	}
+
+	// Recalculate end index based on available lines
+	endIdx = min(len(options), startIdx+availableLines)
+
 	// Theme options with navigation hint
-	for i, opt := range options {
+	for i := startIdx; i < endIdx; i++ {
+		opt := options[i]
 		var line string
 		if i == m.state.UI.ThemeSelectedIndex {
 			// Selected theme - highlighted
+			displayText := opt.Display
+			if opt.Name == "custom" {
+				displayText = "★ " + opt.Display
+			}
 			line = lipgloss.NewStyle().
 				Background(magentaBright).
 				Foreground(textOnAccent).
 				Padding(0, 1).
-				Render("► " + opt.Display)
+				Render("► " + displayText)
 			if opt.Warning {
 				footer = opt.WarningMessage
 				if footer == "" {
@@ -663,10 +699,22 @@ func (m *Model) renderThemeSelectionModal() string {
 				}
 			}
 		} else {
-			// Unselected theme
-			line = "  " + opt.Display
+			// Unselected theme - emphasize custom theme if present
+			if opt.Name == "custom" {
+				line = lipgloss.NewStyle().
+					Foreground(yellowBright).
+					Bold(true).
+					Render("  ★ " + opt.Display)
+			} else {
+				line = "  " + opt.Display
+			}
 		}
 		themeLines = append(themeLines, line)
+	}
+
+	// Show down indicator after themes
+	if showDownIndicator {
+		themeLines = append(themeLines, lipgloss.NewStyle().Foreground(cyanBright).Render("  ▼ more themes below"))
 	}
 
 	if footer != "" {

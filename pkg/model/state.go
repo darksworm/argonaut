@@ -95,6 +95,7 @@ type UIState struct {
 	CommandInputKey     int         `json:"commandInputKey"`
 	TreeAppName         *string     `json:"treeAppName,omitempty"`
 	ThemeSelectedIndex  int         `json:"themeSelectedIndex"`
+	ThemeScrollOffset   int         `json:"themeScrollOffset"`
 	ThemeOriginalName   string      `json:"themeOriginalName,omitempty"`
 }
 
