@@ -429,7 +429,16 @@ func (m *Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleThemeModeKeys handles input when in theme selection mode
 func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	themeNames := theme.GetAvailableThemes()
+	m.ensureThemeOptionsLoaded()
+
+	if len(m.themeOptions) == 0 {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	if m.state.UI.ThemeSelectedIndex >= len(m.themeOptions) {
+		m.state.UI.ThemeSelectedIndex = len(m.themeOptions) - 1
+	}
 
 	switch msg.String() {
 	case "esc":
@@ -442,22 +451,19 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.state.UI.ThemeSelectedIndex > 0 {
 			m.state.UI.ThemeSelectedIndex--
-			// Apply theme preview
-			selectedTheme := themeNames[m.state.UI.ThemeSelectedIndex]
+			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 			m.applyThemePreview(selectedTheme)
 		}
 		return m, nil
 	case "down", "j":
-		if m.state.UI.ThemeSelectedIndex < len(themeNames)-1 {
+		if m.state.UI.ThemeSelectedIndex < len(m.themeOptions)-1 {
 			m.state.UI.ThemeSelectedIndex++
-			// Apply theme preview
-			selectedTheme := themeNames[m.state.UI.ThemeSelectedIndex]
+			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 			m.applyThemePreview(selectedTheme)
 		}
 		return m, nil
 	case "enter":
-		// Apply selected theme and save to config
-		selectedTheme := themeNames[m.state.UI.ThemeSelectedIndex]
+		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 		newModel, cmd := m.handleThemeCommand(selectedTheme)
 		newModel.state.Mode = model.ModeNormal
 		return newModel, cmd
@@ -472,6 +478,7 @@ func (m *Model) applyThemePreview(themeName string) {
 		Appearance: config.AppearanceConfig{
 			Theme: themeName,
 		},
+		Custom: m.customTheme,
 	}
 
 	// Apply the theme temporarily
@@ -1114,8 +1121,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNavigationUp()
 	case "down", "j":
 		return m.handleNavigationDown()
-    case " ", "space":
-        return m.handleToggleSelection()
+	case " ", "space":
+		return m.handleToggleSelection()
 	case "enter":
 		return m.handleDrillDown()
 	case "/":

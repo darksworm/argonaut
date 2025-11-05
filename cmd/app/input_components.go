@@ -699,7 +699,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
 			m.state.Selections.SelectedApps = model.NewStringSet()
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewClusters)
 			if arg != "" {
 				// Validate cluster exists
@@ -732,7 +732,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "namespace", "namespaces", "ns":
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewNamespaces)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			if arg != "" {
@@ -763,7 +763,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "project", "projects", "proj":
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewProjects)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			if arg != "" {
@@ -790,7 +790,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			return m, nil
 		case "app", "apps":
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewApps)
 			if arg != "" {
 				// Select the app and move cursor to it if found
@@ -856,33 +856,45 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 
 // handleThemeCommand handles the :theme command for switching UI themes
 func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
+	// Load current config for both selection and application paths
+	argonautConfig, err := config.LoadArgonautConfig()
+	if err != nil {
+		cblog.Warn("Could not load config, using defaults", "err", err)
+		argonautConfig = config.GetDefaultConfig()
+	}
+
+	// Keep cached custom theme details in sync
+	m.customTheme = argonautConfig.Custom
+	m.themeOptions = buildThemeOptions(argonautConfig.Custom)
+
 	if arg == "" {
 		// Switch to theme selection mode
 		m.state.Mode = model.ModeTheme
 
 		// Set initial selection to current theme
-		currentTheme := config.DefaultThemeName
-		if currentConfig, err := config.LoadArgonautConfig(); err == nil {
-			currentTheme = currentConfig.Appearance.Theme
+		currentTheme := argonautConfig.Appearance.Theme
+		if currentTheme == "" {
+			currentTheme = config.DefaultThemeName
 		}
 
 		// Store original theme so we can restore it if cancelled
 		m.state.UI.ThemeOriginalName = currentTheme
 
-		// Find the index of the current theme
-		themeNames := theme.GetAvailableThemes()
 		selectedIndex := 0
-		for i, themeName := range themeNames {
-			if themeName == currentTheme {
+		for i, option := range m.themeOptions {
+			if option.Name == currentTheme {
 				selectedIndex = i
 				break
 			}
+		}
+		if len(m.themeOptions) > 0 && selectedIndex >= len(m.themeOptions) {
+			selectedIndex = len(m.themeOptions) - 1
 		}
 		m.state.UI.ThemeSelectedIndex = selectedIndex
 		return m, nil
 	}
 
-	// Validate theme name
+	// Validate theme name when invoked outside the picker
 	if arg != "custom" {
 		if _, ok := theme.Get(arg); !ok {
 			return m, func() tea.Msg {
@@ -891,32 +903,22 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 		}
 	}
 
-	// Load current config
-	argonautConfig, err := config.LoadArgonautConfig()
-	if err != nil {
-		cblog.Warn("Could not load config, using defaults", "err", err)
-		argonautConfig = config.GetDefaultConfig()
-	}
-
 	// Update theme in config
 	argonautConfig.Appearance.Theme = arg
 
 	// Save the updated config
-	err = config.SaveArgonautConfig(argonautConfig)
-	if err != nil {
+	if err := config.SaveArgonautConfig(argonautConfig); err != nil {
 		cblog.Error("Failed to save config", "err", err)
 		return m, func() tea.Msg {
 			return model.StatusChangeMsg{Status: "Failed to save theme configuration: " + err.Error()}
 		}
 	}
 
-	// Apply the new theme
+	// Apply the new theme immediately
 	palette := theme.FromConfig(argonautConfig)
 	applyTheme(palette)
 
-	return m, func() tea.Msg {
-		return model.StatusChangeMsg{Status: "Theme set to " + strings.ToLower(arg) + " and saved to config"}
-	}
+	return m, nil
 }
 
 // local helpers

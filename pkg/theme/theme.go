@@ -2,6 +2,8 @@ package theme
 
 import (
 	"image/color"
+	"sort"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/config"
@@ -155,6 +157,58 @@ func applyOverrides(base Palette, overrides map[string]string) Palette {
 // GetAvailableThemes returns all available preset theme names
 func GetAvailableThemes() []string {
 	return Names()
+}
+
+// CustomThemeAnalysis summarizes coverage of user-defined custom theme colors.
+type CustomThemeAnalysis struct {
+	Defined int
+	Total   int
+	Missing []string
+}
+
+// HasAny reports whether the custom theme defines at least one color.
+func (a CustomThemeAnalysis) HasAny() bool {
+	return a.Defined > 0
+}
+
+// Complete reports whether the custom theme defines all required colors.
+func (a CustomThemeAnalysis) Complete() bool {
+	return a.Defined == a.Total && a.Total > 0
+}
+
+// AnalyzeCustomTheme inspects a custom theme for missing color values.
+func AnalyzeCustomTheme(custom config.CustomTheme) CustomThemeAnalysis {
+	fields := map[string]string{
+		"accent":             custom.Accent,
+		"warning":            custom.Warning,
+		"dim":                custom.Dim,
+		"success":            custom.Success,
+		"danger":             custom.Danger,
+		"progress":           custom.Progress,
+		"unknown":            custom.Unknown,
+		"info":               custom.Info,
+		"text":               custom.Text,
+		"gray":               custom.Gray,
+		"selected_bg":        custom.SelectedBG,
+		"cursor_selected_bg": custom.CursorSelectedBG,
+		"cursor_bg":          custom.CursorBG,
+		"border":             custom.Border,
+		"muted_bg":           custom.MutedBG,
+		"shade_bg":           custom.ShadeBG,
+		"dark_bg":            custom.DarkBG,
+	}
+
+	analysis := CustomThemeAnalysis{Total: len(fields)}
+	for name, value := range fields {
+		if strings.TrimSpace(value) == "" {
+			analysis.Missing = append(analysis.Missing, name)
+			continue
+		}
+		analysis.Defined++
+	}
+
+	sort.Strings(analysis.Missing)
+	return analysis
 }
 
 // ValidateCustomTheme checks if a custom theme has all required colors
