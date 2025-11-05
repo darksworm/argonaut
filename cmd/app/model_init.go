@@ -73,7 +73,6 @@ func (m *Model) Init() tea.Cmd {
 	}
 
 	cmds = append(cmds,
-		func() tea.Msg { return model.StatusChangeMsg{Status: "Initializing..."} },
 		// Validate authentication if server is configured
 		m.validateAuthentication(),
 		// Start periodic update check (delayed)
