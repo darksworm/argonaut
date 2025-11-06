@@ -146,6 +146,7 @@ var presets = map[string]Palette{
 		MutedBG: lipgloss.Color("#262626"), ShadeBG: lipgloss.Color("#393939"), DarkBG: lipgloss.Color("#161616"),
 	},
 
+
 	// Special: use ANSI colors to honor the user's terminal palette
 	"inherit-terminal": {
 		Accent: lipgloss.Color("13"), Warning: lipgloss.Color("11"), Dim: lipgloss.Color("8"), Success: lipgloss.Color("10"), Danger: lipgloss.Color("9"),

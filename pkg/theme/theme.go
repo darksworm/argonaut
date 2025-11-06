@@ -39,28 +39,46 @@ type Palette struct {
 	DarkBG  color.Color // dark panel background when needed
 }
 
+// NewPalette creates a new palette with all required colors.
+// This function enforces that all color fields are provided at compile time.
+func NewPalette(
+	accent, warning, dim color.Color,
+	success, danger, progress, unknown color.Color,
+	info, text, gray color.Color,
+	selectedBG, cursorSelectedBG, cursorBG, border color.Color,
+	mutedBG, shadeBG, darkBG color.Color,
+) Palette {
+	return Palette{
+		Accent:           accent,
+		Warning:          warning,
+		Dim:             dim,
+		Success:         success,
+		Danger:          danger,
+		Progress:        progress,
+		Unknown:         unknown,
+		Info:            info,
+		Text:            text,
+		Gray:            gray,
+		SelectedBG:      selectedBG,
+		CursorSelectedBG: cursorSelectedBG,
+		CursorBG:        cursorBG,
+		Border:          border,
+		MutedBG:         mutedBG,
+		ShadeBG:         shadeBG,
+		DarkBG:          darkBG,
+	}
+}
+
 // Default returns the stock palette matching the previous hardcoded colors.
 // This is kept for backward compatibility and as a fallback.
 func Default() Palette {
-	return Palette{
-		Accent:           lipgloss.Color("13"), // magentaBright
-		Warning:          lipgloss.Color("11"),
-		Dim:              lipgloss.Color("8"),
-		Success:          lipgloss.Color("10"),
-		Danger:           lipgloss.Color("9"),
-		Progress:         lipgloss.Color("11"),
-		Unknown:          lipgloss.Color("8"),
-		Info:             lipgloss.Color("14"),
-		Text:             lipgloss.Color("15"),
-		Gray:             lipgloss.Color("8"),
-		SelectedBG:       lipgloss.Color("13"), // same as Accent by default
-		CursorSelectedBG: lipgloss.Color("14"), // cyan
-		CursorBG:         lipgloss.Color("14"), // cyan by default
-		Border:           lipgloss.Color("13"),
-		MutedBG:          lipgloss.Color("238"),
-		ShadeBG:          lipgloss.Color("240"),
-		DarkBG:           lipgloss.Color("0"),
-	}
+	return NewPalette(
+		lipgloss.Color("13"), lipgloss.Color("11"), lipgloss.Color("8"), // accent, warning, dim
+		lipgloss.Color("10"), lipgloss.Color("9"), lipgloss.Color("11"), lipgloss.Color("8"), // success, danger, progress, unknown
+		lipgloss.Color("14"), lipgloss.Color("15"), lipgloss.Color("8"), // info, text, gray
+		lipgloss.Color("13"), lipgloss.Color("14"), lipgloss.Color("14"), lipgloss.Color("13"), // selectedBG, cursorSelectedBG, cursorBG, border
+		lipgloss.Color("238"), lipgloss.Color("240"), lipgloss.Color("0"), // mutedBG, shadeBG, darkBG
+	)
 }
 
 // FromConfig creates a palette from the Argonaut configuration.
