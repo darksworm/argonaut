@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
 )
@@ -394,12 +393,6 @@ func (e *AutocompleteEngine) getThemeSuggestions(prefix string) []string {
 
 	// Get all built-in theme names
 	themeNames := theme.GetAvailableThemes()
-
-	if cfg, err := config.LoadArgonautConfig(); err == nil {
-		if analysis := theme.AnalyzeCustomTheme(cfg.Custom); analysis.HasAny() {
-			themeNames = append(themeNames, "custom")
-		}
-	}
 
 	for _, themeName := range themeNames {
 		if strings.HasPrefix(strings.ToLower(themeName), strings.ToLower(prefix)) {

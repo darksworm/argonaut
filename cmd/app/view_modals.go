@@ -686,31 +686,17 @@ func (m *Model) renderThemeSelectionModal() string {
 		var line string
 		if i == m.state.UI.ThemeSelectedIndex {
 			// Selected theme - highlighted
-			displayText := opt.Display
-			if opt.Name == "custom" {
-				displayText = "★ " + opt.Display
-			}
 			line = lipgloss.NewStyle().
 				Background(magentaBright).
 				Foreground(textOnAccent).
 				Padding(0, 1).
-				Render("► " + displayText)
+				Render("► " + opt.Display)
 			if opt.Warning {
 				footer = opt.WarningMessage
-				if footer == "" {
-					footer = warningIndicator + " some colors missing from custom theme"
-				}
 			}
 		} else {
-			// Unselected theme - emphasize custom theme if present
-			if opt.Name == "custom" {
-				line = lipgloss.NewStyle().
-					Foreground(yellowBright).
-					Bold(true).
-					Render("  ★ " + opt.Display)
-			} else {
-				line = "  " + opt.Display
-			}
+			// Unselected theme
+			line = "  " + opt.Display
 		}
 		themeLines = append(themeLines, line)
 	}

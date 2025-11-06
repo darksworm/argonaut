@@ -488,7 +488,6 @@ func (m *Model) applyThemePreview(themeName string) {
 		Appearance: config.AppearanceConfig{
 			Theme: themeName,
 		},
-		Custom: m.customTheme,
 	}
 
 	// Apply the theme temporarily

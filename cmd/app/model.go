@@ -12,7 +12,6 @@ import (
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
-	"github.com/darksworm/argonaut/pkg/config"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -80,7 +79,6 @@ type Model struct {
 
 	// Theme selection helpers
 	themeOptions []themeOption
-	customTheme  config.CustomTheme
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

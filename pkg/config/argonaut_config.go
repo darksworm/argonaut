@@ -15,7 +15,6 @@ const DefaultThemeName = "oxocarbon"
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
 	Appearance AppearanceConfig `toml:"appearance"`
-	Custom     CustomTheme      `toml:"theme,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
@@ -24,26 +23,6 @@ type AppearanceConfig struct {
 	Overrides map[string]string `toml:"overrides,omitempty"`
 }
 
-// CustomTheme holds user-defined color values
-type CustomTheme struct {
-	Accent           string `toml:"accent"`
-	Warning          string `toml:"warning"`
-	Dim              string `toml:"dim"`
-	Success          string `toml:"success"`
-	Danger           string `toml:"danger"`
-	Progress         string `toml:"progress"`
-	Unknown          string `toml:"unknown"`
-	Info             string `toml:"info"`
-	Text             string `toml:"text"`
-	Gray             string `toml:"gray"`
-	SelectedBG       string `toml:"selected_bg"`
-	CursorSelectedBG string `toml:"cursor_selected_bg"`
-	CursorBG         string `toml:"cursor_bg"`
-	Border           string `toml:"border"`
-	MutedBG          string `toml:"muted_bg"`
-	ShadeBG          string `toml:"shade_bg"`
-	DarkBG           string `toml:"dark_bg"`
-}
 
 // GetArgonautConfigPath returns the path to the Argonaut configuration file
 func GetArgonautConfigPath() string {

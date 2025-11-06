@@ -138,10 +138,6 @@ func TestSaveAndLoadArgonautConfig(t *testing.T) {
 				"accent": "#ff0000",
 			},
 		},
-		Custom: CustomTheme{
-			Accent:  "#bd93f9",
-			Warning: "#f1fa8c",
-		},
 	}
 
 	// Save config
@@ -170,11 +166,6 @@ func TestSaveAndLoadArgonautConfig(t *testing.T) {
 		t.Errorf("Override mismatch: expected %q, got %q",
 			testConfig.Appearance.Overrides["accent"],
 			loadedConfig.Appearance.Overrides["accent"])
-	}
-
-	if loadedConfig.Custom.Accent != testConfig.Custom.Accent {
-		t.Errorf("Custom theme accent mismatch: expected %q, got %q",
-			testConfig.Custom.Accent, loadedConfig.Custom.Accent)
 	}
 }
 

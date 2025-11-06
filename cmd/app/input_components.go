@@ -863,9 +863,8 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 		argonautConfig = config.GetDefaultConfig()
 	}
 
-	// Keep cached custom theme details in sync
-	m.customTheme = argonautConfig.Custom
-	m.themeOptions = buildThemeOptions(argonautConfig.Custom)
+	// Build theme options
+	m.themeOptions = buildThemeOptions()
 
 	if arg == "" {
 		// Clear command input state first
@@ -903,12 +902,10 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Validate theme name when invoked outside the picker
-	if arg != "custom" {
-		if _, ok := theme.Get(arg); !ok {
-			return m, func() tea.Msg {
-				return model.StatusChangeMsg{Status: "Unknown theme: " + arg + ". Type ':theme' to see available themes."}
-			}
+	// Validate theme name
+	if _, ok := theme.Get(arg); !ok {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Unknown theme: " + arg + ". Type ':theme' to see available themes."}
 		}
 	}
 
