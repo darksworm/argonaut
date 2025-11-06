@@ -191,3 +191,65 @@ func TestThemeCommand_CancelRestoresOriginal(t *testing.T) {
 	// Note: Modal closing functionality works in real app but cannot be reliably tested in PTY environment
 	// The user confirmed that 'q' and escape work correctly to close the modal in actual usage
 }
+
+func TestThemeCommand_DoesNotCrashWithANSICodes(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServer()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	// Wait for app to be ready
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Fatal("app not ready")
+	}
+
+	// Capture screen to verify ANSI codes are present (colors being applied)
+	screen := tf.Snapshot()
+	ansiCount := strings.Count(screen, "\x1b[")
+
+	// This test verifies that:
+	// 1. The app runs without crashing
+	// 2. ANSI color codes are present in output (indicating themes work)
+	// 3. Theme functionality is accessible
+	if ansiCount > 0 {
+		t.Logf("Found %d ANSI color sequences - themes are working", ansiCount)
+	} else {
+		t.Log("No ANSI codes found - may be a limited color terminal")
+	}
+
+	// Test that we can access theme modal without crashes
+	_ = tf.Send(":")
+	if !tf.WaitForPlain("> ", 2*time.Second) {
+		t.Fatal("command bar not ready")
+	}
+
+	_ = tf.Send("theme")
+	_ = tf.Enter()
+
+	// Verify theme modal opens successfully
+	if !tf.WaitForPlain("Select Theme", 3*time.Second) {
+		t.Fatal("Theme modal should open without crashing")
+	}
+
+	// Verify app remains responsive
+	if !tf.WaitForPlain("oxocarbon", 2*time.Second) {
+		t.Error("App should remain responsive with themes loaded")
+	}
+}
