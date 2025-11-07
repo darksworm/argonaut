@@ -257,3 +257,58 @@ func TestGetCommandAutocomplete_CaseInsensitive(t *testing.T) {
 		t.Error("Argument matching should be case insensitive")
 	}
 }
+
+func TestThemeCommandAutocomplete(t *testing.T) {
+	engine := NewAutocompleteEngine()
+	state := createTestState()
+
+	// Test theme command exists
+	info := engine.GetCommandInfo("theme")
+	if info == nil {
+		t.Fatal("theme command should be registered")
+	}
+	if !info.TakesArg {
+		t.Error("theme command should take an argument")
+	}
+	if info.ArgType != "theme" {
+		t.Errorf("Expected ArgType 'theme', got %s", info.ArgType)
+	}
+
+	// Test theme argument suggestions
+	suggestions := engine.GetArgumentSuggestions("theme", "", state)
+	if len(suggestions) == 0 {
+		t.Error("Should return theme suggestions")
+	}
+
+	// Verify expected themes are present (suggestions will have ":theme " prefix)
+	expectedThemes := []string{":theme oxocarbon", ":theme dracula", ":theme nord", ":theme gruvbox", ":theme tokyo-night", ":theme monokai"}
+	suggestionMap := make(map[string]bool)
+	for _, suggestion := range suggestions {
+		suggestionMap[suggestion] = true
+	}
+
+	for _, expected := range expectedThemes {
+		if !suggestionMap[expected] {
+			t.Errorf("Expected theme %q not found in suggestions: %v", expected, suggestions)
+		}
+	}
+
+	// Test prefix matching
+	prefixSuggestions := engine.GetArgumentSuggestions("theme", "d", state)
+	found := false
+	for _, suggestion := range prefixSuggestions {
+		if suggestion == ":theme dracula" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Should find ':theme dracula' when searching with prefix 'd'")
+	}
+
+	// Test full command autocomplete
+	fullSuggestions := engine.GetCommandAutocomplete(":theme ", state)
+	if len(fullSuggestions) == 0 {
+		t.Error("Should return suggestions for ':theme ' command")
+	}
+}

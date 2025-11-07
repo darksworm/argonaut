@@ -86,14 +86,17 @@ func (s *SelectionState) ToggleSelectedApp(app string) {
 
 // UIState holds UI-related state
 type UIState struct {
-	SearchQuery       string      `json:"searchQuery"`
-	ActiveFilter      string      `json:"activeFilter"`
-	Command           string      `json:"command"`
-	IsVersionOutdated bool        `json:"isVersionOutdated"`
-	LatestVersion     *string     `json:"latestVersion,omitempty"`
-	UpdateInfo        *UpdateInfo `json:"updateInfo,omitempty"`
-	CommandInputKey   int         `json:"commandInputKey"`
-	TreeAppName       *string     `json:"treeAppName,omitempty"`
+	SearchQuery         string      `json:"searchQuery"`
+	ActiveFilter        string      `json:"activeFilter"`
+	Command             string      `json:"command"`
+	IsVersionOutdated   bool        `json:"isVersionOutdated"`
+	LatestVersion       *string     `json:"latestVersion,omitempty"`
+	UpdateInfo          *UpdateInfo `json:"updateInfo,omitempty"`
+	CommandInputKey     int         `json:"commandInputKey"`
+	TreeAppName         *string     `json:"treeAppName,omitempty"`
+	ThemeSelectedIndex  int         `json:"themeSelectedIndex"`
+	ThemeScrollOffset   int         `json:"themeScrollOffset"`
+	ThemeOriginalName   string      `json:"themeOriginalName,omitempty"`
 }
 
 // ModalState holds modal-related state

@@ -154,11 +154,7 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
 	go func() {
 		defer close(eventChan)
 
-		// Send initial status
-		eventChan <- ArgoApiEvent{
-			Type:   "status-change",
-			Status: "Watching for changes...",
-		}
+		// Start watching - no need for status message
 
 		// Start real watch stream
 		s.startWatchStream(watchCtx, eventChan)

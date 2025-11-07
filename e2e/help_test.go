@@ -54,6 +54,13 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
 		t.Fatal("help not shown")
 	}
 
+	// Verify that theme command shows up in help
+	helpSnapshot := tf.SnapshotPlain()
+	if !strings.Contains(helpSnapshot, ":theme") {
+		t.Log(helpSnapshot)
+		t.Fatal("theme command not found in help")
+	}
+
 	// Quit help and exit
 	_ = tf.Send("q")
 	_ = tf.CtrlC()

@@ -8,7 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -442,7 +444,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
 
-		switch cmd {
+		switch canonical {
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.
@@ -697,7 +699,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
 			m.state.Selections.SelectedApps = model.NewStringSet()
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewClusters)
 			if arg != "" {
 				// Validate cluster exists
@@ -730,7 +732,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "namespace", "namespaces", "ns":
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewNamespaces)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			if arg != "" {
@@ -761,7 +763,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "project", "projects", "proj":
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewProjects)
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			if arg != "" {
@@ -788,7 +790,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			return m, nil
 		case "app", "apps":
-			m.state.Navigation.SelectedIdx = 0  // Reset navigation for view change
+			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewApps)
 			if arg != "" {
 				// Select the app and move cursor to it if found
@@ -811,6 +813,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Show help modal
 			m.state.Mode = model.ModeHelp
 			return m, nil
+		case "theme":
+			return m.handleThemeCommand(arg)
 		case "quit", "q", "q!", "wq", "wq!", "exit":
 			// Exit the application
 			return m, func() tea.Msg { return model.QuitMsg{} }
@@ -847,6 +851,79 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.state.UI.Command = ""
 	m.inputComponents.ClearCommandInput()
 	m.inputComponents.FocusCommandInput()
+	return m, nil
+}
+
+// handleThemeCommand handles the :theme command for switching UI themes
+func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
+	// Load current config for both selection and application paths
+	argonautConfig, err := config.LoadArgonautConfig()
+	if err != nil {
+		cblog.Warn("Could not load config, using defaults", "err", err)
+		argonautConfig = config.GetDefaultConfig()
+	}
+
+	// Build theme options
+	m.themeOptions = buildThemeOptions()
+
+	if arg == "" {
+		// Clear command input state first
+		m.inputComponents.BlurInputs()
+		m.inputComponents.ClearCommandInput()
+		m.state.UI.Command = ""
+
+		// Switch to theme selection mode
+		m.state.Mode = model.ModeTheme
+
+		// Set initial selection to current theme
+		currentTheme := argonautConfig.Appearance.Theme
+		if currentTheme == "" {
+			currentTheme = config.DefaultThemeName
+		}
+
+		// Store original theme so we can restore it if cancelled
+		m.state.UI.ThemeOriginalName = currentTheme
+
+		selectedIndex := 0
+		for i, option := range m.themeOptions {
+			if option.Name == currentTheme {
+				selectedIndex = i
+				break
+			}
+		}
+		if len(m.themeOptions) > 0 && selectedIndex >= len(m.themeOptions) {
+			selectedIndex = len(m.themeOptions) - 1
+		}
+		m.state.UI.ThemeSelectedIndex = selectedIndex
+
+		// Initialize scroll offset to show the selected theme
+		m.adjustThemeScrollOffset()
+
+		return m, nil
+	}
+
+	// Validate theme name
+	if _, ok := theme.Get(arg); !ok {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Unknown theme: " + arg + ". Type ':theme' to see available themes."}
+		}
+	}
+
+	// Update theme in config
+	argonautConfig.Appearance.Theme = arg
+
+	// Save the updated config
+	if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+		cblog.Error("Failed to save config", "err", err)
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Failed to save theme configuration: " + err.Error()}
+		}
+	}
+
+	// Apply the new theme immediately
+	palette := theme.FromConfig(argonautConfig)
+	applyTheme(palette)
+
 	return m, nil
 }
 

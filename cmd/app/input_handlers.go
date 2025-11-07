@@ -8,7 +8,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -331,7 +333,7 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	// Note: Global escape debounce is now handled in handleKeyMsg
 	switch m.state.Mode {
-	case model.ModeSearch, model.ModeCommand, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
+	case model.ModeSearch, model.ModeCommand, model.ModeTheme, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
 		m.state.Mode = model.ModeNormal
 		return m, nil
 	default:
@@ -423,6 +425,116 @@ func (m *Model) handleSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleCommandModeKeys handles input when in command mode
 func (m *Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleEnhancedCommandModeKeys(msg)
+}
+
+// handleThemeModeKeys handles input when in theme selection mode
+func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.ensureThemeOptionsLoaded()
+
+	if len(m.themeOptions) == 0 {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	if m.state.UI.ThemeSelectedIndex >= len(m.themeOptions) {
+		m.state.UI.ThemeSelectedIndex = len(m.themeOptions) - 1
+	}
+
+	switch msg.String() {
+	case "esc", "q":
+		// Restore original theme when cancelled
+		if m.state.UI.ThemeOriginalName != "" {
+			m.applyThemePreview(m.state.UI.ThemeOriginalName)
+		}
+		// Clear command state if any
+		m.inputComponents.BlurInputs()
+		m.inputComponents.ClearCommandInput()
+		m.state.UI.Command = ""
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	case "up", "k":
+		if m.state.UI.ThemeSelectedIndex > 0 {
+			m.state.UI.ThemeSelectedIndex--
+			m.adjustThemeScrollOffset()
+			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
+			m.applyThemePreview(selectedTheme)
+		}
+		return m, nil
+	case "down", "j":
+		if m.state.UI.ThemeSelectedIndex < len(m.themeOptions)-1 {
+			m.state.UI.ThemeSelectedIndex++
+			m.adjustThemeScrollOffset()
+			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
+			m.applyThemePreview(selectedTheme)
+		}
+		return m, nil
+	case "enter":
+		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
+		newModel, cmd := m.handleThemeCommand(selectedTheme)
+		// Clear command state if any
+		newModel.inputComponents.BlurInputs()
+		newModel.inputComponents.ClearCommandInput()
+		newModel.state.UI.Command = ""
+		newModel.state.Mode = model.ModeNormal
+		return newModel, cmd
+	}
+	return m, nil
+}
+
+// applyThemePreview applies a theme temporarily for preview without saving to config
+func (m *Model) applyThemePreview(themeName string) {
+	// Create a temporary config with the preview theme
+	tempConfig := &config.ArgonautConfig{
+		Appearance: config.AppearanceConfig{
+			Theme: themeName,
+		},
+	}
+
+	// Apply the theme temporarily
+	palette := theme.FromConfig(tempConfig)
+	applyTheme(palette)
+}
+
+// adjustThemeScrollOffset adjusts the scroll offset to keep the selected theme visible
+func (m *Model) adjustThemeScrollOffset() {
+	// Calculate available height for themes (same logic as in renderThemeSelectionModal)
+	headerLines := 2      // title + blank line
+	borderLines := 4      // top + bottom border + padding
+	footerLines := 2      // potential warning message + blank line
+	statusLine := 1       // status line at bottom
+	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
+
+	// Ensure we have a reasonable minimum height
+	maxThemeLines := max(5, maxAvailableHeight)
+
+	// Reserve 2 lines for scroll indicators (up and down) when needed
+	availableLines := maxThemeLines - 2
+
+	selectedIndex := m.state.UI.ThemeSelectedIndex
+	totalOptions := len(m.themeOptions)
+
+	// If all themes fit on screen, no scrolling needed
+	if totalOptions <= maxThemeLines {
+		m.state.UI.ThemeScrollOffset = 0
+		return
+	}
+
+	// Calculate the ideal scroll offset to keep the selected item visible
+	// Try to center the selected item, but adjust if near the boundaries
+	idealOffset := selectedIndex - availableLines/2
+
+	// Ensure we don't scroll past the beginning
+	if idealOffset < 0 {
+		idealOffset = 0
+	}
+
+	// Ensure we don't scroll past the end
+	maxScrollOffset := totalOptions - availableLines
+	if idealOffset > maxScrollOffset {
+		idealOffset = maxScrollOffset
+	}
+
+	m.state.UI.ThemeScrollOffset = idealOffset
 }
 
 // handleHelpModeKeys handles input when in help mode
@@ -898,6 +1010,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSearchModeKeys(msg)
 	case model.ModeCommand:
 		return m.handleCommandModeKeys(msg)
+	case model.ModeTheme:
+		return m.handleThemeModeKeys(msg)
 	case model.ModeHelp:
 		return m.handleHelpModeKeys(msg)
 	case model.ModeNoDiff:
@@ -1058,8 +1172,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNavigationUp()
 	case "down", "j":
 		return m.handleNavigationDown()
-    case " ", "space":
-        return m.handleToggleSelection()
+	case " ", "space":
+		return m.handleToggleSelection()
 	case "enter":
 		return m.handleDrillDown()
 	case "/":

@@ -45,6 +45,9 @@ type StatusService interface {
 
 	// SetHandler sets the status change handler
 	SetHandler(handler StatusChangeHandler)
+
+	// GetCurrentStatus returns the current status message
+	GetCurrentStatus() string
 }
 
 // StatusServiceImpl provides a concrete implementation of StatusService

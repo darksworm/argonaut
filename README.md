@@ -140,6 +140,9 @@ argonaut
 ### **Delete apps**  
 <img src="assets/argonaut_delete_apps.png" alt="Delete apps"/>
 
+### **Enjoy colorful themes**  
+<img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
+
 ## Advanced Features
 
 ### Client certificate authentication
@@ -154,3 +157,10 @@ If your Argo CD server uses a self-signed certificate, you can provide a custom 
 
 ```bash
 argonaut --ca-cert=/path/to/ca.crt
+```
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
