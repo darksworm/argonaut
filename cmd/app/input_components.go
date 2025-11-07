@@ -169,11 +169,89 @@ func (m *Model) renderEnhancedCommandBar() string {
 	return commandBarStyle.Width(styleWidth).Render(commandInputView)
 }
 
+// validateCommand checks if a command is valid without executing it
+func (m *Model) validateCommand(input string) bool {
+	if input == "" {
+		return true // Empty is neutral, not invalid
+	}
+
+	parts := strings.Fields(input)
+	if len(parts) == 0 {
+		return true
+	}
+
+	cmd := strings.ToLower(parts[0])
+	canonical := m.autocompleteEngine.ResolveAlias(cmd)
+
+	// Check if command exists
+	if m.autocompleteEngine.GetCommandInfo(canonical) == nil {
+		return false
+	}
+
+	// If command takes an argument and one is provided, validate it
+	if len(parts) >= 2 {
+		arg := parts[1]
+		switch canonical {
+		case "cluster":
+			all := m.autocompleteEngine.GetArgumentSuggestions("cluster", "", m.state)
+			names := make([]string, 0, len(all))
+			for _, s := range all {
+				names = append(names, strings.TrimPrefix(s, ":cluster "))
+			}
+			for _, name := range names {
+				if strings.EqualFold(name, arg) {
+					return true
+				}
+			}
+			return false
+		case "namespace":
+			all := m.autocompleteEngine.GetArgumentSuggestions("namespace", "", m.state)
+			names := make([]string, 0, len(all))
+			for _, s := range all {
+				names = append(names, strings.TrimPrefix(s, ":namespace "))
+			}
+			for _, name := range names {
+				if strings.EqualFold(name, arg) {
+					return true
+				}
+			}
+			return false
+		case "project":
+			all := m.autocompleteEngine.GetArgumentSuggestions("project", "", m.state)
+			names := make([]string, 0, len(all))
+			for _, s := range all {
+				names = append(names, strings.TrimPrefix(s, ":project "))
+			}
+			for _, name := range names {
+				if strings.EqualFold(name, arg) {
+					return true
+				}
+			}
+			return false
+		case "app", "delete", "sync", "diff", "rollback", "resources":
+			for _, a := range m.state.Apps {
+				if strings.EqualFold(a.Name, arg) {
+					return true
+				}
+			}
+			return false
+		case "theme":
+			themeNames := theme.GetAvailableThemes()
+			for _, themeName := range themeNames {
+				if strings.EqualFold(themeName, arg) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+
+	return true
+}
+
 // renderCommandInputWithAutocomplete renders the command input with dim autocomplete suggestions
 func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	currentInput := m.inputComponents.GetCommandValue()
-
-	// DEBUG: Log what we're working with
 
 	// Build query for the autocomplete engine. The engine expects a leading ':',
 	// but our command mode does not include ':' in the text input; ':' is only
@@ -228,10 +306,30 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 		dimSuggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
 	}
 
-	// Prompt + colored input + optional dim suggestion
-	promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // light gray
-	prompt := promptStyle.Render("> ")
-	content := prompt + inputText + dimSuggestion
+	// Determine prompt symbol and style based on command validity
+	var prompt string
+	if m.state.UI.CommandInvalid {
+		// Red warning triangle for invalid commands
+		promptStyle := lipgloss.NewStyle().Foreground(outOfSyncColor) // red
+		prompt = promptStyle.Render("⚠ ")
+	} else {
+		// Normal prompt
+		promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // light gray
+		prompt = promptStyle.Render("> ")
+	}
+
+	// Add invalid command message if needed
+	invalidMessage := ""
+	if m.state.UI.CommandInvalid && currentInput != "" {
+		availableWidth := maxWidth - lipgloss.Width(prompt) - lipgloss.Width(inputText) - lipgloss.Width(dimSuggestion)
+		if availableWidth > 20 { // Only show if there's enough space
+			messageStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // dim gray
+			invalidMessage = messageStyle.Render(" (unknown command, see :help)")
+		}
+	}
+
+	// Combine all parts
+	content := prompt + inputText + dimSuggestion + invalidMessage
 	if w := lipgloss.Width(content); w < maxWidth {
 		content += strings.Repeat(" ", maxWidth-w)
 	}
@@ -326,12 +424,14 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.inputComponents.ClearCommandInput()
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
+		m.state.UI.CommandInvalid = false
 		return m, nil
 	case "esc":
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearCommandInput()
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
+		m.state.UI.CommandInvalid = false
 		return m, nil
 	case "tab":
 		// Tab completion - accept the first autocomplete suggestion
@@ -372,6 +472,13 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 		}
 		if raw == "" {
+			return m, nil
+		}
+
+		// Validate command before proceeding
+		if !m.validateCommand(raw) {
+			// Mark as invalid and stay in command mode
+			m.state.UI.CommandInvalid = true
 			return m, nil
 		}
 
@@ -438,12 +545,15 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.inputComponents.BlurInputs()
 		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
+		m.state.UI.CommandInvalid = false
 		m.inputComponents.ClearCommandInput()
 
 		// Clear UI state for all commands
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
 
+		// IMPORTANT: When adding new commands here, also add them to pkg/autocomplete/autocomplete.go
+		// to ensure they appear in autocomplete and validation works correctly.
 		switch canonical {
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
@@ -694,7 +804,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			m.state.Diff.Loading = true
 			return m, m.startDiffSession(target)
-		case "cluster", "clusters", "cls", "context", "ctx":
+		case "cluster", "clusters", "cls":
 			// Exit deep views and clear lower-level scopes
 			m.state.UI.TreeAppName = nil
 			m.treeLoading = false
@@ -830,6 +940,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		cmd := m.inputComponents.UpdateCommandInput(msg)
 		// Sync the command with the input value
 		m.state.UI.Command = m.inputComponents.GetCommandValue()
+		// Clear invalid flag when user types (any change resets the warning)
+		m.state.UI.CommandInvalid = false
 		return m, cmd
 	}
 }
@@ -849,6 +961,7 @@ func (m *Model) handleEnhancedEnterSearchMode() (tea.Model, tea.Cmd) {
 func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.state.Mode = model.ModeCommand
 	m.state.UI.Command = ""
+	m.state.UI.CommandInvalid = false
 	m.inputComponents.ClearCommandInput()
 	m.inputComponents.FocusCommandInput()
 	return m, nil

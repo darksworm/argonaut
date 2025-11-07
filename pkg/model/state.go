@@ -97,6 +97,7 @@ type UIState struct {
 	ThemeSelectedIndex  int         `json:"themeSelectedIndex"`
 	ThemeScrollOffset   int         `json:"themeScrollOffset"`
 	ThemeOriginalName   string      `json:"themeOriginalName,omitempty"`
+	CommandInvalid      bool        `json:"commandInvalid"`
 }
 
 // ModalState holds modal-related state
