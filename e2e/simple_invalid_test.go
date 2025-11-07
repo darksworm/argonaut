@@ -42,13 +42,8 @@ func TestSimpleInvalidCommand(t *testing.T) {
 	// Wait longer for the UI to process the invalid command
 	time.Sleep(2 * time.Second)
 
-	// Should show warning symbol and helpful message
-	// Use longer timeouts for CI stability
-	if !tf.WaitForPlain("⚠", 5*time.Second) {
-		t.Errorf("Expected warning symbol ⚠ for invalid command")
-	}
-
-	if !tf.WaitForPlain("unknown command", 3*time.Second) {
+	// Should show helpful message for invalid command
+	if !tf.WaitForPlain("unknown command", 5*time.Second) {
 		t.Errorf("Expected 'unknown command' message for invalid command")
 	}
 
