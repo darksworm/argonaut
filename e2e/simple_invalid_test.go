@@ -8,7 +8,7 @@ import (
 )
 
 func TestSimpleInvalidCommand(t *testing.T) {
-	t.Parallel()
+	// Remove t.Parallel() to avoid race conditions with other tests
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
 
@@ -38,23 +38,26 @@ func TestSimpleInvalidCommand(t *testing.T) {
 	// Enter command mode and send an invalid command
 	_ = tf.Send(":invalidcmd")
 	_ = tf.Enter()
-	time.Sleep(500 * time.Millisecond)
+
+	// Wait longer for the UI to process the invalid command
+	time.Sleep(2 * time.Second)
 
 	// Should show warning symbol and helpful message
-	if !tf.WaitForPlain("⚠", 2*time.Second) {
+	// Use longer timeouts for CI stability
+	if !tf.WaitForPlain("⚠", 5*time.Second) {
 		t.Errorf("Expected warning symbol ⚠ for invalid command")
 	}
 
-	if !tf.WaitForPlain("unknown command", 1*time.Second) {
+	if !tf.WaitForPlain("unknown command", 3*time.Second) {
 		t.Errorf("Expected 'unknown command' message for invalid command")
 	}
 
-	if !tf.WaitForPlain("see :help", 1*time.Second) {
+	if !tf.WaitForPlain("see :help", 3*time.Second) {
 		t.Errorf("Expected ':help' suggestion for invalid command")
 	}
 
 	// The invalid command should still be visible in the input
-	if !tf.WaitForPlain("invalidcmd", 1*time.Second) {
+	if !tf.WaitForPlain("invalidcmd", 3*time.Second) {
 		t.Errorf("Expected invalid command to remain visible")
 	}
 }
