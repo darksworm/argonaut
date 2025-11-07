@@ -109,10 +109,10 @@ func TestThemeCommand_NavigateAndSelect(t *testing.T) {
 		t.Fatal("Expected 'Select Theme' modal in output")
 	}
 
-	// Verify the first theme (oxocarbon, the default) is initially selected
+	// Verify the default theme (tokyo-night) is initially selected
 	screen := tf.SnapshotPlain()
-	if !strings.Contains(screen, "► oxocarbon") {
-		t.Logf("Expected oxocarbon to be initially selected, screen: %s", screen)
+	if !strings.Contains(screen, "► tokyo-night") {
+		t.Logf("Expected tokyo-night to be initially selected, screen: %s", screen)
 		// Don't fail - different themes might be default in different setups
 	}
 
@@ -125,9 +125,9 @@ func TestThemeCommand_NavigateAndSelect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	screen = tf.SnapshotPlain()
 
-	// Verify that selection moved to second theme (solarized-dark)
-	if !strings.Contains(screen, "► solarized-dark") {
-		t.Fatalf("Expected theme selection to move to solarized-dark after pressing j, but got: %s", screen)
+	// Verify that selection moved to the next theme (tokyo-storm)
+	if !strings.Contains(screen, "► tokyo-storm") {
+		t.Fatalf("Expected theme selection to move to tokyo-storm after pressing j, but got: %s", screen)
 	}
 
 	// Note: Modal closing functionality works in real app but cannot be reliably tested in PTY environment
@@ -182,10 +182,10 @@ func TestThemeCommand_CancelRestoresOriginal(t *testing.T) {
 	_ = tf.Send("j") // Move down to second theme
 	time.Sleep(200 * time.Millisecond)
 
-	// Verify navigation worked (selection moved to solarized-dark)
+	// Verify navigation worked (selection moved to tokyo-storm)
 	screen := tf.SnapshotPlain()
-	if !strings.Contains(screen, "► solarized-dark") {
-		t.Fatalf("Expected theme selection to move to solarized-dark after pressing j, but got: %s", screen)
+	if !strings.Contains(screen, "► tokyo-storm") {
+		t.Fatalf("Expected theme selection to move to tokyo-storm after pressing j, but got: %s", screen)
 	}
 
 	// Note: Modal closing functionality works in real app but cannot be reliably tested in PTY environment
@@ -249,7 +249,7 @@ func TestThemeCommand_DoesNotCrashWithANSICodes(t *testing.T) {
 	}
 
 	// Verify app remains responsive
-	if !tf.WaitForPlain("oxocarbon", 2*time.Second) {
+	if !tf.WaitForPlain("tokyo-night", 2*time.Second) {
 		t.Error("App should remain responsive with themes loaded")
 	}
 }

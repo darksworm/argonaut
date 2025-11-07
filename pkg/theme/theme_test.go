@@ -118,8 +118,8 @@ func TestFromName_InvalidThemes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			palette := FromName(name)
 
-			// Should return default theme (oxocarbon)
-			expectedAccent := "#be95ff"
+			// Should return default theme (tokyo-night)
+			expectedAccent := "#bb9af7"
 			expectedColor := lipgloss.Color(expectedAccent)
 			if fmt.Sprintf("%v", palette.Accent) != fmt.Sprintf("%v", expectedColor) {
 				t.Errorf("Expected fallback to default theme with accent %s, got %v", expectedAccent, palette.Accent)
