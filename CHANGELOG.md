@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.0](https://github.com/darksworm/argonaut/compare/v2.4.0...v2.5.0) (2025-11-07)
+
+
+### Features
+
+* command validation ([76eff2c](https://github.com/darksworm/argonaut/commit/76eff2cdb16ca4e5c5d49a74d5defad78190a229))
+* theme config system ([#112](https://github.com/darksworm/argonaut/issues/112)) ([3b64701](https://github.com/darksworm/argonaut/commit/3b647012dc059edd37914c55b0f0739c374fbda9))
+* use theme color palette in resources view ([a680be4](https://github.com/darksworm/argonaut/commit/a680be4531d29f44f6f238d8afdfd1ccc54607e6))
+
+
+### Bug Fixes
+
+* remove Unicode symbol check from TestSimpleInvalidCommand ([078165e](https://github.com/darksworm/argonaut/commit/078165e51c68a22cfaa947291b25121d28b7b256))
+
 ## [2.4.0](https://github.com/darksworm/argonaut/compare/v2.3.0...v2.4.0) (2025-11-04)
 
 
