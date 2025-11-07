@@ -142,6 +142,7 @@ argonaut
 
 ### **Enjoy colorful themes**  
 <img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
+
 ## Advanced Features
 
 ### Client certificate authentication
