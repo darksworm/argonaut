@@ -58,7 +58,7 @@ func (m *Model) renderSmallBadge(grayscale bool, withVersion bool) string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	if grayscale {
-		st = st.Background(lipgloss.Color("243")).Foreground(ensureContrastingForeground(lipgloss.Color("243"), lipgloss.Color("16")))
+		st = st.Background(mutedBG).Foreground(ensureContrastingForeground(mutedBG, whiteBright))
 	} else {
 		st = st.Background(cyanBright).Foreground(textOnInfo)
 	}

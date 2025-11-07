@@ -52,14 +52,14 @@ func HighlightLogLine(line string) string {
 
 	// Try to identify timestamp (first part that looks like a timestamp)
 	if partIndex < len(parts) && looksLikeTimestamp(parts[partIndex]) {
-		highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(parts[partIndex]))
+		highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render(parts[partIndex]))
 		highlighted.WriteString(" ")
 		partIndex++
 	}
 
 	// Try to identify time (second part that looks like HH:MM:SS)
 	if partIndex < len(parts) && looksLikeTime(parts[partIndex]) {
-		highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(parts[partIndex]))
+		highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render(parts[partIndex]))
 		highlighted.WriteString(" ")
 		partIndex++
 	}
@@ -69,15 +69,15 @@ func HighlightLogLine(line string) string {
 		var style lipgloss.Style
 		switch strings.ToUpper(parts[partIndex]) {
 		case "DEBUG", "TRACE":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true) // magenta
+			style = lipgloss.NewStyle().Foreground(magentaBright).Bold(true) // magenta
 		case "INFO":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true) // blue
+			style = lipgloss.NewStyle().Foreground(cyanBright).Bold(true) // blue
 		case "WARN", "WARNING":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true) // yellow
+			style = lipgloss.NewStyle().Foreground(yellowBright).Bold(true) // yellow
 		case "ERROR", "FATAL":
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true) // red
+			style = lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true) // red
 		default:
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true) // white
+			style = lipgloss.NewStyle().Foreground(whiteBright).Bold(true) // white
 		}
 		highlighted.WriteString(style.Render(parts[partIndex]))
 		highlighted.WriteString(" ")
@@ -99,9 +99,9 @@ func HighlightLogLine(line string) string {
 				// Remove quotes from value if present
 				value = strings.Trim(value, `"`)
 
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(key))   // cyan for field names
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("="))    // dim for equals
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(value)) // white for values
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(cyanBright).Render(key))   // cyan for field names
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render("="))    // dim for equals
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(whiteBright).Render(value)) // white for values
 			} else {
 				// Not a proper key=value, just render as is
 				highlighted.WriteString(part)
@@ -109,10 +109,10 @@ func HighlightLogLine(line string) string {
 		} else {
 			// Check if this looks like a component name (no spaces, no special chars)
 			if isLikelyComponent(part) {
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(part)) // green for components
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(syncedColor).Render(part)) // green for components
 			} else {
 				// Regular text
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Render(part)) // white for regular text
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(whiteBright).Render(part)) // white for regular text
 			}
 		}
 
@@ -409,7 +409,7 @@ var ansiRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
 // desaturateANSI strips ANSI color/style codes and recolors text dim gray
 func desaturateANSI(s string) string {
 	plain := ansiRE.ReplaceAllString(s, "")
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(plain)
+	return lipgloss.NewStyle().Foreground(dimColor).Render(plain)
 }
 
 // padLeft returns s left-padded with spaces to the given visible width (ANSI-aware)
@@ -722,7 +722,6 @@ func (m *Model) renderConfirmSyncModal() string {
 	}
 
 	// Buttons: highlight selected using stronger contrast
-	inactiveBG := lipgloss.Color("238")
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
@@ -1245,7 +1244,6 @@ func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerH
 		opts.WriteString(dim.Render("No"))
 	}
 	// Build inner confirmation modal (bordered) with title
-	inactiveBG := lipgloss.Color("238")
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)

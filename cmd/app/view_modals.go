@@ -13,7 +13,6 @@ func (m *Model) renderHelpModal() string {
 	isWide := m.state.Terminal.Cols >= 60
 
 	// Small keycap style to make keys pop
-	keycapBG := lipgloss.Color("238")
 	keycapFG := ensureContrastingForeground(keycapBG, whiteBright)
 	keycap := func(s string) string {
 		return lipgloss.NewStyle().Background(keycapBG).Foreground(keycapFG).Padding(0, 1).Render(s)
@@ -80,7 +79,6 @@ func (m *Model) renderHelpModal() string {
 
 func (m *Model) renderDiffLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
-	spinnerBG := lipgloss.Color("0")
 	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -97,7 +95,6 @@ func (m *Model) renderDiffLoadingSpinner() string {
 // renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
 func (m *Model) renderTreeLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
-	spinnerBG := lipgloss.Color("0")
 	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -343,7 +340,6 @@ func (m *Model) renderUpgradeConfirmModal() string {
 		Width(12).
 		AlignHorizontal(lipgloss.Center)
 
-	neutralBG := lipgloss.Color("236")
 	neutralFG := ensureContrastingForeground(neutralBG, dimColor)
 	var upgradeButton, cancelButton string
 	if m.state.Modals.UpgradeSelected == 0 {
@@ -525,7 +521,6 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 	}
 
 	// Delete button shows confirmation requirement and state
-	inactiveBG := lipgloss.Color("238")
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
 	active := lipgloss.NewStyle().Background(outOfSyncColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)

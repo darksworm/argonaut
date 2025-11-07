@@ -25,14 +25,14 @@ import (
 // Override at build time: go build -ldflags "-X main.appVersion=1.16.0"
 var appVersion = "dev"
 
-// Color definitions for help output (matching app theme)
+// Color definitions for help output (updated by theme system)
 var (
-	helpTitleColor     = lipgloss.Color("14") // Cyan
-	helpSectionColor   = lipgloss.Color("11") // Yellow
-	helpHighlightColor = lipgloss.Color("10") // Green
-	helpTextColor      = lipgloss.Color("15") // Bright white
-	helpDimColor       = lipgloss.Color("8")  // Dim
-	helpUrlColor       = lipgloss.Color("12") // Blue
+	helpTitleColor     = lipgloss.Color("14") // Cyan (fallback)
+	helpSectionColor   = lipgloss.Color("11") // Yellow (fallback)
+	helpHighlightColor = lipgloss.Color("10") // Green (fallback)
+	helpTextColor      = lipgloss.Color("15") // Bright white (fallback)
+	helpDimColor       = lipgloss.Color("8")  // Dim (fallback)
+	helpUrlColor       = lipgloss.Color("12") // Blue (fallback)
 )
 
 // renderColorfulHelp creates a beautifully styled help output

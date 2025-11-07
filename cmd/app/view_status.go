@@ -44,10 +44,9 @@ func (m *Model) renderStatusLine() string {
 		available := max(0, m.state.Terminal.Cols-2)
 
 		// Progressive text shortening based on available space
-		upgradeBG := lipgloss.Color("240")
-		upgradeFG := ensureContrastingForeground(upgradeBG, whiteBright)
+		upgradeFG := ensureContrastingForeground(mutedBG, whiteBright)
 		upgradeCmd := lipgloss.NewStyle().
-			Background(upgradeBG).
+			Background(mutedBG).
 			Foreground(upgradeFG).
 			Render(":upgrade")
 

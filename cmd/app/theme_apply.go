@@ -24,6 +24,17 @@ var (
 	textOnAccent         color.Color
 	textOnInfo           color.Color
 	textOnDanger         color.Color
+
+	// Modal-specific colors
+	keycapBG   color.Color
+	spinnerBG  color.Color
+	neutralBG  color.Color
+	inactiveBG color.Color
+
+	// Table colors
+	tableBorderColor  color.Color
+	tableSelectedFG   color.Color
+	tableSelectedBG   color.Color
 )
 
 // applyTheme updates global color variables and derived styles used
@@ -64,6 +75,14 @@ func applyTheme(p theme.Palette) {
 	white = whiteBright
 	redColor = outOfSyncColor
 
+	// Update help colors
+	helpTitleColor = p.Info
+	helpSectionColor = p.Warning
+	helpHighlightColor = p.Success
+	helpTextColor = p.Text
+	helpDimColor = p.Dim
+	helpUrlColor = p.Accent
+
 	// Store background colors
 	mutedBG = p.MutedBG
 	shadeBG = p.ShadeBG
@@ -72,6 +91,17 @@ func applyTheme(p theme.Palette) {
 	// Calculate high-contrast foregrounds for key backgrounds
 	textOnSelected = ensureContrastingForeground(p.SelectedBG, p.Text)
 	textOnCursorSelected = ensureContrastingForeground(p.CursorSelectedBG, textOnSelected)
+
+	// Update modal colors
+	keycapBG = p.MutedBG
+	spinnerBG = p.DarkBG
+	neutralBG = p.ShadeBG
+	inactiveBG = p.MutedBG
+
+	// Update table colors
+	tableBorderColor = p.Border
+	tableSelectedFG = textOnSelected
+	tableSelectedBG = p.SelectedBG
 	textOnAccent = ensureContrastingForeground(p.Accent, p.Text)
 	textOnInfo = ensureContrastingForeground(p.Info, p.Text)
 	textOnDanger = ensureContrastingForeground(p.Danger, p.Text)

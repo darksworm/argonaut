@@ -116,7 +116,7 @@ func (m *Model) renderEnhancedSearchBar() string {
 		PaddingRight(1)
 
 	// Content matching SearchBar layout
-	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("14")).Render("Search")
+	searchLabel := lipgloss.NewStyle().Bold(true).Foreground(cyanBright).Render("Search")
 
 	// Compute widths to make input fill the full row (no trailing help text)
 	totalWidth := m.state.Terminal.Cols
@@ -303,7 +303,7 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	dimSuggestion := ""
 	if firstPlain != "" && len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
 		suggestionSuffix := firstPlain[len(currentInput):]
-		dimSuggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(suggestionSuffix)
+		dimSuggestion = lipgloss.NewStyle().Foreground(dimColor).Render(suggestionSuffix)
 	}
 
 	// Determine prompt symbol and style based on command validity
@@ -314,7 +314,7 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 		prompt = promptStyle.Render("⚠ ")
 	} else {
 		// Normal prompt
-		promptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // light gray
+		promptStyle := lipgloss.NewStyle().Foreground(dimColor) // light gray
 		prompt = promptStyle.Render("> ")
 	}
 
@@ -323,7 +323,7 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 	if m.state.UI.CommandInvalid && currentInput != "" {
 		availableWidth := maxWidth - lipgloss.Width(prompt) - lipgloss.Width(inputText) - lipgloss.Width(dimSuggestion)
 		if availableWidth > 20 { // Only show if there's enough space
-			messageStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // dim gray
+			messageStyle := lipgloss.NewStyle().Foreground(dimColor) // dim gray
 			invalidMessage = messageStyle.Render(" (unknown command, see :help)")
 		}
 	}
