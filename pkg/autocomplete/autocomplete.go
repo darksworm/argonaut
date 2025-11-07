@@ -128,6 +128,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "",
 		},
 		{
+			Command:     "help",
+			Aliases:     []string{"help", "h", "?"},
+			Description: "Show help modal",
+			TakesArg:    false,
+			ArgType:     "",
+		},
+		{
 			Command:     "upgrade",
 			Aliases:     []string{"upgrade", "update"},
 			Description: "Upgrade to the latest version",
