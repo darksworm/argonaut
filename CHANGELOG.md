@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/darksworm/argonaut/compare/v2.5.0...v2.6.0) (2025-11-07)
+
+
+### Features
+
+* widen support for themes ([87aabd5](https://github.com/darksworm/argonaut/commit/87aabd567ba4f15d9721e05e1e32d7c5ad40ec95))
+
 ## [2.5.0](https://github.com/darksworm/argonaut/compare/v2.4.0...v2.5.0) (2025-11-07)
 
 
