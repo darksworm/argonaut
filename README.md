@@ -140,6 +140,8 @@ argonaut
 ### **Delete apps**  
 <img src="assets/argonaut_delete_apps.png" alt="Delete apps"/>
 
+### **Enjoy colorful themes**  
+<img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
 ## Advanced Features
 
 ### Client certificate authentication
