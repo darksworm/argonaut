@@ -493,6 +493,7 @@ func (m *Model) applyThemePreview(themeName string) {
 	// Apply the theme temporarily
 	palette := theme.FromConfig(tempConfig)
 	applyTheme(palette)
+	m.applyThemeToModel()
 }
 
 // adjustThemeScrollOffset adjusts the scroll offset to keep the selected theme visible
@@ -1259,6 +1260,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		m.cleanupTreeWatchers()
 		// Reset tree view to a fresh multi-app instance
 		m.treeView = treeview.NewTreeView(0, 0)
+		m.treeView.ApplyTheme(currentPalette)
 		m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
 		m.treeScrollOffset = 0 // Reset scroll position
 		m.state.SaveNavigationState()
@@ -1301,6 +1303,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.cleanupTreeWatchers()
 	// Reset tree view to a fresh single-app instance
 	m.treeView = treeview.NewTreeView(0, 0)
+	m.treeView.ApplyTheme(currentPalette)
 	m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
 	m.treeScrollOffset = 0 // Reset scroll position
 	m.state.SaveNavigationState()

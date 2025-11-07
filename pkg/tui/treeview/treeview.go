@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/theme"
 )
 
 // TreeView wraps a simple interactive tree for displaying ArgoCD resource trees.
@@ -34,6 +35,9 @@ type TreeView struct {
 	appSync   string
 	// Multi-app metadata for synthetic roots
 	appMeta map[string]struct{ health, sync string }
+
+	// Theme colors
+	palette theme.Palette
 }
 
 type treeNode struct {
@@ -47,26 +51,17 @@ type treeNode struct {
 	children  []*treeNode
 }
 
-// Color styles consistent with existing TUI
-var (
-	colorGreen  = lipgloss.Color("10")
-	colorYellow = lipgloss.Color("11")
-	colorRed    = lipgloss.Color("9")
-	colorGray   = lipgloss.Color("8")
-	colorWhite  = lipgloss.Color("15")
-	selectBG    = lipgloss.Color("13")
-)
-
-func statusStyle(s string) lipgloss.Style {
+// statusStyle returns a lipgloss style for the given status using theme colors
+func (v *TreeView) statusStyle(s string) lipgloss.Style {
 	switch strings.ToLower(s) {
 	case "healthy", "running", "synced":
-		return lipgloss.NewStyle().Foreground(colorGreen)
+		return lipgloss.NewStyle().Foreground(v.palette.Success)
 	case "progressing", "pending":
-		return lipgloss.NewStyle().Foreground(colorYellow)
+		return lipgloss.NewStyle().Foreground(v.palette.Progress)
 	case "degraded", "error", "crashloop":
-		return lipgloss.NewStyle().Foreground(colorRed)
+		return lipgloss.NewStyle().Foreground(v.palette.Danger)
 	default:
-		return lipgloss.NewStyle().Foreground(colorGray)
+		return lipgloss.NewStyle().Foreground(v.palette.Unknown)
 	}
 }
 
@@ -81,6 +76,7 @@ func NewTreeView(width, height int) *TreeView {
 		expanded:   make(map[string]bool),
 		selIdx:     0,
 		appMeta:    make(map[string]struct{ health, sync string }),
+		palette:    theme.Default(), // Start with default theme
 	}
 	tv.Model = tv // self
 	return tv
@@ -88,6 +84,11 @@ func NewTreeView(width, height int) *TreeView {
 
 // Init implements tea.Model; no async startup required
 func (v *TreeView) Init() tea.Cmd { return nil }
+
+// ApplyTheme updates the tree view's color palette
+func (v *TreeView) ApplyTheme(palette theme.Palette) {
+	v.palette = palette
+}
 
 // SetData converts api.ResourceTree to internal nodes and builds adjacency
 func (v *TreeView) SetData(tree *api.ResourceTree) {
@@ -349,13 +350,13 @@ func (v *TreeView) Render() string {
                 disc = "▸ "
             }
         }
-        prefixStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(prefix + disc)
+        prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
         label := v.renderLabel(n)
         line := prefixStyled + label
         if len(n.children) > 0 && !v.expanded[n.uid] {
             hidden := countDescendants(n)
             if hidden > 0 {
-                hint := lipgloss.NewStyle().Foreground(colorGray).Render(fmt.Sprintf(" (+%d)", hidden))
+                hint := lipgloss.NewStyle().Foreground(v.palette.Dim).Render(fmt.Sprintf(" (+%d)", hidden))
                 line += hint
             }
         }
@@ -368,10 +369,10 @@ func (v *TreeView) Render() string {
             if status == "" {
                 status = n.status
             }
-            ps := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(prefix + disc)
-            ks := lipgloss.NewStyle().Foreground(colorWhite).Background(selectBG).Render(n.kind)
-            ns := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
-            st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(v.palette.SelectedBG).Render(prefix + disc)
+            ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(v.palette.SelectedBG).Render(n.kind)
+            ns := lipgloss.NewStyle().Foreground(v.palette.Dim).Render("[" + name + "]")
+            st := v.statusStyle(status).Render(fmt.Sprintf("(%s)", status))
             line = ps + ks + " " + ns + " " + st
             line = padRight(line, v.innerWidth())
         }
@@ -396,10 +397,10 @@ func (v *TreeView) renderLabel(n *treeNode) string {
 	if status == "" {
 		status = n.status
 	}
-	st := statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+	st := v.statusStyle(status).Render(fmt.Sprintf("(%s)", status))
 	// Only the bracketed name should be gray/dim
-	nameStyled := lipgloss.NewStyle().Foreground(colorGray).Render("[" + name + "]")
-	kindStyled := lipgloss.NewStyle().Foreground(colorWhite).Render(n.kind)
+	nameStyled := lipgloss.NewStyle().Foreground(v.palette.Dim).Render("[" + name + "]")
+	kindStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(n.kind)
 	return fmt.Sprintf("%s %s %s", kindStyled, nameStyled, st)
 }
 

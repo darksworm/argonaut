@@ -67,6 +67,9 @@ func (m *Model) Init() tea.Cmd {
     var cmds []tea.Cmd
     cmds = append(cmds, m.spinner.Tick)
 
+	// Apply theme to model components
+	m.applyThemeToModel()
+
 	// Show initial loading modal immediately if server is configured
 	if m.state.Server != nil {
 		cmds = append(cmds, func() tea.Msg { return model.SetInitialLoadingMsg{Loading: true} })

@@ -647,6 +647,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cleanupTreeWatchers()
 					// Reset tree view for multi-app session
 					m.treeView = treeview.NewTreeView(0, 0)
+					m.treeView.ApplyTheme(currentPalette)
 					m.treeScrollOffset = 0 // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree

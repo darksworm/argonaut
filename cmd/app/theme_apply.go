@@ -94,9 +94,13 @@ func applyTheme(p theme.Palette) {
 		Background(p.CursorSelectedBG).
 		Foreground(textOnCursorSelected)
 	// cursorStyle = lipgloss.NewStyle().Background(p.CursorBG)
+}
 
-	// TODO: Propagate to tree view package when it supports themes
-	// treeview.ApplyTheme(p)
+// applyThemeToModel applies the current theme to model components that need it
+func (m *Model) applyThemeToModel() {
+	if m.treeView != nil {
+		m.treeView.ApplyTheme(currentPalette)
+	}
 }
 
 const wcagAAContrast = 4.5

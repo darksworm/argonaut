@@ -702,6 +702,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					m.cleanupTreeWatchers()
 					// Multiple apps selected - open multi tree view with live updates
 					m.treeView = treeview.NewTreeView(0, 0)
+					m.treeView.ApplyTheme(currentPalette)
 					m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
 					m.treeScrollOffset = 0 // Reset scroll position
 					m.state.SaveNavigationState()
@@ -751,6 +752,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			// Single app: open tree view with watch (reset tree view)
 			m.treeView = treeview.NewTreeView(0, 0)
+			m.treeView.ApplyTheme(currentPalette)
 			m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
 			m.treeScrollOffset = 0 // Reset scroll position
 			m.state.SaveNavigationState()
@@ -1036,6 +1038,7 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 	// Apply the new theme immediately
 	palette := theme.FromConfig(argonautConfig)
 	applyTheme(palette)
+	m.applyThemeToModel()
 
 	return m, nil
 }
