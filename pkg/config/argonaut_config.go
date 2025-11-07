@@ -10,7 +10,7 @@ import (
 )
 
 // Default theme constant - easy to change
-const DefaultThemeName = "oxocarbon"
+const DefaultThemeName = "tokyo-night"
 
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
