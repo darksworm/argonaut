@@ -157,3 +157,10 @@ If your Argo CD server uses a self-signed certificate, you can provide a custom 
 
 ```bash
 argonaut --ca-cert=/path/to/ca.crt
+```
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
