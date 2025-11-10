@@ -228,7 +228,7 @@ jobs:
 
             echo "=== Installing argonaut from AUR ==="
             su - auruser -c "
-              yay -S argonaut --noconfirm
+              yay -S argonaut-bin --noconfirm
               echo \"✅ argonaut installed from AUR\"
             "
 
