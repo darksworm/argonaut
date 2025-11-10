@@ -46,10 +46,10 @@ runs:
             apk add --no-cache --quiet curl ca-certificates
             echo "✅ Installed dependencies via apk (musl system detected)"
           elif command -v dnf >/dev/null 2>&1; then
-            dnf install -y -q curl ca-certificates util-linux
+            dnf install -y -q curl ca-certificates util-linux which expect
             echo "✅ Installed dependencies via dnf"
           elif command -v yum >/dev/null 2>&1; then
-            yum install -y -q curl ca-certificates util-linux
+            yum install -y -q curl ca-certificates util-linux which
             echo "✅ Installed dependencies via yum"
           elif command -v pacman >/dev/null 2>&1; then
             pacman -Sy --noconfirm --quiet curl ca-certificates
@@ -103,19 +103,27 @@ runs:
             # Create a test output file
             TESTFILE=\"/tmp/argonaut_test_output\"
 
-            # Start argonaut TUI in background with output capture using script for PTY
-            # The script command provides a pseudo-TTY which the TUI needs
-            # Detect script command type and use appropriate syntax
-            if script --version 2>&1 | grep -q \"util-linux\"; then
-                # GNU script (most Linux distributions)
-                timeout 10 script --quiet --command \"argonaut\" \"\$TESTFILE\" &
+            # Start argonaut TUI in background with output capture using script or unbuffer for PTY
+            # The script/unbuffer command provides a pseudo-TTY which the TUI needs
+            if command -v script >/dev/null 2>&1; then
+                # script is available - detect type and use appropriate syntax
+                if script --version 2>&1 | grep -q \"util-linux\"; then
+                    # GNU script (most Linux distributions)
+                    timeout 10 script --quiet --command \"argonaut\" \"\$TESTFILE\" &
+                else
+                    # BSD script or others - use basic syntax
+                    timeout 10 script -q \"\$TESTFILE\" argonaut &
+                fi
+            elif command -v unbuffer >/dev/null 2>&1; then
+                # Use unbuffer from expect package (Fedora/RHEL)
+                timeout 10 unbuffer argonaut > \"\$TESTFILE\" 2>&1 &
             else
-                # BSD script or others - use basic syntax
-                timeout 10 script -q \"\$TESTFILE\" argonaut &
+                echo \"❌ ERROR: Neither script nor unbuffer command found\"
+                exit 1
             fi
             TUI_PID=\$!
 
-            echo \"🚀 Started argonaut TUI with PID: \$TUI_PID (using script for PTY)\"
+            echo \"🚀 Started argonaut TUI with PID: \$TUI_PID (using PTY emulation)\"
             
             # Give the TUI time to initialize
             sleep 4
