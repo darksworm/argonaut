@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.1](https://github.com/darksworm/argonaut/compare/v2.6.0...v2.6.1) (2025-11-11)
+
+
+### Bug Fixes
+
+* argocd config path detection ([#126](https://github.com/darksworm/argonaut/issues/126)) ([04905d7](https://github.com/darksworm/argonaut/commit/04905d76192dbbc1da206fee36866b773b3779e5))
+
 ## [2.6.0](https://github.com/darksworm/argonaut/compare/v2.5.0...v2.6.0) (2025-11-07)
 
 
