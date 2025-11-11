@@ -41,9 +41,16 @@ type ArgoCLIConfig struct {
 }
 
 // GetConfigPath returns the path to the ArgoCD CLI configuration file
+// This follows the same logic as ArgoCD CLI for locating the config file
 func GetConfigPath() string {
+	// Check for explicitly set config path (for compatibility)
 	if configPath := os.Getenv("ARGOCD_CONFIG"); configPath != "" {
 		return configPath
+	}
+
+	// Check for manually defined config directory
+	if configDir := os.Getenv("ARGOCD_CONFIG_DIR"); configDir != "" {
+		return filepath.Join(configDir, "config")
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -51,7 +58,13 @@ func GetConfigPath() string {
 		return ""
 	}
 
-	// Check XDG_CONFIG_HOME first
+	// Check legacy config directory (~/.argocd) if it exists
+	legacyConfigPath := filepath.Join(homeDir, ".argocd", "config")
+	if _, err := os.Stat(legacyConfigPath); err == nil {
+		return legacyConfigPath
+	}
+
+	// Check XDG_CONFIG_HOME
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
 		return filepath.Join(xdgConfig, "argocd", "config")
 	}
