@@ -36,23 +36,35 @@ func TestSimpleInvalidCommand(t *testing.T) {
 	}
 
 	// Enter command mode and send an invalid command
+	t.Logf("Sending invalid command ':invalidcmd'")
 	_ = tf.Send(":invalidcmd")
 	_ = tf.Enter()
 
 	// Wait longer for the UI to process the invalid command
 	time.Sleep(2 * time.Second)
 
+	// Capture current screen state for debugging
+	currentScreen := tf.SnapshotPlain()
+	t.Logf("Screen after invalid command:\n%s", currentScreen)
+
 	// Should show helpful message for invalid command
 	if !tf.WaitForPlain("unknown command", 5*time.Second) {
 		t.Errorf("Expected 'unknown command' message for invalid command")
+		t.Logf("Final screen state:\n%s", tf.SnapshotPlain())
 	}
 
 	if !tf.WaitForPlain("see :help", 3*time.Second) {
 		t.Errorf("Expected ':help' suggestion for invalid command")
+		if !t.Failed() {
+			t.Logf("Current screen state:\n%s", tf.SnapshotPlain())
+		}
 	}
 
 	// The invalid command should still be visible in the input
 	if !tf.WaitForPlain("invalidcmd", 3*time.Second) {
 		t.Errorf("Expected invalid command to remain visible")
+		if !t.Failed() {
+			t.Logf("Current screen state:\n%s", tf.SnapshotPlain())
+		}
 	}
 }
