@@ -978,6 +978,21 @@ func (m *Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 	return m, nil
 }
 
+// handleCoreDetectedModeKeys handles input when core mode is detected
+func (m *Model) handleCoreDetectedModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		// Exit application
+		return m, func() tea.Msg { return model.QuitMsg{} }
+	case "esc":
+		// Try to reload/retry
+		m.state.Mode = model.ModeLoading
+		return m, m.Init()
+	}
+	// Ignore other keys including ":" to prevent command mode
+	return m, nil
+}
+
 // Helper function to get visible items for current view
 func (m *Model) getVisibleItemsForCurrentView() []interface{} {
 	// Delegate to shared computation used by the view
@@ -1031,6 +1046,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleErrorModeKeys(msg)
 	case model.ModeConnectionError:
 		return m.handleConnectionErrorModeKeys(msg)
+	case model.ModeCoreDetected:
+		return m.handleCoreDetectedModeKeys(msg)
 	case model.ModeUpgrade:
 		return m.handleUpgradeModeKeys(msg)
 	case model.ModeUpgradeError:
