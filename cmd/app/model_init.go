@@ -92,7 +92,6 @@ func (m *Model) validateAuthentication() tea.Cmd {
 		if m.state.Server == nil {
 			// Check if we're already in core detected mode (set during config loading)
 			if m.state.Mode == model.ModeCoreDetected {
-				cblog.With("component", "auth").Info("Preserving core detected mode")
 				return model.SetModeMsg{Mode: model.ModeCoreDetected}
 			}
 			cblog.With("component", "auth").Info("No server configured - showing auth required")
