@@ -981,13 +981,9 @@ func (m *Model) handleConnectionErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 // handleCoreDetectedModeKeys handles input when core mode is detected
 func (m *Model) handleCoreDetectedModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "q", "ctrl+c":
+	case "q", "ctrl+c", "esc":
 		// Exit application
 		return m, func() tea.Msg { return model.QuitMsg{} }
-	case "esc":
-		// Try to reload/retry
-		m.state.Mode = model.ModeLoading
-		return m, m.Init()
 	}
 	// Ignore other keys including ":" to prevent command mode
 	return m, nil

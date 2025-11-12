@@ -1101,7 +1101,7 @@ func (m *Model) renderCoreDetectedView() string {
 
 	// Main explanation message (shortened)
 	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-	contentSections = append(contentSections, messageStyle.Render("Core mode doesn't include the API server. Run the dashboard locally:"))
+	contentSections = append(contentSections, messageStyle.Render("Core mode doesn't include the API server required by argonaut. As a workaround, you can run the dashboard locally:"))
 	contentSections = append(contentSections, "")
 
 	// Step-by-step commands (more compact)
@@ -1126,7 +1126,7 @@ func (m *Model) renderCoreDetectedView() string {
 	errorContent := strings.Join(contentSections, "\n")
 
 	// Status with instructions
-	status := statusStyle.Render("Press q to exit, Esc to retry")
+	status := statusStyle.Render("Press q or Esc to exit")
 
 	// Use the new layout helper with yellow border (warning styling)
 	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
