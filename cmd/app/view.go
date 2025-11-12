@@ -301,6 +301,8 @@ func (m *Model) View() tea.View {
 			content = m.renderErrorView()
 		case model.ModeConnectionError:
 			content = m.renderConnectionErrorView()
+		case model.ModeCoreDetected:
+			content = m.renderCoreDetectedView()
 		default:
 			content = m.renderMainLayout()
 		}
@@ -1081,6 +1083,55 @@ func (m *Model) renderConnectionErrorView() string {
 	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
 		ContentBordered: true,
 		BorderColor:     outOfSyncColor, // red border for connection errors
+	})
+}
+
+// renderCoreDetectedView displays helpful instructions for ArgoCD core installations
+func (m *Model) renderCoreDetectedView() string {
+	// Header
+	header := m.renderBanner()
+
+	// Build core detection content - more compact version
+	var contentSections []string
+
+	// Title with warning styling
+	titleStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+	contentSections = append(contentSections, titleStyle.Render("ArgoCD Core Installation Detected"))
+	contentSections = append(contentSections, "")
+
+	// Main explanation message (shortened)
+	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	contentSections = append(contentSections, messageStyle.Render("Core mode doesn't include the API server required by argonaut. As a workaround, you can run the dashboard locally:"))
+	contentSections = append(contentSections, "")
+
+	// Step-by-step commands (more compact)
+	codeStyle := lipgloss.NewStyle().Foreground(syncedColor)
+	commentStyle := lipgloss.NewStyle().Foreground(dimColor)
+
+	// Combine steps more compactly
+	contentSections = append(contentSections, commentStyle.Render("# 1. Get admin password"))
+	contentSections = append(contentSections, codeStyle.Render(`ADMIN_PASS="$(kubectl -n argocd get secret argocd-initial-admin-secret \`))
+	contentSections = append(contentSections, codeStyle.Render(`  -o jsonpath="{.data.password}" | base64 -d)"`))
+	contentSections = append(contentSections, "")
+
+	contentSections = append(contentSections, commentStyle.Render("# 2. Start dashboard & login"))
+	contentSections = append(contentSections, codeStyle.Render("argocd admin dashboard --namespace argocd --port 8080 &"))
+	contentSections = append(contentSections, codeStyle.Render(`argocd login localhost:8080 --insecure --username admin --password $ADMIN_PASS`))
+	contentSections = append(contentSections, "")
+
+	contentSections = append(contentSections, commentStyle.Render("# 3. Run argonaut"))
+	contentSections = append(contentSections, codeStyle.Render("argonaut"))
+
+	// Join content
+	errorContent := strings.Join(contentSections, "\n")
+
+	// Status with instructions
+	status := statusStyle.Render("Press q or Esc to exit")
+
+	// Use the new layout helper with yellow border (warning styling)
+	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
+		ContentBordered: true,
+		BorderColor:     yellowBright, // yellow border for warnings
 	})
 }
 

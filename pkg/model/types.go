@@ -34,6 +34,7 @@ const (
 	ModeRulerLine       Mode = "rulerline"
 	ModeError           Mode = "error"
 	ModeConnectionError Mode = "connection-error"
+	ModeCoreDetected    Mode = "core-detected"
 	ModeUpgrade         Mode = "upgrade"
 	ModeUpgradeError    Mode = "upgrade-error"
 	ModeUpgradeSuccess  Mode = "upgrade-success"

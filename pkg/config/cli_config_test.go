@@ -108,3 +108,101 @@ func TestGetConfigPath(t *testing.T) {
 		})
 	}
 }
+
+func TestIsCurrentServerCore(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *ArgoCLIConfig
+		expected bool
+		hasError bool
+	}{
+		{
+			name: "Server with core true",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "kubernetes", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "kubernetes", Core: true},
+				},
+			},
+			expected: true,
+			hasError: false,
+		},
+		{
+			name: "Server with core false",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "https://argocd.example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "https://argocd.example.com", Core: false},
+				},
+			},
+			expected: false,
+			hasError: false,
+		},
+		{
+			name: "Server without core field (defaults to false)",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "https://argocd.example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "https://argocd.example.com"},
+				},
+			},
+			expected: false,
+			hasError: false,
+		},
+		{
+			name: "No current context",
+			config: &ArgoCLIConfig{
+				Servers: []ArgoServer{
+					{Server: "kubernetes", Core: true},
+				},
+			},
+			expected: false,
+			hasError: true,
+		},
+		{
+			name: "Context not found in servers",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "missing-server", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "kubernetes", Core: true},
+				},
+			},
+			expected: false,
+			hasError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.config.IsCurrentServerCore()
+
+			if tt.hasError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("IsCurrentServerCore() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
