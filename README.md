@@ -52,6 +52,42 @@ yay -S argonaut-bin
 </details>
 
 <details>
+    <summary><strong>Nix</strong></summary>
+With Nix and Flakes enabled, you can run or install Argonaut directly from the repository.
+
+### Run Directly
+
+To run Argonaut without permanently installing it, use the `nix run` command:
+
+```bash
+nix run github:darksworm/argonaut
+```
+
+### Development Shell
+
+To enter a development shell with Argonaut and its dependencies (like Go, Delta, and Argocd) available for development, use the `nix develop` command:
+
+```bash
+nix develop github:darksworm/argonaut
+```
+
+### Flakes
+
+If you are using Flakes to manage your systems add this to your Flake:
+
+```nix
+inputs = {
+  argonaut = {
+    url = "github:darksworm/argonaut";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  # ...
+}
+```
+
+</details>
+
+<details>
   <summary><strong>Docker</strong></summary>
 
 Pull the image:
