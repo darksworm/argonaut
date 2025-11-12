@@ -21,6 +21,13 @@ import (
 	"github.com/darksworm/argonaut/pkg/trust"
 )
 
+// CoreModeError indicates that ArgoCD is running in core mode
+type CoreModeError struct{}
+
+func (e *CoreModeError) Error() string {
+	return "ArgoCD is running in core mode"
+}
+
 // appVersion is the Argonaut version shown in the ASCII banner.
 // Override at build time: go build -ldflags "-X main.appVersion=1.16.0"
 var appVersion = "dev"
@@ -199,10 +206,18 @@ func main() {
 	// Try to read the ArgoCD CLI config file
 	server, err := loadArgoConfig(cfgPathFlag)
 	if err != nil {
-		cblog.With("component", "app").Error("Could not load Argo CD config", "err", err)
-		cblog.With("component", "app").Info("Please run 'argocd login' to configure and authenticate")
-		// Set to nil - the app will show auth-required mode
-		m.state.Server = nil
+		// Check if it's a core mode error
+		if _, isCoreError := err.(*CoreModeError); isCoreError {
+			cblog.With("component", "app").Info("ArgoCD core installation detected")
+			// Set mode to show core detection view
+			m.state.Mode = model.ModeCoreDetected
+			m.state.Server = nil
+		} else {
+			cblog.With("component", "app").Error("Could not load Argo CD config", "err", err)
+			cblog.With("component", "app").Info("Please run 'argocd login' to configure and authenticate")
+			// Set to nil - the app will show auth-required mode
+			m.state.Server = nil
+		}
 	} else {
 		cblog.With("component", "app").Info("Loaded Argo CD config", "server", server.BaseURL)
 		m.state.Server = server
@@ -280,6 +295,13 @@ func loadArgoConfig(overridePath string) (*model.Server, error) {
 	// Convert to server config
 	server, err := cfg.ToServerConfig()
 	if err != nil {
+		// Check if it's an auth error AND we're in core mode
+		if isCore, coreErr := cfg.IsCurrentServerCore(); coreErr == nil && isCore {
+			// Check if the error is about missing auth token
+			if strings.Contains(err.Error(), "auth token") || strings.Contains(err.Error(), "no token") {
+				return nil, &CoreModeError{}
+			}
+		}
 		return nil, fmt.Errorf("failed to parse server config: %w", err)
 	}
 

@@ -19,6 +19,7 @@ type ArgoContext struct {
 // ArgoServer represents an ArgoCD server configuration
 type ArgoServer struct {
 	Server          string `yaml:"server"`
+	Core            bool   `yaml:"core,omitempty"`
 	GrpcWeb         bool   `yaml:"grpc-web,omitempty"`
 	GrpcWebRootPath string `yaml:"grpc-web-root-path,omitempty"`
 	Insecure        bool   `yaml:"insecure,omitempty"`
@@ -125,6 +126,15 @@ func (c *ArgoCLIConfig) GetCurrentServerConfig() (*ArgoServer, error) {
 	}
 
 	return nil, fmt.Errorf("server configuration not found for %s", serverURL)
+}
+
+// IsCurrentServerCore returns true if the current server is running in core mode
+func (c *ArgoCLIConfig) IsCurrentServerCore() (bool, error) {
+	serverConfig, err := c.GetCurrentServerConfig()
+	if err != nil {
+		return false, err
+	}
+	return serverConfig.Core, nil
 }
 
 // GetCurrentToken returns the auth token for the current context

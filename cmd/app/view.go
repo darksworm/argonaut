@@ -301,6 +301,8 @@ func (m *Model) View() tea.View {
 			content = m.renderErrorView()
 		case model.ModeConnectionError:
 			content = m.renderConnectionErrorView()
+		case model.ModeCoreDetected:
+			content = m.renderCoreDetectedView()
 		default:
 			content = m.renderMainLayout()
 		}
@@ -1081,6 +1083,66 @@ func (m *Model) renderConnectionErrorView() string {
 	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
 		ContentBordered: true,
 		BorderColor:     outOfSyncColor, // red border for connection errors
+	})
+}
+
+// renderCoreDetectedView displays helpful instructions for ArgoCD core installations
+func (m *Model) renderCoreDetectedView() string {
+	// Header
+	header := m.renderBanner()
+
+	// Build core detection content
+	errorContent := ""
+
+	// Title with warning styling
+	titleStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+	errorContent += titleStyle.Render("ArgoCD Core Installation Detected") + "\n\n"
+
+	// Main explanation message
+	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	errorContent += messageStyle.Render("Your ArgoCD is running in core mode, which doesn't include the API server that argonaut requires.\n\nTo use argonaut with a core installation, you need to run the ArgoCD dashboard locally and connect to it.") + "\n\n"
+
+	// Instructions section
+	instructionStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	errorContent += instructionStyle.Render("Setup Instructions:") + "\n\n"
+
+	// Step-by-step commands
+	codeStyle := lipgloss.NewStyle().Foreground(syncedColor).Background(lipgloss.Color("#1a1a1a")).Padding(0, 1)
+	stepStyle := lipgloss.NewStyle().Foreground(whiteBright)
+
+	errorContent += stepStyle.Render("1. Get the admin password:") + "\n"
+	errorContent += codeStyle.Render(`ADMIN_PASS="$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"`) + "\n\n"
+
+	errorContent += stepStyle.Render("2. Start the dashboard (runs in background):") + "\n"
+	errorContent += codeStyle.Render("argocd admin dashboard --namespace argocd --port 8080 &") + "\n\n"
+
+	errorContent += stepStyle.Render("3. Login to the local dashboard:") + "\n"
+	errorContent += codeStyle.Render(`argocd login localhost:8080 --insecure --username admin --password $ADMIN_PASS`) + "\n\n"
+
+	errorContent += stepStyle.Render("4. Run argonaut:") + "\n"
+	errorContent += codeStyle.Render("argonaut") + "\n\n"
+
+	// Additional tip
+	tipStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	tip := "Note: The dashboard will run on http://localhost:8080 and argonaut will connect to it automatically."
+	errorContent += tipStyle.Render(tip) + "\n\n"
+
+	// Instructions
+	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	instructions := []string{
+		"Press 'q' to exit",
+		"Press Esc to retry",
+	}
+	for _, instruction := range instructions {
+		errorContent += instructStyle.Render("• "+instruction) + "\n"
+	}
+
+	status := ""
+
+	// Use the new layout helper with yellow border (warning styling)
+	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
+		ContentBordered: true,
+		BorderColor:     yellowBright, // yellow border for warnings
 	})
 }
 
