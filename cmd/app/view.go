@@ -1091,53 +1091,42 @@ func (m *Model) renderCoreDetectedView() string {
 	// Header
 	header := m.renderBanner()
 
-	// Build core detection content
-	errorContent := ""
+	// Build core detection content - more compact version
+	var contentSections []string
 
 	// Title with warning styling
 	titleStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-	errorContent += titleStyle.Render("ArgoCD Core Installation Detected") + "\n\n"
+	contentSections = append(contentSections, titleStyle.Render("ArgoCD Core Installation Detected"))
+	contentSections = append(contentSections, "")
 
-	// Main explanation message
+	// Main explanation message (shortened)
 	messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-	errorContent += messageStyle.Render("Your ArgoCD is running in core mode, which doesn't include the API server that argonaut requires.\n\nTo use argonaut with a core installation, you need to run the ArgoCD dashboard locally and connect to it.") + "\n\n"
+	contentSections = append(contentSections, messageStyle.Render("Core mode doesn't include the API server. Run the dashboard locally:"))
+	contentSections = append(contentSections, "")
 
-	// Instructions section
-	instructionStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-	errorContent += instructionStyle.Render("Setup Instructions:") + "\n\n"
+	// Step-by-step commands (more compact)
+	codeStyle := lipgloss.NewStyle().Foreground(syncedColor)
+	commentStyle := lipgloss.NewStyle().Foreground(dimColor)
 
-	// Step-by-step commands
-	codeStyle := lipgloss.NewStyle().Foreground(syncedColor).Background(lipgloss.Color("#1a1a1a")).Padding(0, 1)
-	stepStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	// Combine steps more compactly
+	contentSections = append(contentSections, commentStyle.Render("# 1. Get admin password"))
+	contentSections = append(contentSections, codeStyle.Render(`ADMIN_PASS="$(kubectl -n argocd get secret argocd-initial-admin-secret \`))
+	contentSections = append(contentSections, codeStyle.Render(`  -o jsonpath="{.data.password}" | base64 -d)"`))
+	contentSections = append(contentSections, "")
 
-	errorContent += stepStyle.Render("1. Get the admin password:") + "\n"
-	errorContent += codeStyle.Render(`ADMIN_PASS="$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"`) + "\n\n"
+	contentSections = append(contentSections, commentStyle.Render("# 2. Start dashboard & login"))
+	contentSections = append(contentSections, codeStyle.Render("argocd admin dashboard --namespace argocd --port 8080 &"))
+	contentSections = append(contentSections, codeStyle.Render(`argocd login localhost:8080 --insecure --username admin --password $ADMIN_PASS`))
+	contentSections = append(contentSections, "")
 
-	errorContent += stepStyle.Render("2. Start the dashboard (runs in background):") + "\n"
-	errorContent += codeStyle.Render("argocd admin dashboard --namespace argocd --port 8080 &") + "\n\n"
+	contentSections = append(contentSections, commentStyle.Render("# 3. Run argonaut"))
+	contentSections = append(contentSections, codeStyle.Render("argonaut"))
 
-	errorContent += stepStyle.Render("3. Login to the local dashboard:") + "\n"
-	errorContent += codeStyle.Render(`argocd login localhost:8080 --insecure --username admin --password $ADMIN_PASS`) + "\n\n"
+	// Join content
+	errorContent := strings.Join(contentSections, "\n")
 
-	errorContent += stepStyle.Render("4. Run argonaut:") + "\n"
-	errorContent += codeStyle.Render("argonaut") + "\n\n"
-
-	// Additional tip
-	tipStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	tip := "Note: The dashboard will run on http://localhost:8080 and argonaut will connect to it automatically."
-	errorContent += tipStyle.Render(tip) + "\n\n"
-
-	// Instructions
-	instructStyle := lipgloss.NewStyle().Foreground(cyanBright)
-	instructions := []string{
-		"Press 'q' to exit",
-		"Press Esc to retry",
-	}
-	for _, instruction := range instructions {
-		errorContent += instructStyle.Render("• "+instruction) + "\n"
-	}
-
-	status := ""
+	// Status with instructions
+	status := statusStyle.Render("Press q to exit, Esc to retry")
 
 	// Use the new layout helper with yellow border (warning styling)
 	return m.renderFullScreenViewWithOptions(header, errorContent, status, FullScreenViewOptions{
