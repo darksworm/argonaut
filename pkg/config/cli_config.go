@@ -184,9 +184,10 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 	baseURL := ensureHTTPS(serverConfig.Server, serverConfig.PlainText)
 
 	return &model.Server{
-		BaseURL:  baseURL,
-		Token:    token,
-		Insecure: serverConfig.Insecure,
+		BaseURL:         baseURL,
+		Token:           token,
+		Insecure:        serverConfig.Insecure,
+		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
 	}, nil
 }
 
