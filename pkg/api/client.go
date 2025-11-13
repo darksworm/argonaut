@@ -21,10 +21,11 @@ import (
 
 // Client represents an HTTP client for ArgoCD API
 type Client struct {
-	baseURL    string
-	token      string
-	httpClient *http.Client
-	insecure   bool
+	baseURL         string
+	token           string
+	httpClient      *http.Client
+	insecure        bool
+	grpcWebRootPath string
 }
 
 var customHTTPClient *http.Client
@@ -95,11 +96,22 @@ func NewClient(server *model.Server) *Client {
 	}
 
 	return &Client{
-		baseURL:    server.BaseURL,
-		token:      server.Token,
-		httpClient: httpClient,
-		insecure:   server.Insecure,
+		baseURL:         server.BaseURL,
+		token:           server.Token,
+		httpClient:      httpClient,
+		insecure:        server.Insecure,
+		grpcWebRootPath: server.GrpcWebRootPath,
 	}
+}
+
+// buildURL constructs the full URL including the gRPC-web root path if configured
+func (c *Client) buildURL(path string) string {
+	if c.grpcWebRootPath != "" {
+		// Trim leading and trailing slashes from root path, similar to ArgoCD implementation
+		rootPath := strings.TrimRight(strings.TrimLeft(c.grpcWebRootPath, "/"), "/")
+		return fmt.Sprintf("%s/%s%s", c.baseURL, rootPath, path)
+	}
+	return c.baseURL + path
 }
 
 // Get performs a GET request with retry logic
@@ -165,7 +177,7 @@ func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
 // Stream performs a streaming GET request for Server-Sent Events
 func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error) {
 	// No timeout for streams - managed by caller context
-	url := c.baseURL + path
+	url := c.buildURL(path)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -208,7 +220,7 @@ func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error)
 
 // request performs the actual HTTP request
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	url := c.baseURL + path
+	url := c.buildURL(path)
 
 	var reqBody io.Reader
 	if body != nil {

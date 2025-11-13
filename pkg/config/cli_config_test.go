@@ -206,3 +206,86 @@ func TestIsCurrentServerCore(t *testing.T) {
 		})
 	}
 }
+
+func TestToServerConfig_GrpcWebRootPath(t *testing.T) {
+	tests := []struct {
+		name             string
+		config           *ArgoCLIConfig
+		expectedRootPath string
+		hasError         bool
+	}{
+		{
+			name: "Config without grpc-web-root-path",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "example.com"},
+				},
+				Users: []ArgoUser{
+					{Name: "admin", AuthToken: "test-token"},
+				},
+			},
+			expectedRootPath: "",
+			hasError:         false,
+		},
+		{
+			name: "Config with grpc-web-root-path",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "example.com", GrpcWebRootPath: "argocd"},
+				},
+				Users: []ArgoUser{
+					{Name: "admin", AuthToken: "test-token"},
+				},
+			},
+			expectedRootPath: "argocd",
+			hasError:         false,
+		},
+		{
+			name: "Config with grpc-web-root-path with slashes",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "example.com", GrpcWebRootPath: "/argocd/"},
+				},
+				Users: []ArgoUser{
+					{Name: "admin", AuthToken: "test-token"},
+				},
+			},
+			expectedRootPath: "/argocd/",
+			hasError:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			serverConfig, err := tt.config.ToServerConfig()
+
+			if tt.hasError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if serverConfig.GrpcWebRootPath != tt.expectedRootPath {
+				t.Errorf("GrpcWebRootPath = %v, want %v", serverConfig.GrpcWebRootPath, tt.expectedRootPath)
+			}
+		})
+	}
+}

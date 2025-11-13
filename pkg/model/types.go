@@ -56,11 +56,12 @@ type App struct {
 
 // Server represents an ArgoCD server configuration
 type Server struct {
-	BaseURL  string `json:"baseUrl"`
-	Token    string `json:"token"`
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	Insecure bool   `json:"insecure,omitempty"`
+	BaseURL         string `json:"baseUrl"`
+	Token           string `json:"token"`
+	Username        string `json:"username,omitempty"`
+	Password        string `json:"password,omitempty"`
+	Insecure        bool   `json:"insecure,omitempty"`
+	GrpcWebRootPath string `json:"grpcWebRootPath,omitempty"`
 }
 
 // TerminalState represents terminal dimensions
