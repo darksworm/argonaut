@@ -102,6 +102,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
+	case tea.MouseWheelMsg:
+		return m.handleMouseWheelMsg(msg)
+
 	// Tree stream messages from watcher goroutine
 	case model.ResourceTreeStreamMsg:
 		cblog.With("component", "ui").Debug("Processing tree stream message", "app", msg.AppName, "hasData", len(msg.TreeJSON) > 0)
