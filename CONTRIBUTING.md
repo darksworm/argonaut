@@ -2,6 +2,12 @@
 
 When contributing to this repository, please first discuss the change you wish to make via issue, email, or any other method with the owners of this repository before making a change.
 
+If you haven't let us know what/how/why you're working on, your contribution might get rejected, but please don't get discouraged - just get a 👍 from one of the maintainers in the issues section and you're ready to rock and roll.
+
+If you'd like to contribute, but don't know where to start - check the issues labeled "good first issue".
+
+🤖 AI aided contributions are welcome. Just make sure to add proper test coverage!
+
 ## How to Contribute a New Theme
 
 To add a new theme to the project:
