@@ -7,7 +7,7 @@
 
 * add ArgoCD core mode detection with suggested workaround ([#128](https://github.com/darksworm/argonaut/issues/128)) ([2702907](https://github.com/darksworm/argonaut/commit/27029070989f29f6bb72ee0a3f519faed04fe0a3))
 * add grpc-web-root-path support for ArgoCD API requests ([f2506c3](https://github.com/darksworm/argonaut/commit/f2506c348fd3cbf9298b53181222a567446a2e17))
-* Flake ([f6f68bc](https://github.com/darksworm/argonaut/commit/f6f68bceade28ae55b19b409a77a549c67863f00))
+* added nix flake ([f6f68bc](https://github.com/darksworm/argonaut/commit/f6f68bceade28ae55b19b409a77a549c67863f00))
 * support pasting into command and search bar ([#134](https://github.com/darksworm/argonaut/issues/134)) ([de99161](https://github.com/darksworm/argonaut/commit/de991613e4c0317aa5c8c52c2cdbdc5a2039d59b))
 
 ## [2.6.1](https://github.com/darksworm/argonaut/compare/v2.6.0...v2.6.1) (2025-11-11)
