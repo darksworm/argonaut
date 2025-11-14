@@ -340,7 +340,20 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 
 // handleEnhancedSearchModeKeys handles input when in search mode with bubbles textinput
 func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
 	switch msg.String() {
+	case "paste":
+		// Handle paste event from terminal/OS
+		cblog.With("component", "search").Info("Paste event detected in search mode")
+		cmd := m.inputComponents.UpdateSearchInput(msg)
+		// Sync the search query with the input value
+		m.state.UI.SearchQuery = m.inputComponents.GetSearchValue()
+		// Clamp selection within new filtered results
+		m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+			m.state.Navigation.SelectedIdx,
+			len(m.getVisibleItems()),
+		)
+		return m, cmd
 	case "ctrl+c":
 		// Treat Ctrl+C as closing the input (do not quit app)
 		m.inputComponents.BlurInputs()
@@ -417,7 +430,17 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 
 // handleEnhancedCommandModeKeys handles input when in command mode with bubbles textinput
 func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
 	switch msg.String() {
+	case "paste":
+		// Handle paste event from terminal/OS
+		cblog.With("component", "command").Info("Paste event detected in command mode")
+		cmd := m.inputComponents.UpdateCommandInput(msg)
+		// Sync the command with the input value
+		m.state.UI.Command = m.inputComponents.GetCommandValue()
+		// Clear invalid flag when user pastes (any change resets the warning)
+		m.state.UI.CommandInvalid = false
+		return m, cmd
 	case "ctrl+c":
 		// Treat Ctrl+C as closing the input (do not quit app)
 		m.inputComponents.BlurInputs()

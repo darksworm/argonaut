@@ -102,6 +102,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
+	case tea.PasteMsg:
+		// Handle clipboard paste events
+
+		// Handle based on current mode
+		if m.state.Mode == model.ModeSearch {
+			// For search mode, append pasted text to current search
+			currentValue := m.inputComponents.GetSearchValue()
+			newValue := currentValue + string(msg)
+			m.inputComponents.SetSearchValue(newValue)
+			m.state.UI.SearchQuery = newValue
+			// Clamp selection within new filtered results
+			m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+				m.state.Navigation.SelectedIdx,
+				len(m.getVisibleItems()),
+			)
+			return m, nil
+		} else if m.state.Mode == model.ModeCommand {
+			// For command mode, append pasted text to current command
+			currentValue := m.inputComponents.GetCommandValue()
+			newValue := currentValue + string(msg)
+			m.inputComponents.SetCommandValue(newValue)
+			m.state.UI.Command = newValue
+			m.state.UI.CommandInvalid = false
+			return m, nil
+		}
+		return m, nil
+
 	// Tree stream messages from watcher goroutine
 	case model.ResourceTreeStreamMsg:
 		cblog.With("component", "ui").Debug("Processing tree stream message", "app", msg.AppName, "hasData", len(msg.TreeJSON) > 0)
