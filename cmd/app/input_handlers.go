@@ -415,6 +415,59 @@ func (m *Model) handleGoToBottom() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handlePageUp scrolls up by one page (PageUp/fn+up key)
+func (m *Model) handlePageUp() (tea.Model, tea.Cmd) {
+	visibleItems := m.getVisibleItemsForCurrentView()
+	if len(visibleItems) == 0 {
+		return m, nil
+	}
+
+	// Calculate viewport height for list views
+	availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
+	visibleRows := max(1, availableRows-1)      // Leave room for header, minimum 1
+
+	// Move cursor up by page size
+	newIdx := m.state.Navigation.SelectedIdx - visibleRows
+	if newIdx < 0 {
+		newIdx = 0
+	}
+	m.state.Navigation.SelectedIdx = newIdx
+
+	// Update scroll offset to keep cursor visible
+	if newIdx < m.listScrollOffset {
+		m.listScrollOffset = newIdx
+	}
+
+	return m, nil
+}
+
+// handlePageDown scrolls down by one page (PageDown/fn+down key)
+func (m *Model) handlePageDown() (tea.Model, tea.Cmd) {
+	visibleItems := m.getVisibleItemsForCurrentView()
+	if len(visibleItems) == 0 {
+		return m, nil
+	}
+
+	// Calculate viewport height for list views
+	availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
+	visibleRows := max(1, availableRows-1)      // Leave room for header, minimum 1
+
+	// Move cursor down by page size
+	newIdx := m.state.Navigation.SelectedIdx + visibleRows
+	maxIdx := len(visibleItems) - 1
+	if newIdx > maxIdx {
+		newIdx = maxIdx
+	}
+	m.state.Navigation.SelectedIdx = newIdx
+
+	// Update scroll offset to keep cursor visible
+	if newIdx >= m.listScrollOffset+visibleRows {
+		m.listScrollOffset = newIdx - visibleRows + 1
+	}
+
+	return m, nil
+}
+
 // Mode-specific key handlers
 
 // handleSearchModeKeys handles input when in search mode
@@ -468,6 +521,31 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.applyThemePreview(selectedTheme)
 		}
 		return m, nil
+	case "pgup":
+		// Page up in theme list
+		pageSize := m.themePageSize()
+		newIdx := m.state.UI.ThemeSelectedIndex - pageSize
+		if newIdx < 0 {
+			newIdx = 0
+		}
+		m.state.UI.ThemeSelectedIndex = newIdx
+		m.adjustThemeScrollOffset()
+		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
+		m.applyThemePreview(selectedTheme)
+		return m, nil
+	case "pgdown":
+		// Page down in theme list
+		pageSize := m.themePageSize()
+		newIdx := m.state.UI.ThemeSelectedIndex + pageSize
+		maxIdx := len(m.themeOptions) - 1
+		if newIdx > maxIdx {
+			newIdx = maxIdx
+		}
+		m.state.UI.ThemeSelectedIndex = newIdx
+		m.adjustThemeScrollOffset()
+		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
+		m.applyThemePreview(selectedTheme)
+		return m, nil
 	case "enter":
 		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
 		newModel, cmd := m.handleThemeCommand(selectedTheme)
@@ -494,6 +572,17 @@ func (m *Model) applyThemePreview(themeName string) {
 	palette := theme.FromConfig(tempConfig)
 	applyTheme(palette)
 	m.applyThemeToModel()
+}
+
+// themePageSize returns the number of visible theme rows for page scrolling
+func (m *Model) themePageSize() int {
+	headerLines := 2      // title + blank line
+	borderLines := 4      // top + bottom border + padding
+	footerLines := 2      // potential warning message + blank line
+	statusLine := 1       // status line at bottom
+	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
+	maxThemeLines := max(5, maxAvailableHeight)
+	return max(1, maxThemeLines-2) // Reserve 2 lines for scroll indicators
 }
 
 // adjustThemeScrollOffset adjusts the scroll offset to keep the selected theme visible
@@ -580,6 +669,16 @@ func (m *Model) handleDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// set to large; clamped on render
 		m.state.Diff.Offset = 1 << 30
 		return m, nil
+	case "pgup":
+		// Page up in diff view
+		pageSize := m.diffPageSize()
+		m.state.Diff.Offset = max(0, m.state.Diff.Offset-pageSize)
+		return m, nil
+	case "pgdown":
+		// Page down in diff view (clamped on render)
+		pageSize := m.diffPageSize()
+		m.state.Diff.Offset = m.state.Diff.Offset + pageSize
+		return m, nil
 	case "/":
 		// Reuse search input for diff filtering
 		m.inputComponents.ClearSearchInput()
@@ -589,6 +688,13 @@ func (m *Model) handleDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// diffPageSize returns the number of visible rows for page scrolling in diff mode
+func (m *Model) diffPageSize() int {
+	// Diff view uses most of the terminal height minus borders and header
+	overhead := 6 // header, footer, borders
+	return max(1, m.state.Terminal.Rows-overhead)
 }
 
 // handleConfirmSyncKeys handles input when in sync confirmation mode
@@ -646,6 +752,14 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// rollbackPageSize returns the number of visible rows for page scrolling in rollback mode
+func (m *Model) rollbackPageSize() int {
+	// Approximate: modal takes ~60% of terminal height, minus header/footer
+	modalHeight := m.state.Terminal.Rows * 60 / 100
+	overhead := 6 // header, footer, borders
+	return max(1, modalHeight-overhead)
+}
+
 // handleRollbackModeKeys handles input when in rollback mode
 func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -698,6 +812,29 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Go to bottom
 		if len(m.state.Rollback.Rows) > 0 {
 			m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+		}
+		return m, nil
+	case "pgup":
+		// Page up in rollback history
+		if len(m.state.Rollback.Rows) > 0 {
+			pageSize := m.rollbackPageSize()
+			newIdx := m.state.Rollback.SelectedIdx - pageSize
+			if newIdx < 0 {
+				newIdx = 0
+			}
+			m.state.Rollback.SelectedIdx = newIdx
+		}
+		return m, nil
+	case "pgdown":
+		// Page down in rollback history
+		if len(m.state.Rollback.Rows) > 0 {
+			pageSize := m.rollbackPageSize()
+			newIdx := m.state.Rollback.SelectedIdx + pageSize
+			maxIdx := len(m.state.Rollback.Rows) - 1
+			if newIdx > maxIdx {
+				newIdx = maxIdx
+			}
+			m.state.Rollback.SelectedIdx = newIdx
 		}
 		return m, nil
 	case "p":
@@ -1169,6 +1306,46 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.treeScrollOffset = max(0, totalItems-viewportHeight)
 			}
 			return m, nil
+		case "pgup":
+			// Page up in tree view
+			if m.treeView != nil {
+				viewportHeight := m.treeViewportHeight()
+				// Move cursor up by page size
+				for i := 0; i < viewportHeight; i++ {
+					upMsg := tea.KeyPressMsg{Text: "k", Code: 'k'}
+					updatedModel, _ := m.treeView.Update(upMsg)
+					m.treeView = updatedModel.(*treeview.TreeView)
+				}
+				// Update scroll offset
+				newLine := m.treeView.SelectedIndex()
+				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+					newLine = s.SelectedLineIndex()
+				}
+				if newLine < m.treeScrollOffset {
+					m.treeScrollOffset = newLine
+				}
+			}
+			return m, nil
+		case "pgdown":
+			// Page down in tree view
+			if m.treeView != nil {
+				viewportHeight := m.treeViewportHeight()
+				// Move cursor down by page size
+				for i := 0; i < viewportHeight; i++ {
+					downMsg := tea.KeyPressMsg{Text: "j", Code: 'j'}
+					updatedModel, _ := m.treeView.Update(downMsg)
+					m.treeView = updatedModel.(*treeview.TreeView)
+				}
+				// Update scroll offset
+				newLine := m.treeView.SelectedIndex()
+				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
+					newLine = s.SelectedLineIndex()
+				}
+				if newLine >= m.treeScrollOffset+viewportHeight {
+					m.treeScrollOffset = newLine - viewportHeight + 1
+				}
+			}
+			return m, nil
 		default:
 			if m.treeView != nil {
 				_, cmd := m.treeView.Update(msg)
@@ -1186,6 +1363,10 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNavigationUp()
 	case "down", "j":
 		return m.handleNavigationDown()
+	case "pgup":
+		return m.handlePageUp()
+	case "pgdown":
+		return m.handlePageDown()
 	case " ", "space":
 		return m.handleToggleSelection()
 	case "enter":
