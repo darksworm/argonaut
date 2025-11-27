@@ -18,46 +18,28 @@ import (
 
 // handleNavigationUp moves cursor up with bounds checking
 func (m *Model) handleNavigationUp() (tea.Model, tea.Cmd) {
-	// Only update navigation state - table cursor will be synced in render
-	newIdx := m.state.Navigation.SelectedIdx - 1
-	if newIdx < 0 {
-		newIdx = 0
+	if m.state.Navigation.View == model.ViewTree {
+		return m, nil // Tree view handles its own navigation
 	}
-	m.state.Navigation.SelectedIdx = newIdx
 
-	// Update list scroll offset for non-tree views to keep cursor visible
-	if m.state.Navigation.View != model.ViewTree {
-		if newIdx < m.listScrollOffset {
-			m.listScrollOffset = newIdx
-		}
-	}
+	m.listNav.SetItemCount(len(m.getVisibleItemsForCurrentView()))
+	m.listNav.SetViewportHeight(m.listViewportHeight())
+	m.listNav.MoveUp()
+	m.state.Navigation.SelectedIdx = m.listNav.Cursor()
 
 	return m, nil
 }
 
 // handleNavigationDown moves cursor down with bounds checking
 func (m *Model) handleNavigationDown() (tea.Model, tea.Cmd) {
-	visibleItems := m.getVisibleItemsForCurrentView()
-	newIdx := m.state.Navigation.SelectedIdx + 1
-	maxItems := len(visibleItems)
-	if maxItems == 0 {
-		return m, nil
+	if m.state.Navigation.View == model.ViewTree {
+		return m, nil // Tree view handles its own navigation
 	}
-	if newIdx >= maxItems {
-		newIdx = maxItems - 1
-	}
-	m.state.Navigation.SelectedIdx = newIdx
 
-	// Update list scroll offset for non-tree views to keep cursor visible
-	if m.state.Navigation.View != model.ViewTree {
-		// Calculate viewport height for list views (similar to tree view calculation)
-		availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
-		visibleRows := max(0, availableRows-1)      // Leave room for header
-
-		if newIdx >= m.listScrollOffset+visibleRows {
-			m.listScrollOffset = newIdx - visibleRows + 1
-		}
-	}
+	m.listNav.SetItemCount(len(m.getVisibleItemsForCurrentView()))
+	m.listNav.SetViewportHeight(m.listViewportHeight())
+	m.listNav.MoveDown()
+	m.state.Navigation.SelectedIdx = m.listNav.Cursor()
 
 	return m, nil
 }
@@ -84,6 +66,31 @@ func (m *Model) treeViewportHeight() int {
 	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 	return max(0, availableRows)
+}
+
+// listViewportHeight computes the number of visible rows in the list view,
+// matching the calculation in renderListView: availableRows - 2 (for table header and border)
+func (m *Model) listViewportHeight() int {
+	const (
+		BORDER_LINES       = 2
+		TABLE_HEADER_LINES = 0
+		TAG_LINE           = 0
+		STATUS_LINES       = 1
+	)
+	header := m.renderBanner()
+	headerLines := countLines(header)
+	searchLines := 0
+	if m.state.Mode == model.ModeSearch {
+		searchLines = 1
+	}
+	commandLines := 0
+	if m.state.Mode == model.ModeCommand {
+		commandLines = 1
+	}
+	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
+	availableRows := max(0, m.state.Terminal.Rows-overhead)
+	// Match renderListView: tableHeight = availableRows - 1, visibleRows = tableHeight - 1
+	return max(1, availableRows-2)
 }
 
 // handleToggleSelection toggles selection of current item (space key)
@@ -379,95 +386,6 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	}
 }
 
-// handleGoToTop moves to first item (double-g)
-func (m *Model) handleGoToTop() (tea.Model, tea.Cmd) {
-	// Special handling for tree view - scroll to top
-	if m.state.Navigation.View == model.ViewTree {
-		m.treeScrollOffset = 0
-		m.state.Navigation.LastGPressed = 0 // Reset double-g state
-		return m, nil
-	}
-
-	m.state.Navigation.SelectedIdx = 0
-	m.listScrollOffset = 0              // Reset scroll to top for list views
-	m.state.Navigation.LastGPressed = 0 // Reset double-g state
-	return m, nil
-}
-
-// handleGoToBottom moves to last item (G key)
-func (m *Model) handleGoToBottom() (tea.Model, tea.Cmd) {
-	// Special handling for tree view - scroll to bottom
-	if m.state.Navigation.View == model.ViewTree {
-		// Set to a large value, will be clamped in renderTreePanel
-		m.treeScrollOffset = 1 << 30
-		return m, nil
-	}
-
-	visibleItems := m.getVisibleItemsForCurrentView()
-	if len(visibleItems) > 0 {
-		m.state.Navigation.SelectedIdx = len(visibleItems) - 1
-
-		// Update scroll offset to show the last item
-		availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
-		visibleRows := max(0, availableRows-1)      // Leave room for header
-		m.listScrollOffset = max(0, len(visibleItems)-visibleRows)
-	}
-	return m, nil
-}
-
-// handlePageUp scrolls up by one page (PageUp/fn+up key)
-func (m *Model) handlePageUp() (tea.Model, tea.Cmd) {
-	visibleItems := m.getVisibleItemsForCurrentView()
-	if len(visibleItems) == 0 {
-		return m, nil
-	}
-
-	// Calculate viewport height for list views
-	availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
-	visibleRows := max(1, availableRows-1)      // Leave room for header, minimum 1
-
-	// Move cursor up by page size
-	newIdx := m.state.Navigation.SelectedIdx - visibleRows
-	if newIdx < 0 {
-		newIdx = 0
-	}
-	m.state.Navigation.SelectedIdx = newIdx
-
-	// Update scroll offset to keep cursor visible
-	if newIdx < m.listScrollOffset {
-		m.listScrollOffset = newIdx
-	}
-
-	return m, nil
-}
-
-// handlePageDown scrolls down by one page (PageDown/fn+down key)
-func (m *Model) handlePageDown() (tea.Model, tea.Cmd) {
-	visibleItems := m.getVisibleItemsForCurrentView()
-	if len(visibleItems) == 0 {
-		return m, nil
-	}
-
-	// Calculate viewport height for list views
-	availableRows := m.state.Terminal.Rows - 10 // Approximate overhead
-	visibleRows := max(1, availableRows-1)      // Leave room for header, minimum 1
-
-	// Move cursor down by page size
-	newIdx := m.state.Navigation.SelectedIdx + visibleRows
-	maxIdx := len(visibleItems) - 1
-	if newIdx > maxIdx {
-		newIdx = maxIdx
-	}
-	m.state.Navigation.SelectedIdx = newIdx
-
-	// Update scroll offset to keep cursor visible
-	if newIdx >= m.listScrollOffset+visibleRows {
-		m.listScrollOffset = newIdx - visibleRows + 1
-	}
-
-	return m, nil
-}
-
 // Mode-specific key handlers
 
 // handleSearchModeKeys handles input when in search mode
@@ -480,17 +398,14 @@ func (m *Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleEnhancedCommandModeKeys(msg)
 }
 
-// handleThemeModeKeys handles input when in theme selection mode
+// handleThemeModeKeys handles input when in theme selection mode.
+// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.ensureThemeOptionsLoaded()
 
 	if len(m.themeOptions) == 0 {
 		m.state.Mode = model.ModeNormal
 		return m, nil
-	}
-
-	if m.state.UI.ThemeSelectedIndex >= len(m.themeOptions) {
-		m.state.UI.ThemeSelectedIndex = len(m.themeOptions) - 1
 	}
 
 	switch msg.String() {
@@ -505,49 +420,8 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.UI.Command = ""
 		m.state.Mode = model.ModeNormal
 		return m, nil
-	case "up", "k":
-		if m.state.UI.ThemeSelectedIndex > 0 {
-			m.state.UI.ThemeSelectedIndex--
-			m.adjustThemeScrollOffset()
-			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
-			m.applyThemePreview(selectedTheme)
-		}
-		return m, nil
-	case "down", "j":
-		if m.state.UI.ThemeSelectedIndex < len(m.themeOptions)-1 {
-			m.state.UI.ThemeSelectedIndex++
-			m.adjustThemeScrollOffset()
-			selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
-			m.applyThemePreview(selectedTheme)
-		}
-		return m, nil
-	case "pgup":
-		// Page up in theme list
-		pageSize := m.themePageSize()
-		newIdx := m.state.UI.ThemeSelectedIndex - pageSize
-		if newIdx < 0 {
-			newIdx = 0
-		}
-		m.state.UI.ThemeSelectedIndex = newIdx
-		m.adjustThemeScrollOffset()
-		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
-		m.applyThemePreview(selectedTheme)
-		return m, nil
-	case "pgdown":
-		// Page down in theme list
-		pageSize := m.themePageSize()
-		newIdx := m.state.UI.ThemeSelectedIndex + pageSize
-		maxIdx := len(m.themeOptions) - 1
-		if newIdx > maxIdx {
-			newIdx = maxIdx
-		}
-		m.state.UI.ThemeSelectedIndex = newIdx
-		m.adjustThemeScrollOffset()
-		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
-		m.applyThemePreview(selectedTheme)
-		return m, nil
 	case "enter":
-		selectedTheme := m.themeOptions[m.state.UI.ThemeSelectedIndex].Name
+		selectedTheme := m.themeOptions[m.themeNav.Cursor()].Name
 		newModel, cmd := m.handleThemeCommand(selectedTheme)
 		// Clear command state if any
 		newModel.inputComponents.BlurInputs()
@@ -557,6 +431,12 @@ func (m *Model) handleThemeModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return newModel, cmd
 	}
 	return m, nil
+}
+
+// syncThemeNavToState syncs themeNav cursor/scroll to the legacy state fields for rendering
+func (m *Model) syncThemeNavToState() {
+	m.state.UI.ThemeSelectedIndex = m.themeNav.Cursor()
+	m.state.UI.ThemeScrollOffset = m.themeNav.ScrollOffset()
 }
 
 // applyThemePreview applies a theme temporarily for preview without saving to config
@@ -585,47 +465,6 @@ func (m *Model) themePageSize() int {
 	return max(1, maxThemeLines-2) // Reserve 2 lines for scroll indicators
 }
 
-// adjustThemeScrollOffset adjusts the scroll offset to keep the selected theme visible
-func (m *Model) adjustThemeScrollOffset() {
-	// Calculate available height for themes (same logic as in renderThemeSelectionModal)
-	headerLines := 2      // title + blank line
-	borderLines := 4      // top + bottom border + padding
-	footerLines := 2      // potential warning message + blank line
-	statusLine := 1       // status line at bottom
-	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
-
-	// Ensure we have a reasonable minimum height
-	maxThemeLines := max(5, maxAvailableHeight)
-
-	// Reserve 2 lines for scroll indicators (up and down) when needed
-	availableLines := maxThemeLines - 2
-
-	selectedIndex := m.state.UI.ThemeSelectedIndex
-	totalOptions := len(m.themeOptions)
-
-	// If all themes fit on screen, no scrolling needed
-	if totalOptions <= maxThemeLines {
-		m.state.UI.ThemeScrollOffset = 0
-		return
-	}
-
-	// Calculate the ideal scroll offset to keep the selected item visible
-	// Try to center the selected item, but adjust if near the boundaries
-	idealOffset := selectedIndex - availableLines/2
-
-	// Ensure we don't scroll past the beginning
-	if idealOffset < 0 {
-		idealOffset = 0
-	}
-
-	// Ensure we don't scroll past the end
-	maxScrollOffset := totalOptions - availableLines
-	if idealOffset > maxScrollOffset {
-		idealOffset = maxScrollOffset
-	}
-
-	m.state.UI.ThemeScrollOffset = idealOffset
-}
 
 // handleHelpModeKeys handles input when in help mode
 func (m *Model) handleHelpModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -646,7 +485,8 @@ func (m *Model) handleNoDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // removed: resources list mode
 
-// handleDiffModeKeys handles navigation and search in diff mode
+// handleDiffModeKeys handles non-navigation input in diff mode.
+// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 func (m *Model) handleDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.state.Diff == nil {
 		return m, nil
@@ -655,29 +495,6 @@ func (m *Model) handleDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "esc":
 		m.state.Mode = model.ModeNormal
 		m.state.Diff = nil
-		return m, nil
-	case "up", "k":
-		m.state.Diff.Offset = max(0, m.state.Diff.Offset-1)
-		return m, nil
-	case "down", "j":
-		m.state.Diff.Offset = m.state.Diff.Offset + 1
-		return m, nil
-	case "g":
-		m.state.Diff.Offset = 0
-		return m, nil
-	case "G":
-		// set to large; clamped on render
-		m.state.Diff.Offset = 1 << 30
-		return m, nil
-	case "pgup":
-		// Page up in diff view
-		pageSize := m.diffPageSize()
-		m.state.Diff.Offset = max(0, m.state.Diff.Offset-pageSize)
-		return m, nil
-	case "pgdown":
-		// Page down in diff view (clamped on render)
-		pageSize := m.diffPageSize()
-		m.state.Diff.Offset = m.state.Diff.Offset + pageSize
 		return m, nil
 	case "/":
 		// Reuse search input for diff filtering
@@ -760,7 +577,8 @@ func (m *Model) rollbackPageSize() int {
 	return max(1, modalHeight-overhead)
 }
 
-// handleRollbackModeKeys handles input when in rollback mode
+// handleRollbackModeKeys handles input when in rollback mode.
+// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "ctrl+c":
@@ -777,66 +595,6 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "j", "down":
-		// Navigate down in rollback history
-		if len(m.state.Rollback.Rows) > 0 {
-			newIdx := m.state.Rollback.SelectedIdx + 1
-			if newIdx >= len(m.state.Rollback.Rows) {
-				newIdx = len(m.state.Rollback.Rows) - 1
-			}
-			m.state.Rollback.SelectedIdx = newIdx
-		}
-		return m, nil
-	case "k", "up":
-		// Navigate up in rollback history
-		if len(m.state.Rollback.Rows) > 0 {
-			newIdx := m.state.Rollback.SelectedIdx - 1
-			if newIdx < 0 {
-				newIdx = 0
-			}
-			m.state.Rollback.SelectedIdx = newIdx
-		}
-		return m, nil
-	case "g":
-		// Double-g check for go to top
-		now := time.Now().UnixMilli()
-		if now-m.state.Navigation.LastGPressed < 500 {
-			// Go to top
-			m.state.Rollback.SelectedIdx = 0
-			m.state.Navigation.LastGPressed = 0
-		} else {
-			m.state.Navigation.LastGPressed = now
-		}
-		return m, nil
-	case "G":
-		// Go to bottom
-		if len(m.state.Rollback.Rows) > 0 {
-			m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
-		}
-		return m, nil
-	case "pgup":
-		// Page up in rollback history
-		if len(m.state.Rollback.Rows) > 0 {
-			pageSize := m.rollbackPageSize()
-			newIdx := m.state.Rollback.SelectedIdx - pageSize
-			if newIdx < 0 {
-				newIdx = 0
-			}
-			m.state.Rollback.SelectedIdx = newIdx
-		}
-		return m, nil
-	case "pgdown":
-		// Page down in rollback history
-		if len(m.state.Rollback.Rows) > 0 {
-			pageSize := m.rollbackPageSize()
-			newIdx := m.state.Rollback.SelectedIdx + pageSize
-			maxIdx := len(m.state.Rollback.Rows) - 1
-			if newIdx > maxIdx {
-				newIdx = maxIdx
-			}
-			m.state.Rollback.SelectedIdx = newIdx
-		}
-		return m, nil
 	case "p":
 		// Toggle prune option in confirmation view
 		if m.state.Rollback.Mode == "confirm" {
@@ -1153,7 +911,18 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.Navigation.LastEscPressed = now
 	}
 
-	// Mode-specific handling first
+	// Centralized navigation interception
+	// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled here for all modes
+	// that support list navigation. Mode-specific handlers only handle non-navigation keys.
+	if isNavigationKey(msg) {
+		ctx := m.getNavigatorContext()
+		if ctx.SupportsNavigation {
+			return m.executeNavigation(ctx, msg)
+		}
+		// If navigation not supported, fall through to mode-specific handler
+	}
+
+	// Mode-specific handling (non-navigation keys only for modes that support navigation)
 	switch m.state.Mode {
 	case model.ModeSearch:
 		return m.handleSearchModeKeys(msg)
@@ -1189,7 +958,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleUpgradeSuccessModeKeys(msg)
 	}
 
-	// Tree view keys when in normal mode
+	// Tree view keys when in normal mode.
+	// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 	if m.state.Navigation.View == model.ViewTree {
 		switch msg.String() {
 		case "q", "esc":
@@ -1201,149 +971,19 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				len(visibleItems),
 			)
 			return m, nil
-		case "up", "k", "down", "j":
-			if m.treeView != nil {
-				// Use line-based indices to account for blank separators between app roots
-				oldLine := m.treeView.SelectedIndex()
-				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
-					oldLine = s.SelectedLineIndex()
-				}
-				updatedModel, _ := m.treeView.Update(msg)
-				m.treeView = updatedModel.(*treeview.TreeView)
-				newLine := m.treeView.SelectedIndex()
-				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
-					newLine = s.SelectedLineIndex()
-				}
-
-				// Adjust scroll based on cursor movement
-				if msg.String() == "up" || msg.String() == "k" {
-					// Moving up - ensure cursor is visible at top
-					if newLine < oldLine && newLine < m.treeScrollOffset {
-						m.treeScrollOffset = newLine
-					}
-				} else {
-					// Moving down - ensure cursor is visible at bottom
-					viewportHeight := m.treeViewportHeight()
-					if newLine > oldLine && newLine >= m.treeScrollOffset+viewportHeight {
-						m.treeScrollOffset = newLine - viewportHeight + 1
-					}
-				}
-			}
-			return m, nil
 		case "left", "h", "right", "l", "enter":
+			// Expand/collapse handled by tree view, then sync treeNav
 			if m.treeView != nil {
-				oldLine := m.treeView.SelectedIndex()
-				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
-					oldLine = s.SelectedLineIndex()
-				}
-				oldCount := m.treeView.VisibleCount()
 				updatedModel, _ := m.treeView.Update(msg)
 				m.treeView = updatedModel.(*treeview.TreeView)
+				// After expand/collapse, item count may change - sync treeNav
 				newLine := m.treeView.SelectedIndex()
 				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
 					newLine = s.SelectedLineIndex()
 				}
-				newCount := m.treeView.VisibleCount()
-
-				// If the visible count changed (expand/collapse) or cursor moved,
-				// ensure cursor stays in viewport
-				if oldCount != newCount || oldLine != newLine {
-					viewportHeight := m.treeViewportHeight()
-					// Ensure cursor is visible
-					if newLine < m.treeScrollOffset {
-						m.treeScrollOffset = newLine
-					} else if newLine >= m.treeScrollOffset+viewportHeight {
-						m.treeScrollOffset = newLine - viewportHeight + 1
-					}
-					// Clamp scroll to valid range
-					// Use total rendered lines if available to account for separators
-					maxScroll := max(0, newCount-viewportHeight)
-					if v, ok := interface{}(m.treeView).(interface{ VisibleLineCount() int }); ok {
-						maxScroll = max(0, v.VisibleLineCount()-viewportHeight)
-					}
-					if m.treeScrollOffset > maxScroll {
-						m.treeScrollOffset = maxScroll
-					}
-				}
-			}
-			return m, nil
-		case "g":
-			// Handle double-g for go to top
-			now := time.Now().UnixMilli()
-			if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
-				// Double-g: go to top
-				if m.treeView != nil {
-					// Send multiple "up" keys to move to top
-					for i := 0; i < m.treeView.SelectedIndex(); i++ {
-						upMsg := tea.KeyPressMsg{Text: "k", Code: 'k'}
-						updatedModel, _ := m.treeView.Update(upMsg)
-						m.treeView = updatedModel.(*treeview.TreeView)
-					}
-					m.treeScrollOffset = 0
-					m.state.Navigation.LastGPressed = 0
-				}
-			} else {
-				m.state.Navigation.LastGPressed = now
-			}
-			return m, nil
-		case "G":
-			// Go to bottom
-			if m.treeView != nil {
-				// Use rendered line count if available
-				totalItems := m.treeView.VisibleCount()
-				if v, ok := interface{}(m.treeView).(interface{ VisibleLineCount() int }); ok {
-					totalItems = v.VisibleLineCount()
-				}
-				currentIdx := m.treeView.SelectedIndex()
-				// Send multiple "down" keys to move to bottom
-				for i := currentIdx; i < totalItems-1; i++ {
-					downMsg := tea.KeyPressMsg{Text: "j", Code: 'j'}
-					updatedModel, _ := m.treeView.Update(downMsg)
-					m.treeView = updatedModel.(*treeview.TreeView)
-				}
-				// Scroll to show the bottom item
-				viewportHeight := m.treeViewportHeight()
-				m.treeScrollOffset = max(0, totalItems-viewportHeight)
-			}
-			return m, nil
-		case "pgup":
-			// Page up in tree view
-			if m.treeView != nil {
-				viewportHeight := m.treeViewportHeight()
-				// Move cursor up by page size
-				for i := 0; i < viewportHeight; i++ {
-					upMsg := tea.KeyPressMsg{Text: "k", Code: 'k'}
-					updatedModel, _ := m.treeView.Update(upMsg)
-					m.treeView = updatedModel.(*treeview.TreeView)
-				}
-				// Update scroll offset
-				newLine := m.treeView.SelectedIndex()
-				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
-					newLine = s.SelectedLineIndex()
-				}
-				if newLine < m.treeScrollOffset {
-					m.treeScrollOffset = newLine
-				}
-			}
-			return m, nil
-		case "pgdown":
-			// Page down in tree view
-			if m.treeView != nil {
-				viewportHeight := m.treeViewportHeight()
-				// Move cursor down by page size
-				for i := 0; i < viewportHeight; i++ {
-					downMsg := tea.KeyPressMsg{Text: "j", Code: 'j'}
-					updatedModel, _ := m.treeView.Update(downMsg)
-					m.treeView = updatedModel.(*treeview.TreeView)
-				}
-				// Update scroll offset
-				newLine := m.treeView.SelectedIndex()
-				if s, ok := interface{}(m.treeView).(interface{ SelectedLineIndex() int }); ok {
-					newLine = s.SelectedLineIndex()
-				}
-				if newLine >= m.treeScrollOffset+viewportHeight {
-					m.treeScrollOffset = newLine - viewportHeight + 1
-				}
+				m.treeNav.SetItemCount(m.treeView.VisibleCount())
+				m.treeNav.SetViewportHeight(m.treeViewportHeight())
+				m.treeNav.SetCursor(newLine)
 			}
 			return m, nil
 		default:
@@ -1355,18 +995,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Normal-mode global keys
+	// Normal-mode global keys.
+	// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 	switch msg.String() {
 	case "ctrl+c":
 		return m, func() tea.Msg { return model.QuitMsg{} }
-	case "up", "k":
-		return m.handleNavigationUp()
-	case "down", "j":
-		return m.handleNavigationDown()
-	case "pgup":
-		return m.handlePageUp()
-	case "pgdown":
-		return m.handlePageDown()
 	case " ", "space":
 		return m.handleToggleSelection()
 	case "enter":
@@ -1409,15 +1042,6 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "esc":
 		return m.handleEscape()
-	case "g":
-		now := time.Now().UnixMilli()
-		if m.state.Navigation.LastGPressed > 0 && now-m.state.Navigation.LastGPressed < 500 {
-			return m.handleGoToTop()
-		}
-		m.state.Navigation.LastGPressed = now
-		return m, nil
-	case "G":
-		return m.handleGoToBottom()
 	case "Z":
 		now := time.Now().UnixMilli()
 		if m.state.Navigation.LastZPressed > 0 && now-m.state.Navigation.LastZPressed < 500 {
@@ -1456,7 +1080,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		m.treeView = treeview.NewTreeView(0, 0)
 		m.treeView.ApplyTheme(currentPalette)
 		m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		m.treeScrollOffset = 0 // Reset scroll position
+		m.treeNav.Reset() // Reset scroll position
 		m.state.SaveNavigationState()
 		m.state.Navigation.View = model.ViewTree
 		// Clear single-app tracker
@@ -1499,7 +1123,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.treeView = treeview.NewTreeView(0, 0)
 	m.treeView.ApplyTheme(currentPalette)
 	m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
-	m.treeScrollOffset = 0 // Reset scroll position
+	m.treeNav.Reset() // Reset scroll position
 	m.state.SaveNavigationState()
 	m.state.Navigation.View = model.ViewTree
 	m.state.UI.TreeAppName = &app.Name

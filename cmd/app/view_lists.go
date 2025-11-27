@@ -27,7 +27,7 @@ func (m *Model) renderListView(availableRows int) string {
 		switch m.state.Navigation.View {
 		case model.ViewApps:
 			// Custom-render apps list to restore full-row selection highlight and per-cell colors
-			// Use edge-based scrolling with listScrollOffset
+			// Use edge-based scrolling with ListNavigator
 			total := len(visibleItems)
 			visibleRows := max(0, tableHeight-1) // leave 1 line for header
 			if visibleRows <= 0 {
@@ -41,8 +41,8 @@ func (m *Model) renderListView(availableRows int) string {
 				cursor = max(0, total-1)
 			}
 
-			// Use the list scroll offset (managed by navigation handlers)
-			start := m.listScrollOffset
+			// Use the list navigator's scroll offset
+			start := m.listNav.ScrollOffset()
 			// Clamp start to valid range
 			if start < 0 {
 				start = 0
@@ -82,8 +82,8 @@ func (m *Model) renderListView(availableRows int) string {
 				cursor = max(0, total-1)
 			}
 
-			// Use the list scroll offset (managed by navigation handlers)
-			start := m.listScrollOffset
+			// Use the list navigator's scroll offset
+			start := m.listNav.ScrollOffset()
 			// Clamp start to valid range
 			if start < 0 {
 				start = 0

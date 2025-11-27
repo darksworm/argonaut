@@ -21,7 +21,7 @@ func (m *Model) safeChangeView(newView model.View) *Model {
 		m = m.cleanupTreeWatchers()
 	}
 	m.state.Navigation.View = newView
-	// Reset list scroll offset when changing views
-	m.listScrollOffset = 0
+	// Reset list navigator when changing views
+	m.listNav.Reset()
 	return m
 }

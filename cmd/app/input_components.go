@@ -727,7 +727,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					m.treeView = treeview.NewTreeView(0, 0)
 					m.treeView.ApplyTheme(currentPalette)
 					m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
-					m.treeScrollOffset = 0 // Reset scroll position
+					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
 					m.state.UI.TreeAppName = nil
@@ -777,7 +777,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.treeView = treeview.NewTreeView(0, 0)
 			m.treeView.ApplyTheme(currentPalette)
 			m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
-			m.treeScrollOffset = 0 // Reset scroll position
+			m.treeNav.Reset() // Reset scroll position
 			m.state.SaveNavigationState()
 			var selectedApp *model.App
 			for i := range m.state.Apps {
@@ -1034,8 +1034,11 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 		}
 		m.state.UI.ThemeSelectedIndex = selectedIndex
 
-		// Initialize scroll offset to show the selected theme
-		m.adjustThemeScrollOffset()
+		// Initialize themeNav and scroll offset to show the selected theme
+		m.themeNav.SetItemCount(len(m.themeOptions))
+		m.themeNav.SetViewportHeight(m.themePageSize())
+		m.themeNav.SetCursor(selectedIndex)
+		m.state.UI.ThemeScrollOffset = m.themeNav.ScrollOffset()
 
 		return m, nil
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui"
+	"github.com/darksworm/argonaut/pkg/tui/listnav"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -65,11 +66,11 @@ type Model struct {
 	// Tree loading overlay state
 	treeLoading bool
 
-	// Tree view scroll offset
-	treeScrollOffset int
-
-	// List view scroll offset (for apps, clusters, namespaces, projects)
-	listScrollOffset int
+	// List navigators for all scrollable lists
+	listNav     *listnav.ListNavigator // Main list (apps, clusters, namespaces, projects)
+	treeNav     *listnav.ListNavigator // Tree view
+	themeNav    *listnav.ListNavigator // Theme selection modal
+	rollbackNav *listnav.ListNavigator // Rollback history modal
 
 	// Cleanup callbacks for active tree watchers
 	treeWatchCleanups []func()
@@ -675,7 +676,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Reset tree view for multi-app session
 					m.treeView = treeview.NewTreeView(0, 0)
 					m.treeView.ApplyTheme(currentPalette)
-					m.treeScrollOffset = 0 // Reset scroll position
+					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
 					// Clear single-app tracker

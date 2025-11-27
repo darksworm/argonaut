@@ -418,6 +418,21 @@ func (v *TreeView) SetSize(width, height int) {
 // Expose selected index for integration (optional)
 func (v *TreeView) SelectedIndex() int { return v.selIdx }
 
+// SetSelectedIndex sets the selected index directly with bounds checking.
+// This is useful for external navigation (e.g., PageUp/PageDown from a ListNavigator).
+func (v *TreeView) SetSelectedIndex(idx int) {
+	if idx < 0 {
+		idx = 0
+	}
+	if len(v.order) > 0 && idx >= len(v.order) {
+		idx = len(v.order) - 1
+	}
+	v.selIdx = idx
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		v.SelectedUID = v.order[v.selIdx].uid
+	}
+}
+
 // VisibleCount returns the number of currently visible nodes in DFS order.
 func (v *TreeView) VisibleCount() int { return len(v.order) }
 
