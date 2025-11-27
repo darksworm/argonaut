@@ -566,6 +566,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.ShouldResetNavigation {
 			m.state.Navigation.SelectedIdx = 0
+			m.listNav.Reset()
 		}
 		// m.ui.UpdateListItems(m.state)
 		return m, nil

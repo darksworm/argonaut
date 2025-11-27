@@ -167,6 +167,8 @@ func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
 		m.state.Navigation.SelectedIdx = 0
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
+		// Also reset the list navigator to keep cursor/scroll in sync
+		m.listNav.Reset()
 	}
 
 	if result.ShouldClearLowerLevelSelections {
