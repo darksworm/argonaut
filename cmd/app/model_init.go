@@ -14,6 +14,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/autocomplete"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/tui/listnav"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -54,6 +55,10 @@ func NewModel() *Model {
 		inPager:            false,
 		treeView:           treeview.NewTreeView(0, 0),
 		treeStream:         make(chan model.ResourceTreeStreamMsg, 64),
+		listNav:            listnav.New(),
+		treeNav:            listnav.New(),
+		themeNav:           listnav.New(),
+		rollbackNav:        listnav.New(),
 	}
 }
 

@@ -33,7 +33,8 @@ func (m *Model) renderTreePanel(availableRows int) string {
 			cursorIdx = m.treeView.SelectedIndex()
 		}
 	}
-	scrollOffset := m.treeScrollOffset
+	// Use treeNav for scroll offset
+	scrollOffset := m.treeNav.ScrollOffset()
 
 	// Clamp cursor to valid range
 	if cursorIdx >= totalLines {
@@ -55,8 +56,11 @@ func (m *Model) renderTreePanel(availableRows int) string {
 		scrollOffset = max(0, totalLines-viewportHeight)
 	}
 
-	// Save the adjusted scroll offset back
-	m.treeScrollOffset = scrollOffset
+	// Update the tree navigator with the adjusted scroll and item count
+	m.treeNav.SetItemCount(totalLines)
+	m.treeNav.SetViewportHeight(viewportHeight)
+	// Note: We don't call SetCursor here because tree view manages its own cursor
+	// The scroll offset adjustment is handled by ensuring cursor is visible above
 
 	// Extract visible lines
 	visibleLines := []string{}
