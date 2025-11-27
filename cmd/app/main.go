@@ -200,6 +200,14 @@ func main() {
 	// Create the initial model
 	m := NewModel()
 
+	// Apply saved sort preference from config
+	if argonautConfig.Sort.Field != "" {
+		m.state.UI.Sort = model.SortConfig{
+			Field:     model.SortField(argonautConfig.Sort.Field),
+			Direction: model.SortDirection(argonautConfig.Sort.Direction),
+		}
+	}
+
 	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
 	cblog.With("component", "app").Info("Loading Argo CD config…")
 

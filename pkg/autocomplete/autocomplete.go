@@ -141,6 +141,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			TakesArg:    false,
 			ArgType:     "",
 		},
+		{
+			Command:     "sort",
+			Aliases:     []string{"sort"},
+			Description: "Sort apps by field and direction (e.g., :sort name asc)",
+			TakesArg:    true,
+			ArgType:     "sort",
+		},
 	}
 
 	// Build alias map
@@ -211,8 +218,29 @@ func (e *AutocompleteEngine) GetCommandAutocomplete(input string, state *model.A
 	}
 
 	if len(parts) == 2 {
+		if hasTrailingSpace {
+			// First arg is complete, suggest second argument if applicable (e.g., ":sort name ")
+			return e.getSecondArgumentSuggestions(parts[0], parts[1], "", true, state)
+		}
+		// Check if first arg exactly matches a valid option for commands with second args
+		// This allows showing "asc" suggestion right after typing "name" without needing a space
+		cmdInfo := e.GetCommandInfo(parts[0])
+		if cmdInfo != nil && cmdInfo.Command == "sort" {
+			firstArgSuggestions := e.getSortSuggestions("")
+			for _, s := range firstArgSuggestions {
+				if strings.EqualFold(s, parts[1]) {
+					// First arg is complete, suggest second argument with a leading space
+					return e.getSecondArgumentSuggestions(parts[0], parts[1], "", false, state)
+				}
+			}
+		}
 		// Argument completion (e.g., ":cluster pr")
 		return e.getArgumentSuggestions(parts[0], parts[1], state)
+	}
+
+	if len(parts) == 3 {
+		// Second argument completion (e.g., ":sort name as")
+		return e.getSecondArgumentSuggestions(parts[0], parts[1], parts[2], hasTrailingSpace, state)
 	}
 
 	return nil
@@ -267,6 +295,8 @@ func (e *AutocompleteEngine) getArgumentSuggestions(command, argPrefix string, s
 		suggestions = e.getAppSuggestions(argPrefix, state)
 	case "theme":
 		suggestions = e.getThemeSuggestions(argPrefix)
+	case "sort":
+		suggestions = e.getSortSuggestions(argPrefix)
 	}
 
 	// Add command prefix to suggestions
@@ -409,6 +439,70 @@ func (e *AutocompleteEngine) getThemeSuggestions(prefix string) []string {
 
 	sort.Strings(suggestions)
 	return suggestions
+}
+
+// getSortSuggestions returns available sort option suggestions
+func (e *AutocompleteEngine) getSortSuggestions(prefix string) []string {
+	// Sort suggestions are just field names - direction is a second argument
+	options := []string{
+		"name", "sync", "health",
+	}
+
+	var suggestions []string
+	prefix = strings.ToLower(prefix)
+
+	for _, opt := range options {
+		if strings.HasPrefix(strings.ToLower(opt), prefix) {
+			suggestions = append(suggestions, opt)
+		}
+	}
+
+	sort.Strings(suggestions)
+	return suggestions
+}
+
+// getSecondArgumentSuggestions returns suggestions for a second argument (e.g., sort direction)
+// The hasTrailingSpace parameter indicates if the original input had a trailing space after the current token
+func (e *AutocompleteEngine) getSecondArgumentSuggestions(command, firstArg, prefix string, hasTrailingSpace bool, state *model.AppState) []string {
+	cmdInfo := e.GetCommandInfo(command)
+	if cmdInfo == nil {
+		return nil
+	}
+
+	// Currently only sort command has a second argument
+	if cmdInfo.Command != "sort" {
+		return nil
+	}
+
+	// Suggest direction options
+	options := []string{"asc", "desc"}
+	var suggestions []string
+	prefix = strings.ToLower(prefix)
+
+	for _, opt := range options {
+		if strings.HasPrefix(opt, prefix) {
+			suggestions = append(suggestions, opt)
+		}
+	}
+
+	// Build suggestions that match the input format exactly
+	// When hasTrailingSpace is true and prefix is empty, input is "sort name "
+	// so suggestion should be "sort name asc" (matching the space)
+	prefixedSuggestions := make([]string, len(suggestions))
+	for i, suggestion := range suggestions {
+		if hasTrailingSpace && prefix == "" {
+			// Input: "sort name " -> Suggestion: "sort name asc"
+			prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
+		} else if prefix != "" {
+			// Input: "sort name a" or "sort name as" -> Suggestion: "sort name asc"
+			prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
+		} else {
+			// Input: "sort name" (no trailing space) -> Suggestion: "sort name asc" (add space before direction)
+			prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
+		}
+	}
+
+	return prefixedSuggestions
 }
 
 // GetAllCommands returns all available commands for help/reference

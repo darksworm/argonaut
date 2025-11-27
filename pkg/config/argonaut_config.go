@@ -15,12 +15,19 @@ const DefaultThemeName = "tokyo-night"
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
 	Appearance AppearanceConfig `toml:"appearance"`
+	Sort       SortConfig       `toml:"sort,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
 type AppearanceConfig struct {
 	Theme     string            `toml:"theme"`
 	Overrides map[string]string `toml:"overrides,omitempty"`
+}
+
+// SortConfig holds sort preferences
+type SortConfig struct {
+	Field     string `toml:"field"`
+	Direction string `toml:"direction"`
 }
 
 
@@ -66,6 +73,10 @@ func GetDefaultConfig() *ArgonautConfig {
 		Appearance: AppearanceConfig{
 			Theme: DefaultThemeName,
 		},
+		Sort: SortConfig{
+			Field:     "name",
+			Direction: "asc",
+		},
 	}
 }
 
@@ -92,6 +103,12 @@ func LoadArgonautConfig() (*ArgonautConfig, error) {
 	// Apply defaults for missing fields
 	if config.Appearance.Theme == "" {
 		config.Appearance.Theme = DefaultThemeName
+	}
+	if config.Sort.Field == "" {
+		config.Sort.Field = "name"
+	}
+	if config.Sort.Direction == "" {
+		config.Sort.Direction = "asc"
 	}
 
 	return &config, nil

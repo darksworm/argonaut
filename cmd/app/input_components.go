@@ -243,6 +243,20 @@ func (m *Model) validateCommand(input string) bool {
 				}
 			}
 			return false
+		case "sort":
+			// Validate sort argument format: field [direction]
+			// arg could be "name", "name asc", "sync desc", etc.
+			parts := strings.Fields(arg)
+			if len(parts) == 0 || len(parts) > 2 {
+				return false
+			}
+			if !model.IsValidSortField(strings.ToLower(parts[0])) {
+				return false
+			}
+			if len(parts) == 2 && !model.IsValidSortDirection(strings.ToLower(parts[1])) {
+				return false
+			}
+			return true
 		}
 	}
 
@@ -270,6 +284,7 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 
 	// Style the current input, colorizing the argument validity for known commands
 	inputText := currentInput
+	hasTrailingSpace := strings.HasSuffix(currentInput, " ")
 	parts := strings.Fields(currentInput)
 	if len(parts) >= 1 {
 		cmdWord := strings.ToLower(parts[0])
@@ -295,15 +310,33 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 					rest = " " + strings.Join(parts[2:], " ")
 				}
 				inputText = parts[0] + " " + argStyle.Render(arg) + rest
+				// Preserve trailing space if original input had one
+				if hasTrailingSpace && !strings.HasSuffix(inputText, " ") {
+					inputText += " "
+				}
 			}
 		}
 	}
 
 	// Optional dim suggestion suffix
 	dimSuggestion := ""
-	if firstPlain != "" && len(firstPlain) > len(currentInput) && strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
-		suggestionSuffix := firstPlain[len(currentInput):]
-		dimSuggestion = lipgloss.NewStyle().Foreground(dimColor).Render(suggestionSuffix)
+	if firstPlain != "" && len(firstPlain) > len(currentInput) {
+		// Check if suggestion starts with input (case-insensitive)
+		if strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(currentInput)) {
+			suggestionSuffix := firstPlain[len(currentInput):]
+			dimSuggestion = lipgloss.NewStyle().Foreground(dimColor).Render(suggestionSuffix)
+		} else if strings.HasSuffix(currentInput, " ") {
+			// If input ends with space, check if suggestion matches input without trailing space
+			// This handles cases like input "sort name " matching suggestion "sort name asc"
+			inputTrimmed := strings.TrimRight(currentInput, " ")
+			if strings.HasPrefix(strings.ToLower(firstPlain), strings.ToLower(inputTrimmed)) {
+				// Get the suffix after the trimmed input, but skip the leading space
+				// since we already added a trailing space to inputText
+				suggestionSuffix := firstPlain[len(inputTrimmed):]
+				suggestionSuffix = strings.TrimPrefix(suggestionSuffix, " ")
+				dimSuggestion = lipgloss.NewStyle().Foreground(dimColor).Render(suggestionSuffix)
+			}
+		}
 	}
 
 	// Determine prompt symbol and style based on command validity
@@ -950,6 +983,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, nil
 		case "theme":
 			return m.handleThemeCommand(arg)
+		case "sort":
+			return m.handleSortCommand(arg)
 		case "quit", "q", "q!", "wq", "wq!", "exit":
 			// Exit the application
 			return m, func() tea.Msg { return model.QuitMsg{} }
@@ -1067,6 +1102,82 @@ func (m *Model) handleThemeCommand(arg string) (*Model, tea.Cmd) {
 	m.applyThemeToModel()
 
 	return m, nil
+}
+
+// handleSortCommand handles the :sort command for sorting applications
+func (m *Model) handleSortCommand(arg string) (*Model, tea.Cmd) {
+	if arg == "" {
+		// Show current sort configuration
+		current := m.state.UI.Sort
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{
+				Status: fmt.Sprintf("Current sort: %s %s. Usage: :sort field [direction] (e.g., :sort name asc)",
+					current.Field, current.Direction),
+			}
+		}
+	}
+
+	// Parse "field [direction]" format
+	parts := strings.Fields(arg)
+	if len(parts) == 0 || len(parts) > 2 {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Invalid format. Use: :sort field [direction] (e.g., :sort name asc)"}
+		}
+	}
+
+	field := strings.ToLower(parts[0])
+	direction := string(m.state.UI.Sort.Direction) // Default to current direction
+
+	if len(parts) == 2 {
+		direction = strings.ToLower(parts[1])
+	} else {
+		// If only field provided and it's the same field, toggle direction
+		if field == string(m.state.UI.Sort.Field) {
+			if m.state.UI.Sort.Direction == model.SortAsc {
+				direction = "desc"
+			} else {
+				direction = "asc"
+			}
+		} else {
+			// New field, default to ascending
+			direction = "asc"
+		}
+	}
+
+	if !model.IsValidSortField(field) {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Invalid field. Use: name, sync, or health"}
+		}
+	}
+
+	if !model.IsValidSortDirection(direction) {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Invalid direction. Use: asc or desc"}
+		}
+	}
+
+	// Update state
+	m.state.UI.Sort = model.SortConfig{
+		Field:     model.SortField(field),
+		Direction: model.SortDirection(direction),
+	}
+
+	// Persist to config
+	argonautConfig, err := config.LoadArgonautConfig()
+	if err != nil {
+		argonautConfig = config.GetDefaultConfig()
+	}
+	argonautConfig.Sort = config.SortConfig{
+		Field:     field,
+		Direction: direction,
+	}
+	if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+		cblog.Warn("Failed to save sort preference", "err", err)
+	}
+
+	return m, func() tea.Msg {
+		return model.StatusChangeMsg{Status: fmt.Sprintf("Sorting by %s (%s)", field, direction)}
+	}
 }
 
 // local helpers

@@ -134,20 +134,52 @@ func (m *Model) renderListHeader() string {
 		contentWidth := m.contentInnerWidth()
 		nameWidth, syncWidth, healthWidth := calculateColumnWidths(contentWidth)
 
-		nameHeader := headerStyle.Render("NAME")
+		// Get sort indicator for the active column
+		sortIndicator := m.state.UI.Sort.Direction.Indicator()
+
+		// Build header text with sort indicator on active column
+		var nameText, syncText, healthText string
+		switch m.state.UI.Sort.Field {
+		case model.SortFieldName:
+			nameText = sortIndicator + "NAME"
+			syncText = "SYNC"
+			healthText = "HEALTH"
+		case model.SortFieldSync:
+			nameText = "NAME"
+			syncText = sortIndicator + "SYNC"
+			healthText = "HEALTH"
+		case model.SortFieldHealth:
+			nameText = "NAME"
+			syncText = "SYNC"
+			healthText = sortIndicator + "HEALTH"
+		default:
+			nameText = "NAME"
+			syncText = "SYNC"
+			healthText = "HEALTH"
+		}
+
+		nameHeader := headerStyle.Render(nameText)
 		// Responsive headers based on column width
 		var syncHeader, healthHeader string
 		if syncWidth >= 5 {
-			syncHeader = headerStyle.Render("SYNC")
+			syncHeader = headerStyle.Render(syncText)
 		} else {
-			// In narrow mode, content has format "V " (icon + space), so header should be "S " to align
-			syncHeader = headerStyle.Render("S ")
+			// In narrow mode, show indicator + first letter
+			if m.state.UI.Sort.Field == model.SortFieldSync {
+				syncHeader = headerStyle.Render(sortIndicator + "S")
+			} else {
+				syncHeader = headerStyle.Render("S ")
+			}
 		}
 		if healthWidth >= 7 {
-			healthHeader = headerStyle.Render("HEALTH")
+			healthHeader = headerStyle.Render(healthText)
 		} else {
-			// In narrow mode, content has format "V " (icon + space), so header should be "H " to align
-			healthHeader = headerStyle.Render("H ")
+			// In narrow mode, show indicator + first letter
+			if m.state.UI.Sort.Field == model.SortFieldHealth {
+				healthHeader = headerStyle.Render(sortIndicator + "H")
+			} else {
+				healthHeader = headerStyle.Render("H ")
+			}
 		}
 
 		nameCell := padRight(clipAnsiToWidth(nameHeader, nameWidth), nameWidth)
