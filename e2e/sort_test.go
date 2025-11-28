@@ -33,9 +33,9 @@ func MockArgoServerMultipleApps() (*httptest.Server, error) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
-		// Keep connection open but don't send updates
+		// Keep connection open until server closes
 		w.Header().Set("Content-Type", "application/json")
-		select {}
+		<-r.Context().Done()
 	})
 	srv := httptest.NewServer(mux)
 	return srv, nil
