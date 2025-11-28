@@ -244,16 +244,17 @@ func (m *Model) validateCommand(input string) bool {
 			}
 			return false
 		case "sort":
-			// Validate sort argument format: field [direction]
-			// arg could be "name", "name asc", "sync desc", etc.
-			parts := strings.Fields(arg)
-			if len(parts) == 0 || len(parts) > 2 {
+			// Validate sort argument format: field direction (both required)
+			// Must be exactly 2 parts after the command: e.g., "sort name asc"
+			if len(parts) != 3 {
 				return false
 			}
-			if !model.IsValidSortField(strings.ToLower(parts[0])) {
+			field := strings.ToLower(parts[1])
+			direction := strings.ToLower(parts[2])
+			if !model.IsValidSortField(field) {
 				return false
 			}
-			if len(parts) == 2 && !model.IsValidSortDirection(strings.ToLower(parts[1])) {
+			if !model.IsValidSortDirection(direction) {
 				return false
 			}
 			return true
@@ -543,6 +544,12 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		arg := ""
 		if len(parts) > 1 {
 			arg = parts[1]
+		}
+		// For commands that accept multiple arguments (like :sort field direction),
+		// join all arguments after the command
+		allArgs := ""
+		if len(parts) > 1 {
+			allArgs = strings.Join(parts[1:], " ")
 		}
 
 		// Pre-validate existence for arg-based commands before blurring input
@@ -984,7 +991,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "theme":
 			return m.handleThemeCommand(arg)
 		case "sort":
-			return m.handleSortCommand(arg)
+			return m.handleSortCommand(allArgs)
 		case "quit", "q", "q!", "wq", "wq!", "exit":
 			// Exit the application
 			return m, func() tea.Msg { return model.QuitMsg{} }
@@ -1111,38 +1118,22 @@ func (m *Model) handleSortCommand(arg string) (*Model, tea.Cmd) {
 		current := m.state.UI.Sort
 		return m, func() tea.Msg {
 			return model.StatusChangeMsg{
-				Status: fmt.Sprintf("Current sort: %s %s. Usage: :sort field [direction] (e.g., :sort name asc)",
+				Status: fmt.Sprintf("Current sort: %s %s. Usage: :sort field direction (e.g., :sort name asc)",
 					current.Field, current.Direction),
 			}
 		}
 	}
 
-	// Parse "field [direction]" format
+	// Parse "field direction" format - both are required
 	parts := strings.Fields(arg)
-	if len(parts) == 0 || len(parts) > 2 {
+	if len(parts) != 2 {
 		return m, func() tea.Msg {
-			return model.StatusChangeMsg{Status: "Invalid format. Use: :sort field [direction] (e.g., :sort name asc)"}
+			return model.StatusChangeMsg{Status: "Invalid format. Use: :sort field direction (e.g., :sort name asc)"}
 		}
 	}
 
 	field := strings.ToLower(parts[0])
-	direction := string(m.state.UI.Sort.Direction) // Default to current direction
-
-	if len(parts) == 2 {
-		direction = strings.ToLower(parts[1])
-	} else {
-		// If only field provided and it's the same field, toggle direction
-		if field == string(m.state.UI.Sort.Field) {
-			if m.state.UI.Sort.Direction == model.SortAsc {
-				direction = "desc"
-			} else {
-				direction = "asc"
-			}
-		} else {
-			// New field, default to ascending
-			direction = "asc"
-		}
-	}
+	direction := strings.ToLower(parts[1])
 
 	if !model.IsValidSortField(field) {
 		return m, func() tea.Msg {

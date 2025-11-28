@@ -177,7 +177,8 @@ func TestSortCommand(t *testing.T) {
 	}
 }
 
-func TestSortToggle(t *testing.T) {
+// TestSortRequiresDirection verifies that :sort requires both field and direction
+func TestSortRequiresDirection(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -225,35 +226,32 @@ func TestSortToggle(t *testing.T) {
 		t.Fatal("expected ascending indicator initially")
 	}
 
-	// Sort by name again without direction - should toggle to desc
+	// Try to sort without direction - should show autocomplete suggestions
 	_ = tf.Send(":")
 	if !tf.WaitForPlain("> ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("sort name")
-	_ = tf.Enter()
 
-	// Should toggle to descending
-	time.Sleep(500 * time.Millisecond)
+	// Wait a moment for autocomplete to render
+	time.Sleep(300 * time.Millisecond)
 	snapshot = tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▼") {
+
+	// Should show autocomplete suggestion for direction (asc or desc)
+	// The autocomplete should suggest "sort name asc" or similar
+	if !strings.Contains(snapshot, "asc") && !strings.Contains(snapshot, "desc") {
 		t.Log(snapshot)
-		t.Fatal("expected descending indicator after toggle")
+		t.Fatal("expected autocomplete to suggest direction (asc/desc)")
 	}
 
-	// Sort by name again - should toggle back to asc
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
-	}
-	_ = tf.Send("sort name")
-	_ = tf.Enter()
+	// Press Escape to cancel and verify sort unchanged
+	_ = tf.Send("\x1b") // Escape
+	time.Sleep(300 * time.Millisecond)
 
-	// Should toggle back to ascending
-	time.Sleep(500 * time.Millisecond)
+	// Sort should still be ascending (unchanged)
 	snapshot = tf.SnapshotPlain()
 	if !strings.Contains(snapshot, "▲") {
 		t.Log(snapshot)
-		t.Fatal("expected ascending indicator after second toggle")
+		t.Fatal("expected ascending indicator to remain unchanged after cancelled incomplete command")
 	}
 }

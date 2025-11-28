@@ -223,13 +223,13 @@ func (e *AutocompleteEngine) GetCommandAutocomplete(input string, state *model.A
 			return e.getSecondArgumentSuggestions(parts[0], parts[1], "", true, state)
 		}
 		// Check if first arg exactly matches a valid option for commands with second args
-		// This allows showing "asc" suggestion right after typing "name" without needing a space
+		// This shows direction suggestions right after typing a complete field name
 		cmdInfo := e.GetCommandInfo(parts[0])
 		if cmdInfo != nil && cmdInfo.Command == "sort" {
 			firstArgSuggestions := e.getSortSuggestions("")
 			for _, s := range firstArgSuggestions {
 				if strings.EqualFold(s, parts[1]) {
-					// First arg is complete, suggest second argument with a leading space
+					// First arg is complete, suggest second argument (direction is required)
 					return e.getSecondArgumentSuggestions(parts[0], parts[1], "", false, state)
 				}
 			}
