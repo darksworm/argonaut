@@ -1,0 +1,10 @@
+# This directory stores test failure snapshots
+# Files are generated when e2e tests fail
+# .raw files contain ANSI escape codes for replay
+# .txt files contain plain text for easy reading
+#
+# To replay a .raw file:
+#   cat TestName.raw
+#
+# Or use less with raw mode:
+#   less -R TestName.raw

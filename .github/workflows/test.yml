@@ -32,3 +32,11 @@ jobs:
       - name: Run tests (unit + e2e)
         run: make test PARALLEL=8
 
+      - name: Upload e2e test snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-snapshots
+          path: e2e/test-snapshots/
+          if-no-files-found: ignore
+

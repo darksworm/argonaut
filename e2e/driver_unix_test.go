@@ -254,6 +254,11 @@ func (tf *TUITestFramework) OpenSearch() error {
 }
 
 func (tf *TUITestFramework) Cleanup() {
+	// Save snapshot if test failed
+	if tf.t.Failed() {
+		tf.saveFailureSnapshot()
+	}
+
 	if tf.pty != nil {
 		_ = tf.pty.Close()
 		tf.pty = nil
@@ -265,6 +270,36 @@ func (tf *TUITestFramework) Cleanup() {
 	if tf.cmd != nil && tf.cmd.Process != nil {
 		_ = tf.cmd.Process.Kill()
 		_, _ = tf.cmd.Process.Wait()
+	}
+}
+
+// saveFailureSnapshot saves both raw and plain snapshots to files for debugging
+func (tf *TUITestFramework) saveFailureSnapshot() {
+	// Create snapshots directory if it doesn't exist
+	snapshotDir := "test-snapshots"
+	if err := os.MkdirAll(snapshotDir, 0o755); err != nil {
+		tf.t.Logf("Failed to create snapshot dir: %v", err)
+		return
+	}
+
+	// Sanitize test name for filename
+	testName := strings.ReplaceAll(tf.t.Name(), "/", "_")
+	testName = strings.ReplaceAll(testName, " ", "_")
+
+	// Save raw snapshot (with ANSI codes) for replay
+	rawPath := filepath.Join(snapshotDir, testName+".raw")
+	if err := os.WriteFile(rawPath, []byte(tf.Snapshot()), 0o644); err != nil {
+		tf.t.Logf("Failed to save raw snapshot: %v", err)
+	} else {
+		tf.t.Logf("Saved raw snapshot to %s", rawPath)
+	}
+
+	// Save plain snapshot (ANSI stripped) for easy reading
+	plainPath := filepath.Join(snapshotDir, testName+".txt")
+	if err := os.WriteFile(plainPath, []byte(tf.SnapshotPlain()), 0o644); err != nil {
+		tf.t.Logf("Failed to save plain snapshot: %v", err)
+	} else {
+		tf.t.Logf("Saved plain snapshot to %s", plainPath)
 	}
 }
 
