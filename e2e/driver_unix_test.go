@@ -163,6 +163,9 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 		"LANG=C",
 		"HOME="+tf.workspace,
 		"ARGONAUT_E2E=1",
+		// Force isolated Argonaut config - clear any inherited config paths
+		"ARGONAUT_CONFIG="+filepath.Join(tf.workspace, ".config", "argonaut", "config.toml"),
+		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
 	)
 	env = append(env, extraEnv...)
 	tf.cmd.Env = env
