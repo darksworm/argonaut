@@ -965,13 +965,33 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View == model.ViewTree {
 		switch msg.String() {
 		case "q", "esc":
-			// Stop active tree watchers and return to list
+			// Clear filter and stop active tree watchers, return to list
+			if m.treeView != nil {
+				m.treeView.ClearFilter()
+			}
 			m = m.safeChangeView(model.ViewApps)
 			visibleItems := m.getVisibleItemsForCurrentView()
 			m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
 				m.state.Navigation.SelectedIdx,
 				len(visibleItems),
 			)
+			return m, nil
+		case "/":
+			// Enter search mode for tree filtering
+			return m.handleEnterSearchMode()
+		case "n":
+			// Next match in tree filter
+			if m.treeView != nil && m.treeView.MatchCount() > 0 {
+				m.treeView.NextMatch()
+				m.treeNav.SetCursor(m.treeView.SelectedIndex())
+			}
+			return m, nil
+		case "N":
+			// Previous match in tree filter
+			if m.treeView != nil && m.treeView.MatchCount() > 0 {
+				m.treeView.PrevMatch()
+				m.treeNav.SetCursor(m.treeView.SelectedIndex())
+			}
 			return m, nil
 		case "left", "h", "right", "l", "enter":
 			// Expand/collapse handled by tree view, then sync treeNav
