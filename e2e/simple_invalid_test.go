@@ -30,14 +30,20 @@ func TestSimpleInvalidCommand(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Wait for ready state
-	if !tf.WaitForPlain("> ", 5*time.Second) {
+	// Wait for initial view to be ready
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Fatal("clusters not ready")
+	}
+
+	// Enter command mode
+	_ = tf.Send(":")
+	if !tf.WaitForPlain("> ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 
-	// Enter command mode and send an invalid command
-	t.Logf("Sending invalid command ':invalidcmd'")
-	_ = tf.Send(":invalidcmd")
+	// Send an invalid command
+	t.Logf("Sending invalid command 'invalidcmd'")
+	_ = tf.Send("invalidcmd")
 	_ = tf.Enter()
 
 	// Wait longer for the UI to process the invalid command
