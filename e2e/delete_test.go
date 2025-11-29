@@ -37,7 +37,7 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 
 	// Navigate to apps view using command bar
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")
@@ -155,7 +155,7 @@ func TestDeleteFunctionality_CancelWithNonYKey(t *testing.T) {
 
 	// Navigate to apps view using command bar
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")

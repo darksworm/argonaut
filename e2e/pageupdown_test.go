@@ -152,7 +152,7 @@ func navigateToApps(t *testing.T, tf *TUITestFramework) {
 	}
 	// Navigate to namespace
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ns default")
@@ -162,7 +162,7 @@ func navigateToApps(t *testing.T, tf *TUITestFramework) {
 	}
 	// Navigate to apps
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")

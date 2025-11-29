@@ -49,7 +49,7 @@ func TestSyncSingleApp(t *testing.T) {
 		t.Fatal("clusters not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ns default")
@@ -58,7 +58,7 @@ func TestSyncSingleApp(t *testing.T) {
 		t.Fatal("projects not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")
@@ -121,7 +121,7 @@ func TestSyncMultipleApps(t *testing.T) {
 		t.Fatal("clusters not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ns default")
@@ -130,7 +130,7 @@ func TestSyncMultipleApps(t *testing.T) {
 		t.Fatal("projects not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")
@@ -190,7 +190,7 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 		t.Fatal("clusters not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ns default")
@@ -199,7 +199,7 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 		t.Fatal("projects not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")
@@ -213,7 +213,7 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 
 	// Type `:sync` instead of using the 's' key
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("sync")

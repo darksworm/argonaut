@@ -234,8 +234,9 @@ func (tf *TUITestFramework) OpenCommand() error {
 	if err := tf.Send(":"); err != nil {
 		return err
 	}
-	// Command bar shows a light-gray prompt "> " when ready
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	// Command bar shows "│ > " with box drawing character - unique to command input
+	// Note: "> " alone matches the ASCII art logo, so we need the box char prefix
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		return fmt.Errorf("command bar not ready")
 	}
 	return nil

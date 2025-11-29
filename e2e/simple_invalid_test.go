@@ -37,7 +37,7 @@ func TestSimpleInvalidCommand(t *testing.T) {
 
 	// Enter command mode
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 

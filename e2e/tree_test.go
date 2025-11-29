@@ -39,7 +39,7 @@ func TestTreeViewOpensAndReturns(t *testing.T) {
 
 	// Open resources (tree) for demo
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("resources demo")
@@ -123,7 +123,7 @@ func TestTreeViewFilter(t *testing.T) {
 
 	// Open resources (tree) for demo
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("resources demo")
@@ -229,7 +229,7 @@ func TestTreeViewFilterNoMatches(t *testing.T) {
 
 	// Open resources (tree) for demo
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("resources demo")
@@ -292,7 +292,7 @@ func TestTreeViewFilterEscapeClearsFilter(t *testing.T) {
 
 	// Open resources (tree) for demo
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("resources demo")

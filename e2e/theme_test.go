@@ -38,7 +38,7 @@ func TestThemeCommand_ShowsThemeModal(t *testing.T) {
 
 	// Enter command mode
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 
@@ -95,7 +95,7 @@ func TestThemeCommand_NavigateAndSelect(t *testing.T) {
 
 	// Enter command mode
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 
@@ -164,7 +164,7 @@ func TestThemeCommand_CancelRestoresOriginal(t *testing.T) {
 
 	// Enter command mode
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 
@@ -236,7 +236,7 @@ func TestThemeCommand_DoesNotCrashWithANSICodes(t *testing.T) {
 
 	// Test that we can access theme modal without crashes
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 

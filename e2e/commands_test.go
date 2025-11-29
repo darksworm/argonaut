@@ -45,7 +45,7 @@ func TestCommandCtxFromProjects(t *testing.T) {
 
 	// Use :ctx to jump back to clusters (with arg -> advance to namespaces)
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ctx cluster-a")
@@ -86,7 +86,7 @@ func TestCommandNsFromClusters(t *testing.T) {
 	}
 
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ns default")
@@ -127,7 +127,7 @@ func TestCommandAppFromAnywhere(t *testing.T) {
 	}
 
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("app demo")
@@ -170,7 +170,7 @@ func TestStreamingUpdates(t *testing.T) {
 
 	// Navigate to apps view
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("ns default")
@@ -179,7 +179,7 @@ func TestStreamingUpdates(t *testing.T) {
 		t.Fatal("projects not ready")
 	}
 	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
+	if !tf.WaitForPlain("│ > ", 2*time.Second) {
 		t.Fatal("command bar not ready")
 	}
 	_ = tf.Send("apps")
