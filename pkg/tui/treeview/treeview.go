@@ -609,7 +609,7 @@ func (v *TreeView) JumpToFirstMatch() bool {
 
 // rebuildMatches scans the order slice and finds indices of matching nodes
 func (v *TreeView) rebuildMatches() {
-	v.matchIndices = v.matchIndices[:0]
+	v.matchIndices = nil
 	if v.filterQuery == "" {
 		v.currentMatch = 0
 		return
