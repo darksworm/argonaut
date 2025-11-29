@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.8.0](https://github.com/darksworm/argonaut/compare/v2.7.0...v2.8.0) (2025-11-29)
+
+
+### Features
+
+* add :sort command for sorting apps list ([#144](https://github.com/darksworm/argonaut/issues/144)) ([c734d9b](https://github.com/darksworm/argonaut/commit/c734d9b0e3ee4a2cac1b4e58105dba2e8ef8d2cd))
+* add what's new notification and :changelog command ([84091ff](https://github.com/darksworm/argonaut/commit/84091ffa467a581afbef02e5f8795c83e90016fa))
+* **help:** reorganize help sections by view context ([beb94ab](https://github.com/darksworm/argonaut/commit/beb94ab00db13686cce7e8029d7a6ac2509cc378))
+* page up and page down can be used to navigate lists now ([54251aa](https://github.com/darksworm/argonaut/commit/54251aa2047bb7c358e99c0469131e1f475832c6))
+* **resources view:** add filter functionality ([#145](https://github.com/darksworm/argonaut/issues/145)) ([a0afd1f](https://github.com/darksworm/argonaut/commit/a0afd1f0b1c49564c2e4cb3b42bc9cd1a1838cde))
+
+
+### Bug Fixes
+
+* bordered full-screen views now fill terminal height correctly ([9e3a88e](https://github.com/darksworm/argonaut/commit/9e3a88e642e885d86772509f4229dffe709702bb))
+
 ## [2.7.0](https://github.com/darksworm/argonaut/compare/v2.6.1...v2.7.0) (2025-11-14)
 
 
