@@ -35,6 +35,8 @@ func (m *Model) renderHelpModal() string {
 		mono(":cls"), "|", mono(":clusters"), "|", mono(":cluster"), " ", bullet(), " ", mono(":ns"), "|", mono(":namespaces"), "|", mono(":namespace"),
 		"\n",
 		mono(":proj"), "|", mono(":projects"), "|", mono(":project"), " ", bullet(), " ", mono(":apps"), " ", bullet(), " ", mono(":theme"),
+		"\n",
+		mono(":sort asc"), "|", mono(":sort desc"), " sort apps list",
 	}, "")
 
 	// ACTIONS (stacked for readability)

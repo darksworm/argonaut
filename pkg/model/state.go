@@ -98,6 +98,7 @@ type UIState struct {
 	ThemeScrollOffset   int         `json:"themeScrollOffset"`
 	ThemeOriginalName   string      `json:"themeOriginalName,omitempty"`
 	CommandInvalid      bool        `json:"commandInvalid"`
+	Sort                SortConfig  `json:"sort"`
 }
 
 // ModalState holds modal-related state
@@ -249,6 +250,7 @@ func NewAppState() *AppState {
 			IsVersionOutdated: false,
 			LatestVersion:     nil,
 			CommandInputKey:   0,
+			Sort:              DefaultSortConfig(),
 		},
 		Modals: ModalState{
 			ConfirmTarget:       nil,

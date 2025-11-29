@@ -113,13 +113,20 @@ func extractCursorPosition(snapshot string) int {
 // waitForCursorPosition waits until the cursor position changes to a value >= minPos
 func waitForCursorPosition(tf *TUITestFramework, minPos int, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
+	var lastPos int
+	var iterations int
 	for time.Now().Before(deadline) {
-		pos := extractCursorPosition(tf.SnapshotPlain())
+		snap := tf.SnapshotPlain()
+		pos := extractCursorPosition(snap)
+		lastPos = pos
+		iterations++
 		if pos >= minPos {
 			return true
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
+	// Debug: log the last position we saw before timing out
+	tf.t.Logf("waitForCursorPosition timed out after %d iterations: wanted >= %d, last saw %d", iterations, minPos, lastPos)
 	return false
 }
 

@@ -6,6 +6,7 @@
  │                                                                                                │ 
  │ VIEWS        :cls|:clusters|:cluster • :ns|:namespaces|:namespace                              │ 
  │              :proj|:projects|:project • :apps • :theme                                         │ 
+ │              :sort asc|:sort desc sort apps list                                               │ 
  │                                                                                                │ 
  │ ACTIONS      :diff [app] • :sync [app] • :rollback [app]                                       │ 
  │              :delete [app] • :resources [app] • :up go up level                                │ 
@@ -17,7 +18,6 @@
  │              :logs • :q                                                                        │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

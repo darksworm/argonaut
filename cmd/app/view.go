@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/sort"
 )
 
 // Color mappings from TypeScript colorFor() function
@@ -558,10 +559,10 @@ func (m *Model) getVisibleItems() []interface{} {
 			base = append(base, pj)
 		}
 	case model.ViewApps:
-		// Ensure consistent, stable ordering by app name without mutating state
+		// Ensure consistent, stable ordering without mutating state
 		appsCopy := make([]model.App, len(apps))
 		copy(appsCopy, apps)
-		sortApps(appsCopy)
+		sort.SortApps(appsCopy, m.state.UI.Sort)
 		for _, app := range appsCopy {
 			base = append(base, app)
 		}
@@ -620,16 +621,6 @@ func sortStrings(items []string) {
 	}
 }
 
-// sortApps sorts a slice of apps by Name (lexicographically, in-place)
-func sortApps(items []model.App) {
-	for i := 1; i < len(items); i++ {
-		j := i
-		for j > 0 && items[j-1].Name > items[j].Name {
-			items[j-1], items[j] = items[j], items[j-1]
-			j--
-		}
-	}
-}
 func (m *Model) renderAuthRequiredView() string {
 	serverText := "—"
 	if m.state.Server != nil {

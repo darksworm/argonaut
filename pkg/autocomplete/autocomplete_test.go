@@ -258,6 +258,73 @@ func TestGetCommandAutocomplete_CaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestSortCommandAutocomplete(t *testing.T) {
+	engine := NewAutocompleteEngine()
+	state := createTestState()
+
+	// Test sort command exists
+	info := engine.GetCommandInfo("sort")
+	if info == nil {
+		t.Fatal("sort command should be registered")
+	}
+	if !info.TakesArg {
+		t.Error("sort command should take an argument")
+	}
+
+	// Test sort field suggestions with trailing space
+	suggestions := engine.GetCommandAutocomplete(":sort ", state)
+	expectedFields := []string{":sort health", ":sort name", ":sort sync"}
+	if !reflect.DeepEqual(suggestions, expectedFields) {
+		t.Errorf("Expected %v, got %v", expectedFields, suggestions)
+	}
+
+	// Test partial field completion
+	suggestions = engine.GetCommandAutocomplete(":sort n", state)
+	expected := []string{":sort name"}
+	if !reflect.DeepEqual(suggestions, expected) {
+		t.Errorf("Expected %v, got %v", expected, suggestions)
+	}
+
+	// Test direction suggestions after field with trailing space
+	suggestions = engine.GetCommandAutocomplete(":sort name ", state)
+	expectedDirs := []string{":sort name asc", ":sort name desc"}
+	if !reflect.DeepEqual(suggestions, expectedDirs) {
+		t.Errorf("Expected %v, got %v", expectedDirs, suggestions)
+	}
+
+	// Test partial direction completion
+	suggestions = engine.GetCommandAutocomplete(":sort name d", state)
+	expected = []string{":sort name desc"}
+	if !reflect.DeepEqual(suggestions, expected) {
+		t.Errorf("Expected %v, got %v", expected, suggestions)
+	}
+}
+
+// TestSortCommandRequiresDirection tests that ":sort name" (without direction)
+// shows direction suggestions to guide the user to complete the command.
+// Direction is required - the command is not valid without it.
+func TestSortCommandRequiresDirection(t *testing.T) {
+	engine := NewAutocompleteEngine()
+	state := createTestState()
+
+	// When user types ":sort name" (complete field, no trailing space),
+	// autocomplete should suggest directions to help complete the command
+	suggestions := engine.GetCommandAutocomplete(":sort name", state)
+
+	// Should suggest direction options
+	if len(suggestions) != 2 {
+		t.Errorf("Expected 2 direction suggestions, got %d: %v", len(suggestions), suggestions)
+	}
+
+	// Verify the suggestions are the expected directions
+	expected := map[string]bool{":sort name asc": true, ":sort name desc": true}
+	for _, s := range suggestions {
+		if !expected[s] {
+			t.Errorf("Unexpected suggestion: %s", s)
+		}
+	}
+}
+
 func TestThemeCommandAutocomplete(t *testing.T) {
 	engine := NewAutocompleteEngine()
 	state := createTestState()
