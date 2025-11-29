@@ -341,13 +341,10 @@ func (m *Model) renderFullScreenViewWithOptions(header, content, status string, 
 	// Content section - apply border if requested
 	if opts.ContentBordered {
 		// Calculate available space for bordered content
-		const (
-			BORDER_LINES = 2 // content border top/bottom
-		)
-
+		// lipgloss Height() sets total visual height including borders
 		headerLines := countLines(header)
 		statusLines := countLines(status)
-		overhead := BORDER_LINES + headerLines + statusLines
+		overhead := headerLines + statusLines
 		availableRows := max(1, m.state.Terminal.Rows-overhead)
 
 		// Apply bordered styling with custom color if specified
@@ -356,7 +353,7 @@ func (m *Model) renderFullScreenViewWithOptions(header, content, status string, 
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(opts.BorderColor).
 			Width(contentWidth).
-			Height(availableRows + 1). // Add 1 to properly fill vertical space
+			Height(availableRows).
 			PaddingLeft(1).
 			PaddingRight(1).
 			AlignVertical(lipgloss.Top) // Align content to top for help/everywhere
@@ -373,7 +370,7 @@ func (m *Model) renderFullScreenViewWithOptions(header, content, status string, 
 
 	// Apply main container with full height
 	finalContent := strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
+	totalHeight := m.state.Terminal.Rows
 	return mainContainerStyle.Height(totalHeight).Render(finalContent)
 }
 
