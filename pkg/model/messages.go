@@ -409,3 +409,9 @@ type UpgradeCompletedMsg struct {
 	Success bool
 	Error   error
 }
+
+// ChangelogLoadedMsg is sent when changelog has been fetched
+type ChangelogLoadedMsg struct {
+	Content string
+	Error   error
+}

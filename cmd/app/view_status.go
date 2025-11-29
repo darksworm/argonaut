@@ -46,7 +46,7 @@ func (m *Model) renderStatusLine() string {
 		}
 	}
 
-	// Build the right side text with upgrade notification
+	// Build the right side text with upgrade notification or what's new notification
 	var rightText string
 
 	// Get upgrade notification text based on screen width
@@ -76,6 +76,33 @@ func (m *Model) renderStatusLine() string {
 			rightText = fmt.Sprintf("pls %s • ", upgradeCmd)
 		} else if remainingSpace >= 10 {
 			rightText = fmt.Sprintf("%s • ", upgradeCmd)
+		}
+		// If even that doesn't fit, rightText stays empty (removes notification entirely)
+	} else if m.state.UI.ShowWhatsNew && m.shouldShowWhatsNewNotification() {
+		// Show what's new notification (only if upgrade notification isn't showing)
+		available := max(0, m.state.Terminal.Cols-2)
+
+		// Progressive text shortening based on available space
+		changelogFG := ensureContrastingForeground(mutedBG, whiteBright)
+		changelogCmd := lipgloss.NewStyle().
+			Background(mutedBG).
+			Foreground(changelogFG).
+			Render(":changelog")
+
+		// Calculate base width (left text + ready + position + spacing)
+		baseWidth := lipgloss.Width(leftText) + len("Ready") + 10 // rough estimate for spacing
+		if position != "" {
+			baseWidth += len(position) + 3 // " • " + position
+		}
+
+		remainingSpace := available - baseWidth
+
+		if remainingSpace >= len("Upgraded to vX.Y.Z, run ")+15 { // +15 for styled command
+			rightText = fmt.Sprintf("Upgraded! Run %s to see what's new • ", changelogCmd)
+		} else if remainingSpace >= len("what's new: ")+15 {
+			rightText = fmt.Sprintf("What's new: %s • ", changelogCmd)
+		} else if remainingSpace >= 15 {
+			rightText = fmt.Sprintf("%s • ", changelogCmd)
 		}
 		// If even that doesn't fit, rightText stays empty (removes notification entirely)
 	}
@@ -159,6 +186,8 @@ func (m *Model) getColorForStatus(status string) lipgloss.Style {
 const (
 	// upgradeNotificationTimeout defines how long the upgrade notification stays visible
 	upgradeNotificationTimeout = 30 * time.Second
+	// whatsNewNotificationTimeout defines how long the what's new notification stays visible
+	whatsNewNotificationTimeout = 30 * time.Second
 )
 
 // shouldShowUpgradeNotification checks if the upgrade notification should be shown
@@ -170,4 +199,15 @@ func (m *Model) shouldShowUpgradeNotification() bool {
 
 	elapsed := time.Since(*m.state.UI.UpdateInfo.NotificationShownAt)
 	return elapsed < upgradeNotificationTimeout
+}
+
+// shouldShowWhatsNewNotification checks if the what's new notification should be shown
+// Returns false if the notification has been shown for more than the timeout duration
+func (m *Model) shouldShowWhatsNewNotification() bool {
+	if m.state.UI.WhatsNewShownAt == nil {
+		return true // Show if we haven't started timing yet
+	}
+
+	elapsed := time.Since(*m.state.UI.WhatsNewShownAt)
+	return elapsed < whatsNewNotificationTimeout
 }

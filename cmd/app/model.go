@@ -963,6 +963,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Modals.UpgradeLoading = false
 		}
 		return m, nil
+
+	case model.ChangelogLoadedMsg:
+		m.state.Modals.ChangelogLoading = false
+		if msg.Error != nil {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{
+					Status: "Could not fetch changelog: " + msg.Error.Error(),
+				}
+			}
+		}
+		// Format and display in pager
+		formatted := FormatChangelog(msg.Content)
+		return m, m.openTextPager("Changelog", formatted)
 	}
 
 	return m, nil

@@ -1020,6 +1020,10 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "upgrade", "update":
 			// Trigger upgrade process
 			return m, func() tea.Msg { return model.UpgradeRequestedMsg{} }
+		case "changelog", "whatsnew", "news":
+			// Fetch and display changelog
+			m.state.Modals.ChangelogLoading = true
+			return m, m.fetchChangelog()
 		default:
 			// Unknown: set status for feedback
 			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown command: " + raw} }

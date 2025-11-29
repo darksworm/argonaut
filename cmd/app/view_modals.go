@@ -146,6 +146,20 @@ func (m *Model) renderSyncLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
+func (m *Model) renderChangelogLoadingModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Fetching changelog…"))
+	content := msg
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Padding(1, 2)
+	minW := 28
+	w := max(minW, lipgloss.Width(content)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}
+
 func (m *Model) renderInitialLoadingModal() string {
 	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading..."))
 	content := msg

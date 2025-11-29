@@ -99,6 +99,8 @@ type UIState struct {
 	ThemeOriginalName   string      `json:"themeOriginalName,omitempty"`
 	CommandInvalid      bool        `json:"commandInvalid"`
 	Sort                SortConfig  `json:"sort"`
+	ShowWhatsNew        bool        `json:"showWhatsNew"`
+	WhatsNewShownAt     *time.Time  `json:"whatsNewShownAt,omitempty"`
 }
 
 // ModalState holds modal-related state
@@ -119,13 +121,15 @@ type ModalState struct {
 	UpgradeLoading  bool    `json:"upgradeLoading"`
 	UpgradeError    *string `json:"upgradeError,omitempty"` // Error message for upgrade failures
 	// Delete confirmation modal state
-	DeleteAppName     *string `json:"deleteAppName,omitempty"`
-	DeleteAppNamespace *string `json:"deleteAppNamespace,omitempty"`
-	DeleteConfirmationKey string `json:"deleteConfirmationKey"` // Track what user has typed
-	DeleteLoading     bool    `json:"deleteLoading"`
-	DeleteError       *string `json:"deleteError,omitempty"`
-	DeleteCascade     bool    `json:"deleteCascade"` // Default true
+	DeleteAppName          *string `json:"deleteAppName,omitempty"`
+	DeleteAppNamespace     *string `json:"deleteAppNamespace,omitempty"`
+	DeleteConfirmationKey  string  `json:"deleteConfirmationKey"` // Track what user has typed
+	DeleteLoading          bool    `json:"deleteLoading"`
+	DeleteError            *string `json:"deleteError,omitempty"`
+	DeleteCascade          bool    `json:"deleteCascade"`          // Default true
 	DeletePropagationPolicy string `json:"deletePropagationPolicy"` // Default "foreground"
+	// Changelog loading modal state
+	ChangelogLoading bool `json:"changelogLoading"`
 }
 
 // AppState represents the complete application state for Bubbletea
