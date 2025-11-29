@@ -38,9 +38,8 @@ func TestTreeViewOpensAndReturns(t *testing.T) {
 	}
 
 	// Open resources (tree) for demo
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("│ > ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("resources demo")
 	_ = tf.Enter()
@@ -122,9 +121,8 @@ func TestTreeViewFilter(t *testing.T) {
 	}
 
 	// Open resources (tree) for demo
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("│ > ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("resources demo")
 	_ = tf.Enter()
@@ -146,10 +144,9 @@ func TestTreeViewFilter(t *testing.T) {
 	}
 
 	// Test 1: Enter search mode with /
-	_ = tf.Send("/")
-	if !tf.WaitForPlain("Search", 2*time.Second) {
+	if err := tf.OpenSearch(); err != nil {
 		t.Log(tf.SnapshotPlain())
-		t.Fatal("search bar not shown after pressing /")
+		t.Fatal(err)
 	}
 
 	// Test 2: Type filter query "pod" and press Enter
@@ -228,9 +225,8 @@ func TestTreeViewFilterNoMatches(t *testing.T) {
 	}
 
 	// Open resources (tree) for demo
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("│ > ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("resources demo")
 	_ = tf.Enter()
@@ -241,9 +237,8 @@ func TestTreeViewFilterNoMatches(t *testing.T) {
 	}
 
 	// Enter search mode and type a non-matching query
-	_ = tf.Send("/")
-	if !tf.WaitForPlain("Search", 2*time.Second) {
-		t.Fatal("search bar not shown")
+	if err := tf.OpenSearch(); err != nil {
+		t.Fatal(err)
 	}
 
 	_ = tf.Send("nonexistent")
@@ -291,9 +286,8 @@ func TestTreeViewFilterEscapeClearsFilter(t *testing.T) {
 	}
 
 	// Open resources (tree) for demo
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("│ > ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("resources demo")
 	_ = tf.Enter()
@@ -304,9 +298,8 @@ func TestTreeViewFilterEscapeClearsFilter(t *testing.T) {
 	}
 
 	// Enter search, type query, then Escape without Enter
-	_ = tf.Send("/")
-	if !tf.WaitForPlain("Search", 2*time.Second) {
-		t.Fatal("search bar not shown")
+	if err := tf.OpenSearch(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("pod")
 	time.Sleep(200 * time.Millisecond)
