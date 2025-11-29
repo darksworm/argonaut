@@ -168,8 +168,11 @@ func TestTreeViewFilter(t *testing.T) {
 	rawSnap := tf.Snapshot()
 	// Look for "Pod" with yellow background - the ANSI sequence should be immediately before "Pod"
 	// RGB true color format: \x1b[...;48;2;224;175;104m followed by "Pod"
-	// The pattern in output is: [38;2;26;27;38;48;2;224;175;104mPod
-	hasPodHighlighted := strings.Contains(rawSnap, "48;2;224;175;104mPod") || strings.Contains(rawSnap, "[103mPod")
+	// 256-color format: \x1b[...;48;5;179m followed by "Pod" (used when COLORTERM != truecolor)
+	// Basic 16-color format: \x1b[103m followed by "Pod"
+	hasPodHighlighted := strings.Contains(rawSnap, "48;2;224;175;104mPod") ||
+		strings.Contains(rawSnap, "48;5;179mPod") ||
+		strings.Contains(rawSnap, "[103mPod")
 	if !hasPodHighlighted {
 		t.Log("Raw snapshot excerpt (looking for Pod highlight):")
 		t.Log(rawSnap[max(0, len(rawSnap)-2000):])
@@ -178,7 +181,9 @@ func TestTreeViewFilter(t *testing.T) {
 
 	// Also verify that Service is NOT highlighted (it doesn't match "pod")
 	// Service should not have yellow background
-	hasServiceHighlighted := strings.Contains(rawSnap, "48;2;224;175;104mService") || strings.Contains(rawSnap, "[103mService")
+	hasServiceHighlighted := strings.Contains(rawSnap, "48;2;224;175;104mService") ||
+		strings.Contains(rawSnap, "48;5;179mService") ||
+		strings.Contains(rawSnap, "[103mService")
 	if hasServiceHighlighted {
 		t.Fatal("Service should NOT be highlighted - it doesn't match 'pod'")
 	}
