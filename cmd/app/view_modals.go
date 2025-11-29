@@ -25,55 +25,52 @@ func (m *Model) renderHelpModal() string {
 		mono(":"), " command ", bullet(), " ", mono("/"), " search ", bullet(), " ", mono("?"), " help",
 	}, "")
 
-	// NAV
-	nav := strings.Join([]string{
+	// NAVIGATION
+	navigation := strings.Join([]string{
 		mono("j/k"), " up/down ", bullet(), " ", keycap("Space"), " select ", bullet(), " ", keycap("Enter"), " drill down ", bullet(), " ", keycap("Esc"), " clear/up",
+		"\n",
+		keycap("PgUp"), "/", keycap("PgDn"), " page up/down",
 	}, "")
 
-	// VIEWS (two lines)
+	// VIEWS
 	views := strings.Join([]string{
-		mono(":cls"), "|", mono(":clusters"), "|", mono(":cluster"), " ", bullet(), " ", mono(":ns"), "|", mono(":namespaces"), "|", mono(":namespace"),
+		mono(":cls"), "|", mono(":clusters"), " ", bullet(), " ", mono(":ns"), "|", mono(":namespaces"), " ", bullet(), " ", mono(":proj"), "|", mono(":projects"), " ", bullet(), " ", mono(":apps"),
 		"\n",
-		mono(":proj"), "|", mono(":projects"), "|", mono(":project"), " ", bullet(), " ", mono(":apps"), " ", bullet(), " ", mono(":theme"),
-		"\n",
-		mono(":sort asc"), "|", mono(":sort desc"), " sort apps list",
+		mono(":theme"), " ", bullet(), " ", mono(":logs"),
 	}, "")
 
-	// ACTIONS (stacked for readability)
-	actions := strings.Join([]string{
-		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app]",
-		"\n",
-		mono(":delete"), " [app] ", bullet(), " ", mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " go up level",
-		"\n",
-		// App view hotkeys grouped two per line
-		keycap("s"), " sync modal (apps view) ", bullet(), " ", keycap("R"), " rollback modal (apps view)",
-		"\n",
-		keycap("r"), " resources (apps view) ", bullet(), " ", keycap("d"), " open diff (apps view)",
-		"\n",
-		keycap("Ctrl+D"), " delete app(s) (apps view)",
-		"\n",
-		// Tree view hotkeys
-		mono("/"), " filter ", bullet(), " ", mono("n/N"), " next/prev match (tree view)",
+	// COMMANDS
+	commands := strings.Join([]string{
+		mono(":q"), " (to exit, google how to exit vim)",
 	}, "")
 
-	// MISC (licenses removed)
-	misc := strings.Join([]string{
-		mono(":all"),
+	// APPS VIEW - hotkeys and commands specific to apps view
+	appsView := strings.Join([]string{
+		keycap("s"), " sync ", bullet(), " ", keycap("R"), " rollback ", bullet(), " ", keycap("r"), " resources ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", keycap("Ctrl+D"), " delete",
 		"\n",
-		mono(":logs"), " ", bullet(), " ", mono(":q"),
+		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app] ", bullet(), " ", mono(":delete"), " [app]",
+		"\n",
+		mono(":resources"), " [app] ", bullet(), " ", mono(":sort"), " health|sync asc|desc ", bullet(), " ", mono(":up"), " ", bullet(), " ", mono(":all"),
+	}, "")
+
+	// TREE VIEW - hotkeys specific to tree/resources view
+	treeView := strings.Join([]string{
+		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match",
 	}, "")
 
 	var helpSections []string
-	// Add a blank line between sections to mimic Ink's marginTop=1
+	// Add a blank line between sections
 	helpSections = append(helpSections, m.renderHelpSection("GENERAL", general, isWide))
 	helpSections = append(helpSections, "")
-	helpSections = append(helpSections, m.renderHelpSection("NAV", nav, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("NAVIGATION", navigation, isWide))
 	helpSections = append(helpSections, "")
 	helpSections = append(helpSections, m.renderHelpSection("VIEWS", views, isWide))
 	helpSections = append(helpSections, "")
-	helpSections = append(helpSections, m.renderHelpSection("ACTIONS", actions, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("APPS VIEW", appsView, isWide))
 	helpSections = append(helpSections, "")
-	helpSections = append(helpSections, m.renderHelpSection("MISC", misc, isWide))
+	helpSections = append(helpSections, m.renderHelpSection("TREE VIEW", treeView, isWide))
+	helpSections = append(helpSections, "")
+	helpSections = append(helpSections, m.renderHelpSection("COMMANDS", commands, isWide))
 	helpSections = append(helpSections, "")
 	helpSections = append(helpSections, statusStyle.Render("Press ?, q or Esc to close"))
 

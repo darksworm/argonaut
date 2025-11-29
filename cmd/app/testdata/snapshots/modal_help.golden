@@ -2,23 +2,24 @@
  │                                                                                                │ 
  │ GENERAL      : command • / search • ? help                                                     │ 
  │                                                                                                │ 
- │ NAV          j/k up/down •  Space  select •  Enter  drill down •  Esc  clear/up                │ 
+ │ NAVIGATION   j/k up/down •  Space  select •  Enter  drill down •  Esc  clear/up                │ 
+ │               PgUp / PgDn  page up/down                                                        │ 
  │                                                                                                │ 
- │ VIEWS        :cls|:clusters|:cluster • :ns|:namespaces|:namespace                              │ 
- │              :proj|:projects|:project • :apps • :theme                                         │ 
- │              :sort asc|:sort desc sort apps list                                               │ 
+ │ VIEWS        :cls|:clusters • :ns|:namespaces • :proj|:projects • :apps                        │ 
+ │              :theme • :logs                                                                    │ 
  │                                                                                                │ 
- │ ACTIONS      :diff [app] • :sync [app] • :rollback [app]                                       │ 
- │              :delete [app] • :resources [app] • :up go up level                                │ 
- │               s  sync modal (apps view) •  R  rollback modal (apps view)                       │ 
- │               r  resources (apps view) •  d  open diff (apps view)                             │ 
- │               Ctrl+D  delete app(s) (apps view)                                                │ 
- │              / filter • n/N next/prev match (tree view)                                        │ 
+ │ APPS VIEW     s  sync •  R  rollback •  r  resources •  d  diff •  Ctrl+D  delete              │ 
+ │              :diff [app] • :sync [app] • :rollback [app] • :delete [app]                       │ 
+ │              :resources [app] • :sort health|sync asc|desc • :up • :all                        │ 
  │                                                                                                │ 
- │ MISC         :all                                                                              │ 
- │              :logs • :q                                                                        │ 
+ │ TREE VIEW    / filter • n/N next/prev match                                                    │ 
+ │                                                                                                │ 
+ │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
