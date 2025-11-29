@@ -13,12 +13,12 @@
  │               s  sync modal (apps view) •  R  rollback modal (apps view)                       │ 
  │               r  resources (apps view) •  d  open diff (apps view)                             │ 
  │               Ctrl+D  delete app(s) (apps view)                                                │ 
+ │              / filter • n/N next/prev match (tree view)                                        │ 
  │                                                                                                │ 
  │ MISC         :all                                                                              │ 
  │              :logs • :q                                                                        │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
