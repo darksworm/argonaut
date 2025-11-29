@@ -18,6 +18,16 @@ func (m *Model) renderStatusLine() string {
 	if m.state.UI.ActiveFilter != "" && m.state.Navigation.View == model.ViewApps {
 		leftText = fmt.Sprintf("<%s:%s>", m.state.Navigation.View, m.state.UI.ActiveFilter)
 	}
+	// Show tree filter info if active
+	if m.state.Navigation.View == model.ViewTree && m.treeView != nil && m.treeView.GetFilter() != "" {
+		matchCount := m.treeView.MatchCount()
+		currentMatch := m.treeView.CurrentMatchIndex()
+		if matchCount > 0 {
+			leftText = fmt.Sprintf("<%s> [%d/%d matches]", m.state.Navigation.View, currentMatch, matchCount)
+		} else {
+			leftText = fmt.Sprintf("<%s> [no matches]", m.state.Navigation.View)
+		}
+	}
 
 	// Right side: status and position (matches MainLayout right Box)
 	// For tree view, use treeView counts; otherwise use list counts.
