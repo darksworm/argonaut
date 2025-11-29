@@ -148,6 +148,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			TakesArg:    true,
 			ArgType:     "sort",
 		},
+		{
+			Command:     "changelog",
+			Aliases:     []string{"changelog", "whatsnew", "news"},
+			Description: "View release changelog",
+			TakesArg:    false,
+			ArgType:     "",
+		},
 	}
 
 	// Build alias map

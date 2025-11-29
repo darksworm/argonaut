@@ -181,6 +181,9 @@ func main() {
 	// Set up TLS trust configuration
 	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
 
+	// Check if config file exists before loading (for "what's new" logic)
+	configExisted := config.ConfigFileExists()
+
 	// Load and apply theme
 	argonautConfig, err := config.LoadArgonautConfig()
 	if err != nil {
@@ -199,6 +202,37 @@ func main() {
 
 	// Create the initial model
 	m := NewModel()
+
+	// Check if this is a new version (for "what's new" notification)
+	if appVersion != "dev" {
+		lastSeen := argonautConfig.LastSeenVersion
+		if !configExisted {
+			// Fresh install - no config file existed, save version, no notification
+			argonautConfig.LastSeenVersion = appVersion
+			if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+				cblog.With("component", "app").Warn("Could not save last seen version", "err", err)
+			}
+		} else if lastSeen == "" {
+			// Config exists but no last_seen_version - existing user upgrading to version with this feature
+			// Show notification!
+			m.state.UI.ShowWhatsNew = true
+			now := time.Now()
+			m.state.UI.WhatsNewShownAt = &now
+			argonautConfig.LastSeenVersion = appVersion
+			if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+				cblog.With("component", "app").Warn("Could not save last seen version", "err", err)
+			}
+		} else if lastSeen != appVersion {
+			// User upgraded to a new version - show notification
+			m.state.UI.ShowWhatsNew = true
+			now := time.Now()
+			m.state.UI.WhatsNewShownAt = &now
+			argonautConfig.LastSeenVersion = appVersion
+			if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+				cblog.With("component", "app").Warn("Could not save last seen version", "err", err)
+			}
+		}
+	}
 
 	// Apply saved sort preference from config
 	if argonautConfig.Sort.Field != "" {

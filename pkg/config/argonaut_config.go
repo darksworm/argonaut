@@ -14,8 +14,9 @@ const DefaultThemeName = "tokyo-night"
 
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
-	Appearance AppearanceConfig `toml:"appearance"`
-	Sort       SortConfig       `toml:"sort,omitempty"`
+	Appearance      AppearanceConfig `toml:"appearance"`
+	Sort            SortConfig       `toml:"sort,omitempty"`
+	LastSeenVersion string           `toml:"last_seen_version,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
@@ -65,6 +66,13 @@ func EnsureArgonautConfigDir() error {
 		return os.MkdirAll(configDir, 0755)
 	}
 	return nil
+}
+
+// ConfigFileExists returns true if the config file exists on disk
+func ConfigFileExists() bool {
+	configPath := GetArgonautConfigPath()
+	_, err := os.Stat(configPath)
+	return err == nil
 }
 
 // GetDefaultConfig returns a config with sensible defaults
