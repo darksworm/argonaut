@@ -51,6 +51,9 @@ func (m *Model) renderHelpModal() string {
 		keycap("r"), " resources (apps view) ", bullet(), " ", keycap("d"), " open diff (apps view)",
 		"\n",
 		keycap("Ctrl+D"), " delete app(s) (apps view)",
+		"\n",
+		// Tree view hotkeys
+		mono("/"), " filter ", bullet(), " ", mono("n/N"), " next/prev match (tree view)",
 	}, "")
 
 	// MISC (licenses removed)

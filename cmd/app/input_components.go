@@ -414,6 +414,10 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		} else {
 			m.state.Mode = model.ModeNormal
 			m.state.UI.SearchQuery = ""
+			// Clear tree filter when exiting search mode via Esc
+			if m.state.Navigation.View == model.ViewTree && m.treeView != nil {
+				m.treeView.ClearFilter()
+			}
 		}
 		return m, nil
 	case "enter":
@@ -427,6 +431,18 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			}
 			m.inputComponents.BlurInputs()
 			m.state.Mode = model.ModeDiff
+			return m, nil
+		} else if m.state.Navigation.View == model.ViewTree {
+			// Apply filter to tree view and jump to first match
+			m.inputComponents.BlurInputs()
+			m.state.Mode = model.ModeNormal
+			if m.treeView != nil {
+				m.treeView.SetFilter(searchValue)
+				if m.treeView.MatchCount() > 0 {
+					m.treeView.JumpToFirstMatch()
+					m.treeNav.SetCursor(m.treeView.SelectedIndex())
+				}
+			}
 			return m, nil
 		} else if m.state.Navigation.View == model.ViewApps {
 			// Keep filter applied in apps view
@@ -453,11 +469,17 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		cmd := m.inputComponents.UpdateSearchInput(msg)
 		// Sync the search query with the input value
 		m.state.UI.SearchQuery = m.inputComponents.GetSearchValue()
-		// Clamp selection within new filtered results
-		m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
-			m.state.Navigation.SelectedIdx,
-			len(m.getVisibleItems()),
-		)
+
+		// Handle real-time filtering for tree view
+		if m.state.Navigation.View == model.ViewTree && m.treeView != nil {
+			m.treeView.SetFilter(m.state.UI.SearchQuery)
+		} else {
+			// Clamp selection within new filtered results for list views
+			m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
+				m.state.Navigation.SelectedIdx,
+				len(m.getVisibleItems()),
+			)
+		}
 		return m, cmd
 	}
 }

@@ -107,9 +107,8 @@ func TestSortCommand(t *testing.T) {
 	}
 
 	// Navigate to apps view
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
@@ -129,9 +128,8 @@ func TestSortCommand(t *testing.T) {
 	}
 
 	// Sort by name descending
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("sort name desc")
 	_ = tf.Enter()
@@ -145,9 +143,8 @@ func TestSortCommand(t *testing.T) {
 	}
 
 	// Sort by sync status
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("sort sync asc")
 	_ = tf.Enter()
@@ -161,9 +158,8 @@ func TestSortCommand(t *testing.T) {
 	}
 
 	// Sort by health status descending
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("sort health desc")
 	_ = tf.Enter()
@@ -206,9 +202,8 @@ func TestSortRequiresDirection(t *testing.T) {
 		t.Fatal("clusters not ready")
 	}
 
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
@@ -227,9 +222,8 @@ func TestSortRequiresDirection(t *testing.T) {
 	}
 
 	// Try to sort without direction - should show autocomplete suggestions
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("sort name")
 

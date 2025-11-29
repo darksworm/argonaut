@@ -2,6 +2,7 @@ package treeview
 
 import (
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 
@@ -38,6 +39,11 @@ type TreeView struct {
 
 	// Theme colors
 	palette theme.Palette
+
+	// Filter/search state
+	filterQuery  string // Current search query (empty = no filter)
+	matchIndices []int  // Indices in 'order' that match the query
+	currentMatch int    // Current position in matchIndices (for n/N navigation)
 }
 
 type treeNode struct {
@@ -360,6 +366,7 @@ func (v *TreeView) Render() string {
                 line += hint
             }
         }
+        isMatch := v.filterQuery != "" && v.isMatchIndex(i)
         if i == v.selIdx {
             name := n.name
             if n.namespace != "" {
@@ -369,12 +376,36 @@ func (v *TreeView) Render() string {
             if status == "" {
                 status = n.status
             }
-            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(v.palette.SelectedBG).Render(prefix + disc)
-            ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(v.palette.SelectedBG).Render(n.kind)
-            ns := lipgloss.NewStyle().Foreground(v.palette.Dim).Render("[" + name + "]")
-            st := v.statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+            // Use different background for selected match vs regular selection
+            var selBG color.Color
+            if isMatch {
+                // Selected match: use a distinct color (cyan/info)
+                selBG = v.palette.Info
+            } else {
+                selBG = v.palette.SelectedBG
+            }
+            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(selBG).Render(prefix + disc)
+            ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(selBG).Render(n.kind)
+            ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(selBG).Render("[" + name + "]")
+            st := lipgloss.NewStyle().Background(selBG).Render(v.statusStyle(status).Render(fmt.Sprintf("(%s)", status)))
             line = ps + ks + " " + ns + " " + st
             line = padRight(line, v.innerWidth())
+        } else if isMatch {
+            // Non-selected match: highlight with yellow/warning background
+            name := n.name
+            if n.namespace != "" {
+                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+            }
+            status := n.health
+            if status == "" {
+                status = n.status
+            }
+            matchBG := v.palette.Warning
+            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
+            ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
+            ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
+            st := lipgloss.NewStyle().Background(matchBG).Render(v.statusStyle(status).Render(fmt.Sprintf("(%s)", status)))
+            line = ps + ks + " " + ns + " " + st
         }
         b.WriteString(line)
         if i < len(v.order)-1 {
@@ -501,4 +532,125 @@ func countDescendants(n *treeNode) int {
 		total += countDescendants(c)
 	}
 	return total
+}
+
+// SetFilter sets the filter query and rebuilds match indices
+func (v *TreeView) SetFilter(query string) {
+	v.filterQuery = strings.TrimSpace(query)
+	v.rebuildMatches()
+}
+
+// ClearFilter clears the filter state
+func (v *TreeView) ClearFilter() {
+	v.filterQuery = ""
+	v.matchIndices = nil
+	v.currentMatch = 0
+}
+
+// GetFilter returns the current filter query
+func (v *TreeView) GetFilter() string {
+	return v.filterQuery
+}
+
+// MatchCount returns the number of matching nodes
+func (v *TreeView) MatchCount() int {
+	return len(v.matchIndices)
+}
+
+// CurrentMatchIndex returns the 1-based index of the current match (for display)
+func (v *TreeView) CurrentMatchIndex() int {
+	if len(v.matchIndices) == 0 {
+		return 0
+	}
+	return v.currentMatch + 1
+}
+
+// NextMatch moves to the next matching node and returns true if moved
+func (v *TreeView) NextMatch() bool {
+	if len(v.matchIndices) == 0 {
+		return false
+	}
+	v.currentMatch = (v.currentMatch + 1) % len(v.matchIndices)
+	v.selIdx = v.matchIndices[v.currentMatch]
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		v.SelectedUID = v.order[v.selIdx].uid
+	}
+	return true
+}
+
+// PrevMatch moves to the previous matching node and returns true if moved
+func (v *TreeView) PrevMatch() bool {
+	if len(v.matchIndices) == 0 {
+		return false
+	}
+	v.currentMatch--
+	if v.currentMatch < 0 {
+		v.currentMatch = len(v.matchIndices) - 1
+	}
+	v.selIdx = v.matchIndices[v.currentMatch]
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		v.SelectedUID = v.order[v.selIdx].uid
+	}
+	return true
+}
+
+// JumpToFirstMatch moves to the first match if any exist
+func (v *TreeView) JumpToFirstMatch() bool {
+	if len(v.matchIndices) == 0 {
+		return false
+	}
+	v.currentMatch = 0
+	v.selIdx = v.matchIndices[0]
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		v.SelectedUID = v.order[v.selIdx].uid
+	}
+	return true
+}
+
+// rebuildMatches scans the order slice and finds indices of matching nodes
+func (v *TreeView) rebuildMatches() {
+	v.matchIndices = nil
+	if v.filterQuery == "" {
+		v.currentMatch = 0
+		return
+	}
+	query := strings.ToLower(v.filterQuery)
+	for i, node := range v.order {
+		if v.nodeMatchesQuery(node, query) {
+			v.matchIndices = append(v.matchIndices, i)
+		}
+	}
+	// Reset current match position
+	v.currentMatch = 0
+}
+
+// nodeMatchesQuery checks if a node matches the search query (case-insensitive)
+func (v *TreeView) nodeMatchesQuery(n *treeNode, query string) bool {
+	// Match against kind, name, namespace, status, health
+	if strings.Contains(strings.ToLower(n.kind), query) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(n.name), query) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(n.namespace), query) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(n.status), query) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(n.health), query) {
+		return true
+	}
+	return false
+}
+
+// isMatchIndex checks if the given index is in the matchIndices slice
+func (v *TreeView) isMatchIndex(idx int) bool {
+	for _, mi := range v.matchIndices {
+		if mi == idx {
+			return true
+		}
+	}
+	return false
 }

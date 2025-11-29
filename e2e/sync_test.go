@@ -48,18 +48,16 @@ func TestSyncSingleApp(t *testing.T) {
 	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
 		t.Fatal("clusters not ready")
 	}
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
 	if !tf.WaitForPlain("demo", 3*time.Second) {
 		t.Fatal("projects not ready")
 	}
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
@@ -120,18 +118,16 @@ func TestSyncMultipleApps(t *testing.T) {
 	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
 		t.Fatal("clusters not ready")
 	}
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
 	if !tf.WaitForPlain("demo", 3*time.Second) {
 		t.Fatal("projects not ready")
 	}
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
@@ -189,18 +185,16 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
 		t.Fatal("clusters not ready")
 	}
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
 	if !tf.WaitForPlain("demo", 3*time.Second) {
 		t.Fatal("projects not ready")
 	}
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
@@ -212,9 +206,8 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 	_ = tf.Send("j")
 
 	// Type `:sync` instead of using the 's' key
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("sync")
 	_ = tf.Enter()

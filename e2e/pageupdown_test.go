@@ -151,9 +151,8 @@ func navigateToApps(t *testing.T, tf *TUITestFramework) {
 		t.Fatal("clusters not ready")
 	}
 	// Navigate to namespace
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
@@ -161,9 +160,8 @@ func navigateToApps(t *testing.T, tf *TUITestFramework) {
 		t.Fatal("projects not ready")
 	}
 	// Navigate to apps
-	_ = tf.Send(":")
-	if !tf.WaitForPlain("> ", 2*time.Second) {
-		t.Fatal("command bar not ready")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
