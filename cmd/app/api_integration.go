@@ -288,6 +288,101 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 	}
 }
 
+// startResourceDiffSession loads the diff for a specific resource and opens the diff pager
+func (m *Model) startResourceDiffSession(appName, group, kind, namespace, name string) tea.Cmd {
+	return func() tea.Msg {
+		if m.state.Server == nil {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		apiService := services.NewArgoApiService(m.state.Server)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		if err != nil {
+			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
+		}
+
+		// Find the matching resource diff
+		var targetDiff *services.ResourceDiff
+		for i := range diffs {
+			d := &diffs[i]
+			if d.Group == group && d.Kind == kind && d.Name == name && d.Namespace == namespace {
+				targetDiff = d
+				break
+			}
+		}
+
+		if targetDiff == nil || targetDiff.Hook {
+			// Clear loading and show no-diff modal
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = false
+			return model.SetModeMsg{Mode: model.ModeNoDiff}
+		}
+
+		normalizedYAML := ""
+		predictedYAML := ""
+		if targetDiff.NormalizedLiveState != "" {
+			normalizedYAML = cleanManifestToYAML(targetDiff.NormalizedLiveState)
+		}
+		if targetDiff.PredictedLiveState != "" {
+			predictedYAML = cleanManifestToYAML(targetDiff.PredictedLiveState)
+		}
+
+		if normalizedYAML == predictedYAML {
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = false
+			return model.SetModeMsg{Mode: model.ModeNoDiff}
+		}
+
+		// Use existing diff generation infrastructure
+		leftFile, _ := writeTempYAML("current-", []string{normalizedYAML})
+		rightFile, _ := writeTempYAML("predicted-", []string{predictedYAML})
+
+		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--no-color", "--", leftFile, rightFile)
+		out, err := cmd.CombinedOutput()
+		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
+			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error()}
+		}
+		cleaned := stripDiffHeader(string(out))
+		if strings.TrimSpace(cleaned) == "" {
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = false
+			return model.SetModeMsg{Mode: model.ModeNoDiff}
+		}
+
+		// Clear loading before showing
+		if m.state.Diff == nil {
+			m.state.Diff = &model.DiffState{}
+		}
+		m.state.Diff.Loading = false
+
+		// Support interactive diff viewer
+		if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
+			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
+		}
+
+		// Format and display
+		resourceTitle := fmt.Sprintf("%s/%s", kind, name)
+		if namespace != "" {
+			resourceTitle = fmt.Sprintf("%s/%s/%s", namespace, kind, name)
+		}
+		formatted := cleaned
+		if formattedOut, ferr := m.runDiffFormatterWithTitle(cleaned, resourceTitle); ferr == nil && strings.TrimSpace(formattedOut) != "" {
+			formatted = formattedOut
+		}
+		title := fmt.Sprintf("%s - Live vs Desired", resourceTitle)
+		return m.openTextPager(title, formatted)()
+	}
+}
+
 func writeTempYAML(prefix string, docs []string) (string, error) {
 	f, err := os.CreateTemp("", prefix+"*.yaml")
 	if err != nil {

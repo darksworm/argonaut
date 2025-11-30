@@ -1043,6 +1043,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "K":
 			// Open k9s for the selected resource
 			return m.handleOpenK9s()
+		case "d":
+			// Show diff for the selected resource
+			return m.handleResourceDiff()
 		default:
 			if m.treeView != nil {
 				_, cmd := m.treeView.Update(msg)
@@ -1188,13 +1191,54 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 
+// handleResourceDiff shows the diff for the currently selected resource in tree view
+func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
+	if m.treeView == nil {
+		return m, nil
+	}
+
+	group, kind, namespace, name, ok := m.treeView.SelectedResource()
+	if !ok {
+		return m, nil
+	}
+
+	// For Application nodes, show the full app diff
+	if kind == "Application" {
+		// Show loading spinner
+		if m.state.Diff == nil {
+			m.state.Diff = &model.DiffState{}
+		}
+		m.state.Diff.Loading = true
+		return m, m.startDiffSession(name)
+	}
+
+	// Get the app name for resource-level diff
+	appName := ""
+	if m.state.UI.TreeAppName != nil {
+		appName = *m.state.UI.TreeAppName
+	} else if m.treeView != nil {
+		appName = m.treeView.GetAppName()
+	}
+	if appName == "" {
+		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Could not determine application name"} }
+	}
+
+	// Show loading spinner
+	if m.state.Diff == nil {
+		m.state.Diff = &model.DiffState{}
+	}
+	m.state.Diff.Loading = true
+
+	return m, m.startResourceDiffSession(appName, group, kind, namespace, name)
+}
+
 // handleOpenK9s opens k9s for the currently selected resource in tree view
 func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 	if m.treeView == nil {
 		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No resource selected"} }
 	}
 
-	kind, namespace, name, ok := m.treeView.SelectedResource()
+	_, kind, namespace, name, ok := m.treeView.SelectedResource()
 	if !ok {
 		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No resource selected"} }
 	}
