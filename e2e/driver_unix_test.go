@@ -785,3 +785,185 @@ func MockArgoServerHTTPSWithClientAuth(certFile, keyFile, caFile string) (*httpt
 	srv.StartTLS()
 	return srv, nil
 }
+
+// ---- K9s testing helpers ----
+
+// createMockK9s creates a mock k9s shell script in the workspace and returns its path and args file path.
+// The mock script records its arguments to a file and exits with the given exit code.
+func createMockK9s(t *testing.T, workspace string, exitCode int) (scriptPath, argsFile string) {
+	t.Helper()
+
+	// Create bin directory in workspace
+	binDir := filepath.Join(workspace, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("failed to create bin dir: %v", err)
+	}
+
+	scriptPath = filepath.Join(binDir, "mock-k9s")
+	argsFile = filepath.Join(workspace, "k9s_args.txt")
+
+	// Create the mock script - output escape sequences that Argonaut's PTY handler recognizes
+	// The script must output a clear screen sequence for the status bar injection to work
+	script := fmt.Sprintf(`#!/bin/sh
+# Mock k9s - records args and exits
+printf "%%s" "$*" > %q
+# Output clear screen sequence (triggers Argonaut's status bar injection)
+printf '\033[2J\033[H'
+printf 'Mock k9s\n'
+# Brief delay then exit
+sleep 0.2
+exit %d
+`, argsFile, exitCode)
+
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("failed to create mock k9s: %v", err)
+	}
+
+	return scriptPath, argsFile
+}
+
+// readMockK9sArgs reads the arguments that were passed to the mock k9s script.
+func readMockK9sArgs(t *testing.T, argsFile string) string {
+	t.Helper()
+	data, err := os.ReadFile(argsFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "" // k9s was not invoked
+		}
+		t.Fatalf("failed to read k9s args file: %v", err)
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// setupSingleContextKubeconfig creates a kubeconfig file with a single context.
+func setupSingleContextKubeconfig(t *testing.T, workspace, contextName string) string {
+	t.Helper()
+
+	kubeDir := filepath.Join(workspace, ".kube")
+	if err := os.MkdirAll(kubeDir, 0o755); err != nil {
+		t.Fatalf("failed to create .kube dir: %v", err)
+	}
+
+	kubeconfigPath := filepath.Join(kubeDir, "config")
+	content := fmt.Sprintf(`apiVersion: v1
+kind: Config
+current-context: %s
+contexts:
+  - name: %s
+    context:
+      cluster: %s
+      user: %s-user
+clusters:
+  - name: %s
+    cluster:
+      server: https://kubernetes.local:6443
+users:
+  - name: %s-user
+    user:
+      token: test-token
+`, contextName, contextName, contextName, contextName, contextName, contextName)
+
+	if err := os.WriteFile(kubeconfigPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	return kubeconfigPath
+}
+
+// setupMultipleContextsKubeconfig creates a kubeconfig file with multiple contexts.
+// Set currentContext to empty string to NOT set a current context (triggers context picker).
+func setupMultipleContextsKubeconfig(t *testing.T, workspace string, contexts []string) string {
+	return setupMultipleContextsKubeconfigWithCurrent(t, workspace, contexts, contexts[0])
+}
+
+// setupMultipleContextsKubeconfigNoCurrent creates a kubeconfig with multiple contexts
+// but NO current-context set. This forces the context picker to appear.
+func setupMultipleContextsKubeconfigNoCurrent(t *testing.T, workspace string, contexts []string) string {
+	return setupMultipleContextsKubeconfigWithCurrent(t, workspace, contexts, "")
+}
+
+// setupMultipleContextsKubeconfigWithCurrent creates a kubeconfig with multiple contexts
+// and optionally sets the current context.
+func setupMultipleContextsKubeconfigWithCurrent(t *testing.T, workspace string, contexts []string, currentContext string) string {
+	t.Helper()
+
+	kubeDir := filepath.Join(workspace, ".kube")
+	if err := os.MkdirAll(kubeDir, 0o755); err != nil {
+		t.Fatalf("failed to create .kube dir: %v", err)
+	}
+
+	kubeconfigPath := filepath.Join(kubeDir, "config")
+
+	var sb strings.Builder
+	sb.WriteString("apiVersion: v1\n")
+	sb.WriteString("kind: Config\n")
+	if currentContext != "" {
+		sb.WriteString(fmt.Sprintf("current-context: %s\n", currentContext))
+	}
+	sb.WriteString("contexts:\n")
+	for _, ctx := range contexts {
+		sb.WriteString(fmt.Sprintf("  - name: %s\n", ctx))
+		sb.WriteString(fmt.Sprintf("    context:\n"))
+		sb.WriteString(fmt.Sprintf("      cluster: %s\n", ctx))
+		sb.WriteString(fmt.Sprintf("      user: %s-user\n", ctx))
+	}
+	sb.WriteString("clusters:\n")
+	for _, ctx := range contexts {
+		sb.WriteString(fmt.Sprintf("  - name: %s\n", ctx))
+		sb.WriteString(fmt.Sprintf("    cluster:\n"))
+		sb.WriteString(fmt.Sprintf("      server: https://%s.local:6443\n", ctx))
+	}
+	sb.WriteString("users:\n")
+	for _, ctx := range contexts {
+		sb.WriteString(fmt.Sprintf("  - name: %s-user\n", ctx))
+		sb.WriteString(fmt.Sprintf("    user:\n"))
+		sb.WriteString(fmt.Sprintf("      token: test-token-%s\n", ctx))
+	}
+
+	if err := os.WriteFile(kubeconfigPath, []byte(sb.String()), 0o644); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	return kubeconfigPath
+}
+
+// MockArgoServerWithResources creates a mock server with a richer resource tree for k9s tests.
+// The resource tree includes Pod, Deployment, Service, ReplicaSet nodes.
+func MockArgoServerWithResources() (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"e2e"}`))
+	})
+	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		// Rich resource tree with multiple resource types
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"demo-deploy","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"Synced"},
+			{"kind":"ReplicaSet","name":"demo-rs","namespace":"default","version":"v1","group":"apps","uid":"rs-1","status":"Synced","parentRefs":[{"uid":"dep-1","kind":"Deployment","name":"demo-deploy","namespace":"default","group":"apps","version":"v1"}]},
+			{"kind":"Pod","name":"demo-pod-1","namespace":"default","version":"v1","group":"","uid":"pod-1","status":"Synced","parentRefs":[{"uid":"rs-1","kind":"ReplicaSet","name":"demo-rs","namespace":"default","group":"apps","version":"v1"}]},
+			{"kind":"Service","name":"demo-svc","namespace":"default","version":"v1","group":"","uid":"svc-1","status":"Synced"}
+		]}`))
+	})
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "application/json")
+		lines := []string{
+			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
+		}
+		for _, ln := range lines {
+			_, _ = w.Write([]byte(ln + "\n"))
+			if fl != nil {
+				fl.Flush()
+			}
+		}
+	})
+	srv := httptest.NewServer(mux)
+	return srv, nil
+}
