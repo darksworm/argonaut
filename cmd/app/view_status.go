@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,12 +18,13 @@ func (m *Model) renderStatusLine() string {
 	leftText := fmt.Sprintf("<%s>", m.state.Navigation.View)
 	// Show ApplicationSet scope in the breadcrumb when filtering apps by ApplicationSet
 	if m.state.Navigation.View == model.ViewApps && len(m.state.Selections.ScopeApplicationSets) > 0 {
-		// Get the first (and typically only) ApplicationSet name from the scope
-		var appsetName string
+		// Get ApplicationSet names sorted for deterministic display
+		appsetNames := make([]string, 0, len(m.state.Selections.ScopeApplicationSets))
 		for name := range m.state.Selections.ScopeApplicationSets {
-			appsetName = name
-			break
+			appsetNames = append(appsetNames, name)
 		}
+		sort.Strings(appsetNames)
+		appsetName := appsetNames[0] // Use first name alphabetically
 		if m.state.UI.ActiveFilter != "" {
 			leftText = fmt.Sprintf("<apps in %s:%s>", appsetName, m.state.UI.ActiveFilter)
 		} else {
