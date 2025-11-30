@@ -48,6 +48,7 @@ type TreeView struct {
 
 type treeNode struct {
 	uid       string
+	group     string
 	kind      string
 	name      string
 	namespace string
@@ -150,7 +151,7 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 			health = *n.Health.Status
 		}
 		key := makeKey(n.UID)
-		tn := &treeNode{uid: key, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns}
+		tn := &treeNode{uid: key, group: n.Group, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns}
 		v.nodesByUID[key] = tn
 		nodesLocal[key] = tn
 		appKeys = append(appKeys, key)
@@ -655,15 +656,20 @@ func (v *TreeView) isMatchIndex(idx int) bool {
 	return false
 }
 
-// SelectedResource returns the kind, namespace, and name of the currently selected resource.
+// SelectedResource returns the group, kind, namespace, and name of the currently selected resource.
 // Returns ok=false if no resource is selected or the selection is invalid.
-func (v *TreeView) SelectedResource() (kind, namespace, name string, ok bool) {
+func (v *TreeView) SelectedResource() (group, kind, namespace, name string, ok bool) {
 	if v.selIdx < 0 || v.selIdx >= len(v.order) {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	node := v.order[v.selIdx]
 	if node == nil {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
-	return node.kind, node.namespace, node.name, true
+	return node.group, node.kind, node.namespace, node.name, true
+}
+
+// GetAppName returns the name of the application being displayed.
+func (v *TreeView) GetAppName() string {
+	return v.appName
 }
