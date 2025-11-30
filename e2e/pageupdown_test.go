@@ -146,9 +146,10 @@ func waitForCursorPositionExact(tf *TUITestFramework, target int, timeout time.D
 // navigateToApps is a helper to navigate from initial view to apps list
 func navigateToApps(t *testing.T, tf *TUITestFramework) {
 	t.Helper()
-	// Wait for initial load
-	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
-		t.Fatal("clusters not ready")
+	// Wait for initial load - increased timeout for CI
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		snap := tf.SnapshotPlain()
+		t.Fatalf("clusters not ready\nSnapshot:\n%s", snap)
 	}
 	// Navigate to namespace
 	if err := tf.OpenCommand(); err != nil {
@@ -156,8 +157,9 @@ func navigateToApps(t *testing.T, tf *TUITestFramework) {
 	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
-	if !tf.WaitForPlain("default", 3*time.Second) {
-		t.Fatal("projects not ready")
+	if !tf.WaitForPlain("default", 5*time.Second) {
+		snap := tf.SnapshotPlain()
+		t.Fatalf("namespace not ready\nSnapshot:\n%s", snap)
 	}
 	// Navigate to apps
 	if err := tf.OpenCommand(); err != nil {
@@ -166,8 +168,9 @@ func navigateToApps(t *testing.T, tf *TUITestFramework) {
 	_ = tf.Send("apps")
 	_ = tf.Enter()
 	// Wait for apps to load - app-01 should be visible
-	if !tf.WaitForPlain("app-01", 3*time.Second) {
-		t.Fatal("apps not ready")
+	if !tf.WaitForPlain("app-01", 5*time.Second) {
+		snap := tf.SnapshotPlain()
+		t.Fatalf("apps not ready\nSnapshot:\n%s", snap)
 	}
 }
 

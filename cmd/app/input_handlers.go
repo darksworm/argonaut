@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/config"
+	"github.com/darksworm/argonaut/pkg/kubeconfig"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
@@ -501,6 +502,17 @@ func (m *Model) handleNoDiffModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleK9sErrorModeKeys handles input when k9s error modal is shown
+func (m *Model) handleK9sErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter", "esc", "q":
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.K9sError = nil
+		return m, nil
+	}
+	return m, nil
+}
+
 // removed: resources list mode
 
 // handleDiffModeKeys handles non-navigation input in diff mode.
@@ -974,6 +986,10 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleUpgradeErrorModeKeys(msg)
 	case model.ModeUpgradeSuccess:
 		return m.handleUpgradeSuccessModeKeys(msg)
+	case model.ModeK9sContextSelect:
+		return m.handleK9sContextSelectKeys(msg)
+	case model.ModeK9sError:
+		return m.handleK9sErrorModeKeys(msg)
 	}
 
 	// Tree view keys when in normal mode.
@@ -1024,6 +1040,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.treeNav.SetCursor(newLine)
 			}
 			return m, nil
+		case "K":
+			// Open k9s for the selected resource
+			return m.handleOpenK9s()
 		default:
 			if m.treeView != nil {
 				_, cmd := m.treeView.Update(msg)
@@ -1167,6 +1186,155 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.state.UI.TreeAppName = &app.Name
 	m.treeLoading = true
 	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
+}
+
+// handleOpenK9s opens k9s for the currently selected resource in tree view
+func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
+	if m.treeView == nil {
+		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No resource selected"} }
+	}
+
+	kind, namespace, name, ok := m.treeView.SelectedResource()
+	if !ok {
+		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No resource selected"} }
+	}
+
+	// Skip Application nodes - they're synthetic roots
+	if kind == "Application" {
+		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Select a Kubernetes resource to open in k9s"} }
+	}
+
+	cblog.With("component", "k9s").Debug("Opening k9s for resource",
+		"kind", kind,
+		"namespace", namespace,
+		"name", name)
+
+	// Try to find the context from the current app's cluster info
+	var context string
+	var contextFound bool
+	if m.state.UI.TreeAppName != nil {
+		for i := range m.state.Apps {
+			if m.state.Apps[i].Name == *m.state.UI.TreeAppName {
+				app := m.state.Apps[i]
+				if app.ClusterID != nil {
+					clusterID := *app.ClusterID
+					// Try to find matching context
+					ctx, err := m.findK9sContext(clusterID)
+					if err == nil {
+						context = ctx
+						contextFound = true
+					} else {
+						cblog.With("component", "k9s").Debug("Could not find context for cluster",
+							"clusterID", clusterID, "err", err)
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// If we couldn't auto-detect the context, show the context picker
+	if !contextFound {
+		contexts, err := kubeconfig.ListContextNames()
+		if err != nil || len(contexts) == 0 {
+			// No kubeconfig or no contexts - just launch k9s without context
+			cblog.With("component", "k9s").Warn("Could not load kubeconfig contexts", "err", err)
+			return m, m.openK9s(kind, namespace, "")
+		}
+
+		// If only one context exists, use it directly
+		if len(contexts) == 1 {
+			return m, m.openK9s(kind, namespace, contexts[0])
+		}
+
+		// Multiple contexts - show picker
+		m.k9sContextOptions = contexts
+		m.k9sContextSelected = 0
+		m.k9sPendingKind = kind
+		m.k9sPendingNamespace = namespace
+		m.state.Mode = model.ModeK9sContextSelect
+		return m, nil
+	}
+
+	return m, m.openK9s(kind, namespace, context)
+}
+
+// handleK9sContextSelectKeys handles input when selecting a kubeconfig context for k9s
+func (m *Model) handleK9sContextSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if len(m.k9sContextOptions) == 0 {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "q", "esc":
+		// Cancel context selection
+		m.state.Mode = model.ModeNormal
+		m.k9sContextOptions = nil
+		return m, nil
+	case "up", "k":
+		if m.k9sContextSelected > 0 {
+			m.k9sContextSelected--
+		}
+		return m, nil
+	case "down", "j":
+		if m.k9sContextSelected < len(m.k9sContextOptions)-1 {
+			m.k9sContextSelected++
+		}
+		return m, nil
+	case "enter":
+		// Select context and launch k9s
+		selectedContext := m.k9sContextOptions[m.k9sContextSelected]
+		kind := m.k9sPendingKind
+		namespace := m.k9sPendingNamespace
+
+		// Clear state
+		m.k9sContextOptions = nil
+		m.k9sPendingKind = ""
+		m.k9sPendingNamespace = ""
+		m.state.Mode = model.ModeNormal
+
+		return m, m.openK9s(kind, namespace, selectedContext)
+	}
+
+	return m, nil
+}
+
+// findK9sContext tries to find a kubeconfig context for the given cluster ID
+func (m *Model) findK9sContext(clusterID string) (string, error) {
+	kc, err := kubeconfig.Load()
+	if err != nil {
+		return "", err
+	}
+
+	// Special case: in-cluster means use current context
+	if clusterID == "in-cluster" {
+		return kc.GetCurrentContext(), nil
+	}
+
+	// Try to find context by name (cluster name often matches context name)
+	if ctx, found := kc.FindContextByName(clusterID); found {
+		return ctx, nil
+	}
+
+	// Try to find context where server URL contains the clusterID (hostname)
+	// This handles cases where clusterID is extracted from the server URL
+	for _, ctx := range kc.Contexts {
+		for _, cluster := range kc.Clusters {
+			if cluster.Name == ctx.Context.Cluster {
+				if strings.Contains(cluster.Cluster.Server, clusterID) {
+					return ctx.Name, nil
+				}
+			}
+		}
+	}
+
+	// Fall back to current context
+	if current := kc.GetCurrentContext(); current != "" {
+		return current, nil
+	}
+
+	return "", fmt.Errorf("no matching context found for cluster: %s", clusterID)
 }
 
 // handleOpenDiffForSelection opens the diff for the selected app

@@ -158,3 +158,34 @@ func inPath(name string) bool {
 	return err == nil
 }
 func shellEscape(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
+
+// k9sResourceMap maps Kubernetes resource kinds to k9s resource aliases
+var k9sResourceMap = map[string]string{
+	"Pod":                   "pod",
+	"Deployment":            "deploy",
+	"Service":               "svc",
+	"Ingress":               "ing",
+	"ConfigMap":             "cm",
+	"Secret":                "secret",
+	"ReplicaSet":            "rs",
+	"StatefulSet":           "sts",
+	"DaemonSet":             "ds",
+	"Job":                   "job",
+	"CronJob":               "cj",
+	"PersistentVolumeClaim": "pvc",
+	"PersistentVolume":      "pv",
+	"ServiceAccount":        "sa",
+	"Namespace":             "ns",
+	"Node":                  "node",
+	"Event":                 "event",
+	"Endpoints":             "ep",
+	"HorizontalPodAutoscaler": "hpa",
+	"NetworkPolicy":         "netpol",
+	"Role":                  "role",
+	"RoleBinding":           "rolebinding",
+	"ClusterRole":           "clusterrole",
+	"ClusterRoleBinding":    "clusterrolebinding",
+}
+
+// k9sDoneMsg signals that k9s has exited
+type k9sDoneMsg struct{ Err error }

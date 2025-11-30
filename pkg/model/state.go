@@ -142,6 +142,8 @@ type ModalState struct {
 	DeletePropagationPolicy string `json:"deletePropagationPolicy"` // Default "foreground"
 	// Changelog loading modal state
 	ChangelogLoading bool `json:"changelogLoading"`
+	// K9s error modal state
+	K9sError *string `json:"k9sError,omitempty"`
 }
 
 // AppState represents the complete application state for Bubbletea
