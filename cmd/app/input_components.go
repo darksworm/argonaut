@@ -228,6 +228,18 @@ func (m *Model) validateCommand(input string) bool {
 				}
 			}
 			return false
+		case "appset":
+			all := m.autocompleteEngine.GetArgumentSuggestions("appset", "", m.state)
+			names := make([]string, 0, len(all))
+			for _, s := range all {
+				names = append(names, strings.TrimPrefix(s, ":appset "))
+			}
+			for _, name := range names {
+				if strings.EqualFold(name, arg) {
+					return true
+				}
+			}
+			return false
 		case "app", "delete", "sync", "diff", "rollback", "resources":
 			for _, a := range m.state.Apps {
 				if strings.EqualFold(a.Name, arg) {
@@ -1004,6 +1016,38 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				}
 			} else {
 				m.state.Selections.SelectedApps = model.NewStringSet()
+			}
+			return m, nil
+		case "appset", "appsets", "applicationset", "applicationsets", "as":
+			m.state.UI.TreeAppName = nil
+			m.treeLoading = false
+			m.state.Navigation.SelectedIdx = 0
+			m.state.Selections.SelectedApps = model.NewStringSet()
+			if arg != "" {
+				// Validate ApplicationSet exists
+				all := m.autocompleteEngine.GetArgumentSuggestions("appset", "", m.state)
+				names := make([]string, 0, len(all))
+				for _, s := range all {
+					names = append(names, strings.TrimPrefix(s, ":appset "))
+				}
+				matched := false
+				for _, n := range names {
+					if strings.EqualFold(n, arg) {
+						arg = n
+						matched = true
+						break
+					}
+				}
+				if !matched {
+					return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown ApplicationSet: " + arg} }
+				}
+				// Filter apps by ApplicationSet
+				m.state.Selections.ScopeApplicationSets = model.StringSetFromSlice([]string{arg})
+				m = m.safeChangeView(model.ViewApps)
+			} else {
+				// Show ApplicationSets list
+				m.state.Selections.ScopeApplicationSets = model.NewStringSet()
+				m = m.safeChangeView(model.ViewApplicationSets)
 			}
 			return m, nil
 		case "help":

@@ -44,6 +44,7 @@ type NavigationUpdate struct {
 	ScopeClusters                   map[string]bool `json:"scopeClusters,omitempty"`
 	ScopeNamespaces                 map[string]bool `json:"scopeNamespaces,omitempty"`
 	ScopeProjects                   map[string]bool `json:"scopeProjects,omitempty"`
+	ScopeApplicationSets            map[string]bool `json:"scopeApplicationSets,omitempty"`
 	SelectedApps                    map[string]bool `json:"selectedApps,omitempty"`
 	ShouldResetNavigation           bool            `json:"shouldResetNavigation"`
 	ShouldClearLowerLevelSelections bool            `json:"shouldClearLowerLevelSelections"`
@@ -94,6 +95,10 @@ func (s *NavigationServiceImpl) DrillDown(currentView model.View, selectedItem i
 		newView := model.ViewApps
 		result.NewView = &newView
 		result.ScopeProjects = next
+	case model.ViewApplicationSets:
+		newView := model.ViewApps
+		result.NewView = &newView
+		result.ScopeApplicationSets = next
 	default:
 		return nil // Can't drill down from apps view
 	}

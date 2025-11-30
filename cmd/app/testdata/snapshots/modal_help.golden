@@ -6,7 +6,7 @@
  │               PgUp / PgDn  page up/down                                                        │ 
  │                                                                                                │ 
  │ VIEWS        :cls|:clusters • :ns|:namespaces • :proj|:projects • :apps                        │ 
- │              :theme • :logs                                                                    │ 
+ │              :appsets|:applicationsets • :theme • :logs                                        │ 
  │                                                                                                │ 
  │ APPS VIEW     s  sync •  R  rollback •  r  resources •  d  diff •  Ctrl+D  delete              │ 
  │              :diff [app] • :sync [app] • :rollback [app] • :delete [app]                       │ 

@@ -8,11 +8,12 @@ import (
 type View string
 
 const (
-	ViewClusters   View = "clusters"
-	ViewNamespaces View = "namespaces"
-	ViewProjects   View = "projects"
-	ViewApps       View = "apps"
-	ViewTree       View = "tree"
+	ViewClusters        View = "clusters"
+	ViewNamespaces      View = "namespaces"
+	ViewProjects        View = "projects"
+	ViewApps            View = "apps"
+	ViewTree            View = "tree"
+	ViewApplicationSets View = "applicationsets"
 )
 
 // Mode represents the current application mode
@@ -43,15 +44,16 @@ const (
 
 // App represents an ArgoCD application
 type App struct {
-	Name         string     `json:"name"`
-	Sync         string     `json:"sync"`
-	Health       string     `json:"health"`
-	LastSyncAt   *time.Time `json:"lastSyncAt,omitempty"`
-	Project      *string    `json:"project,omitempty"`
-	ClusterID    *string    `json:"clusterId,omitempty"`
-	ClusterLabel *string    `json:"clusterLabel,omitempty"`
-	Namespace    *string    `json:"namespace,omitempty"`
-	AppNamespace *string    `json:"appNamespace,omitempty"`
+	Name           string     `json:"name"`
+	Sync           string     `json:"sync"`
+	Health         string     `json:"health"`
+	LastSyncAt     *time.Time `json:"lastSyncAt,omitempty"`
+	Project        *string    `json:"project,omitempty"`
+	ClusterID      *string    `json:"clusterId,omitempty"`
+	ClusterLabel   *string    `json:"clusterLabel,omitempty"`
+	Namespace      *string    `json:"namespace,omitempty"`
+	AppNamespace   *string    `json:"appNamespace,omitempty"`
+	ApplicationSet *string    `json:"applicationSet,omitempty"`
 }
 
 // Server represents an ArgoCD server configuration

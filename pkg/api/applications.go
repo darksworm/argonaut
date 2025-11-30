@@ -13,11 +13,20 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
+// OwnerReference represents a Kubernetes owner reference
+type OwnerReference struct {
+	APIVersion string `json:"apiVersion,omitempty"`
+	Kind       string `json:"kind,omitempty"`
+	Name       string `json:"name,omitempty"`
+	UID        string `json:"uid,omitempty"`
+}
+
 // ArgoApplication represents an ArgoCD application from the API
 type ArgoApplication struct {
 	Metadata struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace,omitempty"`
+		Name            string           `json:"name"`
+		Namespace       string           `json:"namespace,omitempty"`
+		OwnerReferences []OwnerReference `json:"ownerReferences,omitempty"`
 	} `json:"metadata"`
 	Spec struct {
 		Project string `json:"project,omitempty"`
@@ -380,6 +389,14 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 		app.LastSyncAt = &argoApp.Status.OperationState.FinishedAt
 	} else if !argoApp.Status.OperationState.StartedAt.IsZero() {
 		app.LastSyncAt = &argoApp.Status.OperationState.StartedAt
+	}
+
+	// Extract ApplicationSet from ownerReferences
+	for _, ref := range argoApp.Metadata.OwnerReferences {
+		if ref.Kind == "ApplicationSet" {
+			app.ApplicationSet = &ref.Name
+			break
+		}
 	}
 
 	// Normalize status values to match TypeScript app

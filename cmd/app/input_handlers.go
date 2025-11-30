@@ -158,6 +158,10 @@ func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
 		m.state.Selections.ScopeProjects = result.ScopeProjects
 	}
 
+	if result.ScopeApplicationSets != nil {
+		m.state.Selections.ScopeApplicationSets = result.ScopeApplicationSets
+	}
+
 	if result.SelectedApps != nil {
 		m.state.Selections.SelectedApps = result.SelectedApps
 	}
@@ -362,10 +366,22 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 
 		switch curr {
 		case model.ViewApps:
+			// Check if scoped by ApplicationSet (separate hierarchy)
+			if len(m.state.Selections.ScopeApplicationSets) > 0 {
+				m.state.Selections.SelectedApps = model.NewStringSet()
+				m.state.Selections.ScopeApplicationSets = model.NewStringSet()
+				m = m.safeChangeView(model.ViewApplicationSets)
+				m.state.Navigation.SelectedIdx = 0
+				return m, nil
+			}
 			// Clear current level (selected apps) and prior (projects), go up to Projects
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			m.state.Selections.ScopeProjects = model.NewStringSet()
 			m = m.safeChangeView(model.ViewProjects)
+			m.state.Navigation.SelectedIdx = 0
+		case model.ViewApplicationSets:
+			// At ApplicationSets view, escape just clears the scope (stay in place)
+			m.state.Selections.ScopeApplicationSets = model.NewStringSet()
 			m.state.Navigation.SelectedIdx = 0
 		case model.ViewProjects:
 			// Clear current (projects) and prior (namespaces), go up to Namespaces

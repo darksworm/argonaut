@@ -379,3 +379,89 @@ func TestThemeCommandAutocomplete(t *testing.T) {
 		t.Error("Should return suggestions for ':theme ' command")
 	}
 }
+
+func TestAppSetCommandAutocomplete(t *testing.T) {
+	engine := NewAutocompleteEngine()
+
+	// Create state with apps that have ApplicationSet references
+	appset1 := "nerdy-demo"
+	appset2 := "production-apps"
+
+	state := &model.AppState{
+		Apps: []model.App{
+			{Name: "app-from-appset-1", ApplicationSet: &appset1},
+			{Name: "app-from-appset-2", ApplicationSet: &appset1},
+			{Name: "prod-app-1", ApplicationSet: &appset2},
+			{Name: "standalone-app", ApplicationSet: nil}, // No ApplicationSet
+		},
+		Selections: *model.NewSelectionState(),
+	}
+
+	// Test appset command exists
+	info := engine.GetCommandInfo("appset")
+	if info == nil {
+		t.Fatal("appset command should be registered")
+	}
+	if !info.TakesArg {
+		t.Error("appset command should take an argument")
+	}
+	if info.ArgType != "appset" {
+		t.Errorf("Expected ArgType 'appset', got %s", info.ArgType)
+	}
+
+	// Test appset argument suggestions
+	suggestions := engine.GetArgumentSuggestions("appset", "", state)
+	if len(suggestions) != 2 {
+		t.Errorf("Expected 2 unique ApplicationSet suggestions, got %d: %v", len(suggestions), suggestions)
+	}
+
+	// Verify expected appsets are present
+	suggestionMap := make(map[string]bool)
+	for _, s := range suggestions {
+		suggestionMap[s] = true
+	}
+	if !suggestionMap[":appset nerdy-demo"] {
+		t.Error("Should suggest ':appset nerdy-demo'")
+	}
+	if !suggestionMap[":appset production-apps"] {
+		t.Error("Should suggest ':appset production-apps'")
+	}
+
+	// Test prefix matching
+	prefixSuggestions := engine.GetArgumentSuggestions("appset", "n", state)
+	if len(prefixSuggestions) != 1 {
+		t.Errorf("Expected 1 suggestion for prefix 'n', got %d: %v", len(prefixSuggestions), prefixSuggestions)
+	}
+	if len(prefixSuggestions) > 0 && prefixSuggestions[0] != ":appset nerdy-demo" {
+		t.Errorf("Expected ':appset nerdy-demo', got %s", prefixSuggestions[0])
+	}
+
+	// Test alias resolution
+	if engine.ResolveAlias("appsets") != "appset" {
+		t.Error("'appsets' should resolve to 'appset'")
+	}
+	if engine.ResolveAlias("applicationsets") != "appset" {
+		t.Error("'applicationsets' should resolve to 'appset'")
+	}
+	if engine.ResolveAlias("as") != "appset" {
+		t.Error("'as' should resolve to 'appset'")
+	}
+}
+
+func TestAppSetCommandAutocomplete_NoAppSets(t *testing.T) {
+	engine := NewAutocompleteEngine()
+
+	// Create state with apps that have NO ApplicationSet references
+	state := &model.AppState{
+		Apps: []model.App{
+			{Name: "standalone-app-1"},
+			{Name: "standalone-app-2"},
+		},
+		Selections: *model.NewSelectionState(),
+	}
+
+	suggestions := engine.GetArgumentSuggestions("appset", "", state)
+	if len(suggestions) != 0 {
+		t.Errorf("Expected 0 suggestions when no apps have ApplicationSet, got %d: %v", len(suggestions), suggestions)
+	}
+}

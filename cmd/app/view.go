@@ -489,6 +489,17 @@ func (m *Model) getVisibleItems() []interface{} {
 		apps = filtered
 	}
 
+	// Filter by ApplicationSet scope
+	if len(m.state.Selections.ScopeApplicationSets) > 0 {
+		filtered := make([]model.App, 0, len(apps))
+		for _, a := range apps {
+			if a.ApplicationSet != nil && model.HasInStringSet(m.state.Selections.ScopeApplicationSets, *a.ApplicationSet) {
+				filtered = append(filtered, a)
+			}
+		}
+		apps = filtered
+	}
+
 	// 2) Build base list depending on current view
 	var base []interface{}
 	switch m.state.Navigation.View {
@@ -554,6 +565,23 @@ func (m *Model) getVisibleItems() []interface{} {
 		sortStrings(projs)
 		for _, pj := range projs {
 			base = append(base, pj)
+		}
+	case model.ViewApplicationSets:
+		// Unique ApplicationSet names from all apps
+		appsets := make([]string, 0)
+		seen := map[string]bool{}
+		for _, a := range m.state.Apps {
+			if a.ApplicationSet == nil || *a.ApplicationSet == "" {
+				continue
+			}
+			if !seen[*a.ApplicationSet] {
+				seen[*a.ApplicationSet] = true
+				appsets = append(appsets, *a.ApplicationSet)
+			}
+		}
+		sortStrings(appsets)
+		for _, as := range appsets {
+			base = append(base, as)
 		}
 	case model.ViewApps:
 		// Ensure consistent, stable ordering without mutating state

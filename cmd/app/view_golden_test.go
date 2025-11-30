@@ -56,6 +56,23 @@ func TestGolden_StatusLine(t *testing.T) {
 	compareWithGolden(t, "status_line", line)
 }
 
+func TestGolden_StatusLine_AppSetScope(t *testing.T) {
+	m := buildTestModelWithApps(100, 24)
+	// Set up ApplicationSet scope
+	m.state.Selections.ScopeApplicationSets = map[string]bool{"nerdy-demo": true}
+	line := stripANSI(m.renderStatusLine())
+	compareWithGolden(t, "status_line_appset_scope", line)
+}
+
+func TestGolden_StatusLine_AppSetScopeWithFilter(t *testing.T) {
+	m := buildTestModelWithApps(100, 24)
+	// Set up ApplicationSet scope with active filter
+	m.state.Selections.ScopeApplicationSets = map[string]bool{"nerdy-demo": true}
+	m.state.UI.ActiveFilter = "test"
+	line := stripANSI(m.renderStatusLine())
+	compareWithGolden(t, "status_line_appset_scope_filter", line)
+}
+
 func TestLogHighlighting(t *testing.T) {
 	tests := []struct {
 		name     string

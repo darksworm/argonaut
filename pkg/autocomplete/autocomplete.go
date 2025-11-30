@@ -58,6 +58,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "app",
 		},
 		{
+			Command:     "appset",
+			Aliases:     []string{"appset", "appsets", "applicationset", "applicationsets", "as"},
+			Description: "Navigate to ApplicationSets view",
+			TakesArg:    true,
+			ArgType:     "appset",
+		},
+		{
 			Command:     "sync",
 			Aliases:     []string{"sync", "s"},
 			Description: "Sync selected applications",
@@ -300,6 +307,8 @@ func (e *AutocompleteEngine) getArgumentSuggestions(command, argPrefix string, s
 		suggestions = e.getProjectSuggestions(argPrefix, state)
 	case "app":
 		suggestions = e.getAppSuggestions(argPrefix, state)
+	case "appset":
+		suggestions = e.getAppSetSuggestions(argPrefix, state)
 	case "theme":
 		suggestions = e.getThemeSuggestions(argPrefix)
 	case "sort":
@@ -391,6 +400,27 @@ func (e *AutocompleteEngine) getProjectSuggestions(prefix string, state *model.A
 		if strings.HasPrefix(project, prefix) && !seen[project] {
 			suggestions = append(suggestions, *app.Project)
 			seen[project] = true
+		}
+	}
+
+	sort.Strings(suggestions)
+	return suggestions
+}
+
+// getAppSetSuggestions returns unique ApplicationSet name suggestions
+func (e *AutocompleteEngine) getAppSetSuggestions(prefix string, state *model.AppState) []string {
+	var suggestions []string
+	seen := make(map[string]bool)
+
+	for _, app := range state.Apps {
+		if app.ApplicationSet == nil {
+			continue
+		}
+
+		appset := strings.ToLower(*app.ApplicationSet)
+		if strings.HasPrefix(appset, prefix) && !seen[appset] {
+			suggestions = append(suggestions, *app.ApplicationSet)
+			seen[appset] = true
 		}
 	}
 

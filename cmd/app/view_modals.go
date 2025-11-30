@@ -36,7 +36,7 @@ func (m *Model) renderHelpModal() string {
 	views := strings.Join([]string{
 		mono(":cls"), "|", mono(":clusters"), " ", bullet(), " ", mono(":ns"), "|", mono(":namespaces"), " ", bullet(), " ", mono(":proj"), "|", mono(":projects"), " ", bullet(), " ", mono(":apps"),
 		"\n",
-		mono(":theme"), " ", bullet(), " ", mono(":logs"),
+		mono(":appsets"), "|", mono(":applicationsets"), " ", bullet(), " ", mono(":theme"), " ", bullet(), " ", mono(":logs"),
 	}, "")
 
 	// COMMANDS
