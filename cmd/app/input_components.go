@@ -880,7 +880,11 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// :diff [app]
 			target := arg
 			if target == "" {
-				// Only try to get current selection if we're in the apps view
+				// In tree/resources view, use handleResourceDiff for the selected resource
+				if m.state.Navigation.View == model.ViewTree {
+					return m.handleResourceDiff()
+				}
+				// In apps view, get current selection
 				if m.state.Navigation.View == model.ViewApps {
 					items := m.getVisibleItemsForCurrentView()
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {

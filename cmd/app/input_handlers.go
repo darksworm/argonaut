@@ -366,6 +366,14 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 		m.state.UI.Command = ""
 
 		switch curr {
+		case model.ViewTree:
+			// Return to apps view from tree/resources view
+			if m.treeView != nil {
+				m.treeView.ClearFilter()
+			}
+			m = m.safeChangeView(model.ViewApps)
+			m.state.UI.TreeAppName = nil
+			m.state.Navigation.SelectedIdx = 0
 		case model.ViewApps:
 			// Check if scoped by ApplicationSet (separate hierarchy)
 			if len(m.state.Selections.ScopeApplicationSets) > 0 {
@@ -1046,6 +1054,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "d":
 			// Show diff for the selected resource
 			return m.handleResourceDiff()
+		case ":":
+			// Enter command mode
+			return m.handleEnterCommandMode()
+		case "?":
+			// Show help
+			return m.handleShowHelp()
 		default:
 			if m.treeView != nil {
 				_, cmd := m.treeView.Update(msg)

@@ -55,7 +55,9 @@ func (m *Model) renderHelpModal() string {
 
 	// TREE VIEW - hotkeys specific to tree/resources view
 	treeView := strings.Join([]string{
-		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", mono("K"), " open in k9s",
+		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
+		"\n",
+		mono(":diff"), " ", bullet(), " ", mono(":up"), " return to apps",
 	}, "")
 
 	var helpSections []string
