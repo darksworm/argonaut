@@ -120,6 +120,11 @@ func (m *Model) handleToggleSelection() (tea.Model, tea.Cmd) {
 
 // handleDrillDown implements drill-down navigation (enter key)
 func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
+	// In apps view, enter opens the resources/tree view for the selected app
+	if m.state.Navigation.View == model.ViewApps {
+		return m.handleOpenResourcesForSelection()
+	}
+
 	visibleItems := m.getVisibleItemsForCurrentView()
 	if len(visibleItems) == 0 || m.state.Navigation.SelectedIdx >= len(visibleItems) {
 		return m, nil
