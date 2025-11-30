@@ -17,19 +17,21 @@ type NavigationState struct {
 
 // SelectionState holds selection-related state using map[string]bool for sets
 type SelectionState struct {
-	ScopeClusters   map[string]bool `json:"scopeClusters"`
-	ScopeNamespaces map[string]bool `json:"scopeNamespaces"`
-	ScopeProjects   map[string]bool `json:"scopeProjects"`
-	SelectedApps    map[string]bool `json:"selectedApps"`
+	ScopeClusters        map[string]bool `json:"scopeClusters"`
+	ScopeNamespaces      map[string]bool `json:"scopeNamespaces"`
+	ScopeProjects        map[string]bool `json:"scopeProjects"`
+	ScopeApplicationSets map[string]bool `json:"scopeApplicationSets"`
+	SelectedApps         map[string]bool `json:"selectedApps"`
 }
 
 // NewSelectionState creates a new SelectionState with empty sets
 func NewSelectionState() *SelectionState {
 	return &SelectionState{
-		ScopeClusters:   NewStringSet(),
-		ScopeNamespaces: NewStringSet(),
-		ScopeProjects:   NewStringSet(),
-		SelectedApps:    NewStringSet(),
+		ScopeClusters:        NewStringSet(),
+		ScopeNamespaces:      NewStringSet(),
+		ScopeProjects:        NewStringSet(),
+		ScopeApplicationSets: NewStringSet(),
+		SelectedApps:         NewStringSet(),
 	}
 }
 
@@ -63,6 +65,16 @@ func (s *SelectionState) AddProject(project string) {
 // HasProject checks if a project is in scope
 func (s *SelectionState) HasProject(project string) bool {
 	return HasInStringSet(s.ScopeProjects, project)
+}
+
+// AddApplicationSet adds an application set to the scope
+func (s *SelectionState) AddApplicationSet(appset string) {
+	s.ScopeApplicationSets = AddToStringSet(s.ScopeApplicationSets, appset)
+}
+
+// HasApplicationSet checks if an application set is in scope
+func (s *SelectionState) HasApplicationSet(appset string) bool {
+	return HasInStringSet(s.ScopeApplicationSets, appset)
 }
 
 // AddSelectedApp adds an app to the selected apps
@@ -193,10 +205,11 @@ func (s *AppState) SaveNavigationState() {
 		LastZPressed:   s.Navigation.LastZPressed,
 	}
 	s.SavedSelections = &SelectionState{
-		ScopeClusters:   copyStringSet(s.Selections.ScopeClusters),
-		ScopeNamespaces: copyStringSet(s.Selections.ScopeNamespaces),
-		ScopeProjects:   copyStringSet(s.Selections.ScopeProjects),
-		SelectedApps:    copyStringSet(s.Selections.SelectedApps),
+		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),
+		ScopeNamespaces:      copyStringSet(s.Selections.ScopeNamespaces),
+		ScopeProjects:        copyStringSet(s.Selections.ScopeProjects),
+		ScopeApplicationSets: copyStringSet(s.Selections.ScopeApplicationSets),
+		SelectedApps:         copyStringSet(s.Selections.SelectedApps),
 	}
 }
 

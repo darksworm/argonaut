@@ -70,7 +70,7 @@ func (m *Model) renderListView(availableRows int) string {
 			}
 			tableView = b.String()
 
-		case model.ViewClusters, model.ViewNamespaces, model.ViewProjects:
+		case model.ViewClusters, model.ViewNamespaces, model.ViewProjects, model.ViewApplicationSets:
 			// Custom-render single-column lists with full-row highlight
 			total := len(visibleItems)
 			visibleRows := max(0, tableHeight-1)

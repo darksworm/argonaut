@@ -15,7 +15,20 @@ func (m *Model) renderStatusLine() string {
 
 	// Left side: view and filter info (matches MainLayout left Box)
 	leftText := fmt.Sprintf("<%s>", m.state.Navigation.View)
-	if m.state.UI.ActiveFilter != "" && m.state.Navigation.View == model.ViewApps {
+	// Show ApplicationSet scope in the breadcrumb when filtering apps by ApplicationSet
+	if m.state.Navigation.View == model.ViewApps && len(m.state.Selections.ScopeApplicationSets) > 0 {
+		// Get the first (and typically only) ApplicationSet name from the scope
+		var appsetName string
+		for name := range m.state.Selections.ScopeApplicationSets {
+			appsetName = name
+			break
+		}
+		if m.state.UI.ActiveFilter != "" {
+			leftText = fmt.Sprintf("<apps in %s:%s>", appsetName, m.state.UI.ActiveFilter)
+		} else {
+			leftText = fmt.Sprintf("<apps in %s>", appsetName)
+		}
+	} else if m.state.UI.ActiveFilter != "" && m.state.Navigation.View == model.ViewApps {
 		leftText = fmt.Sprintf("<%s:%s>", m.state.Navigation.View, m.state.UI.ActiveFilter)
 	}
 	// Show tree filter info if active
