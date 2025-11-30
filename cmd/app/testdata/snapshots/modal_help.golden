@@ -12,7 +12,7 @@
  │              :diff [app] • :sync [app] • :rollback [app] • :delete [app]                       │ 
  │              :resources [app] • :sort health|sync asc|desc • :up • :all                        │ 
  │                                                                                                │ 
- │ TREE VIEW    / filter • n/N next/prev match                                                    │ 
+ │ TREE VIEW    / filter • n/N next/prev match • K open in k9s                                    │ 
  │                                                                                                │ 
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 

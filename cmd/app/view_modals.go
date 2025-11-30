@@ -55,7 +55,7 @@ func (m *Model) renderHelpModal() string {
 
 	// TREE VIEW - hotkeys specific to tree/resources view
 	treeView := strings.Join([]string{
-		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match",
+		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", mono("K"), " open in k9s",
 	}, "")
 
 	var helpSections []string
@@ -638,6 +638,98 @@ func (m *Model) renderNoDiffModal() string {
 	wrapper = wrapper.Width(w)
 	outer := lipgloss.NewStyle().Padding(1, 1)
 	return outer.Render(wrapper.Render(content))
+}
+
+// renderK9sContextSelectionModal renders the k9s context selection overlay
+func (m *Model) renderK9sContextSelectionModal() string {
+	options := m.k9sContextOptions
+	if len(options) == 0 {
+		return ""
+	}
+
+	// Title
+	title := lipgloss.NewStyle().
+		Foreground(yellowBright).
+		Bold(true).
+		Render("Select Kubernetes Context")
+
+	subtitle := lipgloss.NewStyle().
+		Foreground(dimColor).
+		Render("for k9s")
+
+	var lines []string
+	lines = append(lines, title+" "+subtitle, "")
+
+	// Context options
+	maxVisible := min(10, len(options))
+	startIdx := 0
+	if m.k9sContextSelected >= maxVisible {
+		startIdx = m.k9sContextSelected - maxVisible + 1
+	}
+	endIdx := min(len(options), startIdx+maxVisible)
+
+	// Show scroll indicator if needed
+	if startIdx > 0 {
+		lines = append(lines, lipgloss.NewStyle().Foreground(cyanBright).Render("  ▲ more above"))
+	}
+
+	for i := startIdx; i < endIdx; i++ {
+		ctx := options[i]
+		var line string
+		if i == m.k9sContextSelected {
+			line = lipgloss.NewStyle().
+				Background(cyanBright).
+				Foreground(textOnAccent).
+				Padding(0, 1).
+				Render("► " + ctx)
+		} else {
+			line = "  " + ctx
+		}
+		lines = append(lines, line)
+	}
+
+	if endIdx < len(options) {
+		lines = append(lines, lipgloss.NewStyle().Foreground(cyanBright).Render("  ▼ more below"))
+	}
+
+	lines = append(lines, "", lipgloss.NewStyle().Foreground(dimColor).Render("Enter to select • Esc to cancel"))
+
+	content := strings.Join(lines, "\n")
+
+	// Modal styling
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(cyanBright).
+		Padding(1, 2).
+		Width(50).
+		AlignHorizontal(lipgloss.Left)
+
+	return modalStyle.Render(content)
+}
+
+// renderK9sErrorModal renders the k9s error popup
+func (m *Model) renderK9sErrorModal() string {
+	if m.state.Modals.K9sError == nil {
+		return ""
+	}
+
+	errorMsg := *m.state.Modals.K9sError
+
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(redColor).
+		Padding(1, 2).
+		Width(60).
+		AlignHorizontal(lipgloss.Center)
+
+	title := lipgloss.NewStyle().
+		Foreground(redColor).
+		Bold(true).
+		Render("k9s Error")
+
+	content := fmt.Sprintf("%s\n\n%s\n\nPress Enter or Esc to close", title, errorMsg)
+
+	return modalStyle.Render(content)
 }
 
 // renderThemeSelectionModal renders the theme selection overlay

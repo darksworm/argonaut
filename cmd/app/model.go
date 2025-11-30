@@ -80,6 +80,12 @@ type Model struct {
 
 	// Theme selection helpers
 	themeOptions []themeOption
+
+	// k9s context selection state
+	k9sContextOptions   []string // Available kubeconfig contexts
+	k9sContextSelected  int      // Selected index in context list
+	k9sPendingKind      string   // Resource kind to open in k9s
+	k9sPendingNamespace string   // Resource namespace to open in k9s
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -515,6 +521,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// No error, go back to normal mode
+		m.state.Mode = model.ModeNormal
+		return m, nil
+
+	case k9sDoneMsg:
+		// k9s exited - restore normal mode
+		m.inPager = false
+
+		// If there was an error, show error popup
+		if msg.Err != nil {
+			cblog.With("component", "k9s").Error("k9s error", "err", msg.Err)
+			errStr := msg.Err.Error()
+			m.state.Modals.K9sError = &errStr
+			m.state.Mode = model.ModeK9sError
+			return m, nil
+		}
 		m.state.Mode = model.ModeNormal
 		return m, nil
 

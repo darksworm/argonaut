@@ -152,6 +152,16 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// k9s context selection overlay
+	if m.state.Mode == model.ModeK9sContextSelect {
+		modal := m.renderK9sContextSelectionModal()
+		baseLayer := lipgloss.NewLayer(baseView)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	// Rollback loading overlay (history load or executing rollback)
 	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && m.state.Rollback.Loading {
 		modal := m.renderRollbackLoadingModal()
@@ -225,6 +235,17 @@ func (m *Model) renderMainLayout() string {
 	// No diff modal (overlaid on existing content)
 	if m.state.Mode == model.ModeNoDiff {
 		modal := m.renderNoDiffModal()
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
+	// K9s error modal
+	if m.state.Mode == model.ModeK9sError {
+		modal := m.renderK9sErrorModal()
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
