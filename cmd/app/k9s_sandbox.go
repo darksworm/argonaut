@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -139,9 +138,27 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 		fmt.Print("\x1b[2J\x1b[H")
 		drawStatusBarBottom(rows, cols, kind, namespace, context)
 
-		// Set up input forwarding from stdin to PTY
+		// Set up input forwarding from stdin to PTY with cancellation
+		// Note: On Unix terminals, blocking reads on stdin cannot be interrupted
+		// without closing the file descriptor. We close ptmx to unblock writes,
+		// but the goroutine may remain blocked on stdin read until the next keystroke.
+		stdinDone := make(chan struct{})
 		go func() {
-			_, _ = io.Copy(ptmx, os.Stdin)
+			defer close(stdinDone)
+			buf := make([]byte, 1024)
+			for {
+				n, err := os.Stdin.Read(buf)
+				if err != nil {
+					return
+				}
+				if n > 0 {
+					_, err = ptmx.Write(buf[:n])
+					if err != nil {
+						// ptmx closed, exit goroutine
+						return
+					}
+				}
+			}
 		}()
 
 		// Process k9s output and inject status bar at frame boundaries
@@ -150,6 +167,18 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 		// Wait for k9s to exit
 		if err := cmd.Wait(); err != nil {
 			cblog.With("component", "k9s").Debug("k9s exited", "err", err)
+		}
+
+		// Close ptmx to unblock the stdin forwarding goroutine's write
+		ptmx.Close()
+
+		// Wait briefly for stdin goroutine to exit (it will exit on next write attempt)
+		// Don't block forever - stdin read may be blocked waiting for user input
+		select {
+		case <-stdinDone:
+		case <-time.After(100 * time.Millisecond):
+			// Goroutine is blocked on stdin read - this is expected behavior
+			// It will exit when the user presses a key or the program terminates
 		}
 
 		return k9sDoneMsg{Err: nil}
