@@ -12,12 +12,12 @@
  │              :diff [app] • :sync [app] • :rollback [app] • :delete [app]                       │ 
  │              :resources [app] • :sort health|sync asc|desc • :up • :all                        │ 
  │                                                                                                │ 
- │ TREE VIEW    / filter • n/N next/prev match • K open in k9s                                    │ 
+ │ TREE VIEW    / filter • n/N next/prev match •  d  diff • K open in k9s                         │ 
+ │              :diff • :up return to apps                                                        │ 
  │                                                                                                │ 
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
