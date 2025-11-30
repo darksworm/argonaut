@@ -107,6 +107,7 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGWINCH)
 		defer signal.Stop(sigCh)
+		defer close(sigCh) // Close channel to allow goroutine to exit
 
 		go func() {
 			for range sigCh {
