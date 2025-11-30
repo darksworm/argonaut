@@ -350,12 +350,8 @@ func (v *TreeView) Render() string {
         }
         prefix := strings.Join(prefixParts, "") + conn
         disc := ""
-        if len(n.children) > 0 {
-            if v.expanded[n.uid] {
-                disc = "▾ "
-            } else {
-                disc = "▸ "
-            }
+        if len(n.children) > 0 && !v.expanded[n.uid] {
+            disc = "▸ "
         }
         prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
         label := v.renderLabel(n)
