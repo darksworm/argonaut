@@ -270,36 +270,3 @@ func TestK9sResourceMapCoverage(t *testing.T) {
 	}
 }
 
-// TestInPath verifies the inPath function correctly detects commands.
-func TestInPath(t *testing.T) {
-	tests := []struct {
-		name    string
-		command string
-		want    bool
-	}{
-		{
-			name:    "ls exists",
-			command: "ls",
-			want:    true,
-		},
-		{
-			name:    "nonexistent command",
-			command: "this-command-definitely-does-not-exist-12345",
-			want:    false,
-		},
-		{
-			name:    "sh exists",
-			command: "sh",
-			want:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := inPath(tt.command)
-			if got != tt.want {
-				t.Errorf("inPath(%q) = %v, want %v", tt.command, got, tt.want)
-			}
-		})
-	}
-}

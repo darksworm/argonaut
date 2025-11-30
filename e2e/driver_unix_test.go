@@ -822,6 +822,60 @@ exit %d
 	return scriptPath, argsFile
 }
 
+// createInteractiveMockK9s creates a mock k9s that reads stdin and records it to a file.
+// This is used to verify that keyboard input is correctly forwarded to k9s.
+func createInteractiveMockK9s(t *testing.T, workspace string) (scriptPath, argsFile, inputFile string) {
+	t.Helper()
+
+	binDir := filepath.Join(workspace, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("failed to create bin dir: %v", err)
+	}
+
+	scriptPath = filepath.Join(binDir, "mock-k9s-interactive")
+	argsFile = filepath.Join(workspace, "k9s_args.txt")
+	inputFile = filepath.Join(workspace, "k9s_input.txt")
+
+	// Create a mock script that:
+	// 1. Records args
+	// 2. Outputs clear screen (triggers status bar)
+	// 3. Reads stdin with timeout and records to input file
+	// 4. Exits
+	//
+	// We use 'read' with timeout since head -c in background doesn't work
+	// for PTY stdin. The -t flag provides timeout, -n provides char count.
+	script := fmt.Sprintf(`#!/bin/bash
+# Record args
+printf "%%s" "$*" > %q
+# Clear screen and show message
+printf '\033[2J\033[H'
+printf 'Mock k9s - type keys\n'
+# Read 5 chars with 2 second timeout
+read -t 2 -n 5 INPUT 2>/dev/null || true
+printf "%%s" "$INPUT" > %q
+exit 0
+`, argsFile, inputFile)
+
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("failed to create interactive mock k9s: %v", err)
+	}
+
+	return scriptPath, argsFile, inputFile
+}
+
+// readMockK9sInput reads the keyboard input that was captured by the interactive mock k9s.
+func readMockK9sInput(t *testing.T, inputFile string) string {
+	t.Helper()
+	data, err := os.ReadFile(inputFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ""
+		}
+		t.Fatalf("failed to read k9s input file: %v", err)
+	}
+	return string(data)
+}
+
 // readMockK9sArgs reads the arguments that were passed to the mock k9s script.
 func readMockK9sArgs(t *testing.T, argsFile string) string {
 	t.Helper()

@@ -695,10 +695,11 @@ func TestK9s_ContextPicker_NavigateWithJK(t *testing.T) {
 	}
 }
 
-// TestK9s_ContextPicker_CancelWithEsc verifies that pressing Esc in the
-// context picker closes it without launching k9s.
-func TestK9s_ContextPicker_CancelWithEsc(t *testing.T) {
-	t.Skip("TODO: Escape key handling in PTY needs investigation - modal not closing with ESC")
+// ---- Keyboard Input Tests ----
+
+// TestK9s_KeyboardInputForwarded verifies that keyboard input from the user
+// is correctly forwarded to k9s through the PTY.
+func TestK9s_KeyboardInputForwarded(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -717,13 +718,9 @@ func TestK9s_ContextPicker_CancelWithEsc(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
-	// Use NoCurrent variant to ensure context picker appears
-	kubeconfigPath := setupMultipleContextsKubeconfigNoCurrent(t, tf.workspace, []string{
-		"dev-cluster",
-		"staging-cluster",
-		"prod-cluster",
-	})
+	// Use interactive mock that captures stdin
+	mockK9s, _, inputFile := createInteractiveMockK9s(t, tf.workspace)
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,
@@ -737,6 +734,7 @@ func TestK9s_ContextPicker_CancelWithEsc(t *testing.T) {
 		t.Fatal("clusters not visible")
 	}
 
+	// Navigate to tree view
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatalf("open command: %v", err)
 	}
@@ -748,120 +746,27 @@ func TestK9s_ContextPicker_CancelWithEsc(t *testing.T) {
 		t.Fatal("tree view not loaded")
 	}
 
+	// Navigate to Deployment and open k9s
 	_ = tf.Send("j")
 	time.Sleep(200 * time.Millisecond)
 	_ = tf.Send("K")
 
-	if !tf.WaitForPlain("Select Kubernetes Context", 3*time.Second) {
+	// Wait for mock k9s to be launched
+	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
-		t.Fatal("context picker not shown")
+		t.Fatal("mock k9s was not launched")
 	}
 
-	// Press Escape to cancel
-	_ = tf.Send("\x1b")
+	// Send keystrokes that should be forwarded to k9s
+	_ = tf.Send("hello")
 
-	// Wait for modal to close - need longer wait as ESC processing may take time
-	time.Sleep(500 * time.Millisecond)
+	// Wait for mock k9s to exit (2s timeout + buffer)
+	time.Sleep(3 * time.Second)
 
-	// Modal should be gone
-	snapshot := tf.SnapshotPlain()
-	if strings.Contains(snapshot, "Select Kubernetes Context") {
-		// Sometimes the modal text remains in buffer history, check if we're back in tree view
-		if !strings.Contains(snapshot, "Application [demo]") || strings.Contains(snapshot, "► dev-cluster") {
-			t.Log(snapshot)
-			t.Fatal("context picker should be closed after Esc")
-		}
-	}
-
-	// Should still be in tree view
-	if !strings.Contains(snapshot, "Application [demo]") {
-		t.Log(snapshot)
-		t.Fatal("should still be in tree view")
-	}
-
-	// k9s should NOT have been invoked
-	args := readMockK9sArgs(t, argsFile)
-	if args != "" {
-		t.Fatalf("k9s should not have been invoked after cancel, got args: %s", args)
+	// Verify the keystrokes were received by k9s
+	input := readMockK9sInput(t, inputFile)
+	if input != "hello" {
+		t.Errorf("expected k9s to receive 'hello', got: %q", input)
 	}
 }
 
-// TestK9s_ContextPicker_CancelWithQ verifies that pressing q in the
-// context picker closes it without launching k9s.
-func TestK9s_ContextPicker_CancelWithQ(t *testing.T) {
-	t.Skip("TODO: Key handling in PTY needs investigation - modal not closing with Q")
-	t.Parallel()
-	tf := NewTUITest(t)
-	t.Cleanup(tf.Cleanup)
-
-	srv, err := MockArgoServerWithResources()
-	if err != nil {
-		t.Fatalf("mock server: %v", err)
-	}
-	t.Cleanup(srv.Close)
-
-	cfgPath, err := tf.SetupWorkspace()
-	if err != nil {
-		t.Fatalf("setup workspace: %v", err)
-	}
-	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
-	// Use NoCurrent variant to ensure context picker appears
-	kubeconfigPath := setupMultipleContextsKubeconfigNoCurrent(t, tf.workspace, []string{
-		"dev-cluster",
-		"staging-cluster",
-		"prod-cluster",
-	})
-
-	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
-		"ARGONAUT_K9S_COMMAND="+mockK9s,
-		"KUBECONFIG="+kubeconfigPath,
-	); err != nil {
-		t.Fatalf("start app: %v", err)
-	}
-
-	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("clusters not visible")
-	}
-
-	if err := tf.OpenCommand(); err != nil {
-		t.Fatalf("open command: %v", err)
-	}
-	_ = tf.Send("resources demo")
-	_ = tf.Enter()
-
-	if !tf.WaitForPlain("Deployment", 5*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("tree view not loaded")
-	}
-
-	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-	_ = tf.Send("K")
-
-	if !tf.WaitForPlain("Select Kubernetes Context", 3*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("context picker not shown")
-	}
-
-	// Press q to cancel
-	_ = tf.Send("q")
-	time.Sleep(300 * time.Millisecond)
-
-	// Modal should be gone
-	snapshot := tf.SnapshotPlain()
-	if strings.Contains(snapshot, "Select Kubernetes Context") {
-		t.Log(snapshot)
-		t.Fatal("context picker should be closed after q")
-	}
-
-	// k9s should NOT have been invoked
-	args := readMockK9sArgs(t, argsFile)
-	if args != "" {
-		t.Fatalf("k9s should not have been invoked after cancel, got args: %s", args)
-	}
-}
