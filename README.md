@@ -191,6 +191,107 @@ argonaut --ca-cert=/path/to/ca.crt
 
 ---
 
+## ⚙️ Configuration
+
+Argonaut stores its configuration in a TOML file at:
+- **Linux/macOS**: `~/.config/argonaut/config.toml` (or `$XDG_CONFIG_HOME/argonaut/config.toml`)
+- **Windows**: `%APPDATA%\argonaut\config.toml`
+
+You can override the config path with the `ARGONAUT_CONFIG` environment variable.
+
+### Example Configuration
+
+```toml
+[appearance]
+theme = "tokyo-night"
+
+[appearance.overrides]
+# Override individual theme colors (hex format)
+# accent = "#ff79c6"
+# success = "#50fa7b"
+
+[sort]
+field = "name"      # name, sync, health
+direction = "asc"   # asc, desc
+
+[k9s]
+command = "k9s"           # Path to k9s executable
+context = ""              # Override Kubernetes context for k9s
+
+[diff]
+viewer = ""               # Interactive diff viewer (e.g., "code --diff {left} {right}", "meld {left} {right}")
+formatter = ""            # Diff formatter command (e.g., "delta --side-by-side")
+```
+
+### Configuration Options
+
+#### `[appearance]`
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `theme` | Color theme name (see available themes below) | `tokyo-night` |
+
+**Available themes:**
+- **Dark themes**: `catppuccin-mocha`, `dracula`, `gruvbox-dark`, `monokai`, `nord`, `one-dark`, `oxocarbon`, `solarized-dark`, `tokyo-night`, `tokyo-storm`
+- **Light themes**: `catppuccin-latte`, `gruvbox-light`, `one-light`, `onehalf-light`, `solarized-light`
+- **Accessibility**: `colorblind-safe`, `grayscale-lowchroma`, `high-contrast`
+- **Special**: `inherit-terminal` (uses your terminal's ANSI color palette)
+
+You can also change the theme at runtime using the `:theme <name>` command.
+
+#### `[appearance.overrides]`
+
+Override individual theme colors with hex values. Available color keys:
+- `accent`, `warning`, `dim`, `success`, `danger`, `progress`, `unknown`, `info`, `text`, `gray`
+- `selected_bg`, `cursor_selected_bg`, `cursor_bg`, `border`, `muted_bg`, `shade_bg`, `dark_bg`
+
+#### `[sort]`
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `field` | Sort field (`name`, `sync`, `health`) | `name` |
+| `direction` | Sort direction (`asc`, `desc`) | `asc` |
+
+You can also change sorting at runtime using the `:sort <field> <direction>` command.
+
+#### `[k9s]`
+
+Integration settings for [k9s](https://k9scli.io), the Kubernetes TUI.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `command` | Path to k9s executable | `k9s` |
+| `context` | Override Kubernetes context when launching k9s | (none) |
+
+Press `K` on a resource in the tree view to open it in k9s.
+
+#### `[diff]`
+
+Settings for diff viewing and formatting.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `viewer` | Interactive diff viewer command. Use `{left}` and `{right}` as placeholders for file paths. | (none) |
+| `formatter` | Non-interactive diff formatter piped through before display | (none, falls back to `delta` if installed) |
+
+**Examples:**
+
+```toml
+[diff]
+# Use VS Code as diff viewer
+viewer = "code --diff {left} {right} --wait"
+
+# Use meld as diff viewer
+viewer = "meld {left} {right}"
+
+# Use delta with custom options
+formatter = "delta --side-by-side --line-numbers"
+```
+
+If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+
+---
+
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
