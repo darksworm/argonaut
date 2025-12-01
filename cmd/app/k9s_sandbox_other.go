@@ -31,10 +31,7 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 		}()
 
 		// Check if k9s is available
-		k9sCmd := os.Getenv("ARGONAUT_K9S_COMMAND")
-		if k9sCmd == "" {
-			k9sCmd = "k9s"
-		}
+		k9sCmd := m.config.GetK9sCommand()
 		if !inPath(k9sCmd) {
 			cblog.With("component", "k9s").Error("k9s not found in PATH")
 			return k9sDoneMsg{Err: fmt.Errorf("k9s not found in PATH")}
@@ -54,9 +51,9 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 			args = append(args, "-n", namespace)
 		}
 
-		// Allow context override via environment variable
-		if envCtx := os.Getenv("ARGONAUT_K9S_CONTEXT"); envCtx != "" {
-			context = envCtx
+		// Allow context override via config
+		if cfgCtx := m.config.GetK9sContext(); cfgCtx != "" {
+			context = cfgCtx
 		}
 		if context != "" {
 			args = append(args, "--context", context)

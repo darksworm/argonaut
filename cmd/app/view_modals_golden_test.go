@@ -8,7 +8,7 @@ import (
 )
 
 func buildBaseModel(cols, rows int) *Model {
-	m := NewModel()
+	m := NewModel(nil)
 	m.ready = true
 	m.state.Terminal.Cols = cols
 	m.state.Terminal.Rows = rows

@@ -16,6 +16,8 @@ const DefaultThemeName = "tokyo-night"
 type ArgonautConfig struct {
 	Appearance      AppearanceConfig `toml:"appearance"`
 	Sort            SortConfig       `toml:"sort,omitempty"`
+	K9s             K9sConfig        `toml:"k9s,omitempty"`
+	Diff            DiffConfig       `toml:"diff,omitempty"`
 	LastSeenVersion string           `toml:"last_seen_version,omitempty"`
 }
 
@@ -29,6 +31,18 @@ type AppearanceConfig struct {
 type SortConfig struct {
 	Field     string `toml:"field"`
 	Direction string `toml:"direction"`
+}
+
+// K9sConfig holds k9s integration settings
+type K9sConfig struct {
+	Command string `toml:"command,omitempty"` // Path to k9s executable (default: "k9s")
+	Context string `toml:"context,omitempty"` // Override Kubernetes context for k9s
+}
+
+// DiffConfig holds diff viewer/formatter settings
+type DiffConfig struct {
+	Viewer    string `toml:"viewer,omitempty"`    // External diff viewer command (e.g., "code --diff {left} {right}")
+	Formatter string `toml:"formatter,omitempty"` // Diff formatter command (e.g., "delta")
 }
 
 
@@ -147,4 +161,27 @@ func SaveArgonautConfig(config *ArgonautConfig) error {
 // GetConfigPathForHelp returns the config path for display in help text
 func GetConfigPathForHelp() string {
 	return GetArgonautConfigPath()
+}
+
+// GetK9sCommand returns the k9s command path, defaulting to "k9s" if not configured
+func (c *ArgonautConfig) GetK9sCommand() string {
+	if c.K9s.Command != "" {
+		return c.K9s.Command
+	}
+	return "k9s"
+}
+
+// GetK9sContext returns the k9s context override, or empty string if not configured
+func (c *ArgonautConfig) GetK9sContext() string {
+	return c.K9s.Context
+}
+
+// GetDiffViewer returns the external diff viewer command, or empty string if not configured
+func (c *ArgonautConfig) GetDiffViewer() string {
+	return c.Diff.Viewer
+}
+
+// GetDiffFormatter returns the diff formatter command, or empty string if not configured
+func (c *ArgonautConfig) GetDiffFormatter() string {
+	return c.Diff.Formatter
 }

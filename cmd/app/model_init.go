@@ -12,13 +12,19 @@ import (
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui/listnav"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
-func NewModel() *Model {
+func NewModel(cfg *config.ArgonautConfig) *Model {
+	// Use default config if none provided
+	if cfg == nil {
+		cfg = config.GetDefaultConfig()
+	}
+
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(magentaBright)
@@ -42,6 +48,7 @@ func NewModel() *Model {
 		navigationService:  services.NewNavigationService(),
 		statusService:      services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
 		updateService:      updateService,
+		config:             cfg,
 		inputComponents:    NewInputComponents(),
 		autocompleteEngine: autocomplete.NewAutocompleteEngine(),
 		ready:              false,

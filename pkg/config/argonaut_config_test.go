@@ -227,3 +227,178 @@ func TestEnsureArgonautConfigDir(t *testing.T) {
 		t.Errorf("EnsureArgonautConfigDir() should not error when directory exists: %v", err)
 	}
 }
+
+func TestK9sConfigGetters(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         *ArgonautConfig
+		expectCommand  string
+		expectContext  string
+	}{
+		{
+			name:          "empty config returns defaults",
+			config:        &ArgonautConfig{},
+			expectCommand: "k9s",
+			expectContext: "",
+		},
+		{
+			name: "custom k9s command",
+			config: &ArgonautConfig{
+				K9s: K9sConfig{
+					Command: "/usr/local/bin/k9s",
+				},
+			},
+			expectCommand: "/usr/local/bin/k9s",
+			expectContext: "",
+		},
+		{
+			name: "custom k9s context",
+			config: &ArgonautConfig{
+				K9s: K9sConfig{
+					Context: "production-cluster",
+				},
+			},
+			expectCommand: "k9s",
+			expectContext: "production-cluster",
+		},
+		{
+			name: "both command and context set",
+			config: &ArgonautConfig{
+				K9s: K9sConfig{
+					Command: "/opt/k9s/bin/k9s",
+					Context: "staging",
+				},
+			},
+			expectCommand: "/opt/k9s/bin/k9s",
+			expectContext: "staging",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.config.GetK9sCommand(); got != tt.expectCommand {
+				t.Errorf("GetK9sCommand() = %q, want %q", got, tt.expectCommand)
+			}
+			if got := tt.config.GetK9sContext(); got != tt.expectContext {
+				t.Errorf("GetK9sContext() = %q, want %q", got, tt.expectContext)
+			}
+		})
+	}
+}
+
+func TestDiffConfigGetters(t *testing.T) {
+	tests := []struct {
+		name            string
+		config          *ArgonautConfig
+		expectViewer    string
+		expectFormatter string
+	}{
+		{
+			name:            "empty config returns empty strings",
+			config:          &ArgonautConfig{},
+			expectViewer:    "",
+			expectFormatter: "",
+		},
+		{
+			name: "custom diff viewer",
+			config: &ArgonautConfig{
+				Diff: DiffConfig{
+					Viewer: "code --diff {left} {right}",
+				},
+			},
+			expectViewer:    "code --diff {left} {right}",
+			expectFormatter: "",
+		},
+		{
+			name: "custom diff formatter",
+			config: &ArgonautConfig{
+				Diff: DiffConfig{
+					Formatter: "delta --side-by-side",
+				},
+			},
+			expectViewer:    "",
+			expectFormatter: "delta --side-by-side",
+		},
+		{
+			name: "both viewer and formatter set",
+			config: &ArgonautConfig{
+				Diff: DiffConfig{
+					Viewer:    "vimdiff",
+					Formatter: "colordiff",
+				},
+			},
+			expectViewer:    "vimdiff",
+			expectFormatter: "colordiff",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.config.GetDiffViewer(); got != tt.expectViewer {
+				t.Errorf("GetDiffViewer() = %q, want %q", got, tt.expectViewer)
+			}
+			if got := tt.config.GetDiffFormatter(); got != tt.expectFormatter {
+				t.Errorf("GetDiffFormatter() = %q, want %q", got, tt.expectFormatter)
+			}
+		})
+	}
+}
+
+func TestSaveAndLoadK9sAndDiffConfig(t *testing.T) {
+	// Create a temporary directory
+	tempDir := t.TempDir()
+
+	// Override config path
+	originalConfig := os.Getenv("ARGONAUT_CONFIG")
+	defer os.Setenv("ARGONAUT_CONFIG", originalConfig)
+
+	configPath := filepath.Join(tempDir, "test_k9s_diff_config.toml")
+	os.Setenv("ARGONAUT_CONFIG", configPath)
+
+	// Create test config with K9s and Diff sections
+	testConfig := &ArgonautConfig{
+		Appearance: AppearanceConfig{
+			Theme: "dracula",
+		},
+		K9s: K9sConfig{
+			Command: "/custom/k9s",
+			Context: "my-cluster",
+		},
+		Diff: DiffConfig{
+			Viewer:    "meld {left} {right}",
+			Formatter: "delta --line-numbers",
+		},
+	}
+
+	// Save config
+	err := SaveArgonautConfig(testConfig)
+	if err != nil {
+		t.Fatalf("SaveArgonautConfig() failed: %v", err)
+	}
+
+	// Load config back
+	loadedConfig, err := LoadArgonautConfig()
+	if err != nil {
+		t.Fatalf("LoadArgonautConfig() failed: %v", err)
+	}
+
+	// Verify K9s config
+	if loadedConfig.GetK9sCommand() != testConfig.K9s.Command {
+		t.Errorf("K9s Command mismatch: expected %q, got %q",
+			testConfig.K9s.Command, loadedConfig.GetK9sCommand())
+	}
+	if loadedConfig.GetK9sContext() != testConfig.K9s.Context {
+		t.Errorf("K9s Context mismatch: expected %q, got %q",
+			testConfig.K9s.Context, loadedConfig.GetK9sContext())
+	}
+
+	// Verify Diff config
+	if loadedConfig.GetDiffViewer() != testConfig.Diff.Viewer {
+		t.Errorf("Diff Viewer mismatch: expected %q, got %q",
+			testConfig.Diff.Viewer, loadedConfig.GetDiffViewer())
+	}
+	if loadedConfig.GetDiffFormatter() != testConfig.Diff.Formatter {
+		t.Errorf("Diff Formatter mismatch: expected %q, got %q",
+			testConfig.Diff.Formatter, loadedConfig.GetDiffFormatter())
+	}
+}
