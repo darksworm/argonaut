@@ -153,8 +153,13 @@ func (m *Model) consumeWatchEvent() tea.Cmd {
 				cblog.With("component", "watch").Info("Sending AppUpdatedMsg",
 					"app_name", ev.App.Name,
 					"health", ev.App.Health,
-					"sync", ev.App.Sync)
-				return model.AppUpdatedMsg{App: *ev.App}
+					"sync", ev.App.Sync,
+					"resources_count", len(ev.Resources))
+				var resourcesData []byte
+				if len(ev.Resources) > 0 {
+					resourcesData, _ = json.Marshal(ev.Resources)
+				}
+				return model.AppUpdatedMsg{App: *ev.App, ResourcesJSON: resourcesData}
 			}
 		case "app-deleted":
 			if ev.AppName != "" {
@@ -441,7 +446,21 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 		if merr != nil {
 			return model.ApiErrorMsg{Message: merr.Error()}
 		}
-		return model.ResourceTreeLoadedMsg{AppName: app.Name, Health: app.Health, Sync: app.Sync, TreeJSON: data}
+
+		// Also fetch app details to get status.resources for sync status
+		var resourcesData []byte
+		argoApp, appErr := argo.GetApplication(ctx, m.state.Server, app.Name, app.AppNamespace)
+		if appErr == nil && argoApp != nil && len(argoApp.Status.Resources) > 0 {
+			resourcesData, _ = json.Marshal(argoApp.Status.Resources)
+		}
+
+		return model.ResourceTreeLoadedMsg{
+			AppName:       app.Name,
+			Health:        app.Health,
+			Sync:          app.Sync,
+			TreeJSON:      data,
+			ResourcesJSON: resourcesData,
+		}
 	}
 }
 

@@ -258,6 +258,107 @@ func TestTreeViewFilterNoMatches(t *testing.T) {
 	}
 }
 
+// MockArgoServerWithResourceSyncStatus creates a server with resource sync status in tree view.
+func MockArgoServerWithResourceSyncStatus() (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte(`{}`)) })
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// App with resources array containing sync statuses
+		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"},"resources":[{"group":"apps","kind":"Deployment","name":"nginx-deployment","namespace":"default","status":"OutOfSync","version":"v1"},{"group":"","kind":"Service","name":"nginx-service","namespace":"default","status":"Synced","version":"v1"}]}}]}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
+	mux.HandleFunc("/api/v1/applications/demo", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Single app endpoint returns resources for tree view loading
+		_, _ = w.Write([]byte(`{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"},"resources":[{"group":"apps","kind":"Deployment","name":"nginx-deployment","namespace":"default","status":"OutOfSync","version":"v1"},{"group":"","kind":"Service","name":"nginx-service","namespace":"default","status":"Synced","version":"v1"}]}}`))
+	})
+	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		// Tree with Deployment and Service - sync status comes from resources array
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"nginx-deployment","namespace":"default","version":"v1","group":"apps","uid":"dep-1","health":{"status":"Healthy"}},
+			{"kind":"Service","name":"nginx-service","namespace":"default","version":"v1","uid":"svc-1","health":{"status":"Healthy"}}
+		]}`))
+	})
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "text/event-stream")
+
+		// Send initial state (SSE format)
+		_, _ = w.Write([]byte(`data: {"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"},"resources":[{"group":"apps","kind":"Deployment","name":"nginx-deployment","namespace":"default","status":"OutOfSync","version":"v1"},{"group":"","kind":"Service","name":"nginx-service","namespace":"default","status":"Synced","version":"v1"}]}}}}` + "\n"))
+		if fl != nil {
+			fl.Flush()
+		}
+
+		// Keep stream open for a bit
+		time.Sleep(3 * time.Second)
+	})
+	srv := httptest.NewServer(mux)
+	return srv, nil
+}
+
+// TestTreeViewResourceSyncStatus verifies that individual resources (Deployments, Services)
+// display their sync status from Application.status.resources in the tree view.
+func TestTreeViewResourceSyncStatus(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithResourceSyncStatus()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+		t.Fatal("clusters not ready")
+	}
+
+	// Open resources (tree) for demo app
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("resources demo")
+	_ = tf.Enter()
+
+	// Wait for tree view to load
+	if !tf.WaitForPlain("Application [demo]", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("application root not shown")
+	}
+
+	// Verify Deployment shows OutOfSync status from resources array
+	if !tf.WaitForPlain("Deployment [default/nginx-deployment] (Healthy, OutOfSync)", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("Deployment sync status not shown correctly")
+	}
+
+	// Verify Service shows Synced status from resources array
+	if !tf.WaitForPlain("Service [default/nginx-service] (Healthy, Synced)", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("Service sync status not shown correctly")
+	}
+
+	// Exit tree view
+	_ = tf.Send("q")
+	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("did not return to main view")
+	}
+}
+
 func TestTreeViewFilterEscapeClearsFilter(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)

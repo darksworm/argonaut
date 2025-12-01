@@ -162,7 +162,8 @@ type AppsLoadedMsg struct {
 
 // AppUpdatedMsg is sent when an app is updated
 type AppUpdatedMsg struct {
-	App App
+	App           App
+	ResourcesJSON []byte // JSON encoded []api.ResourceStatus for sync status updates
 }
 
 // AppDeletedMsg is sent when an app is deleted (from watch stream)
@@ -370,10 +371,11 @@ type RollbackShowDiffMsg struct {
 
 // ResourceTreeLoadedMsg is sent when a resource tree is loaded for an app
 type ResourceTreeLoadedMsg struct {
-	AppName  string
-	Health   string
-	Sync     string
-	TreeJSON []byte
+	AppName       string
+	Health        string
+	Sync          string
+	TreeJSON      []byte
+	ResourcesJSON []byte // JSON encoded []api.ResourceStatus for sync status
 }
 
 // ResourceTreeStreamMsg represents a streamed resource tree update

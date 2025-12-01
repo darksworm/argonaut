@@ -52,7 +52,8 @@ func TestConvertToApp_WithApplicationSet(t *testing.T) {
 				StartedAt  time.Time `json:"startedAt,omitempty"`
 				FinishedAt time.Time `json:"finishedAt,omitempty"`
 			} `json:"operationState,omitempty"`
-			History []DeploymentHistory `json:"history,omitempty"`
+			History   []DeploymentHistory `json:"history,omitempty"`
+			Resources []ResourceStatus    `json:"resources,omitempty"`
 		}{
 			Sync: struct {
 				Status     string `json:"status,omitempty"`
@@ -133,7 +134,8 @@ func TestConvertToApp_WithoutApplicationSet(t *testing.T) {
 				StartedAt  time.Time `json:"startedAt,omitempty"`
 				FinishedAt time.Time `json:"finishedAt,omitempty"`
 			} `json:"operationState,omitempty"`
-			History []DeploymentHistory `json:"history,omitempty"`
+			History   []DeploymentHistory `json:"history,omitempty"`
+			Resources []ResourceStatus    `json:"resources,omitempty"`
 		}{
 			Sync: struct {
 				Status     string `json:"status,omitempty"`
@@ -214,7 +216,8 @@ func TestConvertToApp_WithOtherOwnerReference(t *testing.T) {
 				StartedAt  time.Time `json:"startedAt,omitempty"`
 				FinishedAt time.Time `json:"finishedAt,omitempty"`
 			} `json:"operationState,omitempty"`
-			History []DeploymentHistory `json:"history,omitempty"`
+			History   []DeploymentHistory `json:"history,omitempty"`
+			Resources []ResourceStatus    `json:"resources,omitempty"`
 		}{
 			Sync: struct {
 				Status     string `json:"status,omitempty"`

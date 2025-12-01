@@ -199,7 +199,7 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 	// Synthetic application root for this app
 	meta := v.appMeta[appName]
 	rootKey := makeKey("__app_root__")
-	root := &treeNode{uid: rootKey, kind: "Application", name: appName, status: meta.health, health: meta.health}
+	root := &treeNode{uid: rootKey, kind: "Application", name: appName, status: meta.sync, health: meta.health}
 	for _, r := range tempRoots {
 		r.parent = root
 		root.children = append(root.children, r)
@@ -218,6 +218,29 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 	// Stable root ordering by app name
 	sort.SliceStable(v.roots, func(i, j int) bool { return v.roots[i].name < v.roots[j].name })
 	v.rebuildOrder()
+}
+
+// SetResourceStatuses updates sync status for nodes matching the given resources.
+// Resources are matched by (group, kind, namespace, name).
+func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceStatus) {
+	// Build lookup by (group, kind, namespace, name)
+	statusByKey := make(map[string]string)
+	for _, r := range resources {
+		key := fmt.Sprintf("%s/%s/%s/%s", r.Group, r.Kind, r.Namespace, r.Name)
+		statusByKey[key] = r.Status
+	}
+
+	// Update nodes for this app
+	if keys, ok := v.nodesByApp[appName]; ok {
+		for _, nodeKey := range keys {
+			if node, ok := v.nodesByUID[nodeKey]; ok {
+				lookupKey := fmt.Sprintf("%s/%s/%s/%s", node.group, node.kind, node.namespace, node.name)
+				if status, found := statusByKey[lookupKey]; found {
+					node.status = status
+				}
+			}
+		}
+	}
 }
 
 func (v *TreeView) rebuildOrder() {
@@ -369,10 +392,6 @@ func (v *TreeView) Render() string {
             if n.namespace != "" {
                 name = fmt.Sprintf("%s/%s", n.namespace, n.name)
             }
-            status := n.health
-            if status == "" {
-                status = n.status
-            }
             // Use different background for selected match vs regular selection
             var selBG color.Color
             if isMatch {
@@ -384,7 +403,7 @@ func (v *TreeView) Render() string {
             ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(selBG).Render(prefix + disc)
             ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(selBG).Render(n.kind)
             ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(selBG).Render("[" + name + "]")
-            st := lipgloss.NewStyle().Background(selBG).Render(v.statusStyle(status).Render(fmt.Sprintf("(%s)", status)))
+            st := v.renderStatusPartWithBG(n, selBG)
             line = ps + ks + " " + ns + " " + st
             line = padRight(line, v.innerWidth())
         } else if isMatch {
@@ -393,15 +412,11 @@ func (v *TreeView) Render() string {
             if n.namespace != "" {
                 name = fmt.Sprintf("%s/%s", n.namespace, n.name)
             }
-            status := n.health
-            if status == "" {
-                status = n.status
-            }
             matchBG := v.palette.Warning
             ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
             ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
             ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
-            st := lipgloss.NewStyle().Background(matchBG).Render(v.statusStyle(status).Render(fmt.Sprintf("(%s)", status)))
+            st := v.renderStatusPartWithBG(n, matchBG)
             line = ps + ks + " " + ns + " " + st
         }
         b.WriteString(line)
@@ -421,15 +436,55 @@ func (v *TreeView) renderLabel(n *treeNode) string {
 	if n.namespace != "" {
 		name = fmt.Sprintf("%s/%s", n.namespace, n.name)
 	}
-	status := n.health
-	if status == "" {
-		status = n.status
-	}
-	st := v.statusStyle(status).Render(fmt.Sprintf("(%s)", status))
+	st := v.renderStatusPart(n)
 	// Only the bracketed name should be gray/dim
 	nameStyled := lipgloss.NewStyle().Foreground(v.palette.Dim).Render("[" + name + "]")
 	kindStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(n.kind)
 	return fmt.Sprintf("%s %s %s", kindStyled, nameStyled, st)
+}
+
+// renderStatusPart returns styled status string showing health and/or sync status
+func (v *TreeView) renderStatusPart(n *treeNode) string {
+	health := n.health
+	sync := n.status
+
+	// Both present and different: show both
+	if health != "" && sync != "" && !strings.EqualFold(health, sync) {
+		healthStyled := v.statusStyle(health).Render(health)
+		syncStyled := v.statusStyle(sync).Render(sync)
+		return fmt.Sprintf("(%s, %s)", healthStyled, syncStyled)
+	}
+	// Only health present (or both same)
+	if health != "" {
+		return v.statusStyle(health).Render(fmt.Sprintf("(%s)", health))
+	}
+	// Only sync present
+	if sync != "" {
+		return v.statusStyle(sync).Render(fmt.Sprintf("(%s)", sync))
+	}
+	return ""
+}
+
+// renderStatusPartWithBG returns styled status string with a background color
+func (v *TreeView) renderStatusPartWithBG(n *treeNode, bg color.Color) string {
+	health := n.health
+	sync := n.status
+
+	// Both present and different: show both
+	if health != "" && sync != "" && !strings.EqualFold(health, sync) {
+		healthStyled := lipgloss.NewStyle().Background(bg).Render(v.statusStyle(health).Render(health))
+		syncStyled := lipgloss.NewStyle().Background(bg).Render(v.statusStyle(sync).Render(sync))
+		return fmt.Sprintf("(%s, %s)", healthStyled, syncStyled)
+	}
+	// Only health present (or both same)
+	if health != "" {
+		return lipgloss.NewStyle().Background(bg).Render(v.statusStyle(health).Render(fmt.Sprintf("(%s)", health)))
+	}
+	// Only sync present
+	if sync != "" {
+		return lipgloss.NewStyle().Background(bg).Render(v.statusStyle(sync).Render(fmt.Sprintf("(%s)", sync)))
+	}
+	return ""
 }
 
 func (v *TreeView) innerWidth() int {

@@ -323,6 +323,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !found {
 			m.state.Apps = append(m.state.Apps, updated)
 		}
+
+		// Update tree view sync statuses if we're viewing the tree and have resource data
+		if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(msg.ResourcesJSON) > 0 {
+			var resources []api.ResourceStatus
+			if json.Unmarshal(msg.ResourcesJSON, &resources) == nil {
+				m.treeView.SetResourceStatuses(updated.Name, resources)
+			}
+		}
+
 		cblog.With("component", "watch").Debug("Apps list updated",
 			"total_apps", len(m.state.Apps),
 			"updated_app", updated.Name)
@@ -364,6 +373,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
 				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
 				m.treeView.UpsertAppTree(msg.AppName, &tree)
+
+				// Apply resource sync statuses from Application.status.resources
+				if len(msg.ResourcesJSON) > 0 {
+					var resources []api.ResourceStatus
+					if json.Unmarshal(msg.ResourcesJSON, &resources) == nil {
+						m.treeView.SetResourceStatuses(msg.AppName, resources)
+					}
+				}
 			}
 			// Reset cursor for tree view
 			m.state.Navigation.SelectedIdx = 0
@@ -371,7 +388,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
-		return m, nil
+		// Continue consuming watch events to receive app updates (for sync status)
+		return m, m.consumeWatchEvent()
 
 		// removed: resources list loader
 

@@ -75,7 +75,8 @@ type ArgoApplication struct {
 			StartedAt  time.Time `json:"startedAt,omitempty"`
 			FinishedAt time.Time `json:"finishedAt,omitempty"`
 		} `json:"operationState,omitempty"`
-		History []DeploymentHistory `json:"history,omitempty"`
+		History   []DeploymentHistory `json:"history,omitempty"`
+		Resources []ResourceStatus    `json:"resources,omitempty"`
 	} `json:"status"`
 }
 
@@ -486,6 +487,17 @@ type ResourceInfo struct {
 // ResourceTree represents the resource tree response from ArgoCD API
 type ResourceTree struct {
 	Nodes []ResourceNode `json:"nodes"`
+}
+
+// ResourceStatus holds sync/health status for a managed resource (from Application.status.resources[])
+type ResourceStatus struct {
+	Group     string          `json:"group"`
+	Kind      string          `json:"kind"`
+	Name      string          `json:"name"`
+	Namespace string          `json:"namespace,omitempty"`
+	Status    string          `json:"status"` // Sync status: "Synced", "OutOfSync"
+	Version   string          `json:"version"`
+	Health    *ResourceHealth `json:"health,omitempty"`
 }
 
 // GetResourceTree retrieves the resource tree for an application
