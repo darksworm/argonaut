@@ -201,7 +201,7 @@ func main() {
 	applyTheme(palette)
 
 	// Create the initial model
-	m := NewModel()
+	m := NewModel(argonautConfig)
 
 	// Check if this is a new version (for "what's new" notification)
 	if appVersion != "dev" {

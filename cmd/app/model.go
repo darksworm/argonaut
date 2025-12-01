@@ -12,6 +12,7 @@ import (
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
+	"github.com/darksworm/argonaut/pkg/config"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -30,6 +31,9 @@ type Model struct {
 	navigationService services.NavigationService
 	statusService     services.StatusService
 	updateService     services.UpdateService
+
+	// Configuration
+	config *config.ArgonautConfig
 
 	// Interactive input components using bubbles
 	inputComponents *InputComponentState

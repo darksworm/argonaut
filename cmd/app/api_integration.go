@@ -279,7 +279,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		m.state.Diff.Loading = false
 
 		// 1) Interactive diff viewer: replace the terminal (e.g., vimdiff, meld)
-		if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
+		if viewer := m.config.GetDiffViewer(); viewer != "" {
 			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
 		}
 
@@ -370,7 +370,7 @@ func (m *Model) startResourceDiffSession(appName, group, kind, namespace, name s
 		m.state.Diff.Loading = false
 
 		// Support interactive diff viewer
-		if viewer := os.Getenv("ARGONAUT_DIFF_VIEWER"); viewer != "" {
+		if viewer := m.config.GetDiffViewer(); viewer != "" {
 			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
 		}
 

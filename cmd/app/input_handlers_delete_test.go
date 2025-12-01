@@ -32,7 +32,7 @@ func testKeyMsg(s string) tea.KeyMsg {
 
 // Test helper to create model for delete testing
 func buildDeleteTestModel(cols, rows int) *Model {
-	m := NewModel()
+	m := NewModel(nil)
 	m.ready = true
 	m.state.Terminal.Cols = cols
 	m.state.Terminal.Rows = rows

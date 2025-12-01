@@ -87,7 +87,7 @@ func (m *Model) runDiffFormatter(diffText string) (string, error) {
 
 // runDiffFormatterWithTitle runs a diff formatter with optional resource name for better headers
 func (m *Model) runDiffFormatterWithTitle(diffText string, resourceName string) (string, error) {
-	cmdStr := os.Getenv("ARGONAUT_DIFF_FORMATTER")
+	cmdStr := m.config.GetDiffFormatter()
 	cols := 0
 	if m.state != nil {
 		cols = m.state.Terminal.Cols
