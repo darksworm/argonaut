@@ -53,12 +53,13 @@ type ArgoApiService interface {
 
 // ArgoApiEvent represents events from the ArgoCD API
 type ArgoApiEvent struct {
-	Type    string      `json:"type"`
-	Apps    []model.App `json:"apps,omitempty"`
-	App     *model.App  `json:"app,omitempty"`
-	AppName string      `json:"appName,omitempty"`
-	Error   error       `json:"error,omitempty"`
-	Status  string      `json:"status,omitempty"`
+	Type      string               `json:"type"`
+	Apps      []model.App          `json:"apps,omitempty"`
+	App       *model.App           `json:"app,omitempty"`
+	AppName   string               `json:"appName,omitempty"`
+	Error     error                `json:"error,omitempty"`
+	Status    string               `json:"status,omitempty"`
+	Resources []api.ResourceStatus `json:"resources,omitempty"` // Resource sync statuses for tree view
 }
 
 // ResourceDiff represents a resource difference
@@ -386,8 +387,9 @@ func (s *ArgoApiServiceImpl) handleWatchEvent(event api.ApplicationWatchEvent, e
 		// Convert to our model
 		app := s.appService.ConvertToApp(event.Application)
 		eventChan <- ArgoApiEvent{
-			Type: "app-updated",
-			App:  &app,
+			Type:      "app-updated",
+			App:       &app,
+			Resources: event.Application.Status.Resources,
 		}
 	}
 }
