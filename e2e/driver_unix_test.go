@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/creack/pty"
+	"github.com/hinshun/vt10x"
 )
 
 const ringSize = 1 << 20 // 1 MiB scrollback
@@ -43,6 +44,12 @@ type TUITestFramework struct {
 	buf  []byte
 	head int
 	full bool
+
+	// vt is a terminal emulator that interprets cursor positioning
+	// to give us the actual screen state, not just raw output
+	vt     vt10x.Terminal
+	vtRows int
+	vtCols int
 }
 
 func NewTUITest(t *testing.T) *TUITestFramework {
@@ -129,8 +136,12 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 	tf.cmd.Env = env
 
 	// Set window size
-	ws := struct{ Row, Col, X, Y uint16 }{40, 120, 0, 0}
+	tf.vtRows, tf.vtCols = 40, 120
+	ws := struct{ Row, Col, X, Y uint16 }{uint16(tf.vtRows), uint16(tf.vtCols), 0, 0}
 	syscall.Syscall(syscall.SYS_IOCTL, p.Fd(), uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(&ws)))
+
+	// Initialize terminal emulator to interpret cursor positioning
+	tf.vt = vt10x.New(vt10x.WithSize(tf.vtCols, tf.vtRows))
 
 	if err := tf.cmd.Start(); err != nil {
 		_ = p.Close()
@@ -169,8 +180,15 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 	)
 	env = append(env, extraEnv...)
 	tf.cmd.Env = env
-	ws := struct{ Row, Col, X, Y uint16 }{40, 120, 0, 0}
+
+	// Set window size
+	tf.vtRows, tf.vtCols = 40, 120
+	ws := struct{ Row, Col, X, Y uint16 }{uint16(tf.vtRows), uint16(tf.vtCols), 0, 0}
 	syscall.Syscall(syscall.SYS_IOCTL, p.Fd(), uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(&ws)))
+
+	// Initialize terminal emulator to interpret cursor positioning
+	tf.vt = vt10x.New(vt10x.WithSize(tf.vtCols, tf.vtRows))
+
 	if err := tf.cmd.Start(); err != nil {
 		_ = p.Close()
 		_ = t.Close()
@@ -186,12 +204,17 @@ func (tf *TUITestFramework) readLoop() {
 		n, err := tf.pty.Read(buf)
 		if n > 0 {
 			tf.mu.Lock()
+			// Store raw output in ring buffer (for debugging/snapshots)
 			for i := 0; i < n; i++ {
 				tf.buf[tf.head] = buf[i]
 				tf.head = (tf.head + 1) % ringSize
 				if tf.head == 0 {
 					tf.full = true
 				}
+			}
+			// Feed output to terminal emulator for proper screen state
+			if tf.vt != nil {
+				_, _ = tf.vt.Write(buf[:n])
 			}
 			tf.mu.Unlock()
 		}
@@ -218,10 +241,35 @@ func (tf *TUITestFramework) Snapshot() string {
 }
 func (tf *TUITestFramework) SnapshotPlain() string { return ansiRe.ReplaceAllString(tf.Snapshot(), "") }
 
+// Screen returns the actual rendered screen content from the terminal emulator.
+// Unlike SnapshotPlain which returns raw output with ANSI codes stripped,
+// Screen properly interprets cursor positioning to show what users actually see.
+func (tf *TUITestFramework) Screen() string {
+	tf.mu.Lock()
+	defer tf.mu.Unlock()
+	if tf.vt == nil {
+		return ""
+	}
+	return tf.vt.String()
+}
+
 func (tf *TUITestFramework) WaitForPlain(substr string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if strings.Contains(tf.SnapshotPlain(), substr) {
+			return true
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	return false
+}
+
+// WaitForScreen waits for a substring to appear in the actual rendered screen.
+// Unlike WaitForPlain, this uses the terminal emulator for accurate screen state.
+func (tf *TUITestFramework) WaitForScreen(substr string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Contains(tf.Screen(), substr) {
 			return true
 		}
 		time.Sleep(25 * time.Millisecond)
@@ -274,7 +322,7 @@ func (tf *TUITestFramework) Cleanup() {
 	}
 }
 
-// saveFailureSnapshot saves both raw and plain snapshots to files for debugging
+// saveFailureSnapshot saves raw, plain, and screen snapshots to files for debugging
 func (tf *TUITestFramework) saveFailureSnapshot() {
 	// Create snapshots directory if it doesn't exist
 	snapshotDir := "test-snapshots"
@@ -295,12 +343,22 @@ func (tf *TUITestFramework) saveFailureSnapshot() {
 		tf.t.Logf("Saved raw snapshot to %s", rawPath)
 	}
 
-	// Save plain snapshot (ANSI stripped) for easy reading
+	// Save plain snapshot (ANSI stripped) for easy reading - this is the raw
+	// output stream with ANSI codes removed, NOT the actual screen state
 	plainPath := filepath.Join(snapshotDir, testName+".txt")
 	if err := os.WriteFile(plainPath, []byte(tf.SnapshotPlain()), 0o644); err != nil {
 		tf.t.Logf("Failed to save plain snapshot: %v", err)
 	} else {
 		tf.t.Logf("Saved plain snapshot to %s", plainPath)
+	}
+
+	// Save screen snapshot - this is the actual rendered screen content
+	// from the terminal emulator, showing what users would actually see
+	screenPath := filepath.Join(snapshotDir, testName+".screen")
+	if err := os.WriteFile(screenPath, []byte(tf.Screen()), 0o644); err != nil {
+		tf.t.Logf("Failed to save screen snapshot: %v", err)
+	} else {
+		tf.t.Logf("Saved screen snapshot to %s", screenPath)
 	}
 }
 
