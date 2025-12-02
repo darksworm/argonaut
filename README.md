@@ -193,9 +193,7 @@ argonaut --ca-cert=/path/to/ca.crt
 
 ## ⚙️ Configuration
 
-Argonaut stores its configuration in a TOML file at:
-- **Linux/macOS**: `~/.config/argonaut/config.toml` (or `$XDG_CONFIG_HOME/argonaut/config.toml`)
-- **Windows**: `%APPDATA%\argonaut\config.toml`
+Argonaut stores its configuration in a TOML file at `~/.config/argonaut/config.toml` (or `$XDG_CONFIG_HOME/argonaut/config.toml`).
 
 You can override the config path with the `ARGONAUT_CONFIG` environment variable.
 
