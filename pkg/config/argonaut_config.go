@@ -163,8 +163,12 @@ func GetConfigPathForHelp() string {
 	return GetArgonautConfigPath()
 }
 
-// GetK9sCommand returns the k9s command path, defaulting to "k9s" if not configured
+// GetK9sCommand returns the k9s command path, defaulting to "k9s" if not configured.
+// Priority: ARGONAUT_K9S_COMMAND env var > config file > default "k9s"
 func (c *ArgonautConfig) GetK9sCommand() string {
+	if envCmd := os.Getenv("ARGONAUT_K9S_COMMAND"); envCmd != "" {
+		return envCmd
+	}
 	if c.K9s.Command != "" {
 		return c.K9s.Command
 	}
