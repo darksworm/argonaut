@@ -402,3 +402,62 @@ func TestSaveAndLoadK9sAndDiffConfig(t *testing.T) {
 			testConfig.Diff.Formatter, loadedConfig.GetDiffFormatter())
 	}
 }
+
+func TestPortForwardConfigGetters(t *testing.T) {
+	// Save original env var
+	originalEnv := os.Getenv("ARGONAUT_PORT_FORWARD_NAMESPACE")
+	defer os.Setenv("ARGONAUT_PORT_FORWARD_NAMESPACE", originalEnv)
+
+	tests := []struct {
+		name            string
+		config          *ArgonautConfig
+		envNamespace    string
+		expectNamespace string
+	}{
+		{
+			name:            "empty config returns default argocd",
+			config:          &ArgonautConfig{},
+			expectNamespace: "argocd",
+		},
+		{
+			name: "custom namespace from config",
+			config: &ArgonautConfig{
+				PortForward: PortForwardConfig{
+					Namespace: "custom-ns",
+				},
+			},
+			expectNamespace: "custom-ns",
+		},
+		{
+			name: "env var takes precedence over config",
+			config: &ArgonautConfig{
+				PortForward: PortForwardConfig{
+					Namespace: "config-ns",
+				},
+			},
+			envNamespace:    "env-ns",
+			expectNamespace: "env-ns",
+		},
+		{
+			name:            "env var with empty config",
+			config:          &ArgonautConfig{},
+			envNamespace:    "env-only-ns",
+			expectNamespace: "env-only-ns",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up env var for this test
+			if tt.envNamespace != "" {
+				os.Setenv("ARGONAUT_PORT_FORWARD_NAMESPACE", tt.envNamespace)
+			} else {
+				os.Unsetenv("ARGONAUT_PORT_FORWARD_NAMESPACE")
+			}
+
+			if got := tt.config.GetPortForwardNamespace(); got != tt.expectNamespace {
+				t.Errorf("GetPortForwardNamespace() = %q, want %q", got, tt.expectNamespace)
+			}
+		})
+	}
+}

@@ -289,3 +289,87 @@ func TestToServerConfig_GrpcWebRootPath(t *testing.T) {
 		})
 	}
 }
+
+func TestIsPortForwardMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *ArgoCLIConfig
+		expected bool
+		hasError bool
+	}{
+		{
+			name: "Server is port-forward",
+			config: &ArgoCLIConfig{
+				CurrentContext: "port-forward",
+				Contexts: []ArgoContext{
+					{Name: "port-forward", Server: "port-forward", User: "port-forward"},
+				},
+				Servers: []ArgoServer{
+					{Server: "port-forward", PlainText: true},
+				},
+			},
+			expected: true,
+			hasError: false,
+		},
+		{
+			name: "Server is regular URL",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "https://argocd.example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "https://argocd.example.com"},
+				},
+			},
+			expected: false,
+			hasError: false,
+		},
+		{
+			name: "Server contains port-forward but is not exact match",
+			config: &ArgoCLIConfig{
+				CurrentContext: "test-context",
+				Contexts: []ArgoContext{
+					{Name: "test-context", Server: "https://port-forward.example.com", User: "admin"},
+				},
+				Servers: []ArgoServer{
+					{Server: "https://port-forward.example.com"},
+				},
+			},
+			expected: false,
+			hasError: false,
+		},
+		{
+			name: "No current context",
+			config: &ArgoCLIConfig{
+				Servers: []ArgoServer{
+					{Server: "port-forward"},
+				},
+			},
+			expected: false,
+			hasError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.config.IsPortForwardMode()
+
+			if tt.hasError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("IsPortForwardMode() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}

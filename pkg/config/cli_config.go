@@ -137,6 +137,16 @@ func (c *ArgoCLIConfig) IsCurrentServerCore() (bool, error) {
 	return serverConfig.Core, nil
 }
 
+// IsPortForwardMode returns true if the current server is configured for port-forward mode
+// This is indicated by the server URL being exactly "port-forward"
+func (c *ArgoCLIConfig) IsPortForwardMode() (bool, error) {
+	server, err := c.GetCurrentServer()
+	if err != nil {
+		return false, err
+	}
+	return server == "port-forward", nil
+}
+
 // GetCurrentToken returns the auth token for the current context
 func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 	if c.CurrentContext == "" {
