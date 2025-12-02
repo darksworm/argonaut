@@ -32,8 +32,8 @@ func TestK9s_NotFound_ShowsErrorModal(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	// Setup kubeconfig with single context (to skip context picker)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
+	// Setup kubeconfig with context matching the ArgoCD cluster name for exact match
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
 
 	// Start app with non-existent k9s command
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
@@ -122,7 +122,7 @@ func TestK9s_NoResourceSelected_ShowsStatus(t *testing.T) {
 
 	// Create mock k9s (we shouldn't need it, but set it up anyway)
 	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,
@@ -197,7 +197,7 @@ func TestK9s_OpenDeploymentResource(t *testing.T) {
 	}
 
 	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,
@@ -263,9 +263,9 @@ func TestK9s_OpenDeploymentResource(t *testing.T) {
 		t.Errorf("expected args to contain '-n default', got: %s", args)
 	}
 
-	// Should contain --context test-context
-	if !strings.Contains(args, "--context test-context") {
-		t.Errorf("expected args to contain '--context test-context', got: %s", args)
+	// Should contain --context cluster-a (matches ArgoCD cluster name)
+	if !strings.Contains(args, "--context cluster-a") {
+		t.Errorf("expected args to contain '--context cluster-a', got: %s", args)
 	}
 }
 
@@ -291,7 +291,7 @@ func TestK9s_OpenServiceResource(t *testing.T) {
 	}
 
 	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,
@@ -379,7 +379,7 @@ func TestK9s_TerminalRestoredAfterExit(t *testing.T) {
 	}
 
 	mockK9s, _ := createMockK9s(t, tf.workspace, 0)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,
@@ -443,9 +443,10 @@ func TestK9s_TerminalRestoredAfterExit(t *testing.T) {
 
 // ---- Context Selection Tests ----
 
-// TestK9s_ContextPicker_SingleContext_AutoSelects verifies that with a single
-// kubeconfig context, k9s is launched directly without showing the context picker.
-func TestK9s_ContextPicker_SingleContext_AutoSelects(t *testing.T) {
+// TestK9s_ContextPicker_SingleContext_StillShowsPicker verifies that even with a single
+// kubeconfig context, the context picker is shown for user confirmation.
+// This is intentionally strict to prevent accidentally opening the wrong cluster.
+func TestK9s_ContextPicker_SingleContext_StillShowsPicker(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -494,16 +495,27 @@ func TestK9s_ContextPicker_SingleContext_AutoSelects(t *testing.T) {
 	_ = tf.Send("j")
 	time.Sleep(200 * time.Millisecond)
 
-	// Press K - should NOT show context picker (only one context)
+	// Press K - should show context picker even with single context (safety feature)
 	_ = tf.Send("K")
 
-	// Wait for mock k9s to be launched (not context picker)
+	// Context picker should appear
+	if !tf.WaitForPlain("Select Kubernetes Context", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context picker should appear even with single context")
+	}
+
+	// Verify the single context is shown
+	if !tf.WaitForPlain("my-single-context", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context 'my-single-context' not shown in picker")
+	}
+
+	// User must explicitly select with Enter
+	_ = tf.Enter()
+
+	// Wait for mock k9s to be launched
 	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
-		snapshot := tf.SnapshotPlain()
-		if strings.Contains(snapshot, "Select Kubernetes Context") {
-			t.Fatal("context picker should NOT appear with single context")
-		}
-		t.Log(snapshot)
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("mock k9s was not launched")
 	}
 
@@ -720,7 +732,7 @@ func TestK9s_KeyboardInputForwarded(t *testing.T) {
 
 	// Use interactive mock that captures stdin
 	mockK9s, _, inputFile := createInteractiveMockK9s(t, tf.workspace)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "test-context")
+	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,

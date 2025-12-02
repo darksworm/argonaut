@@ -1300,6 +1300,8 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 	}
 
 	// If we couldn't auto-detect the context, show the context picker
+	// IMPORTANT: Always prompt user to select - never auto-select to prevent
+	// accidentally operating on the wrong cluster
 	if !contextFound {
 		contexts, err := kubeconfig.ListContextNames()
 		if err != nil || len(contexts) == 0 {
@@ -1308,12 +1310,7 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 			return m, m.openK9s(kind, namespace, "")
 		}
 
-		// If only one context exists, use it directly
-		if len(contexts) == 1 {
-			return m, m.openK9s(kind, namespace, contexts[0])
-		}
-
-		// Multiple contexts - show picker
+		// Always show picker - even with single context, user must confirm
 		m.k9sContextOptions = contexts
 		m.k9sContextSelected = 0
 		m.k9sPendingKind = kind
@@ -1366,7 +1363,9 @@ func (m *Model) handleK9sContextSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// findK9sContext tries to find a kubeconfig context for the given cluster ID
+// findK9sContext tries to find a kubeconfig context for the given cluster ID.
+// It only returns a match for EXACT matches to prevent accidentally opening
+// the wrong cluster. If no exact match is found, the caller should prompt the user.
 func (m *Model) findK9sContext(clusterID string) (string, error) {
 	kc, err := kubeconfig.Load()
 	if err != nil {
@@ -1375,32 +1374,19 @@ func (m *Model) findK9sContext(clusterID string) (string, error) {
 
 	// Special case: in-cluster means use current context
 	if clusterID == "in-cluster" {
-		return kc.GetCurrentContext(), nil
+		if current := kc.GetCurrentContext(); current != "" {
+			return current, nil
+		}
+		return "", fmt.Errorf("in-cluster specified but no current context set")
 	}
 
-	// Try to find context by name (cluster name often matches context name)
+	// Only accept exact name match - no fuzzy or partial matching
+	// This is intentionally strict to prevent opening wrong clusters
 	if ctx, found := kc.FindContextByName(clusterID); found {
 		return ctx, nil
 	}
 
-	// Try to find context where server URL contains the clusterID (hostname)
-	// This handles cases where clusterID is extracted from the server URL
-	for _, ctx := range kc.Contexts {
-		for _, cluster := range kc.Clusters {
-			if cluster.Name == ctx.Context.Cluster {
-				if strings.Contains(cluster.Cluster.Server, clusterID) {
-					return ctx.Name, nil
-				}
-			}
-		}
-	}
-
-	// Fall back to current context
-	if current := kc.GetCurrentContext(); current != "" {
-		return current, nil
-	}
-
-	return "", fmt.Errorf("no matching context found for cluster: %s", clusterID)
+	return "", fmt.Errorf("no exact context match found for cluster: %s", clusterID)
 }
 
 // handleOpenDiffForSelection opens the diff for the selected app
