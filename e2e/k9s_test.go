@@ -443,9 +443,10 @@ func TestK9s_TerminalRestoredAfterExit(t *testing.T) {
 
 // ---- Context Selection Tests ----
 
-// TestK9s_ContextPicker_SingleContext_AutoSelects verifies that with a single
-// kubeconfig context, k9s is launched directly without showing the context picker.
-func TestK9s_ContextPicker_SingleContext_AutoSelects(t *testing.T) {
+// TestK9s_ContextPicker_SingleContext_StillShowsPicker verifies that even with a single
+// kubeconfig context, the context picker is shown for user confirmation.
+// This is intentionally strict to prevent accidentally opening the wrong cluster.
+func TestK9s_ContextPicker_SingleContext_StillShowsPicker(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -494,16 +495,27 @@ func TestK9s_ContextPicker_SingleContext_AutoSelects(t *testing.T) {
 	_ = tf.Send("j")
 	time.Sleep(200 * time.Millisecond)
 
-	// Press K - should NOT show context picker (only one context)
+	// Press K - should show context picker even with single context (safety feature)
 	_ = tf.Send("K")
 
-	// Wait for mock k9s to be launched (not context picker)
+	// Context picker should appear
+	if !tf.WaitForPlain("Select Kubernetes Context", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context picker should appear even with single context")
+	}
+
+	// Verify the single context is shown
+	if !tf.WaitForPlain("my-single-context", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context 'my-single-context' not shown in picker")
+	}
+
+	// User must explicitly select with Enter
+	_ = tf.Enter()
+
+	// Wait for mock k9s to be launched
 	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
-		snapshot := tf.SnapshotPlain()
-		if strings.Contains(snapshot, "Select Kubernetes Context") {
-			t.Fatal("context picker should NOT appear with single context")
-		}
-		t.Log(snapshot)
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("mock k9s was not launched")
 	}
 
