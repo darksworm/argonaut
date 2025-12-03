@@ -119,7 +119,7 @@ func (m *Manager) Start(ctx context.Context) (int, error) {
 	m.monitorDone = make(chan struct{})
 
 	// Start monitoring goroutine
-	go m.monitor(podName)
+	go m.monitor()
 
 	return port, nil
 }
@@ -294,7 +294,7 @@ func (m *Manager) startPortForward(ctx context.Context, podName string) (*exec.C
 }
 
 // monitor watches the port-forward process and handles reconnection
-func (m *Manager) monitor(lastPodName string) {
+func (m *Manager) monitor() {
 	defer close(m.monitorDone)
 
 	for {
