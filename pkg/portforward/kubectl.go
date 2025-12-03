@@ -191,12 +191,16 @@ func (m *Manager) findReadyPod(ctx context.Context) (string, error) {
 	return pods[0], nil
 }
 
-// startPortForward starts kubectl port-forward and returns the allocated local port
+// startPortForward starts kubectl port-forward and returns the allocated local port.
+// The ctx parameter is used only for startup timeout - the kubectl process lifecycle
+// is managed explicitly via Stop() and not tied to any context.
 func (m *Manager) startPortForward(ctx context.Context, podName string) (int, error) {
 	// Use :0 to let kubectl pick an available port
 	portSpec := fmt.Sprintf(":%d", m.targetPort)
 
-	m.cmd = exec.CommandContext(ctx, "kubectl", "port-forward",
+	// Use exec.Command (not CommandContext) - we manage the process lifecycle explicitly
+	// via Stop() rather than tying it to a context that might be cancelled.
+	m.cmd = exec.Command("kubectl", "port-forward",
 		"-n", m.namespace,
 		podName,
 		portSpec,
@@ -216,6 +220,14 @@ func (m *Manager) startPortForward(ctx context.Context, podName string) (int, er
 	if err := m.cmd.Start(); err != nil {
 		return 0, fmt.Errorf("failed to start kubectl port-forward: %w", err)
 	}
+
+	// Ensure cleanup on any error path - the process is killed unless we succeed
+	started := true
+	defer func() {
+		if started && m.cmd != nil && m.cmd.Process != nil {
+			_ = m.cmd.Process.Kill()
+		}
+	}()
 
 	// Read stderr in background for logging
 	go func() {
@@ -252,18 +264,17 @@ func (m *Manager) startPortForward(ctx context.Context, podName string) (int, er
 	}()
 
 	// Wait for port or error with timeout
+	// The ctx here is only used for startup cancellation, not process lifecycle
 	select {
 	case port := <-portCh:
 		cblog.With("component", "portforward").Info("Port-forward established", "localPort", port, "targetPort", m.targetPort)
+		started = false // Success - don't kill the process, let monitor manage it
 		return port, nil
 	case err := <-errCh:
-		_ = m.cmd.Process.Kill()
 		return 0, err
 	case <-time.After(10 * time.Second):
-		_ = m.cmd.Process.Kill()
 		return 0, fmt.Errorf("timeout waiting for port-forward to establish")
 	case <-ctx.Done():
-		_ = m.cmd.Process.Kill()
 		return 0, ctx.Err()
 	}
 }
