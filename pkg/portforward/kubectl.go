@@ -43,6 +43,7 @@ type Manager struct {
 	localPort       int
 	running         bool
 	stopCh          chan struct{}
+	monitorDone     chan struct{} // closed when monitor goroutine exits
 	reconnectCount  int
 	onReconnect     func(port int)
 	onDisconnect    func(err error)
@@ -106,14 +107,16 @@ func (m *Manager) Start(ctx context.Context) (int, error) {
 	cblog.With("component", "portforward").Info("Found ArgoCD server pod", "pod", podName, "namespace", m.namespace)
 
 	// Start port-forward
-	port, err := m.startPortForward(ctx, podName)
+	cmd, port, err := m.startPortForward(ctx, podName)
 	if err != nil {
 		return 0, err
 	}
 
+	m.cmd = cmd
 	m.localPort = port
 	m.running = true
 	m.reconnectCount = 0
+	m.monitorDone = make(chan struct{})
 
 	// Start monitoring goroutine
 	go m.monitor(podName)
@@ -124,18 +127,28 @@ func (m *Manager) Start(ctx context.Context) (int, error) {
 // Stop terminates the port-forward connection
 func (m *Manager) Stop() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if !m.running {
+		m.mu.Unlock()
 		return
 	}
 
 	close(m.stopCh)
 	m.running = false
 
+	// Kill the process to unblock monitor()'s Wait() call
 	if m.cmd != nil && m.cmd.Process != nil {
 		_ = m.cmd.Process.Kill()
-		_ = m.cmd.Wait()
+	}
+
+	// Capture monitorDone before releasing lock
+	monitorDone := m.monitorDone
+	m.mu.Unlock()
+
+	// Wait for monitor goroutine to finish (outside the lock to avoid deadlock)
+	// monitor() will call Wait() on the process
+	if monitorDone != nil {
+		<-monitorDone
 	}
 
 	cblog.With("component", "portforward").Info("Port-forward stopped")
@@ -191,41 +204,42 @@ func (m *Manager) findReadyPod(ctx context.Context) (string, error) {
 	return pods[0], nil
 }
 
-// startPortForward starts kubectl port-forward and returns the allocated local port.
+// startPortForward starts kubectl port-forward and returns the command and allocated local port.
+// The caller is responsible for assigning the returned cmd to m.cmd under appropriate locking.
 // The ctx parameter is used only for startup timeout - the kubectl process lifecycle
 // is managed explicitly via Stop() and not tied to any context.
-func (m *Manager) startPortForward(ctx context.Context, podName string) (int, error) {
+func (m *Manager) startPortForward(ctx context.Context, podName string) (*exec.Cmd, int, error) {
 	// Use :0 to let kubectl pick an available port
 	portSpec := fmt.Sprintf(":%d", m.targetPort)
 
 	// Use exec.Command (not CommandContext) - we manage the process lifecycle explicitly
 	// via Stop() rather than tying it to a context that might be cancelled.
-	m.cmd = exec.Command("kubectl", "port-forward",
+	cmd := exec.Command("kubectl", "port-forward",
 		"-n", m.namespace,
 		podName,
 		portSpec,
 	)
 
 	// Capture stdout to parse the port
-	stdout, err := m.cmd.StdoutPipe()
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return 0, fmt.Errorf("failed to create stdout pipe: %w", err)
+		return nil, 0, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
-	stderr, err := m.cmd.StderrPipe()
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return 0, fmt.Errorf("failed to create stderr pipe: %w", err)
+		return nil, 0, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	if err := m.cmd.Start(); err != nil {
-		return 0, fmt.Errorf("failed to start kubectl port-forward: %w", err)
+	if err := cmd.Start(); err != nil {
+		return nil, 0, fmt.Errorf("failed to start kubectl port-forward: %w", err)
 	}
 
 	// Ensure cleanup on any error path - the process is killed unless we succeed
 	started := true
 	defer func() {
-		if started && m.cmd != nil && m.cmd.Process != nil {
-			_ = m.cmd.Process.Kill()
+		if started && cmd.Process != nil {
+			_ = cmd.Process.Kill()
 		}
 	}()
 
@@ -269,28 +283,42 @@ func (m *Manager) startPortForward(ctx context.Context, podName string) (int, er
 	case port := <-portCh:
 		cblog.With("component", "portforward").Info("Port-forward established", "localPort", port, "targetPort", m.targetPort)
 		started = false // Success - don't kill the process, let monitor manage it
-		return port, nil
+		return cmd, port, nil
 	case err := <-errCh:
-		return 0, err
+		return nil, 0, err
 	case <-time.After(10 * time.Second):
-		return 0, fmt.Errorf("timeout waiting for port-forward to establish")
+		return nil, 0, fmt.Errorf("timeout waiting for port-forward to establish")
 	case <-ctx.Done():
-		return 0, ctx.Err()
+		return nil, 0, ctx.Err()
 	}
 }
 
 // monitor watches the port-forward process and handles reconnection
 func (m *Manager) monitor(lastPodName string) {
+	defer close(m.monitorDone)
+
 	for {
 		select {
 		case <-m.stopCh:
+			// Drain the process before exiting
+			m.mu.RLock()
+			cmd := m.cmd
+			m.mu.RUnlock()
+			if cmd != nil {
+				_ = cmd.Wait()
+			}
 			return
 		default:
 		}
 
+		// Get cmd under lock to avoid data race
+		m.mu.RLock()
+		cmd := m.cmd
+		m.mu.RUnlock()
+
 		// Wait for process to exit
-		if m.cmd != nil {
-			err := m.cmd.Wait()
+		if cmd != nil {
+			err := cmd.Wait()
 			cblog.With("component", "portforward").Warn("Port-forward disconnected", "err", err)
 		}
 
@@ -333,7 +361,7 @@ func (m *Manager) monitor(lastPodName string) {
 			continue
 		}
 
-		port, err := m.startPortForward(ctx, podName)
+		cmd, port, err := m.startPortForward(ctx, podName)
 		cancel()
 
 		if err != nil {
@@ -342,6 +370,7 @@ func (m *Manager) monitor(lastPodName string) {
 		}
 
 		m.mu.Lock()
+		m.cmd = cmd
 		m.localPort = port
 		m.reconnectCount = 0 // Reset on successful reconnection
 		m.mu.Unlock()
