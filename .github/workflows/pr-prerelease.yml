@@ -3,6 +3,8 @@ name: PR Pre-release Build
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -12,24 +14,73 @@ permissions:
 jobs:
   check-release-pr:
     runs-on: ubuntu-latest
+    # Run on release-please PRs OR when someone comments /prerelease on any PR
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/prerelease'))
     outputs:
       is_release_pr: ${{ steps.check.outputs.is_release_pr }}
+      should_build: ${{ steps.check.outputs.should_build }}
+      pr_ref: ${{ steps.check.outputs.pr_ref }}
+      pr_sha: ${{ steps.check.outputs.pr_sha }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
-      - name: Check if this is a release-please PR
+      - name: Get PR details for comment trigger
+        id: pr-details
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('ref', pr.data.head.ref);
+            core.setOutput('sha', pr.data.head.sha);
+            core.setOutput('title', pr.data.title);
+
+      - name: Check if this is a release-please PR or manual trigger
         id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_PR_REF: ${{ steps.pr-details.outputs.ref }}
+          COMMENT_PR_SHA: ${{ steps.pr-details.outputs.sha }}
         run: |
-          # Check if this is a release-please PR by branch name and title pattern
-          if [[ "${{ github.event.pull_request.head.ref }}" =~ ^release-please--branches--main ]] && [[ "${{ github.event.pull_request.title }}" =~ ^chore\(main\):\ release ]]; then
-            echo "is_release_pr=true" >> $GITHUB_OUTPUT
-            echo "Detected release-please PR: ${{ github.event.pull_request.title }}"
-          else
+          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            # Manual trigger via /prerelease comment
+            echo "should_build=true" >> $GITHUB_OUTPUT
             echo "is_release_pr=false" >> $GITHUB_OUTPUT
-            echo "Not a release-please PR - Branch: ${{ github.event.pull_request.head.ref }}, Title: ${{ github.event.pull_request.title }}"
+            echo "pr_ref=$COMMENT_PR_REF" >> $GITHUB_OUTPUT
+            echo "pr_sha=$COMMENT_PR_SHA" >> $GITHUB_OUTPUT
+            echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            echo "Manual pre-release build requested via comment"
+          else
+            # Check if this is a release-please PR by branch name and title pattern
+            echo "pr_ref=$PR_HEAD_REF" >> $GITHUB_OUTPUT
+            echo "pr_sha=$PR_HEAD_SHA" >> $GITHUB_OUTPUT
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            if [[ "$PR_HEAD_REF" =~ ^release-please--branches--main ]] && [[ "$PR_TITLE" =~ ^chore\(main\):\ release ]]; then
+              echo "is_release_pr=true" >> $GITHUB_OUTPUT
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "Detected release-please PR: $PR_TITLE"
+            else
+              echo "is_release_pr=false" >> $GITHUB_OUTPUT
+              echo "should_build=false" >> $GITHUB_OUTPUT
+              echo "Not a release-please PR - Branch: $PR_HEAD_REF, Title: $PR_TITLE"
+            fi
           fi
 
   build-prerelease:
     needs: check-release-pr
-    if: needs.check-release-pr.outputs.is_release_pr == 'true'
+    if: needs.check-release-pr.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     outputs:
       pre_version: ${{ steps.version.outputs.version }}
@@ -38,7 +89,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ needs.check-release-pr.outputs.pr_sha }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -62,9 +113,9 @@ jobs:
         id: version
         run: |
           # Extract version from release-please PR title and add -dev suffix
-          if [[ "${{ github.event.pull_request.head.ref }}" =~ ^release-please--branches--main ]]; then
+          if [[ "${{ needs.check-release-pr.outputs.is_release_pr }}" == "true" ]]; then
             # Extract version from PR title: "chore(main): release X.Y.Z"
-            BASE_VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP 'release \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+            BASE_VERSION=$(echo "${{ needs.check-release-pr.outputs.pr_ref }}" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
             if [[ -z "$BASE_VERSION" ]]; then
               VERSION="dev-snapshot-$(git rev-parse --short HEAD)"
             else
