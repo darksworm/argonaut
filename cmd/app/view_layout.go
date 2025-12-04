@@ -131,6 +131,16 @@ func (m *Model) renderMainLayout() string {
 		sections = append(sections, commandBar)
 	}
 
+	// Set desaturate mode on tree view if a modal with desaturation will be shown
+	// This makes the tree view only highlight selected items (not cursor) with scoped highlights
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree {
+		willDesaturate := m.state.Mode == model.ModeConfirmResourceDelete ||
+			m.state.Mode == model.ModeConfirmAppDelete ||
+			m.state.Mode == model.ModeConfirmSync ||
+			m.state.Modals.ConfirmSyncLoading
+		m.treeView.SetDesaturateMode(willDesaturate)
+	}
+
 	if m.state.Navigation.View == model.ViewTree {
 		sections = append(sections, m.renderTreePanel(listRows))
 	} else {
@@ -261,6 +271,22 @@ func (m *Model) renderMainLayout() string {
 			modal = m.renderAppDeleteLoadingModal()
 		} else {
 			modal = m.renderAppDeleteConfirmModal()
+		}
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
+	// Resource Delete modal (confirmation or loading state)
+	if m.state.Mode == model.ModeConfirmResourceDelete {
+		modal := ""
+		if m.state.Modals.ResourceDeleteLoading {
+			modal = m.renderResourceDeleteLoadingModal()
+		} else {
+			modal = m.renderResourceDeleteConfirmModal()
 		}
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)

@@ -100,7 +100,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Terminal.Rows = msg.Height
 		m.state.Terminal.Cols = msg.Width
 		if m.treeView != nil {
-			m.treeView.SetSize(msg.Width, msg.Height)
+			m.treeView.SetSize(m.contentInnerWidth(), msg.Height)
 		}
 		if !m.ready {
 			m.ready = true
@@ -697,6 +697,53 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusService.Set(fmt.Sprintf("Failed to delete %s: %s", msg.AppName, msg.Error))
 		m.state.Modals.DeleteError = &msg.Error
 		m.state.Modals.DeleteLoading = false
+		// Keep modal open to show error
+		return m, nil
+
+	case model.ResourceDeleteSuccessMsg:
+		// Handle successful resource deletion
+		m.statusService.Set(fmt.Sprintf("Successfully deleted %d resource(s)", msg.Count))
+
+		// Clear selections in tree view
+		if m.treeView != nil {
+			m.treeView.ClearSelection()
+		}
+
+		// Clear modal state and return to normal mode
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceDeleteAppName = nil
+		m.state.Modals.ResourceDeleteTargets = nil
+		m.state.Modals.ResourceDeleteConfirmationKey = ""
+		m.state.Modals.ResourceDeleteError = nil
+		m.state.Modals.ResourceDeleteLoading = false
+
+		// Trigger a refresh of the affected apps' resource trees
+		if len(msg.AppNames) > 0 && m.state.Navigation.View == model.ViewTree {
+			var cmds []tea.Cmd
+			for _, appName := range msg.AppNames {
+				var appObj *model.App
+				for i := range m.state.Apps {
+					if m.state.Apps[i].Name == appName {
+						appObj = &m.state.Apps[i]
+						break
+					}
+				}
+				if appObj == nil {
+					appObj = &model.App{Name: appName}
+				}
+				cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+			}
+			if len(cmds) > 0 {
+				return m, tea.Batch(cmds...)
+			}
+		}
+		return m, nil
+
+	case model.ResourceDeleteErrorMsg:
+		// Handle resource deletion error
+		m.statusService.Set(fmt.Sprintf("Resource deletion failed: %s", msg.Error))
+		m.state.Modals.ResourceDeleteError = &msg.Error
+		m.state.Modals.ResourceDeleteLoading = false
 		// Keep modal open to show error
 		return m, nil
 

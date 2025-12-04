@@ -1013,3 +1013,86 @@ func (m *Model) deleteSingleApplication(appName string, namespace *string, casca
 		return model.AppDeleteSuccessMsg{AppName: appName}
 	}
 }
+
+// deleteSelectedResources deletes the specified resources from the cluster
+func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, cascade bool, propagationPolicy string, force bool) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ResourceDeleteErrorMsg{Error: "No server configured"}
+		}
+	}
+
+	if len(targets) == 0 {
+		return func() tea.Msg {
+			return model.ResourceDeleteErrorMsg{Error: "No resources selected"}
+		}
+	}
+
+	// Map cascade/propagationPolicy to orphan parameter
+	// orphan=true when cascade=false OR propagationPolicy="orphan"
+	orphan := !cascade || propagationPolicy == "orphan"
+
+	// Collect unique app names for refresh after deletion
+	appNameSet := make(map[string]bool)
+	for _, target := range targets {
+		appNameSet[target.AppName] = true
+	}
+	appNames := make([]string, 0, len(appNameSet))
+	for name := range appNameSet {
+		appNames = append(appNames, name)
+	}
+
+	return func() tea.Msg {
+		cblog.With("component", "resource-delete").Info("Starting resource deletion",
+			"count", len(targets), "cascade", cascade, "policy", propagationPolicy, "orphan", orphan, "force", force)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		appService := api.NewApplicationService(m.state.Server)
+
+		var failedResources []string
+		successCount := 0
+
+		for _, target := range targets {
+			cblog.With("component", "resource-delete").Debug("Deleting resource",
+				"kind", target.Kind, "name", target.Name, "namespace", target.Namespace,
+				"version", target.Version, "group", target.Group,
+				"progress", fmt.Sprintf("%d/%d", successCount+len(failedResources)+1, len(targets)))
+
+			req := api.DeleteResourceRequest{
+				AppName:      target.AppName,
+				ResourceName: target.Name,
+				Kind:         target.Kind,
+				Namespace:    target.Namespace,
+				Version:      target.Version,
+				Group:        target.Group,
+				Orphan:       orphan,
+				Force:        force,
+			}
+
+			err := appService.DeleteResource(ctx, req)
+			if err != nil {
+				cblog.With("component", "resource-delete").Error("Failed to delete resource",
+					"kind", target.Kind, "name", target.Name, "err", err)
+				failedResources = append(failedResources, fmt.Sprintf("%s/%s: %v", target.Kind, target.Name, err))
+			} else {
+				cblog.With("component", "resource-delete").Info("Successfully deleted resource",
+					"kind", target.Kind, "name", target.Name)
+				successCount++
+			}
+		}
+
+		// Handle results
+		if len(failedResources) > 0 {
+			cblog.With("component", "resource-delete").Error("Resource deletion partially failed",
+				"failed", len(failedResources), "succeeded", successCount, "total", len(targets))
+			errorMsg := fmt.Sprintf("Failed to delete %d/%d resources: %s",
+				len(failedResources), len(targets), strings.Join(failedResources, "; "))
+			return model.ResourceDeleteErrorMsg{Error: errorMsg}
+		}
+
+		cblog.With("component", "resource-delete").Info("Resource deletion completed successfully", "count", successCount)
+		return model.ResourceDeleteSuccessMsg{Count: successCount, AppNames: appNames}
+	}
+}

@@ -57,7 +57,7 @@ func (m *Model) renderHelpModal() string {
 	treeView := strings.Join([]string{
 		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
 		"\n",
-		mono(":diff"), " ", bullet(), " ", mono(":up"), " return to apps",
+		keycap("Space"), " select ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":up"), " return to apps",
 	}, "")
 
 	var helpSections []string
@@ -615,6 +615,140 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 // renderAppDeleteLoadingModal renders the loading state during application deletion
 func (m *Model) renderAppDeleteLoadingModal() string {
 	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Deleting application..."))
+	content := msg
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Padding(1, 2)
+	minW := 32
+	w := max(minW, lipgloss.Width(content)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}
+
+// renderResourceDeleteConfirmModal renders the resource delete confirmation modal
+func (m *Model) renderResourceDeleteConfirmModal() string {
+	if m.state.Modals.ResourceDeleteAppName == nil {
+		return ""
+	}
+
+	targets := m.state.Modals.ResourceDeleteTargets
+	count := len(targets)
+
+	// Modal width: compact and centered (like sync modal)
+	half := m.state.Terminal.Cols / 2
+	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+
+	// Message: make all title text bright and readable
+	var titleLine string
+	{
+		deletePart := lipgloss.NewStyle().Foreground(whiteBright).Render("Delete ")
+		var subject string
+		if count == 1 {
+			target := targets[0]
+			if target.Namespace != "" {
+				subject = fmt.Sprintf("%s/%s/%s", target.Kind, target.Namespace, target.Name)
+			} else {
+				subject = fmt.Sprintf("%s/%s", target.Kind, target.Name)
+			}
+		} else {
+			subject = fmt.Sprintf("%d resource(s)", count)
+		}
+		subjectStyled := lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
+		qmark := lipgloss.NewStyle().Foreground(whiteBright).Render("?")
+		titleLine = deletePart + subjectStyled + qmark
+	}
+
+	// Delete button shows confirmation requirement and state
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(outOfSyncColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
+
+	var deleteBtn string
+	if m.state.Modals.ResourceDeleteConfirmationKey == "y" || m.state.Modals.ResourceDeleteConfirmationKey == "Y" {
+		deleteBtn = active.Render("Delete")
+	} else {
+		deleteBtn = inactive.Render("Delete (y)")
+	}
+
+	// Simple rounded border with red accent for danger
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Padding(1, 2).
+		Width(modalWidth)
+
+	// Center helpers
+	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+
+	title := center.Render(titleLine)
+
+	buttons := center.Render(deleteBtn)
+
+	// Options line for cascade toggle and propagation policy
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+
+	// Cascade option
+	var cascadeLine strings.Builder
+	cascadeLine.WriteString(dim.Render("c: Cascade "))
+	if m.state.Modals.ResourceDeleteCascade {
+		cascadeLine.WriteString(on.Render("On"))
+		cascadeLine.WriteString(dim.Render(" (all resources deleted)"))
+	} else {
+		cascadeLine.WriteString(dim.Render("Off"))
+		cascadeLine.WriteString(dim.Render(" (resources orphaned)"))
+	}
+
+	// Propagation policy option
+	var policyLine strings.Builder
+	policyLine.WriteString(dim.Render("p: Policy "))
+	policyLine.WriteString(on.Render(m.state.Modals.ResourceDeletePropagationPolicy))
+	switch m.state.Modals.ResourceDeletePropagationPolicy {
+	case "foreground":
+		policyLine.WriteString(dim.Render(" (wait for cleanup)"))
+	case "background":
+		policyLine.WriteString(dim.Render(" (async cleanup)"))
+	case "orphan":
+		policyLine.WriteString(dim.Render(" (no cleanup)"))
+	}
+
+	// Force option
+	var forceLine strings.Builder
+	forceLine.WriteString(dim.Render("f: Force "))
+	if m.state.Modals.ResourceDeleteForce {
+		forceLine.WriteString(on.Render("On"))
+		forceLine.WriteString(dim.Render(" (ignore finalizers)"))
+	} else {
+		forceLine.WriteString(dim.Render("Off"))
+	}
+
+	cascadeStr := center.Render(cascadeLine.String())
+	policyStr := center.Render(policyLine.String())
+	forceStr := center.Render(forceLine.String())
+	aux := cascadeStr + "\n" + policyStr + "\n" + forceStr
+
+	// Lines are already centered to innerWidth
+	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
+
+	// Error display if any
+	if m.state.Modals.ResourceDeleteError != nil {
+		errorMsg := center.Render(lipgloss.NewStyle().
+			Foreground(outOfSyncColor).
+			Render("Error: " + *m.state.Modals.ResourceDeleteError))
+		body += "\n\n" + errorMsg
+	}
+
+	// Add outer whitespace so the modal doesn't sit directly on top of content
+	outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right
+	return outer.Render(wrapper.Render(body))
+}
+
+// renderResourceDeleteLoadingModal renders the loading state during resource deletion
+func (m *Model) renderResourceDeleteLoadingModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Deleting resource(s)..."))
 	content := msg
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

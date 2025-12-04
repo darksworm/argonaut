@@ -406,10 +406,26 @@ func normalizeLinesToWidth(s string, width int) string {
 // ANSI escape sequence regex for colors/styles
 var ansiRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
-// desaturateANSI strips ANSI color/style codes and recolors text dim gray
+// Regex to detect background color codes in ANSI sequences
+// Matches: 4X (basic bg), 10X (bright bg), 48;5;X (256-color bg), 48;2;R;G;B (truecolor bg)
+var bgColorRE = regexp.MustCompile("\x1b\\[(?:[0-9;]*;)?(?:4[0-7]|10[0-7]|48;[25];[0-9;]+)m")
+
+// desaturateANSI strips ANSI color/style codes and recolors text.
+// Lines with background colors are preserved as-is (they represent selected items).
+// Other lines are dimmed.
 func desaturateANSI(s string) string {
-	plain := ansiRE.ReplaceAllString(s, "")
-	return lipgloss.NewStyle().Foreground(dimColor).Render(plain)
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if bgColorRE.MatchString(line) {
+			// Line has background color - preserve it as-is (selected item)
+			// Don't modify - keep the original styling from tree view
+			continue
+		}
+		// Regular line - dim it
+		plain := ansiRE.ReplaceAllString(line, "")
+		lines[i] = lipgloss.NewStyle().Foreground(dimColor).Render(plain)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // padLeft returns s left-padded with spaces to the given visible width (ANSI-aware)

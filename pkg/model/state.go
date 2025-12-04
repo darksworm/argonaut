@@ -132,7 +132,7 @@ type ModalState struct {
 	UpgradeSelected int     `json:"upgradeSelected"` // 0 = Continue, 1 = Cancel
 	UpgradeLoading  bool    `json:"upgradeLoading"`
 	UpgradeError    *string `json:"upgradeError,omitempty"` // Error message for upgrade failures
-	// Delete confirmation modal state
+	// Delete confirmation modal state (for apps)
 	DeleteAppName          *string `json:"deleteAppName,omitempty"`
 	DeleteAppNamespace     *string `json:"deleteAppNamespace,omitempty"`
 	DeleteConfirmationKey  string  `json:"deleteConfirmationKey"` // Track what user has typed
@@ -140,6 +140,16 @@ type ModalState struct {
 	DeleteError            *string `json:"deleteError,omitempty"`
 	DeleteCascade          bool    `json:"deleteCascade"`          // Default true
 	DeletePropagationPolicy string `json:"deletePropagationPolicy"` // Default "foreground"
+	// Resource delete confirmation modal state
+	ResourceDeleteAppName           *string                `json:"resourceDeleteAppName,omitempty"`
+	ResourceDeleteAppNamespace      *string                `json:"resourceDeleteAppNamespace,omitempty"`
+	ResourceDeleteTargets           []ResourceDeleteTarget `json:"resourceDeleteTargets,omitempty"`
+	ResourceDeleteConfirmationKey   string                 `json:"resourceDeleteConfirmationKey"` // Track what user has typed
+	ResourceDeleteLoading           bool                   `json:"resourceDeleteLoading"`
+	ResourceDeleteError             *string                `json:"resourceDeleteError,omitempty"`
+	ResourceDeleteCascade           bool                   `json:"resourceDeleteCascade"`           // Default true
+	ResourceDeletePropagationPolicy string                 `json:"resourceDeletePropagationPolicy"` // Default "foreground"
+	ResourceDeleteForce             bool                   `json:"resourceDeleteForce"`             // Force deletion
 	// Changelog loading modal state
 	ChangelogLoading bool `json:"changelogLoading"`
 	// K9s error modal state

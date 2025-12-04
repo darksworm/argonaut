@@ -28,8 +28,9 @@ const (
 	ModeHelp            Mode = "help"
 	ModeConfirmSync     Mode = "confirm-sync"
 	ModeRollback        Mode = "rollback"
-	ModeConfirmAppDelete Mode = "confirm-app-delete"
-	ModeExternal        Mode = "external"
+	ModeConfirmAppDelete      Mode = "confirm-app-delete"
+	ModeConfirmResourceDelete Mode = "confirm-resource-delete"
+	ModeExternal              Mode = "external"
 	ModeDiff            Mode = "diff"
 	ModeAuthRequired    Mode = "auth-required"
 	ModeRulerLine       Mode = "rulerline"
@@ -231,4 +232,14 @@ type UpdateInfo struct {
 	LastChecked      time.Time     `json:"last_checked"`
 	CheckIntervalMin int           `json:"check_interval_min"`
 	NotificationShownAt *time.Time `json:"notification_shown_at,omitempty"`
+}
+
+// ResourceDeleteTarget represents a resource to be deleted
+type ResourceDeleteTarget struct {
+	AppName   string `json:"appName"`
+	Group     string `json:"group"`
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Version   string `json:"version"`
 }

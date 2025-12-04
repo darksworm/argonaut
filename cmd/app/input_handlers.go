@@ -819,6 +819,147 @@ func (m *Model) executeAppDeletion() (tea.Model, tea.Cmd) {
 	}
 }
 
+// handleResourceDelete initiates the resource deletion confirmation
+func (m *Model) handleResourceDelete() (tea.Model, tea.Cmd) {
+	// Only work in tree view
+	if m.state.Navigation.View != model.ViewTree {
+		return m, nil
+	}
+
+	if m.treeView == nil {
+		return m, nil
+	}
+
+	// Early check: if no multi-selection and cursor is on Missing resource, silently reject
+	if !m.treeView.HasSelection() && m.treeView.CurrentResourceIsMissing() {
+		return m, nil
+	}
+
+	// Get selected resources
+	selections := m.treeView.GetSelectedResources()
+	if len(selections) == 0 {
+		// No resources to delete (e.g., Application node selected)
+		return m, nil
+	}
+
+	// Filter out Missing resources (already deleted)
+	var validSelections []treeview.ResourceSelection
+	for _, sel := range selections {
+		if sel.IsMissing() {
+			continue
+		}
+		validSelections = append(validSelections, sel)
+	}
+
+	// If all selections were Missing, silently reject
+	if len(validSelections) == 0 {
+		return m, nil
+	}
+
+	// Convert to ResourceDeleteTarget
+	targets := make([]model.ResourceDeleteTarget, 0, len(validSelections))
+	for _, sel := range validSelections {
+		targets = append(targets, model.ResourceDeleteTarget{
+			AppName:   sel.AppName,
+			Group:     sel.Group,
+			Version:   sel.Version,
+			Kind:      sel.Kind,
+			Namespace: sel.Namespace,
+			Name:      sel.Name,
+		})
+	}
+
+	// Get app name for the modal
+	appName := m.treeView.GetAppName()
+	if len(targets) > 0 {
+		appName = targets[0].AppName
+	}
+
+	// Set up modal state
+	m.state.Mode = model.ModeConfirmResourceDelete
+	m.state.Modals.ResourceDeleteAppName = &appName
+	m.state.Modals.ResourceDeleteAppNamespace = nil // TODO: Get from app if needed
+	m.state.Modals.ResourceDeleteTargets = targets
+	m.state.Modals.ResourceDeleteConfirmationKey = ""
+	m.state.Modals.ResourceDeleteError = nil
+	m.state.Modals.ResourceDeleteLoading = false
+	m.state.Modals.ResourceDeleteCascade = true        // Default to cascade
+	m.state.Modals.ResourceDeletePropagationPolicy = "foreground"
+	m.state.Modals.ResourceDeleteForce = false
+
+	cblog.With("component", "resource-delete").Debug("Opening resource delete confirmation", "count", len(targets))
+
+	return m, nil
+}
+
+// handleConfirmResourceDeleteKeys handles input when in resource delete confirmation mode
+func (m *Model) handleConfirmResourceDeleteKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc", "ctrl+c":
+		// Cancel deletion and return to normal mode
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceDeleteAppName = nil
+		m.state.Modals.ResourceDeleteTargets = nil
+		m.state.Modals.ResourceDeleteConfirmationKey = ""
+		m.state.Modals.ResourceDeleteError = nil
+		m.state.Modals.ResourceDeleteLoading = false
+		return m, nil
+	case "backspace":
+		// Remove the last character from confirmation key
+		if len(m.state.Modals.ResourceDeleteConfirmationKey) > 0 {
+			m.state.Modals.ResourceDeleteConfirmationKey = m.state.Modals.ResourceDeleteConfirmationKey[:len(m.state.Modals.ResourceDeleteConfirmationKey)-1]
+		}
+		return m, nil
+	case "c":
+		// Toggle cascade option
+		m.state.Modals.ResourceDeleteCascade = !m.state.Modals.ResourceDeleteCascade
+		return m, nil
+	case "p":
+		// Cycle through propagation policies: foreground -> background -> orphan -> foreground
+		switch m.state.Modals.ResourceDeletePropagationPolicy {
+		case "foreground":
+			m.state.Modals.ResourceDeletePropagationPolicy = "background"
+		case "background":
+			m.state.Modals.ResourceDeletePropagationPolicy = "orphan"
+		case "orphan":
+			m.state.Modals.ResourceDeletePropagationPolicy = "foreground"
+		default:
+			m.state.Modals.ResourceDeletePropagationPolicy = "foreground"
+		}
+		return m, nil
+	case "f":
+		// Toggle force option
+		m.state.Modals.ResourceDeleteForce = !m.state.Modals.ResourceDeleteForce
+		return m, nil
+	default:
+		// Record the key press
+		keyStr := msg.String()
+		if len(keyStr) == 1 {
+			m.state.Modals.ResourceDeleteConfirmationKey = keyStr
+			if keyStr == "y" || keyStr == "Y" {
+				return m.executeResourceDeletion()
+			}
+		}
+		return m, nil
+	}
+}
+
+// executeResourceDeletion performs the actual resource deletion after confirmation
+func (m *Model) executeResourceDeletion() (tea.Model, tea.Cmd) {
+	if m.state.Modals.ResourceDeleteAppName == nil || len(m.state.Modals.ResourceDeleteTargets) == 0 {
+		return m, nil
+	}
+
+	m.state.Modals.ResourceDeleteLoading = true
+
+	return m, m.deleteSelectedResources(
+		m.state.Modals.ResourceDeleteTargets,
+		m.state.Modals.ResourceDeleteCascade,
+		m.state.Modals.ResourceDeletePropagationPolicy,
+		m.state.Modals.ResourceDeleteForce,
+	)
+}
+
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -983,6 +1124,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleRollbackModeKeys(msg)
 	case model.ModeConfirmAppDelete:
 		return m.handleConfirmAppDeleteKeys(msg)
+	case model.ModeConfirmResourceDelete:
+		return m.handleConfirmResourceDeleteKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
 	case model.ModeAuthRequired:
@@ -1059,6 +1202,19 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "d":
 			// Show diff for the selected resource
 			return m.handleResourceDiff()
+		case " ", "space":
+			// Toggle selection for delete
+			if m.treeView != nil {
+				if !m.treeView.ToggleSelection() && m.treeView.CurrentResourceIsMissing() {
+					return m, func() tea.Msg {
+						return model.StatusChangeMsg{Status: "Cannot select: resource is missing"}
+					}
+				}
+			}
+			return m, nil
+		case "ctrl+d":
+			// Open delete confirmation for selected resource(s)
+			return m.handleResourceDelete()
 		case ":":
 			// Enter command mode
 			return m.handleEnterCommandMode()
@@ -1114,9 +1270,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
 		}
 	case "ctrl+d":
-		// Open delete confirmation for selected app (apps view)
+		// Open delete confirmation for selected app (apps view) or resource (tree view)
 		if m.state.Navigation.View == model.ViewApps {
 			return m.handleAppDelete()
+		}
+		if m.state.Navigation.View == model.ViewTree {
+			return m.handleResourceDelete()
 		}
 		return m, nil
 	case "esc":
@@ -1158,7 +1317,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		// Reset tree view to a fresh multi-app instance
 		m.treeView = treeview.NewTreeView(0, 0)
 		m.treeView.ApplyTheme(currentPalette)
-		m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+		m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 		m.treeNav.Reset() // Reset scroll position
 		m.state.SaveNavigationState()
 		m.state.Navigation.View = model.ViewTree
@@ -1203,7 +1362,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	// Reset tree view to a fresh single-app instance
 	m.treeView = treeview.NewTreeView(0, 0)
 	m.treeView.ApplyTheme(currentPalette)
-	m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 	m.treeNav.Reset() // Reset scroll position
 	m.state.SaveNavigationState()
 	m.state.Navigation.View = model.ViewTree

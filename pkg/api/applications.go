@@ -731,6 +731,65 @@ func (s *ApplicationService) DeleteApplication(ctx context.Context, req DeleteRe
 	return nil
 }
 
+// DeleteResourceRequest represents a request to delete a resource from an application
+type DeleteResourceRequest struct {
+	AppName      string
+	AppNamespace *string
+	ResourceName string
+	Kind         string
+	Namespace    string
+	Version      string
+	Group        string
+	Orphan       bool
+	Force        bool
+}
+
+// DeleteResource deletes a resource from the cluster via ArgoCD
+func (s *ApplicationService) DeleteResource(ctx context.Context, req DeleteResourceRequest) error {
+	if req.AppName == "" {
+		return fmt.Errorf("application name is required")
+	}
+	if req.Kind == "" || req.ResourceName == "" {
+		return fmt.Errorf("resource kind and name are required")
+	}
+
+	// Build the endpoint path
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/resource", url.PathEscape(req.AppName))
+
+	// Build query parameters
+	params := url.Values{}
+	params.Set("resourceName", req.ResourceName)
+	params.Set("kind", req.Kind)
+	if req.Namespace != "" {
+		params.Set("namespace", req.Namespace)
+	}
+	if req.Version != "" {
+		params.Set("version", req.Version)
+	}
+	if req.Group != "" {
+		params.Set("group", req.Group)
+	}
+	if req.Orphan {
+		params.Set("orphan", "true")
+	}
+	if req.Force {
+		params.Set("force", "true")
+	}
+	if req.AppNamespace != nil && *req.AppNamespace != "" {
+		params.Set("appNamespace", *req.AppNamespace)
+	}
+
+	endpoint += "?" + params.Encode()
+
+	// Perform the DELETE request
+	_, err := s.client.Delete(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to delete resource %s/%s: %w", req.Kind, req.ResourceName, err)
+	}
+
+	return nil
+}
+
 // ConvertDeploymentHistoryToRollbackRows converts ArgoCD deployment history to rollback rows
 func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model.RollbackRow {
 	rows := make([]model.RollbackRow, 0, len(history))

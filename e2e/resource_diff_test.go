@@ -319,13 +319,6 @@ func TestResourceDiff_OutOfSyncResource_OpensDiffViewer(t *testing.T) {
 	_ = tf.Send("j")
 	time.Sleep(200 * time.Millisecond)
 
-	// Verify we're on the Deployment (should show 3/3 in status)
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "3/3") {
-		t.Log(snapshot)
-		t.Log("Note: Expected cursor at position 3 (Deployment)")
-	}
-
 	// Press d to view diff
 	_ = tf.Send("d")
 

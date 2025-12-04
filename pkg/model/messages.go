@@ -190,6 +190,27 @@ type AppDeleteErrorMsg struct {
 	Error   string
 }
 
+// ResourceDeleteRequestMsg represents a request to delete resources
+type ResourceDeleteRequestMsg struct {
+	AppName           string
+	AppNamespace      *string
+	Targets           []ResourceDeleteTarget
+	Cascade           bool
+	PropagationPolicy string
+	Force             bool
+}
+
+// ResourceDeleteSuccessMsg represents successful resource deletion
+type ResourceDeleteSuccessMsg struct {
+	Count    int
+	AppNames []string // Names of apps whose resources were deleted (for refresh)
+}
+
+// ResourceDeleteErrorMsg represents a resource deletion error
+type ResourceDeleteErrorMsg struct {
+	Error string
+}
+
 // AuthErrorMsg is sent when authentication is required
 type AuthErrorMsg struct {
 	Error error

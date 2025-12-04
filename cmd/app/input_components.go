@@ -800,7 +800,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					// Multiple apps selected - open multi tree view with live updates
 					m.treeView = treeview.NewTreeView(0, 0)
 					m.treeView.ApplyTheme(currentPalette)
-					m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+					m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
@@ -852,7 +852,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Single app: open tree view with watch (reset tree view)
 			m.treeView = treeview.NewTreeView(0, 0)
 			m.treeView.ApplyTheme(currentPalette)
-			m.treeView.SetSize(m.state.Terminal.Cols, m.state.Terminal.Rows)
+			m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 			m.treeNav.Reset() // Reset scroll position
 			m.state.SaveNavigationState()
 			var selectedApp *model.App

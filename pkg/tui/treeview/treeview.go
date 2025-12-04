@@ -44,11 +44,38 @@ type TreeView struct {
 	filterQuery  string // Current search query (empty = no filter)
 	matchIndices []int  // Indices in 'order' that match the query
 	currentMatch int    // Current position in matchIndices (for n/N navigation)
+
+	// Multi-selection state for resource deletion
+	selectedUIDs map[string]bool // UIDs of selected resources
+
+	// Desaturate mode: when true, only highlight selected items (not cursor),
+	// and scope highlights to just the resource text (not tree prefixes or padding)
+	desaturateMode bool
+}
+
+// ResourceSelection represents a selected resource for deletion
+type ResourceSelection struct {
+	AppName   string
+	Group     string
+	Version   string
+	Kind      string
+	Namespace string
+	Name      string
+	Status    string // Sync status (e.g., "Synced", "OutOfSync", "Missing")
+	Health    string // Health status (e.g., "Healthy", "Degraded", "Missing")
+}
+
+// IsMissing returns true if the resource has Missing status or health
+func (r ResourceSelection) IsMissing() bool {
+	status := strings.TrimSpace(strings.ToLower(r.Status))
+	health := strings.TrimSpace(strings.ToLower(r.Health))
+	return status == "missing" || health == "missing"
 }
 
 type treeNode struct {
 	uid       string
 	group     string
+	version   string
 	kind      string
 	name      string
 	namespace string
@@ -75,15 +102,16 @@ func (v *TreeView) statusStyle(s string) lipgloss.Style {
 // NewTreeView creates a new tree view instance
 func NewTreeView(width, height int) *TreeView {
 	tv := &TreeView{
-		width:      width,
-		height:     height,
-		nodesByUID: make(map[string]*treeNode),
-		nodesByApp: make(map[string][]string),
-		rootByApp:  make(map[string]*treeNode),
-		expanded:   make(map[string]bool),
-		selIdx:     0,
-		appMeta:    make(map[string]struct{ health, sync string }),
-		palette:    theme.Default(), // Start with default theme
+		width:        width,
+		height:       height,
+		nodesByUID:   make(map[string]*treeNode),
+		nodesByApp:   make(map[string][]string),
+		rootByApp:    make(map[string]*treeNode),
+		expanded:     make(map[string]bool),
+		selIdx:       0,
+		appMeta:      make(map[string]struct{ health, sync string }),
+		palette:      theme.Default(), // Start with default theme
+		selectedUIDs: make(map[string]bool),
 	}
 	tv.Model = tv // self
 	return tv
@@ -151,7 +179,7 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 			health = *n.Health.Status
 		}
 		key := makeKey(n.UID)
-		tn := &treeNode{uid: key, group: n.Group, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns}
+		tn := &treeNode{uid: key, group: n.Group, version: n.Version, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns}
 		v.nodesByUID[key] = tn
 		nodesLocal[key] = tn
 		appKeys = append(appKeys, key)
@@ -376,6 +404,7 @@ func (v *TreeView) Render() string {
         if len(n.children) > 0 && !v.expanded[n.uid] {
             disc = "▸ "
         }
+
         prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
         label := v.renderLabel(n)
         line := prefixStyled + label
@@ -387,37 +416,74 @@ func (v *TreeView) Render() string {
             }
         }
         isMatch := v.filterQuery != "" && v.isMatchIndex(i)
-        if i == v.selIdx {
-            name := n.name
-            if n.namespace != "" {
-                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+        isSelected := v.selectedUIDs[n.uid]
+        isCursor := i == v.selIdx
+
+        // In desaturate mode: only highlight selected items, with scoped highlighting
+        // In normal mode: highlight both cursor and selected items with full-line highlighting
+        if v.desaturateMode {
+            // Desaturate mode: only selected items get highlighted, and only the resource text
+            if isSelected {
+                name := n.name
+                if n.namespace != "" {
+                    name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+                }
+                rowBG := v.palette.SelectedBG
+                bgStyle := lipgloss.NewStyle().Background(rowBG)
+                // Prefix rendered WITHOUT background (will be dimmed by desaturateANSI)
+                ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
+                // Only resource text (kind, name, status) gets background
+                ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
+                ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
+                st := v.renderStatusPartWithBG(n, rowBG)
+                sp := bgStyle.Render(" ")
+                line = ps + ks + sp + ns + sp + st
+                // NO padRightWithBG - don't extend highlight to full width
             }
-            // Use different background for selected match vs regular selection
-            var selBG color.Color
-            if isMatch {
-                // Selected match: use a distinct color (cyan/info)
-                selBG = v.palette.Info
-            } else {
-                selBG = v.palette.SelectedBG
+            // else: cursor-only or regular line - keep default rendering (no special background)
+        } else {
+            // Normal mode: existing behavior (cursor and selection both get full-line highlighting)
+            if isCursor || isSelected {
+                name := n.name
+                if n.namespace != "" {
+                    name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+                }
+                // Determine background color based on state
+                var rowBG color.Color
+                if isCursor && isSelected {
+                    // Cursor on selected: distinct color to show both states
+                    rowBG = v.palette.CursorSelectedBG
+                } else if isMatch {
+                    // Search match (cursor or selected): use info color
+                    rowBG = v.palette.Info
+                } else {
+                    // Plain cursor or plain selected: use standard selection background
+                    rowBG = v.palette.SelectedBG
+                }
+                bgStyle := lipgloss.NewStyle().Background(rowBG)
+                ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(prefix + disc)
+                ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
+                ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
+                st := v.renderStatusPartWithBG(n, rowBG)
+                sp := bgStyle.Render(" ")
+                line = ps + ks + sp + ns + sp + st
+                line = padRightWithBG(line, v.innerWidth(), rowBG)
+            } else if isMatch {
+                // Non-selected, non-cursor match: highlight with warning background
+                name := n.name
+                if n.namespace != "" {
+                    name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+                }
+                matchBG := v.palette.Warning
+                bgStyle := lipgloss.NewStyle().Background(matchBG)
+                ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(matchBG).Render(prefix + disc)
+                ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
+                ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
+                st := v.renderStatusPartWithBG(n, matchBG)
+                sp := bgStyle.Render(" ")
+                line = ps + ks + sp + ns + sp + st
+                line = padRightWithBG(line, v.innerWidth(), matchBG)
             }
-            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(selBG).Render(prefix + disc)
-            ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(selBG).Render(n.kind)
-            ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(selBG).Render("[" + name + "]")
-            st := v.renderStatusPartWithBG(n, selBG)
-            line = ps + ks + " " + ns + " " + st
-            line = padRight(line, v.innerWidth())
-        } else if isMatch {
-            // Non-selected match: highlight with yellow/warning background
-            name := n.name
-            if n.namespace != "" {
-                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-            }
-            matchBG := v.palette.Warning
-            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
-            ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
-            ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
-            st := v.renderStatusPartWithBG(n, matchBG)
-            line = ps + ks + " " + ns + " " + st
         }
         b.WriteString(line)
         if i < len(v.order)-1 {
@@ -470,32 +536,38 @@ func (v *TreeView) renderStatusPartWithBG(n *treeNode, bg color.Color) string {
 	health := n.health
 	sync := n.status
 
+	bgStyle := lipgloss.NewStyle().Background(bg)
+
 	// Both present and different: show both
 	if health != "" && sync != "" && !strings.EqualFold(health, sync) {
-		healthStyled := lipgloss.NewStyle().Background(bg).Render(v.statusStyle(health).Render(health))
-		syncStyled := lipgloss.NewStyle().Background(bg).Render(v.statusStyle(sync).Render(sync))
-		return fmt.Sprintf("(%s, %s)", healthStyled, syncStyled)
+		healthStyled := v.statusStyle(health).Background(bg).Render(health)
+		syncStyled := v.statusStyle(sync).Background(bg).Render(sync)
+		return bgStyle.Render("(") + healthStyled + bgStyle.Render(", ") + syncStyled + bgStyle.Render(")")
 	}
 	// Only health present (or both same)
 	if health != "" {
-		return lipgloss.NewStyle().Background(bg).Render(v.statusStyle(health).Render(fmt.Sprintf("(%s)", health)))
+		return bgStyle.Render("(") + v.statusStyle(health).Background(bg).Render(health) + bgStyle.Render(")")
 	}
 	// Only sync present
 	if sync != "" {
-		return lipgloss.NewStyle().Background(bg).Render(v.statusStyle(sync).Render(fmt.Sprintf("(%s)", sync)))
+		return bgStyle.Render("(") + v.statusStyle(sync).Background(bg).Render(sync) + bgStyle.Render(")")
 	}
 	return ""
 }
 
 func (v *TreeView) innerWidth() int {
-	if v.width <= 2 {
-		return v.width
-	}
-	return v.width - 2
+	return v.width
 }
 
 func (v *TreeView) SetSize(width, height int) {
 	v.width, v.height = width, height
+}
+
+// SetDesaturateMode enables or disables desaturate mode.
+// When enabled, only selected items are highlighted (not the cursor),
+// and highlights are scoped to just the resource text (not tree prefixes or padding).
+func (v *TreeView) SetDesaturateMode(enabled bool) {
+	v.desaturateMode = enabled
 }
 
 // Expose selected index for integration (optional)
@@ -559,6 +631,15 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-w)
+}
+
+func padRightWithBG(s string, width int, bg color.Color) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	padding := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width-w))
+	return s + padding
 }
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node
@@ -723,4 +804,124 @@ func (v *TreeView) SelectedResource() (group, kind, namespace, name string, ok b
 // GetAppName returns the name of the application being displayed.
 func (v *TreeView) GetAppName() string {
 	return v.appName
+}
+
+// ToggleSelection toggles selection for the current resource.
+// Application nodes and Missing resources cannot be selected.
+// Returns true if selection was toggled, false if the resource cannot be selected.
+func (v *TreeView) ToggleSelection() bool {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return false
+	}
+	node := v.order[v.selIdx]
+	// Don't allow selecting synthetic Application root nodes
+	if node.kind == "Application" {
+		return false
+	}
+	// Don't allow selecting Missing resources (already deleted)
+	if v.nodeIsMissing(node) {
+		return false
+	}
+	if v.selectedUIDs == nil {
+		v.selectedUIDs = make(map[string]bool)
+	}
+	if v.selectedUIDs[node.uid] {
+		delete(v.selectedUIDs, node.uid)
+	} else {
+		v.selectedUIDs[node.uid] = true
+	}
+	return true
+}
+
+// CurrentResourceIsMissing returns true if the current resource has "Missing" status or health.
+func (v *TreeView) CurrentResourceIsMissing() bool {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return false
+	}
+	return v.nodeIsMissing(v.order[v.selIdx])
+}
+
+// nodeIsMissing checks if a node has Missing status or health (case-insensitive, with whitespace trimming)
+func (v *TreeView) nodeIsMissing(node *treeNode) bool {
+	if node == nil {
+		return false
+	}
+	status := strings.TrimSpace(strings.ToLower(node.status))
+	health := strings.TrimSpace(strings.ToLower(node.health))
+	return status == "missing" || health == "missing"
+}
+
+// GetSelectedResources returns all selected resources.
+// If no resources are explicitly selected, returns the current resource (if not an Application).
+func (v *TreeView) GetSelectedResources() []ResourceSelection {
+	var result []ResourceSelection
+
+	// If explicit selections exist, return those
+	if len(v.selectedUIDs) > 0 {
+		for uid := range v.selectedUIDs {
+			if node, ok := v.nodesByUID[uid]; ok {
+				// Extract app name from uid (format: "appName::uid")
+				appName := v.appName
+				if idx := strings.Index(uid, "::"); idx > 0 {
+					appName = uid[:idx]
+				}
+				result = append(result, ResourceSelection{
+					AppName:   appName,
+					Group:     node.group,
+					Version:   node.version,
+					Kind:      node.kind,
+					Namespace: node.namespace,
+					Name:      node.name,
+					Status:    node.status,
+					Health:    node.health,
+				})
+			}
+		}
+		return result
+	}
+
+	// No explicit selection - return current resource if valid
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		node := v.order[v.selIdx]
+		if node.kind != "Application" {
+			appName := v.appName
+			if idx := strings.Index(node.uid, "::"); idx > 0 {
+				appName = node.uid[:idx]
+			}
+			result = append(result, ResourceSelection{
+				AppName:   appName,
+				Group:     node.group,
+				Version:   node.version,
+				Kind:      node.kind,
+				Namespace: node.namespace,
+				Name:      node.name,
+				Status:    node.status,
+				Health:    node.health,
+			})
+		}
+	}
+	return result
+}
+
+// ClearSelection clears all resource selections.
+func (v *TreeView) ClearSelection() {
+	v.selectedUIDs = make(map[string]bool)
+}
+
+// HasSelection returns true if any resources are explicitly selected.
+func (v *TreeView) HasSelection() bool {
+	return len(v.selectedUIDs) > 0
+}
+
+// SelectionCount returns the number of explicitly selected resources.
+func (v *TreeView) SelectionCount() int {
+	return len(v.selectedUIDs)
+}
+
+// IsSelected returns true if the resource at the given index is selected.
+func (v *TreeView) IsSelected(idx int) bool {
+	if idx < 0 || idx >= len(v.order) {
+		return false
+	}
+	return v.selectedUIDs[v.order[idx].uid]
 }
