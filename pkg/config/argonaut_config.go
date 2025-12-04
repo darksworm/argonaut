@@ -197,11 +197,7 @@ func (c *ArgonautConfig) GetDiffFormatter() string {
 }
 
 // GetPortForwardNamespace returns the namespace for kubectl port-forward, defaulting to "argocd"
-// Priority: ARGONAUT_PORT_FORWARD_NAMESPACE env var > config file > default "argocd"
 func (c *ArgonautConfig) GetPortForwardNamespace() string {
-	if envNs := os.Getenv("ARGONAUT_PORT_FORWARD_NAMESPACE"); envNs != "" {
-		return envNs
-	}
 	if c.PortForward.Namespace != "" {
 		return c.PortForward.Namespace
 	}
