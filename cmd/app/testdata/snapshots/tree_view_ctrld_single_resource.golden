@@ -1,0 +1,23 @@
+ Context: argo.example.com                                                           Argonaut dev 
+ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
+ │ Application [my-app] (Healthy, Synced)                                                         │ 
+ │ ├── ConfigMap [production/app-config] (Synced)                                                 │ 
+ │ ├── Deployment [production/api-server] (Healthy)                                               │ 
+ │ └── Service [producti                                                                          │ 
+ │                       ╭────────────────────────────────────────────────╮                       │ 
+ │                       │                                                │                       │ 
+ │                       │     Delete Deployment/production/api-server?   │                       │ 
+ │                       │                                                │                       │ 
+ │                       │                    Delete (y)                  │                       │ 
+ │                       │                                                │                       │ 
+ │                       │      c: Cascade On (all resources deleted)     │                       │ 
+ │                       │     p: Policy foreground (wait for cleanup)    │                       │ 
+ │                       │                   f: Force Off                 │                       │ 
+ │                       │                                                │                       │ 
+ │                       ╰────────────────────────────────────────────────╯                       │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+ <tree>                                                                                 Ready • 2/4 
