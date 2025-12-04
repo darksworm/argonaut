@@ -14,7 +14,7 @@ import (
 	"time"
 	"unsafe"
 
-	tea "github.com/charmbracelet/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/creack/pty"
 	"golang.org/x/term"
