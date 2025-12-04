@@ -402,3 +402,34 @@ func TestSaveAndLoadK9sAndDiffConfig(t *testing.T) {
 			testConfig.Diff.Formatter, loadedConfig.GetDiffFormatter())
 	}
 }
+
+func TestPortForwardConfigGetters(t *testing.T) {
+	tests := []struct {
+		name            string
+		config          *ArgonautConfig
+		expectNamespace string
+	}{
+		{
+			name:            "empty config returns default argocd",
+			config:          &ArgonautConfig{},
+			expectNamespace: "argocd",
+		},
+		{
+			name: "custom namespace from config",
+			config: &ArgonautConfig{
+				PortForward: PortForwardConfig{
+					Namespace: "custom-ns",
+				},
+			},
+			expectNamespace: "custom-ns",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.config.GetPortForwardNamespace(); got != tt.expectNamespace {
+				t.Errorf("GetPortForwardNamespace() = %q, want %q", got, tt.expectNamespace)
+			}
+		})
+	}
+}

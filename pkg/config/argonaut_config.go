@@ -14,11 +14,12 @@ const DefaultThemeName = "tokyo-night"
 
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
-	Appearance      AppearanceConfig `toml:"appearance"`
-	Sort            SortConfig       `toml:"sort,omitempty"`
-	K9s             K9sConfig        `toml:"k9s,omitempty"`
-	Diff            DiffConfig       `toml:"diff,omitempty"`
-	LastSeenVersion string           `toml:"last_seen_version,omitempty"`
+	Appearance      AppearanceConfig  `toml:"appearance"`
+	Sort            SortConfig        `toml:"sort,omitempty"`
+	K9s             K9sConfig         `toml:"k9s,omitempty"`
+	Diff            DiffConfig        `toml:"diff,omitempty"`
+	PortForward     PortForwardConfig `toml:"port_forward,omitempty"`
+	LastSeenVersion string            `toml:"last_seen_version,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
@@ -43,6 +44,11 @@ type K9sConfig struct {
 type DiffConfig struct {
 	Viewer    string `toml:"viewer,omitempty"`    // External diff viewer command (e.g., "code --diff {left} {right}")
 	Formatter string `toml:"formatter,omitempty"` // Diff formatter command (e.g., "delta")
+}
+
+// PortForwardConfig holds settings for kubectl port-forward mode
+type PortForwardConfig struct {
+	Namespace string `toml:"namespace,omitempty"` // Kubernetes namespace where ArgoCD is installed (default: "argocd")
 }
 
 
@@ -188,4 +194,12 @@ func (c *ArgonautConfig) GetDiffViewer() string {
 // GetDiffFormatter returns the diff formatter command, or empty string if not configured
 func (c *ArgonautConfig) GetDiffFormatter() string {
 	return c.Diff.Formatter
+}
+
+// GetPortForwardNamespace returns the namespace for kubectl port-forward, defaulting to "argocd"
+func (c *ArgonautConfig) GetPortForwardNamespace() string {
+	if c.PortForward.Namespace != "" {
+		return c.PortForward.Namespace
+	}
+	return "argocd"
 }

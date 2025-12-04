@@ -189,6 +189,29 @@ If your Argo CD server uses a self-signed certificate, you can provide a custom 
 argonaut --ca-cert=/path/to/ca.crt
 ```
 
+### Port-forward mode
+
+If your Argo CD server isn't directly accessible (e.g., running in a private cluster), Argonaut can connect via kubectl port-forward:
+
+```bash
+# Configure ArgoCD CLI for port-forward mode
+argocd login --port-forward --port-forward-namespace argocd
+
+# Start Argonaut (automatically detects port-forward mode)
+argonaut
+```
+
+**Requirements:**
+- `kubectl` configured with access to the cluster
+- ArgoCD server pod running in the target namespace
+
+**Custom namespace:** If ArgoCD is installed in a different namespace, add to your config:
+```toml
+# ~/.config/argonaut/config.toml
+[port_forward]
+namespace = "my-argocd-namespace"
+```
+
 ---
 
 ## ⚙️ Configuration
@@ -287,6 +310,14 @@ formatter = "delta --side-by-side --line-numbers"
 ```
 
 If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+
+#### `[port_forward]`
+
+Settings for port-forward mode (when ArgoCD CLI is configured with `server: port-forward`).
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `namespace` | Kubernetes namespace where ArgoCD is installed | `argocd` |
 
 ---
 

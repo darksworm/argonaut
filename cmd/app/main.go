@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/portforward"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/theme"
 	"github.com/darksworm/argonaut/pkg/trust"
@@ -26,6 +28,15 @@ type CoreModeError struct{}
 
 func (e *CoreModeError) Error() string {
 	return "ArgoCD is running in core mode"
+}
+
+// PortForwardModeError indicates that ArgoCD is configured for port-forward mode
+type PortForwardModeError struct {
+	Token string
+}
+
+func (e *PortForwardModeError) Error() string {
+	return "ArgoCD is configured for port-forward mode"
 }
 
 // appVersion is the Argonaut version shown in the ASCII banner.
@@ -245,11 +256,64 @@ func main() {
 	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
 	cblog.With("component", "app").Info("Loading Argo CD config…")
 
+	// Port-forward manager (if used)
+	var pfManager *portforward.Manager
+
 	// Try to read the ArgoCD CLI config file
 	server, err := loadArgoConfig(cfgPathFlag)
 	if err != nil {
-		// Check if it's a core mode error
-		if _, isCoreError := err.(*CoreModeError); isCoreError {
+		// Check if it's a port-forward mode error
+		if pfErr, isPortForward := err.(*PortForwardModeError); isPortForward {
+			cblog.With("component", "app").Info("Port-forward mode detected, starting kubectl port-forward")
+
+			// Check kubectl availability
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if kubectlErr := portforward.CheckKubectl(ctx); kubectlErr != nil {
+				cancel()
+				fmt.Fprintf(os.Stderr, "Error: kubectl is required for port-forward mode but was not found.\n")
+				fmt.Fprintf(os.Stderr, "Please install kubectl and ensure it's in your PATH.\n")
+				os.Exit(1)
+			}
+			cancel()
+
+			// Get namespace from Argonaut config
+			namespace := argonautConfig.GetPortForwardNamespace()
+
+			// Create port-forward manager
+			pfManager = portforward.NewManager(portforward.Options{
+				Namespace: namespace,
+				OnDisconnect: func(pfDisconnectErr error) {
+					// Port-forward failed permanently - exit with error
+					fmt.Fprintf(os.Stderr, "Error: port-forward connection lost: %v\n", pfDisconnectErr)
+					os.Exit(1)
+				},
+			})
+
+			// Start port-forward
+			ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+			localPort, pfStartErr := pfManager.Start(ctx)
+			cancel()
+			if pfStartErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: failed to establish port-forward: %v\n", pfStartErr)
+				fmt.Fprintf(os.Stderr, "\nTroubleshooting tips:\n")
+				fmt.Fprintf(os.Stderr, "  • Ensure ArgoCD is installed in namespace '%s'\n", namespace)
+				fmt.Fprintf(os.Stderr, "  • Check that you have kubectl access to the cluster\n")
+				fmt.Fprintf(os.Stderr, "  • Verify the argocd-server pod is running\n")
+				os.Exit(1)
+			}
+
+			cblog.With("component", "app").Info("Port-forward established", "localPort", localPort, "namespace", namespace)
+
+			// Create server config using local port-forward address
+			server = &model.Server{
+				BaseURL:  fmt.Sprintf("http://127.0.0.1:%d", localPort),
+				Token:    pfErr.Token,
+				Insecure: true, // Local connection doesn't need TLS verification
+			}
+			m.state.Server = server
+
+		} else if _, isCoreError := err.(*CoreModeError); isCoreError {
+			// Check if it's a core mode error
 			cblog.With("component", "app").Info("ArgoCD core installation detected")
 			// Set mode to show core detection view
 			m.state.Mode = model.ModeCoreDetected
@@ -264,6 +328,11 @@ func main() {
 		cblog.With("component", "app").Info("Loaded Argo CD config", "server", server.BaseURL)
 		m.state.Server = server
 		// Server is configured - the Init() method will handle showing loading screen
+	}
+
+	// Ensure port-forward is cleaned up on exit
+	if pfManager != nil {
+		defer pfManager.Stop()
 	}
 
 	// Start with empty apps - they will be loaded from API
@@ -332,6 +401,16 @@ func loadArgoConfig(overridePath string) (*model.Server, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CLI config: %w", err)
+	}
+
+	// Check if port-forward mode is configured
+	if isPortForward, pfErr := cfg.IsPortForwardMode(); pfErr == nil && isPortForward {
+		// Get the auth token for port-forward mode
+		token, tokenErr := cfg.GetCurrentToken()
+		if tokenErr != nil {
+			return nil, fmt.Errorf("port-forward mode requires authentication: %w", tokenErr)
+		}
+		return nil, &PortForwardModeError{Token: token}
 	}
 
 	// Convert to server config
