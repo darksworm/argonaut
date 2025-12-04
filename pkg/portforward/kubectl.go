@@ -98,6 +98,13 @@ func (m *Manager) Start(ctx context.Context) (int, error) {
 		return m.localPort, nil
 	}
 
+	// Recreate stopCh if it was closed by a previous Stop()
+	select {
+	case <-m.stopCh:
+		m.stopCh = make(chan struct{})
+	default:
+	}
+
 	// Find a ready pod
 	podName, err := m.findReadyPod(ctx)
 	if err != nil {
@@ -300,11 +307,12 @@ func (m *Manager) monitor() {
 	for {
 		select {
 		case <-m.stopCh:
-			// Drain the process before exiting
+			// Ensure process is killed before waiting to avoid blocking indefinitely
 			m.mu.RLock()
 			cmd := m.cmd
 			m.mu.RUnlock()
-			if cmd != nil {
+			if cmd != nil && cmd.Process != nil {
+				_ = cmd.Process.Kill()
 				_ = cmd.Wait()
 			}
 			return
@@ -370,6 +378,15 @@ func (m *Manager) monitor() {
 		}
 
 		m.mu.Lock()
+		// If Stop() was called while we were reconnecting, clean up and exit
+		if !m.running {
+			m.mu.Unlock()
+			if cmd != nil && cmd.Process != nil {
+				_ = cmd.Process.Kill()
+				_ = cmd.Wait()
+			}
+			return
+		}
 		m.cmd = cmd
 		m.localPort = port
 		m.reconnectCount = 0 // Reset on successful reconnection
