@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.9.0](https://github.com/darksworm/argonaut/compare/v2.8.0...v2.9.0) (2025-12-04)
+
+
+### Features
+
+* add ApplicationSet view for filtering apps by ApplicationSet ([c2c2ffd](https://github.com/darksworm/argonaut/commit/c2c2ffd004d6b6b2a8cea2509bf2649551a9d930))
+* add individual resource diff view in tree view ([#148](https://github.com/darksworm/argonaut/issues/148)) ([4e3964a](https://github.com/darksworm/argonaut/commit/4e3964a5a556ffca7f713c24864aa37f0850c98b))
+* add K9s and Diff configuration options ([f87e858](https://github.com/darksworm/argonaut/commit/f87e85817ac372637254b5d472460d46a040aa10))
+* add resource deletion from tree view with Ctrl+D ([6a67400](https://github.com/darksworm/argonaut/commit/6a67400a0d7e08e2608e77fb30ecdc50cd1f1e97))
+* add support for ArgoCD CLI --port-forward access mode ([#159](https://github.com/darksworm/argonaut/issues/159)) ([be03cd3](https://github.com/darksworm/argonaut/commit/be03cd3f9f59c032b17617a2eccc87f8aba6bc3e))
+* add sync status for individual resources in tree view ([62778f6](https://github.com/darksworm/argonaut/commit/62778f63736437a054d1dda85a1f9551efcea740))
+* add vt10x terminal emulator to E2E test framework ([7211244](https://github.com/darksworm/argonaut/commit/72112443809e336108fbb7d66fbb569fb589293f))
+* enable command mode and improve tree view UX ([cc28be7](https://github.com/darksworm/argonaut/commit/cc28be73edfdb3f083a6d2d173b007f48661622a))
+* pressing Enter on an app opens its resources view ([7394f85](https://github.com/darksworm/argonaut/commit/7394f8587e6396eb54a62c3bb552c5dd44e74c01))
+* you can now jump to k9s by pressing K when hovering a resource ([c3520a5](https://github.com/darksworm/argonaut/commit/c3520a52a4f225fc72caf8457894a54f418bf580))
+
+
+### Bug Fixes
+
+* add ARGONAUT_K9S_COMMAND env var support for k9s tests ([2628ac8](https://github.com/darksworm/argonaut/commit/2628ac83b11fcfe4683246355705020cff79540e))
+* remove expand arrow from tree view to improve visual hierarchy ([7f290de](https://github.com/darksworm/argonaut/commit/7f290de9c74a0fbc038ee2c1778b4412558e8516))
+
 ## [2.8.0](https://github.com/darksworm/argonaut/compare/v2.7.0...v2.8.0) (2025-11-29)
 
 
