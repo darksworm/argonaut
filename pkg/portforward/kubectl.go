@@ -247,6 +247,7 @@ func (m *Manager) startPortForward(ctx context.Context, podName string) (*exec.C
 	defer func() {
 		if started && cmd.Process != nil {
 			_ = cmd.Process.Kill()
+			_ = cmd.Wait() // Reap the child process to avoid zombies
 		}
 	}()
 
