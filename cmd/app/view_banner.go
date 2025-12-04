@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func (m *Model) renderBanner() string {

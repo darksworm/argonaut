@@ -1,7 +1,7 @@
 package model
 
 import (
-	tea "github.com/charmbracelet/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 )
 

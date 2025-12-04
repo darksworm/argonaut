@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/v2/spinner"
-	"github.com/charmbracelet/bubbles/v2/table"
-	tea "github.com/charmbracelet/bubbletea/v2"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
@@ -120,7 +120,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.Mode == model.ModeSearch {
 			// For search mode, append pasted text to current search
 			currentValue := m.inputComponents.GetSearchValue()
-			newValue := currentValue + string(msg)
+			newValue := currentValue + msg.Content
 			m.inputComponents.SetSearchValue(newValue)
 			m.state.UI.SearchQuery = newValue
 			// Clamp selection within new filtered results
@@ -132,7 +132,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.state.Mode == model.ModeCommand {
 			// For command mode, append pasted text to current command
 			currentValue := m.inputComponents.GetCommandValue()
-			newValue := currentValue + string(msg)
+			newValue := currentValue + msg.Content
 			m.inputComponents.SetCommandValue(newValue)
 			m.state.UI.Command = newValue
 			m.state.UI.CommandInvalid = false

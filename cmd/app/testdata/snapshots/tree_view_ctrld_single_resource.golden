@@ -1,4 +1,4 @@
- Context: argo.example.com                                                           Argonaut dev 
+ Context: argo.example.com                                                           Argonaut dev   
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application [my-app] (Healthy, Synced)                                                         │ 
  │ ├── ConfigMap [production/app-config] (Synced)                                                 │ 

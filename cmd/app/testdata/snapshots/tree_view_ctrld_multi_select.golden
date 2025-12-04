@@ -1,9 +1,9 @@
- Context: argo.example.com                                                           Argonaut dev 
+ Context: argo.example.com                                                           Argonaut dev   
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application [multi-app] (Healthy, Synced)                                                      │ 
- │ ├── Deployment [staging/backend] (Healthy)                                                     │
- │ ├── Deployment [staging/frontend] (Healthy)                                                    │
- │ ├── Service [staging/                                                                          │
+ │ ├── Deployment [staging/backend] (Healthy)                                                     │ 
+ │ ├── Deployment [staging/frontend] (Healthy)                                                    │ 
+ │ ├── Service [staging/                                                                          │ 
  │ └── Service [staging/ ╭────────────────────────────────────────────────╮                       │ 
  │                       │                                                │                       │ 
  │                       │              Delete 3 resource(s)?             │                       │ 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/charmbracelet/bubbles/v2/table"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/table"
+	"charm.land/lipgloss/v2"
 )
 
 func getTableStyle() table.Styles {
