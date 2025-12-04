@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -1078,4 +1079,136 @@ func MockArgoServerWithResources() (*httptest.Server, error) {
 	})
 	srv := httptest.NewServer(mux)
 	return srv, nil
+}
+
+// ---- Port-forward testing helpers ----
+
+// MockKubectlOptions configures mock kubectl behavior for port-forward testing
+type MockKubectlOptions struct {
+	PodName     string // Pod name to return from "kubectl get pods" (empty = no pods found)
+	LocalPort   int    // Port to report in port-forward output
+	PFExitAfter int    // Seconds before port-forward exits (0 = run until killed, simulates stable connection)
+}
+
+// DefaultMockKubectlOptions returns sensible defaults for happy path testing
+func DefaultMockKubectlOptions() MockKubectlOptions {
+	return MockKubectlOptions{
+		PodName:     "argocd-server-abc123",
+		LocalPort:   0, // Will be set by test to mock server's port
+		PFExitAfter: 0, // Run forever (stable connection)
+	}
+}
+
+// createMockKubectl creates a mock kubectl shell script that simulates:
+// - kubectl version --client --output=json (version check)
+// - kubectl get pods ... (pod discovery)
+// - kubectl port-forward ... (port forwarding)
+//
+// Returns the path to the kubectl script and a file where args are recorded.
+func createMockKubectl(t *testing.T, workspace string, opts MockKubectlOptions) (scriptPath, argsFile string) {
+	t.Helper()
+
+	binDir := filepath.Join(workspace, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("failed to create bin dir: %v", err)
+	}
+
+	scriptPath = filepath.Join(binDir, "kubectl")
+	argsFile = filepath.Join(workspace, "kubectl_args.txt")
+
+	// Build the port-forward command handling
+	var pfCommand string
+	if opts.PFExitAfter > 0 {
+		// Exit after delay (for reconnection testing)
+		pfCommand = fmt.Sprintf(`
+    echo "Forwarding from 127.0.0.1:%d -> 8080"
+    sleep %d
+    exit 1`, opts.LocalPort, opts.PFExitAfter)
+	} else {
+		// Run forever (stable connection)
+		pfCommand = fmt.Sprintf(`
+    echo "Forwarding from 127.0.0.1:%d -> 8080"
+    # Keep running until killed
+    while true; do sleep 1; done`, opts.LocalPort)
+	}
+
+	script := fmt.Sprintf(`#!/bin/bash
+# Mock kubectl for port-forward E2E testing
+ARGS_FILE=%q
+echo "$@" >> "$ARGS_FILE"
+
+# Parse the first argument to determine command
+case "$1" in
+  "version")
+    echo '{"clientVersion":{"major":"1","minor":"28","gitVersion":"v1.28.0"}}'
+    exit 0
+    ;;
+  "get")
+    # Return pod name (or empty for no-pod-found scenario)
+    echo %q
+    exit 0
+    ;;
+  "port-forward")
+    %s
+    ;;
+  *)
+    echo "mock kubectl: unknown command: $@" >&2
+    exit 1
+    ;;
+esac
+`, argsFile, opts.PodName, pfCommand)
+
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("failed to create mock kubectl: %v", err)
+	}
+
+	return scriptPath, argsFile
+}
+
+// WriteArgoConfigPortForward writes an ArgoCD CLI config for port-forward mode.
+// The server is set to "port-forward" which triggers the port-forward detection.
+func WriteArgoConfigPortForward(path, token string) error {
+	var y bytes.Buffer
+	y.WriteString("contexts:\n")
+	y.WriteString("  - name: port-forward-ctx\n    server: port-forward\n    user: pf-user\n")
+	y.WriteString("servers:\n")
+	y.WriteString("  - server: port-forward\n    plain-text: true\n")
+	y.WriteString("users:\n")
+	y.WriteString("  - name: pf-user\n    auth-token: " + token + "\n")
+	y.WriteString("current-context: port-forward-ctx\n")
+	return os.WriteFile(path, y.Bytes(), 0o644)
+}
+
+// readMockKubectlArgs reads all kubectl invocations recorded by the mock script.
+// Returns a slice of argument strings, one per invocation.
+func readMockKubectlArgs(t *testing.T, argsFile string) []string {
+	t.Helper()
+	data, err := os.ReadFile(argsFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // kubectl was never invoked
+		}
+		t.Fatalf("failed to read kubectl args file: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	// Filter empty lines
+	var result []string
+	for _, line := range lines {
+		if line != "" {
+			result = append(result, line)
+		}
+	}
+	return result
+}
+
+// extractPortFromURL extracts the port number from a URL like "http://127.0.0.1:12345"
+func extractPortFromURL(url string) int {
+	// URL format: http://127.0.0.1:PORT or https://127.0.0.1:PORT
+	parts := strings.Split(url, ":")
+	if len(parts) < 3 {
+		return 0
+	}
+	portStr := parts[len(parts)-1]
+	port, _ := strconv.Atoi(portStr)
+	return port
 }
