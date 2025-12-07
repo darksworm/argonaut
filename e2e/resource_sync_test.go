@@ -695,3 +695,98 @@ func TestResourceSync_ErrorDisplayed(t *testing.T) {
 	// This confirms the error handling chain works end-to-end
 	t.Log("Successfully verified: ArgoCD error message was parsed and displayed to user")
 }
+
+// TestResourceSync_CommandInTreeView tests that :sync command works in tree view
+// This is a regression test for the bug where :sync only worked in apps view
+func TestResourceSync_CommandInTreeView(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, rec, err := MockArgoServerForResourceSync("valid-token")
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfigWithToken(cfgPath, srv.URL, "valid-token"); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	// Navigate to apps via commands
+	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
+		t.Fatal("clusters not ready")
+	}
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("ns default")
+	_ = tf.Enter()
+	if !tf.WaitForPlain("demo", 3*time.Second) {
+		t.Fatal("projects not ready")
+	}
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
+	if !tf.WaitForPlain("demo", 3*time.Second) {
+		t.Fatal("apps not ready")
+	}
+
+	// Enter tree view by pressing 'r'
+	_ = tf.Send("r")
+	if !tf.WaitForPlain("Deployment", 3*time.Second) {
+		t.Fatalf("tree view not loaded\n%s", tf.SnapshotPlain())
+	}
+
+	// Navigate down to first resource (Deployment)
+	_ = tf.Send("j") // Move to first resource (down from app node)
+
+	// Use :sync command instead of 's' key - this is what we're testing
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("sync")
+	_ = tf.Enter()
+
+	// Wait for the sync confirmation modal
+	if !tf.WaitForPlain("Sync", 2*time.Second) {
+		t.Fatalf(":sync command did not show sync modal in tree view\n%s", tf.SnapshotPlain())
+	}
+
+	// Confirm sync with 'y'
+	_ = tf.Send("y")
+
+	// Wait for sync call
+	if !waitUntil(t, func() bool { return rec.len() >= 1 }, 3*time.Second) {
+		t.Fatalf("expected at least 1 sync call, got %d\n%s", rec.len(), tf.SnapshotPlain())
+	}
+
+	call := rec.getCall(0)
+	if call.AppName != "demo" {
+		t.Fatalf("expected sync for 'demo', got %q", call.AppName)
+	}
+
+	// Verify resources array is in the body (resource-level sync, not full app sync)
+	if len(call.Resources) != 1 {
+		t.Fatalf("expected 1 resource in sync request (resource-level sync), got %d. Body: %s", len(call.Resources), call.Body)
+	}
+
+	// Verify the resource details
+	res := call.Resources[0]
+	if res["kind"] != "Deployment" {
+		t.Fatalf("expected kind=Deployment, got %v", res["kind"])
+	}
+	if res["name"] != "nginx-deployment" {
+		t.Fatalf("expected name=nginx-deployment, got %v", res["name"])
+	}
+}
