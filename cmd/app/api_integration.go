@@ -1178,10 +1178,20 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 			cblog.With("component", "resource-sync").Debug("Syncing resources for app",
 				"app", appName, "resourceCount", len(resources))
 
+			// Look up app namespace from state (required for namespaced ArgoCD installations)
+			var appNamespace string
+			for _, app := range m.state.Apps {
+				if app.Name == appName && app.AppNamespace != nil {
+					appNamespace = *app.AppNamespace
+					break
+				}
+			}
+
 			opts := &api.SyncOptions{
-				Prune:     prune,
-				Force:     force,
-				Resources: resources,
+				Prune:        prune,
+				Force:        force,
+				Resources:    resources,
+				AppNamespace: appNamespace,
 			}
 
 			err := appService.SyncApplication(ctx, appName, opts)
