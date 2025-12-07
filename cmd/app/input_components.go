@@ -658,6 +658,10 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			body := m.readLogContent()
 			return m, m.openTextPager("Logs", body)
 		case "sync":
+			// In tree view, sync the selected resource(s); in apps view, sync the app
+			if m.state.Navigation.View == model.ViewTree {
+				return m.handleResourceSync()
+			}
 			mdl, cmd := m.handleSyncModal()
 			return mdl, cmd
 		case "delete", "del":
