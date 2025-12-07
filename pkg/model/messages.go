@@ -211,6 +211,17 @@ type ResourceDeleteErrorMsg struct {
 	Error string
 }
 
+// ResourceSyncSuccessMsg represents successful resource sync
+type ResourceSyncSuccessMsg struct {
+	Count    int
+	AppNames []string // Names of apps whose resources were synced (for refresh)
+}
+
+// ResourceSyncErrorMsg represents a resource sync error
+type ResourceSyncErrorMsg struct {
+	Error string
+}
+
 // AuthErrorMsg is sent when authentication is required
 type AuthErrorMsg struct {
 	Error error

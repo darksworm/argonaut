@@ -960,6 +960,131 @@ func (m *Model) executeResourceDeletion() (tea.Model, tea.Cmd) {
 	)
 }
 
+// handleResourceSync initiates the resource sync confirmation
+func (m *Model) handleResourceSync() (tea.Model, tea.Cmd) {
+	// Only work in tree view
+	if m.state.Navigation.View != model.ViewTree {
+		return m, nil
+	}
+
+	if m.treeView == nil {
+		return m, nil
+	}
+
+	// Get selected resources
+	selections := m.treeView.GetSelectedResources()
+
+	// If no selections, check if we're on the Application root node
+	if len(selections) == 0 {
+		// On Application root - trigger full app sync instead
+		// Get the app name from the tree view
+		appName := m.treeView.GetAppName()
+		if appName != "" {
+			m.state.Modals.ConfirmTarget = &appName
+			m.state.Modals.ConfirmSyncSelected = 0 // default to Yes
+			m.state.Mode = model.ModeConfirmSync
+			return m, nil
+		}
+		return m, nil
+	}
+
+	// Note: Unlike delete, we DO allow Missing resources in sync
+	// (syncing Missing resources will recreate them from git)
+
+	// Convert to ResourceSyncTarget
+	targets := make([]model.ResourceSyncTarget, 0, len(selections))
+	for _, sel := range selections {
+		targets = append(targets, model.ResourceSyncTarget{
+			AppName:   sel.AppName,
+			Group:     sel.Group,
+			Kind:      sel.Kind,
+			Namespace: sel.Namespace,
+			Name:      sel.Name,
+		})
+	}
+
+	// Get app name for the modal
+	appName := m.treeView.GetAppName()
+	if len(targets) > 0 {
+		appName = targets[0].AppName
+	}
+
+	// Set up modal state
+	m.state.Mode = model.ModeConfirmResourceSync
+	m.state.Modals.ResourceSyncAppName = &appName
+	m.state.Modals.ResourceSyncTargets = targets
+	m.state.Modals.ResourceSyncConfirmSelected = 0 // Default to Sync
+	m.state.Modals.ResourceSyncError = nil
+	m.state.Modals.ResourceSyncLoading = false
+	m.state.Modals.ResourceSyncPrune = false // Default off
+	m.state.Modals.ResourceSyncForce = false // Default off
+
+	cblog.With("component", "resource-sync").Debug("Opening resource sync confirmation", "count", len(targets))
+
+	return m, nil
+}
+
+// handleConfirmResourceSyncKeys handles input when in resource sync confirmation mode
+func (m *Model) handleConfirmResourceSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc", "ctrl+c":
+		// Cancel sync and return to normal mode
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceSyncAppName = nil
+		m.state.Modals.ResourceSyncTargets = nil
+		m.state.Modals.ResourceSyncError = nil
+		m.state.Modals.ResourceSyncLoading = false
+		return m, nil
+	case "left", "h":
+		if m.state.Modals.ResourceSyncConfirmSelected > 0 {
+			m.state.Modals.ResourceSyncConfirmSelected = 0
+		}
+		return m, nil
+	case "right", "l":
+		if m.state.Modals.ResourceSyncConfirmSelected < 1 {
+			m.state.Modals.ResourceSyncConfirmSelected = 1
+		}
+		return m, nil
+	case "enter":
+		if m.state.Modals.ResourceSyncConfirmSelected == 1 {
+			// Cancel
+			m.state.Mode = model.ModeNormal
+			m.state.Modals.ResourceSyncAppName = nil
+			m.state.Modals.ResourceSyncTargets = nil
+			return m, nil
+		}
+		// Confirm sync
+		return m.executeResourceSync()
+	case "y":
+		// Confirm sync
+		return m.executeResourceSync()
+	case "p":
+		// Toggle prune option
+		m.state.Modals.ResourceSyncPrune = !m.state.Modals.ResourceSyncPrune
+		return m, nil
+	case "f":
+		// Toggle force option
+		m.state.Modals.ResourceSyncForce = !m.state.Modals.ResourceSyncForce
+		return m, nil
+	}
+	return m, nil
+}
+
+// executeResourceSync performs the actual resource sync after confirmation
+func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
+	if m.state.Modals.ResourceSyncAppName == nil || len(m.state.Modals.ResourceSyncTargets) == 0 {
+		return m, nil
+	}
+
+	m.state.Modals.ResourceSyncLoading = true
+
+	return m, m.syncSelectedResources(
+		m.state.Modals.ResourceSyncTargets,
+		m.state.Modals.ResourceSyncPrune,
+		m.state.Modals.ResourceSyncForce,
+	)
+}
+
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -1126,6 +1251,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmAppDeleteKeys(msg)
 	case model.ModeConfirmResourceDelete:
 		return m.handleConfirmResourceDeleteKeys(msg)
+	case model.ModeConfirmResourceSync:
+		return m.handleConfirmResourceSyncKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
 	case model.ModeAuthRequired:
@@ -1215,6 +1342,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+d":
 			// Open delete confirmation for selected resource(s)
 			return m.handleResourceDelete()
+		case "s":
+			// Open sync confirmation for selected resource(s)
+			return m.handleResourceSync()
 		case ":":
 			// Enter command mode
 			return m.handleEnterCommandMode()

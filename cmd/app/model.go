@@ -747,6 +747,52 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep modal open to show error
 		return m, nil
 
+	case model.ResourceSyncSuccessMsg:
+		// Handle successful resource sync
+		m.statusService.Set(fmt.Sprintf("Successfully synced %d resource(s)", msg.Count))
+
+		// Clear selections in tree view
+		if m.treeView != nil {
+			m.treeView.ClearSelection()
+		}
+
+		// Clear modal state and return to normal mode
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceSyncAppName = nil
+		m.state.Modals.ResourceSyncTargets = nil
+		m.state.Modals.ResourceSyncError = nil
+		m.state.Modals.ResourceSyncLoading = false
+
+		// Trigger a refresh of the affected apps' resource trees
+		if len(msg.AppNames) > 0 && m.state.Navigation.View == model.ViewTree {
+			var cmds []tea.Cmd
+			for _, appName := range msg.AppNames {
+				var appObj *model.App
+				for i := range m.state.Apps {
+					if m.state.Apps[i].Name == appName {
+						appObj = &m.state.Apps[i]
+						break
+					}
+				}
+				if appObj == nil {
+					appObj = &model.App{Name: appName}
+				}
+				cmds = append(cmds, m.startLoadingResourceTree(*appObj))
+			}
+			if len(cmds) > 0 {
+				return m, tea.Batch(cmds...)
+			}
+		}
+		return m, nil
+
+	case model.ResourceSyncErrorMsg:
+		// Handle resource sync error
+		m.statusService.Set(fmt.Sprintf("Resource sync failed: %s", msg.Error))
+		m.state.Modals.ResourceSyncError = &msg.Error
+		m.state.Modals.ResourceSyncLoading = false
+		// Keep modal open to show error
+		return m, nil
+
 	case model.MultiSyncCompletedMsg:
 		// Handle multiple app sync completion
 		if msg.Success {

@@ -253,6 +253,20 @@ func (s *ApplicationService) SyncApplication(ctx context.Context, appName string
 		"appNamespace": opts.AppNamespace,
 	}
 
+	// Add resources array if provided (for selective resource sync)
+	if len(opts.Resources) > 0 {
+		reqBody["resources"] = opts.Resources
+	}
+
+	// Add force option via strategy if enabled
+	if opts.Force {
+		reqBody["strategy"] = map[string]interface{}{
+			"apply": map[string]interface{}{
+				"force": true,
+			},
+		}
+	}
+
 	path := fmt.Sprintf("/api/v1/applications/%s/sync", url.PathEscape(appName))
 	if opts.AppNamespace != "" {
 		path += "?appNamespace=" + url.QueryEscape(opts.AppNamespace)
@@ -332,10 +346,20 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 }
 
 // SyncOptions represents options for syncing an application
+// SyncResourceTarget represents a specific resource to sync
+type SyncResourceTarget struct {
+	Group     string `json:"group"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
 type SyncOptions struct {
-	Prune        bool   `json:"prune,omitempty"`
-	DryRun       bool   `json:"dryRun,omitempty"`
-	AppNamespace string `json:"appNamespace,omitempty"`
+	Prune        bool                 `json:"prune,omitempty"`
+	DryRun       bool                 `json:"dryRun,omitempty"`
+	Force        bool                 `json:"force,omitempty"`
+	AppNamespace string               `json:"appNamespace,omitempty"`
+	Resources    []SyncResourceTarget `json:"resources,omitempty"`
 }
 
 // ConvertToApp converts an ArgoApplication to our model.App

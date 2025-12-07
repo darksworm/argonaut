@@ -13,7 +13,7 @@
  │              :resources [app] • :sort health|sync asc|desc • :up • :all                        │ 
  │                                                                                                │ 
  │ TREE VIEW    / filter • n/N next/prev match •  d  diff • K open in k9s                         │ 
- │               Space  select •  Ctrl+D  delete • :up return to apps                             │ 
+ │               Space  select •  s  sync •  Ctrl+D  delete • :up return to apps                  │ 
  │                                                                                                │ 
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 

@@ -150,6 +150,14 @@ type ModalState struct {
 	ResourceDeleteCascade           bool                   `json:"resourceDeleteCascade"`           // Default true
 	ResourceDeletePropagationPolicy string                 `json:"resourceDeletePropagationPolicy"` // Default "foreground"
 	ResourceDeleteForce             bool                   `json:"resourceDeleteForce"`             // Force deletion
+	// Resource sync confirmation modal state
+	ResourceSyncAppName         *string              `json:"resourceSyncAppName,omitempty"`
+	ResourceSyncTargets         []ResourceSyncTarget `json:"resourceSyncTargets,omitempty"`
+	ResourceSyncConfirmSelected int                  `json:"resourceSyncConfirmSelected"` // 0 = Sync, 1 = Cancel
+	ResourceSyncLoading         bool                 `json:"resourceSyncLoading"`
+	ResourceSyncError           *string              `json:"resourceSyncError,omitempty"`
+	ResourceSyncPrune           bool                 `json:"resourceSyncPrune"` // Prune option
+	ResourceSyncForce           bool                 `json:"resourceSyncForce"` // Force option
 	// Changelog loading modal state
 	ChangelogLoading bool `json:"changelogLoading"`
 	// K9s error modal state
