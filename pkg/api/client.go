@@ -319,6 +319,31 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	return respBody, nil
 }
 
+// argocdRuntimeError represents the standard ArgoCD error response format
+// See: runtimeError in ArgoCD swagger docs
+type argocdRuntimeError struct {
+	Code    int    `json:"code"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+// parseArgocdError attempts to parse an ArgoCD runtimeError from JSON response body
+// Returns the parsed message if successful, or empty string if parsing fails
+func parseArgocdError(responseBody string) *argocdRuntimeError {
+	if responseBody == "" {
+		return nil
+	}
+	var runtimeErr argocdRuntimeError
+	if err := json.Unmarshal([]byte(responseBody), &runtimeErr); err != nil {
+		return nil
+	}
+	// ArgoCD typically uses "message" for the human-readable error
+	if runtimeErr.Message != "" || runtimeErr.Error != "" {
+		return &runtimeErr
+	}
+	return nil
+}
+
 // createAPIError creates a structured API error based on status code and response
 func (c *Client) createAPIError(statusCode int, responseBody, url string) *apperrors.ArgonautError {
 	var category apperrors.ErrorCategory
@@ -326,6 +351,9 @@ func (c *Client) createAPIError(statusCode int, responseBody, url string) *apper
 	var message string
 	var userAction string
 	var recoverable bool
+
+	// Try to parse ArgoCD's runtimeError format first
+	argoErr := parseArgocdError(responseBody)
 
 	switch statusCode {
 	case 401:
@@ -378,9 +406,21 @@ func (c *Client) createAPIError(statusCode int, responseBody, url string) *apper
 		recoverable = true
 	}
 
-	// Try to extract more specific error from response body
-	if responseBody != "" && len(responseBody) < 500 {
-		// Check for common error patterns
+	// Try to extract more specific error from ArgoCD's runtimeError response
+	if argoErr != nil {
+		// Prefer "message" field, fall back to "error" field
+		argoMessage := argoErr.Message
+		if argoMessage == "" {
+			argoMessage = argoErr.Error
+		}
+		if argoMessage != "" {
+			// Use ArgoCD's message as it's typically more informative
+			message = argoMessage
+			cblog.With("component", "api").Debug("Parsed ArgoCD error",
+				"code", argoErr.Code, "message", argoMessage, "statusCode", statusCode)
+		}
+	} else if responseBody != "" && len(responseBody) < 500 {
+		// Fallback: check for common error patterns in raw body
 		if strings.Contains(strings.ToLower(responseBody), "unauthorized") ||
 			strings.Contains(strings.ToLower(responseBody), "invalid token") ||
 			strings.Contains(strings.ToLower(responseBody), "authentication") {

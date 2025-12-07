@@ -57,7 +57,7 @@ func (m *Model) renderHelpModal() string {
 	treeView := strings.Join([]string{
 		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
 		"\n",
-		keycap("Space"), " select ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":up"), " return to apps",
+		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":up"), " return to apps",
 	}, "")
 
 	var helpSections []string
@@ -753,6 +753,127 @@ func (m *Model) renderResourceDeleteLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Padding(1, 2)
+	minW := 32
+	w := max(minW, lipgloss.Width(content)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}
+
+// renderResourceSyncConfirmModal renders the resource sync confirmation modal
+func (m *Model) renderResourceSyncConfirmModal() string {
+	if m.state.Modals.ResourceSyncAppName == nil {
+		return ""
+	}
+
+	targets := m.state.Modals.ResourceSyncTargets
+	count := len(targets)
+
+	// Modal width: compact and centered (like sync modal)
+	half := m.state.Terminal.Cols / 2
+	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+
+	// Message: make all title text bright and readable
+	var titleLine string
+	{
+		syncPart := lipgloss.NewStyle().Foreground(whiteBright).Render("Sync ")
+		var subject string
+		if count == 1 {
+			target := targets[0]
+			if target.Namespace != "" {
+				subject = fmt.Sprintf("%s/%s/%s", target.Kind, target.Namespace, target.Name)
+			} else {
+				subject = fmt.Sprintf("%s/%s", target.Kind, target.Name)
+			}
+		} else {
+			subject = fmt.Sprintf("%d resource(s)", count)
+		}
+		subjectStyled := lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
+		qmark := lipgloss.NewStyle().Foreground(whiteBright).Render("?")
+		titleLine = syncPart + subjectStyled + qmark
+	}
+
+	// Sync button shows confirmation requirement and state
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
+
+	var syncBtn, cancelBtn string
+	if m.state.Modals.ResourceSyncConfirmSelected == 0 {
+		syncBtn = active.Render("Sync")
+		cancelBtn = inactive.Render("Cancel")
+	} else {
+		syncBtn = inactive.Render("Sync")
+		cancelBtn = active.Render("Cancel")
+	}
+
+	// Simple rounded border with cyan accent for sync
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2).
+		Width(modalWidth)
+
+	// Center helpers
+	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+
+	title := center.Render(titleLine)
+
+	buttons := center.Render(syncBtn + "  " + cancelBtn)
+
+	// Options line for prune and force toggles
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+
+	// Prune option
+	var pruneLine strings.Builder
+	pruneLine.WriteString(dim.Render("p: Prune "))
+	if m.state.Modals.ResourceSyncPrune {
+		pruneLine.WriteString(on.Render("On"))
+		pruneLine.WriteString(dim.Render(" (remove extra resources)"))
+	} else {
+		pruneLine.WriteString(dim.Render("Off"))
+	}
+
+	// Force option
+	var forceLine strings.Builder
+	forceLine.WriteString(dim.Render("f: Force "))
+	if m.state.Modals.ResourceSyncForce {
+		forceLine.WriteString(on.Render("On"))
+		forceLine.WriteString(dim.Render(" (delete & recreate)"))
+	} else {
+		forceLine.WriteString(dim.Render("Off"))
+	}
+
+	pruneStr := center.Render(pruneLine.String())
+	forceStr := center.Render(forceLine.String())
+	aux := pruneStr + "\n" + forceStr
+
+	// Lines are already centered to innerWidth
+	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
+
+	// Error display if any
+	if m.state.Modals.ResourceSyncError != nil {
+		errorMsg := center.Render(lipgloss.NewStyle().
+			Foreground(outOfSyncColor).
+			Render("Error: " + *m.state.Modals.ResourceSyncError))
+		body += "\n\n" + errorMsg
+	}
+
+	// Add outer whitespace so the modal doesn't sit directly on top of content
+	outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right
+	return outer.Render(wrapper.Render(body))
+}
+
+// renderResourceSyncLoadingModal renders the loading state during resource sync
+func (m *Model) renderResourceSyncLoadingModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing resource(s)..."))
+	content := msg
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
 		Padding(1, 2)
 	minW := 32
 	w := max(minW, lipgloss.Width(content)+4)

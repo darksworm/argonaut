@@ -1096,3 +1096,127 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, ca
 		return model.ResourceDeleteSuccessMsg{Count: successCount, AppNames: appNames}
 	}
 }
+
+// extractUserFriendlyError extracts a user-friendly error message from an error chain.
+// It looks for ArgonautError in the chain and returns its Message field,
+// which typically contains the ArgoCD error message parsed from the API response.
+func extractUserFriendlyError(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	// Try to unwrap to ArgonautError
+	var argoErr *apperrors.ArgonautError
+	if stdErrors.As(err, &argoErr) {
+		// The Message field contains the parsed ArgoCD error (or our default message)
+		return argoErr.Message
+	}
+
+	// Fallback: return the error string, but try to clean it up
+	errStr := err.Error()
+	// Remove common wrapper prefixes
+	prefixes := []string{
+		"failed to sync application ",
+	}
+	for _, prefix := range prefixes {
+		if idx := strings.Index(errStr, prefix); idx != -1 {
+			// Find the actual error after the wrapper
+			afterPrefix := errStr[idx+len(prefix):]
+			if colonIdx := strings.Index(afterPrefix, ": "); colonIdx != -1 {
+				return strings.TrimSpace(afterPrefix[colonIdx+2:])
+			}
+		}
+	}
+
+	return errStr
+}
+
+// syncSelectedResources syncs the specified resources via ArgoCD
+func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune, force bool) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ResourceSyncErrorMsg{Error: "No server configured"}
+		}
+	}
+
+	if len(targets) == 0 {
+		return func() tea.Msg {
+			return model.ResourceSyncErrorMsg{Error: "No resources selected"}
+		}
+	}
+
+	// Group targets by app name (ArgoCD API requires separate calls per app)
+	appResources := make(map[string][]api.SyncResourceTarget)
+	for _, target := range targets {
+		appResources[target.AppName] = append(appResources[target.AppName], api.SyncResourceTarget{
+			Group:     target.Group,
+			Kind:      target.Kind,
+			Name:      target.Name,
+			Namespace: target.Namespace,
+		})
+	}
+
+	// Collect unique app names for refresh after sync
+	appNames := make([]string, 0, len(appResources))
+	for name := range appResources {
+		appNames = append(appNames, name)
+	}
+
+	return func() tea.Msg {
+		cblog.With("component", "resource-sync").Info("Starting resource sync",
+			"count", len(targets), "apps", len(appResources), "prune", prune, "force", force)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		appService := api.NewApplicationService(m.state.Server)
+
+		var failedApps []string
+		successCount := 0
+
+		for appName, resources := range appResources {
+			cblog.With("component", "resource-sync").Debug("Syncing resources for app",
+				"app", appName, "resourceCount", len(resources))
+
+			// Look up app namespace from state (required for namespaced ArgoCD installations)
+			var appNamespace string
+			for _, app := range m.state.Apps {
+				if app.Name == appName && app.AppNamespace != nil {
+					appNamespace = *app.AppNamespace
+					break
+				}
+			}
+
+			opts := &api.SyncOptions{
+				Prune:        prune,
+				Force:        force,
+				Resources:    resources,
+				AppNamespace: appNamespace,
+			}
+
+			err := appService.SyncApplication(ctx, appName, opts)
+			if err != nil {
+				// Extract user-friendly message from the error chain
+				errMsg := extractUserFriendlyError(err)
+				cblog.With("component", "resource-sync").Error("Failed to sync resources for app",
+					"app", appName, "err", err, "userMsg", errMsg)
+				failedApps = append(failedApps, errMsg)
+			} else {
+				cblog.With("component", "resource-sync").Info("Successfully synced resources for app",
+					"app", appName, "resourceCount", len(resources))
+				successCount += len(resources)
+			}
+		}
+
+		// Handle results
+		if len(failedApps) > 0 {
+			cblog.With("component", "resource-sync").Error("Resource sync partially failed",
+				"failed", len(failedApps), "apps", len(appResources))
+			errorMsg := fmt.Sprintf("Failed to sync resources: %s", strings.Join(failedApps, "; "))
+			return model.ResourceSyncErrorMsg{Error: errorMsg}
+		}
+
+		cblog.With("component", "resource-sync").Info("Resource sync completed successfully", "count", successCount)
+		return model.ResourceSyncSuccessMsg{Count: successCount, AppNames: appNames}
+	}
+}

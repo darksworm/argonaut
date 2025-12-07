@@ -41,8 +41,9 @@ const (
 	ModeUpgradeError    Mode = "upgrade-error"
 	ModeUpgradeSuccess  Mode = "upgrade-success"
 	ModeNoDiff           Mode = "no-diff"
-	ModeK9sContextSelect Mode = "k9s-context-select"
-	ModeK9sError         Mode = "k9s-error"
+	ModeK9sContextSelect    Mode = "k9s-context-select"
+	ModeK9sError            Mode = "k9s-error"
+	ModeConfirmResourceSync Mode = "confirm-resource-sync"
 )
 
 // App represents an ArgoCD application
@@ -242,4 +243,13 @@ type ResourceDeleteTarget struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Version   string `json:"version"`
+}
+
+// ResourceSyncTarget represents a resource to be synced
+type ResourceSyncTarget struct {
+	AppName   string `json:"appName"`
+	Group     string `json:"group"`
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
 }
