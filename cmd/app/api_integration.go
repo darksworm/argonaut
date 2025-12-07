@@ -1097,6 +1097,40 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, ca
 	}
 }
 
+// extractUserFriendlyError extracts a user-friendly error message from an error chain.
+// It looks for ArgonautError in the chain and returns its Message field,
+// which typically contains the ArgoCD error message parsed from the API response.
+func extractUserFriendlyError(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	// Try to unwrap to ArgonautError
+	var argoErr *apperrors.ArgonautError
+	if stdErrors.As(err, &argoErr) {
+		// The Message field contains the parsed ArgoCD error (or our default message)
+		return argoErr.Message
+	}
+
+	// Fallback: return the error string, but try to clean it up
+	errStr := err.Error()
+	// Remove common wrapper prefixes
+	prefixes := []string{
+		"failed to sync application ",
+	}
+	for _, prefix := range prefixes {
+		if idx := strings.Index(errStr, prefix); idx != -1 {
+			// Find the actual error after the wrapper
+			afterPrefix := errStr[idx+len(prefix):]
+			if colonIdx := strings.Index(afterPrefix, ": "); colonIdx != -1 {
+				return strings.TrimSpace(afterPrefix[colonIdx+2:])
+			}
+		}
+	}
+
+	return errStr
+}
+
 // syncSelectedResources syncs the specified resources via ArgoCD
 func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune, force bool) tea.Cmd {
 	if m.state.Server == nil {
@@ -1152,9 +1186,11 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 
 			err := appService.SyncApplication(ctx, appName, opts)
 			if err != nil {
+				// Extract user-friendly message from the error chain
+				errMsg := extractUserFriendlyError(err)
 				cblog.With("component", "resource-sync").Error("Failed to sync resources for app",
-					"app", appName, "err", err)
-				failedApps = append(failedApps, fmt.Sprintf("%s: %v", appName, err))
+					"app", appName, "err", err, "userMsg", errMsg)
+				failedApps = append(failedApps, errMsg)
 			} else {
 				cblog.With("component", "resource-sync").Info("Successfully synced resources for app",
 					"app", appName, "resourceCount", len(resources))
