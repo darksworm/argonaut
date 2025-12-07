@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.9.0](https://github.com/darksworm/argonaut/compare/v2.8.0...v2.9.0) (2025-12-07)
+
+
+### Features
+
+* add ApplicationSet view for filtering apps by ApplicationSet ([c2c2ffd](https://github.com/darksworm/argonaut/commit/c2c2ffd004d6b6b2a8cea2509bf2649551a9d930))
+* add individual resource diff view in tree view ([#148](https://github.com/darksworm/argonaut/issues/148)) ([4e3964a](https://github.com/darksworm/argonaut/commit/4e3964a5a556ffca7f713c24864aa37f0850c98b))
+* add resource deletion from tree view with Ctrl+D ([6a67400](https://github.com/darksworm/argonaut/commit/6a67400a0d7e08e2608e77fb30ecdc50cd1f1e97))
+* add resource-level sync in resource tree view ([#162](https://github.com/darksworm/argonaut/issues/162)) ([c4a51a9](https://github.com/darksworm/argonaut/commit/c4a51a93f1082c0f8b6331729e479afd9a2d01bb))
+* add support for ArgoCD CLI --port-forward access mode ([#159](https://github.com/darksworm/argonaut/issues/159)) ([be03cd3](https://github.com/darksworm/argonaut/commit/be03cd3f9f59c032b17617a2eccc87f8aba6bc3e))
+* add sync status for individual resources in tree view ([62778f6](https://github.com/darksworm/argonaut/commit/62778f63736437a054d1dda85a1f9551efcea740))
+* enable command mode and improve tree view UX ([cc28be7](https://github.com/darksworm/argonaut/commit/cc28be73edfdb3f083a6d2d173b007f48661622a))
+* Move env vars to config ([671db05](https://github.com/darksworm/argonaut/commit/671db0509d18996818b076ee81eb8d199024e7a4))
+* Move env vars to config ([2628ac8](https://github.com/darksworm/argonaut/commit/2628ac83b11fcfe4683246355705020cff79540e))
+* Move env vars to config ([bf5de9b](https://github.com/darksworm/argonaut/commit/bf5de9b154162141d85a3c77af51567c9149dd8a))
+* Move env vars to config ([f87e858](https://github.com/darksworm/argonaut/commit/f87e85817ac372637254b5d472460d46a040aa10))
+* pressing Enter on an app opens its resources view ([7394f85](https://github.com/darksworm/argonaut/commit/7394f8587e6396eb54a62c3bb552c5dd44e74c01))
+* you can now jump to k9s by pressing K when hovering a resource ([c3520a5](https://github.com/darksworm/argonaut/commit/c3520a52a4f225fc72caf8457894a54f418bf580))
+
+
+### Bug Fixes
+
+* make :sync command work in tree view ([#163](https://github.com/darksworm/argonaut/issues/163)) ([536de44](https://github.com/darksworm/argonaut/commit/536de4457b984435023458f55ebab3f257e92edc))
+* remove expand arrow from tree view to improve visual hierarchy ([7f290de](https://github.com/darksworm/argonaut/commit/7f290de9c74a0fbc038ee2c1778b4412558e8516))
+
 ## [2.8.0](https://github.com/darksworm/argonaut/compare/v2.7.0...v2.8.0) (2025-11-29)
 
 
