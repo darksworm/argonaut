@@ -98,7 +98,7 @@ docker pull ghcr.io/darksworm/argonaut:latest
 Run with mounted Argo CD config:
 ```bash
 docker run -it --rm \
-  -v ~/.config/argocd:/root/.config/argocd:ro \
+  -v ~/.config/argocd:/home/appuser/.config/argocd:ro \
   ghcr.io/darksworm/argonaut:latest
 ```
 
