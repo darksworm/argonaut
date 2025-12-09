@@ -652,6 +652,39 @@ func (s *ApplicationService) GetApplication(ctx context.Context, name string, ap
 	return &app, nil
 }
 
+// RefreshOptions specifies options for refreshing an application
+type RefreshOptions struct {
+	Hard         bool    // If true, performs hard refresh (invalidates cache)
+	AppNamespace *string // Optional app namespace for multi-tenant clusters
+}
+
+// RefreshApplication triggers a refresh for the specified application.
+// Normal refresh compares with git; hard refresh invalidates the manifest cache.
+func (s *ApplicationService) RefreshApplication(ctx context.Context, name string, opts *RefreshOptions) error {
+	if name == "" {
+		return fmt.Errorf("application name is required")
+	}
+
+	params := url.Values{}
+	if opts != nil && opts.Hard {
+		params.Set("refresh", "hard")
+	} else {
+		params.Set("refresh", "true")
+	}
+	if opts != nil && opts.AppNamespace != nil && *opts.AppNamespace != "" {
+		params.Set("appNamespace", *opts.AppNamespace)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/applications/%s?%s", url.PathEscape(name), params.Encode())
+
+	_, err := s.client.Get(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to refresh application %s: %w", name, err)
+	}
+
+	return nil
+}
+
 // GetRevisionMetadata fetches git metadata for a specific revision
 func (s *ApplicationService) GetRevisionMetadata(ctx context.Context, name string, revision string, appNamespace *string) (*model.RevisionMetadata, error) {
 	endpoint := fmt.Sprintf("/api/v1/applications/%s/revisions/%s/metadata", name, revision)

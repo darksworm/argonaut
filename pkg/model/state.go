@@ -98,21 +98,23 @@ func (s *SelectionState) ToggleSelectedApp(app string) {
 
 // UIState holds UI-related state
 type UIState struct {
-	SearchQuery         string      `json:"searchQuery"`
-	ActiveFilter        string      `json:"activeFilter"`
-	Command             string      `json:"command"`
-	IsVersionOutdated   bool        `json:"isVersionOutdated"`
-	LatestVersion       *string     `json:"latestVersion,omitempty"`
-	UpdateInfo          *UpdateInfo `json:"updateInfo,omitempty"`
-	CommandInputKey     int         `json:"commandInputKey"`
-	TreeAppName         *string     `json:"treeAppName,omitempty"`
-	ThemeSelectedIndex  int         `json:"themeSelectedIndex"`
-	ThemeScrollOffset   int         `json:"themeScrollOffset"`
-	ThemeOriginalName   string      `json:"themeOriginalName,omitempty"`
-	CommandInvalid      bool        `json:"commandInvalid"`
-	Sort                SortConfig  `json:"sort"`
-	ShowWhatsNew        bool        `json:"showWhatsNew"`
-	WhatsNewShownAt     *time.Time  `json:"whatsNewShownAt,omitempty"`
+	SearchQuery         string          `json:"searchQuery"`
+	ActiveFilter        string          `json:"activeFilter"`
+	Command             string          `json:"command"`
+	IsVersionOutdated   bool            `json:"isVersionOutdated"`
+	LatestVersion       *string         `json:"latestVersion,omitempty"`
+	UpdateInfo          *UpdateInfo     `json:"updateInfo,omitempty"`
+	CommandInputKey     int             `json:"commandInputKey"`
+	TreeAppName         *string         `json:"treeAppName,omitempty"`
+	ThemeSelectedIndex  int             `json:"themeSelectedIndex"`
+	ThemeScrollOffset   int             `json:"themeScrollOffset"`
+	ThemeOriginalName   string          `json:"themeOriginalName,omitempty"`
+	CommandInvalid      bool            `json:"commandInvalid"`
+	Sort                SortConfig      `json:"sort"`
+	ShowWhatsNew        bool            `json:"showWhatsNew"`
+	WhatsNewShownAt     *time.Time      `json:"whatsNewShownAt,omitempty"`
+	RefreshFlashApps    map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
+	RefreshFlashTree    bool            `json:"-"` // Flash tree view after refresh (transient)
 }
 
 // ModalState holds modal-related state

@@ -1024,6 +1024,101 @@ func (m *Model) handleResourceSync() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleRefreshCommand handles the :refresh and :refresh! commands
+func (m *Model) handleRefreshCommand(arg string, hard bool) (tea.Model, tea.Cmd) {
+	refreshType := "refresh"
+	if hard {
+		refreshType = "hard refresh"
+	}
+
+	// In tree view, refresh the parent app
+	if m.state.Navigation.View == model.ViewTree {
+		appName := ""
+		if m.treeView != nil {
+			appName = m.treeView.GetAppName()
+		}
+
+		if appName == "" {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "No application in tree view to refresh"}
+			}
+		}
+
+		// Find app namespace
+		var appNamespace *string
+		for _, app := range m.state.Apps {
+			if app.Name == appName {
+				appNamespace = app.AppNamespace
+				break
+			}
+		}
+
+		cblog.With("component", refreshType).Debug(":refresh command invoked from tree view", "app", appName, "hard", hard)
+		return m, m.refreshSingleApplication(appName, appNamespace, hard)
+	}
+
+	// In apps view
+	target := arg
+
+	// If no explicit argument, check for multi-selection first
+	if target == "" {
+		sel := m.state.Selections.SelectedApps
+		names := make([]string, 0, len(sel))
+		for name, ok := range sel {
+			if ok {
+				names = append(names, name)
+			}
+		}
+
+		if len(names) > 1 {
+			// Multiple apps selected - refresh all
+			cblog.With("component", refreshType).Debug(":refresh command invoked for multi-selection", "count", len(names), "hard", hard)
+			return m, m.refreshMultipleApplications(hard)
+		} else if len(names) == 1 {
+			// Single app selected via checkbox
+			target = names[0]
+		} else {
+			// No apps selected via checkbox, try cursor position
+			if m.state.Navigation.View == model.ViewApps {
+				items := m.getVisibleItemsForCurrentView()
+				if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
+					if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
+						target = app.Name
+					}
+				}
+			} else {
+				return m, func() tea.Msg {
+					return model.StatusChangeMsg{Status: "Navigate to apps or tree view to refresh"}
+				}
+			}
+		}
+	}
+
+	if target == "" {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "No app selected for refresh"}
+		}
+	}
+
+	// Find the app to get namespace
+	var targetApp *model.App
+	for i := range m.state.Apps {
+		if strings.EqualFold(m.state.Apps[i].Name, target) {
+			targetApp = &m.state.Apps[i]
+			break
+		}
+	}
+
+	if targetApp == nil {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "App not found: " + target}
+		}
+	}
+
+	cblog.With("component", refreshType).Debug(":refresh command invoked", "app", target, "hard", hard)
+	return m, m.refreshSingleApplication(targetApp.Name, targetApp.AppNamespace, hard)
+}
+
 // handleConfirmResourceSyncKeys handles input when in resource sync confirmation mode
 func (m *Model) handleConfirmResourceSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {

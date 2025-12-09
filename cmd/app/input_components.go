@@ -664,6 +664,10 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			mdl, cmd := m.handleSyncModal()
 			return mdl, cmd
+		case "refresh":
+			return m.handleRefreshCommand(arg, false)
+		case "refresh!":
+			return m.handleRefreshCommand(arg, true)
 		case "delete", "del":
 			target := arg
 			if target == "" {

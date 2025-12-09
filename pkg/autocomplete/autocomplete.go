@@ -162,6 +162,20 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			TakesArg:    false,
 			ArgType:     "",
 		},
+		{
+			Command:     "refresh",
+			Aliases:     []string{"refresh", "ref"},
+			Description: "Refresh application (compare with git)",
+			TakesArg:    true,
+			ArgType:     "app",
+		},
+		{
+			Command:     "refresh!",
+			Aliases:     []string{"refresh!"},
+			Description: "Hard refresh application (invalidate cache)",
+			TakesArg:    true,
+			ArgType:     "app",
+		},
 	}
 
 	// Build alias map

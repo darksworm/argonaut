@@ -857,6 +857,68 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case model.RefreshCompletedMsg:
+		// Handle single app refresh completion
+		if msg.Success {
+			refreshType := "Refresh"
+			if msg.Hard {
+				refreshType = "Hard refresh"
+			}
+			m.statusService.Set(fmt.Sprintf("%s initiated for %s", refreshType, msg.AppName))
+
+			// Set flash state based on current view
+			if m.state.Navigation.View == model.ViewTree {
+				m.state.UI.RefreshFlashTree = true
+				if m.treeView != nil {
+					m.treeView.SetFlashAll(true)
+				}
+			} else {
+				if m.state.UI.RefreshFlashApps == nil {
+					m.state.UI.RefreshFlashApps = make(map[string]bool)
+				}
+				m.state.UI.RefreshFlashApps[msg.AppName] = true
+			}
+			// Schedule flash clear after 1 second
+			return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+				return model.ClearRefreshFlashMsg{}
+			})
+		}
+		return m, nil
+
+	case model.MultiRefreshCompletedMsg:
+		// Handle multiple app refresh completion
+		if msg.Success {
+			refreshType := "Refresh"
+			if msg.Hard {
+				refreshType = "Hard refresh"
+			}
+			m.statusService.Set(fmt.Sprintf("%s initiated for %d app(s)", refreshType, msg.AppCount))
+
+			// Set flash for all selected apps
+			if m.state.UI.RefreshFlashApps == nil {
+				m.state.UI.RefreshFlashApps = make(map[string]bool)
+			}
+			for appName, selected := range m.state.Selections.SelectedApps {
+				if selected {
+					m.state.UI.RefreshFlashApps[appName] = true
+				}
+			}
+			// Schedule flash clear after 1 second
+			return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+				return model.ClearRefreshFlashMsg{}
+			})
+		}
+		return m, nil
+
+	case model.ClearRefreshFlashMsg:
+		// Clear the refresh flash highlight
+		m.state.UI.RefreshFlashApps = nil
+		m.state.UI.RefreshFlashTree = false
+		if m.treeView != nil {
+			m.treeView.SetFlashAll(false)
+		}
+		return m, nil
+
 	case model.MultiDeleteCompletedMsg:
 		// Handle multiple app delete completion
 		if msg.Success {

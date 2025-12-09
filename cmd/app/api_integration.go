@@ -668,6 +668,107 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	}
 }
 
+// refreshSingleApplication refreshes a specific application
+func (m *Model) refreshSingleApplication(appName string, appNamespace *string, hard bool) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		appService := api.NewApplicationService(m.state.Server)
+
+		opts := &api.RefreshOptions{
+			Hard:         hard,
+			AppNamespace: appNamespace,
+		}
+
+		refreshType := "refresh"
+		if hard {
+			refreshType = "hard refresh"
+		}
+
+		cblog.With("component", "api").Info("Starting "+refreshType, "app", appName)
+		err := appService.RefreshApplication(ctx, appName, opts)
+		if err != nil {
+			cblog.With("component", "api").Error("Refresh failed", "app", appName, "err", err)
+			if argErr, ok := err.(*apperrors.ArgonautError); ok {
+				return model.StructuredErrorMsg{
+					Error:   argErr,
+					Context: map[string]interface{}{"operation": "refresh", "appName": appName, "hard": hard},
+					Retry:   argErr.Recoverable,
+				}
+			}
+			errorMsg := fmt.Sprintf("Failed to refresh %s: %v", appName, err)
+			return model.StructuredErrorMsg{
+				Error: apperrors.New(apperrors.ErrorAPI, "REFRESH_FAILED", errorMsg).
+					WithSeverity(apperrors.SeverityMedium).
+					AsRecoverable().
+					WithUserAction("Check your connection to ArgoCD and try again"),
+				Context: map[string]interface{}{"operation": "refresh", "appName": appName, "hard": hard},
+				Retry:   true,
+			}
+		}
+
+		cblog.With("component", "api").Info("Refresh completed", "app", appName, "hard", hard)
+		return model.RefreshCompletedMsg{AppName: appName, Success: true, Hard: hard}
+	}
+}
+
+// refreshMultipleApplications refreshes multiple selected applications
+func (m *Model) refreshMultipleApplications(hard bool) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No server configured"}
+		}
+	}
+
+	selectedApps := make([]string, 0, len(m.state.Selections.SelectedApps))
+	for appName, selected := range m.state.Selections.SelectedApps {
+		if selected {
+			selectedApps = append(selectedApps, appName)
+		}
+	}
+
+	if len(selectedApps) == 0 {
+		return func() tea.Msg {
+			return model.ApiErrorMsg{Message: "No applications selected"}
+		}
+	}
+
+	// Build app namespace map
+	appNamespaces := make(map[string]*string)
+	for _, app := range m.state.Apps {
+		appNamespaces[app.Name] = app.AppNamespace
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		appService := api.NewApplicationService(m.state.Server)
+
+		for _, appName := range selectedApps {
+			opts := &api.RefreshOptions{
+				Hard:         hard,
+				AppNamespace: appNamespaces[appName],
+			}
+
+			err := appService.RefreshApplication(ctx, appName, opts)
+			if err != nil {
+				cblog.With("component", "api").Error("Refresh failed for app", "app", appName, "err", err)
+				// Continue with other apps
+			}
+		}
+
+		return model.MultiRefreshCompletedMsg{AppCount: len(selectedApps), Success: true, Hard: hard}
+	}
+}
+
 // isAuthenticationError checks if an error is related to authentication
 func isAuthenticationError(errMsg string) bool {
 	authIndicators := []string{
