@@ -51,6 +51,9 @@ type TreeView struct {
 	// Desaturate mode: when true, only highlight selected items (not cursor),
 	// and scope highlights to just the resource text (not tree prefixes or padding)
 	desaturateMode bool
+
+	// Flash mode: when true, all rows are highlighted with success color (refresh feedback)
+	flashAll bool
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -419,9 +422,24 @@ func (v *TreeView) Render() string {
         isSelected := v.selectedUIDs[n.uid]
         isCursor := i == v.selIdx
 
+        // Flash mode: all rows get success color background (refresh feedback)
+        if v.flashAll {
+            name := n.name
+            if n.namespace != "" {
+                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+            }
+            flashBG := v.palette.Success
+            bgStyle := lipgloss.NewStyle().Background(flashBG)
+            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(prefix + disc)
+            ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(n.kind)
+            ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(flashBG).Render("[" + name + "]")
+            st := v.renderStatusPartWithBG(n, flashBG)
+            sp := bgStyle.Render(" ")
+            line = ps + ks + sp + ns + sp + st
+            line = padRightWithBG(line, v.innerWidth(), flashBG)
+        } else if v.desaturateMode {
         // In desaturate mode: only highlight selected items, with scoped highlighting
         // In normal mode: highlight both cursor and selected items with full-line highlighting
-        if v.desaturateMode {
             // Desaturate mode: only selected items get highlighted, and only the resource text
             if isSelected {
                 name := n.name
@@ -568,6 +586,12 @@ func (v *TreeView) SetSize(width, height int) {
 // and highlights are scoped to just the resource text (not tree prefixes or padding).
 func (v *TreeView) SetDesaturateMode(enabled bool) {
 	v.desaturateMode = enabled
+}
+
+// SetFlashAll enables or disables flash mode.
+// When enabled, all rows are highlighted with success color (refresh feedback).
+func (v *TreeView) SetFlashAll(enabled bool) {
+	v.flashAll = enabled
 }
 
 // Expose selected index for integration (optional)

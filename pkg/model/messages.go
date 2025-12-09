@@ -352,6 +352,24 @@ type MultiDeleteCompletedMsg struct {
 	Success  bool
 }
 
+// RefreshCompletedMsg indicates a single app refresh has completed
+type RefreshCompletedMsg struct {
+	AppName string
+	Success bool
+	Hard    bool // Indicates if it was a hard refresh
+	Error   error
+}
+
+// MultiRefreshCompletedMsg indicates multiple app refresh has completed
+type MultiRefreshCompletedMsg struct {
+	AppCount int
+	Success  bool
+	Hard     bool
+}
+
+// ClearRefreshFlashMsg clears the refresh flash highlight after timeout
+type ClearRefreshFlashMsg struct{}
+
 // Rollback Messages - for rollback functionality
 
 // RollbackHistoryLoadedMsg is sent when rollback history is loaded

@@ -250,6 +250,9 @@ var (
 	// Cursor sitting on a selected row should stand out
 	cursorOnSelectedStyle = lipgloss.NewStyle().
 				Background(cyanBright)
+	// Flash highlight for refresh feedback
+	refreshFlashStyle = lipgloss.NewStyle().
+			Background(syncedColor)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().

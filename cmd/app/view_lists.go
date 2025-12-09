@@ -275,8 +275,13 @@ func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 		row = clipAnsiToWidth(row, fullRowWidth)
 	}
 
+	// Check if this app should flash (refresh feedback)
+	isFlashing := m.state.UI.RefreshFlashApps != nil && m.state.UI.RefreshFlashApps[app.Name]
+
 	// Apply highlight: use a distinct style when cursor overlaps a selected row
-	if isCursor && isSelected {
+	if isFlashing {
+		row = refreshFlashStyle.Render(row)
+	} else if isCursor && isSelected {
 		row = cursorOnSelectedStyle.Render(row)
 	} else if active { // cursor or selected
 		row = selectedStyle.Render(row)

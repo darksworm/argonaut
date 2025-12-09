@@ -124,6 +124,11 @@ func applyTheme(p theme.Palette) {
 		Background(p.CursorSelectedBG).
 		Foreground(textOnCursorSelected)
 	// cursorStyle = lipgloss.NewStyle().Background(p.CursorBG)
+
+	// Refresh flash uses a success/green-ish highlight
+	refreshFlashStyle = lipgloss.NewStyle().
+		Background(p.Success).
+		Foreground(textOnSelected)
 }
 
 // applyThemeToModel applies the current theme to model components that need it
