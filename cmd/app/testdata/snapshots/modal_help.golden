@@ -10,15 +10,15 @@
  │                                                                                                │ 
  │ APPS VIEW     s  sync •  R  rollback •  r  resources •  d  diff •  Ctrl+D  delete              │ 
  │              :diff [app] • :sync [app] • :rollback [app] • :delete [app]                       │ 
- │              :resources [app] • :sort health|sync asc|desc • :up • :all                        │ 
+ │              :refresh [app] • :refresh! [app] (hard) • :sort health|sync asc|desc              │ 
+ │              :resources [app] • :up • :all                                                     │ 
  │                                                                                                │ 
  │ TREE VIEW    / filter • n/N next/prev match •  d  diff • K open in k9s                         │ 
- │               Space  select •  s  sync •  Ctrl+D  delete • :up return to apps                  │ 
+ │               Space  select •  s  sync •  Ctrl+D  delete • :refresh|:refresh! • :up            │ 
  │                                                                                                │ 
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

@@ -50,14 +50,16 @@ func (m *Model) renderHelpModal() string {
 		"\n",
 		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app] ", bullet(), " ", mono(":delete"), " [app]",
 		"\n",
-		mono(":resources"), " [app] ", bullet(), " ", mono(":sort"), " health|sync asc|desc ", bullet(), " ", mono(":up"), " ", bullet(), " ", mono(":all"),
+		mono(":refresh"), " [app] ", bullet(), " ", mono(":refresh!"), " [app] (hard) ", bullet(), " ", mono(":sort"), " health|sync asc|desc",
+		"\n",
+		mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " ", bullet(), " ", mono(":all"),
 	}, "")
 
 	// TREE VIEW - hotkeys specific to tree/resources view
 	treeView := strings.Join([]string{
 		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
 		"\n",
-		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":up"), " return to apps",
+		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
 	}, "")
 
 	var helpSections []string
