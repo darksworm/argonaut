@@ -96,10 +96,11 @@ Pull the image:
 docker pull ghcr.io/darksworm/argonaut:latest
 ```
 
-Run with mounted Argo CD config:
+Run with mounted Argo CD config (as your host user to preserve permissions):
 ```bash
 docker run -it --rm \
-  -v ~/.config/argocd:/root/.config/argocd:ro \
+  -u $(id -u):$(id -g) \
+  -v ~/.config/argocd:/home/appuser/.config/argocd:ro \
   ghcr.io/darksworm/argonaut:latest
 ```
 
