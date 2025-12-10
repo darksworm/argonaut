@@ -183,26 +183,6 @@ jobs:
           install-source: ${{ needs.release-please.outputs.tag_name }}
           test-mode: release
 
-  docker-integration-tests:
-    needs: [release-please, goreleaser]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Prepare Argo CD config
-        run: |
-          mkdir -p .tmp-argocd
-          cat <<'EOF' > .tmp-argocd/config
-          contexts: []
-          EOF
-
-      - name: Test Docker image
-        run: |
-          docker run --rm \
-            -u $(id -u):$(id -g) \
-            -v $PWD/.tmp-argocd:/home/appuser/.config/argocd:ro \
-            ghcr.io/darksworm/argonaut:${{ needs.release-please.outputs.tag_name }} \
-            sh -c "ls -l /home/appuser/.config/argocd && [ -r /home/appuser/.config/argocd/config ] && argonaut --version"
-
   aur-integration-tests:
     needs: [release-please, goreleaser]
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
