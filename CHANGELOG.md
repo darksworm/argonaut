@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0](https://github.com/darksworm/argonaut/compare/v2.9.0...v2.10.0) (2025-12-10)
+
+
+### Features
+
+* add :refresh and :refresh! commands for app refresh, available in the apps list and resource tree views ([66b9610](https://github.com/darksworm/argonaut/commit/66b9610908427204422e4f6cba4b5c52566ac2e3))
+
 ## [2.9.0](https://github.com/darksworm/argonaut/compare/v2.8.0...v2.9.0) (2025-12-07)
 
 
