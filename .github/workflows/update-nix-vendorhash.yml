@@ -1,0 +1,70 @@
+name: Update Nix vendorHash
+
+on:
+  pull_request:
+    paths:
+      - go.mod
+      - go.sum
+      - flake.nix
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-vendorhash:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Update vendorHash
+        id: update
+        run: ./scripts/update-vendorhash.sh
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit updated vendorHash to PR branch
+        if: steps.diff.outputs.changed == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "argonaut-bot"
+          git config user.email "argonaut-bot@users.noreply.github.com"
+          git commit -am "chore: update Nix vendor hash"
+          git push
+
+      - name: Create pull request with updated vendorHash
+        if: steps.diff.outputs.changed == 'true' && github.event_name == 'workflow_dispatch'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: update Nix vendor hash"
+          branch: bot/update-nix-vendor-hash
+          delete-branch: true
+          title: "chore: update Nix vendor hash"
+          body: |
+            Update the Nix vendorHash to match current Go dependencies.
+
+      - name: Fail if vendorHash update is required
+        if: steps.diff.outputs.changed == 'true' && !(github.event_name == 'workflow_dispatch') && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          echo "::error::Nix vendorHash is outdated. Run ./scripts/update-vendorhash.sh and push the result." >&2
+          exit 1
+
+      - name: Vendor hash already up to date
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "Nix vendorHash already up to date."
