@@ -23,7 +23,10 @@ if [[ -z "${new_hash}" ]]; then
   exit 1
 fi
 
+# Escape slashes for Perl's substitution delimiter
+escaped_hash=${new_hash//\//\\/}
+
 # 3) Write the correct hash back
-perl -0777 -i -pe "s/vendorHash\\s*=\\s*\".*?\";/vendorHash = \"${new_hash}\";/" "$FILE"
+perl -0777 -i -pe "s/vendorHash\\s*=\\s*\".*?\";/vendorHash = \"${escaped_hash}\";/" "$FILE"
 
 echo "Updated vendorHash to: ${new_hash}"
