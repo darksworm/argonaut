@@ -17,7 +17,9 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui"
+	"github.com/darksworm/argonaut/pkg/tui/clipboard"
 	"github.com/darksworm/argonaut/pkg/tui/listnav"
+	"github.com/darksworm/argonaut/pkg/tui/selection"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -90,6 +92,12 @@ type Model struct {
 	k9sContextSelected  int      // Selected index in context list
 	k9sPendingKind      string   // Resource kind to open in k9s
 	k9sPendingNamespace string   // Resource namespace to open in k9s
+
+	// Text selection state for mouse-based copy
+	selection *selection.Selection
+
+	// Last rendered content (plain text, for selection extraction)
+	lastRenderedLines []string
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -138,6 +146,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.UI.CommandInvalid = false
 			return m, nil
 		}
+		return m, nil
+
+	case tea.MouseClickMsg:
+		return m.handleMouseClickMsg(msg)
+
+	case tea.MouseMotionMsg:
+		return m.handleMouseMotionMsg(msg)
+
+	case tea.MouseReleaseMsg:
+		return m.handleMouseReleaseMsg(msg)
+
+	case clearCopiedStatusMsg:
+		m.state.UI.SelectionCopied = false
+		return m, nil
+
+	case clipboard.CopyMsg:
+		// Clipboard copy completed (success or failure logged elsewhere)
 		return m, nil
 
 	// Tree stream messages from watcher goroutine

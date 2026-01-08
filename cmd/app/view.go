@@ -312,9 +312,15 @@ func (m *Model) View() tea.View {
 		}
 	}
 
+	// Store plain text content for text selection extraction
+	m.storeRenderedContent(content)
+
+	// Apply selection highlighting if there's an active selection
+	content = m.applySelectionHighlight(content)
+
 	v := tea.NewView(content)
 	v.AltScreen = true
-	v.MouseMode = tea.MouseModeCellMotion
+	v.MouseMode = tea.MouseModeAllMotion // Track all motion for better selection support
 	return v
 }
 

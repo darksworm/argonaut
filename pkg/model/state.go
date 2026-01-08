@@ -115,6 +115,7 @@ type UIState struct {
 	WhatsNewShownAt     *time.Time      `json:"whatsNewShownAt,omitempty"`
 	RefreshFlashApps    map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
 	RefreshFlashTree    bool            `json:"-"` // Flash tree view after refresh (transient)
+	SelectionCopied     bool            `json:"-"` // Show "Copied!" message briefly (transient)
 }
 
 // ModalState holds modal-related state

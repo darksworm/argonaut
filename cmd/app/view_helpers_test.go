@@ -1,16 +1,10 @@
 package main
 
 import (
-	"regexp"
 	"testing"
 )
 
-// stripANSI removes ANSI escape sequences for stable assertions.
-var ansiTestRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
-
-func stripANSI(s string) string {
-	return ansiTestRE.ReplaceAllString(s, "")
-}
+// stripANSI is now defined in view_selection.go
 
 // Test helper functions that were removed from main code
 func abbreviateStatus(status string) string {

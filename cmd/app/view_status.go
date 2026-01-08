@@ -124,6 +124,13 @@ func (m *Model) renderStatusLine() string {
 
 	// Always show Ready, ignore status messages
 	statusText := "Ready"
+
+	// Show "Copied!" briefly after text selection copy
+	if m.state.UI.SelectionCopied {
+		copiedStyle := lipgloss.NewStyle().Foreground(syncedColor) // Green
+		statusText = copiedStyle.Render("Copied!") + " • " + statusText
+	}
+
 	if position != "" {
 		statusText += fmt.Sprintf(" • %s", position)
 	}
