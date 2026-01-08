@@ -1170,204 +1170,337 @@ func (m *Model) renderCoreDetectedView() string {
 	})
 }
 
-// renderRollbackHistory renders the deployment history list
-func (m *Model) renderRollbackHistory(rollback *model.RollbackState) string {
-	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-	content := titleStyle.Render(fmt.Sprintf("Rollback %s", rollback.AppName)) + "\n\n"
+// renderRollbackHistory renders the deployment history list with table layout
+func (m *Model) renderRollbackHistory(rollback *model.RollbackState, innerWidth int) string {
+	var lines []string
 
 	if len(rollback.Rows) == 0 {
-		content += "No deployment history available"
-		return content
+		return "No deployment history available"
 	}
 
-	// Show current revision info
+	// Current revision info
 	if rollback.CurrentRevision != "" {
 		currentStyle := lipgloss.NewStyle().Foreground(syncedColor)
-		content += currentStyle.Render(fmt.Sprintf("Current: %s", rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))])) + "\n\n"
+		shortRev := rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))]
+		currentLine := fmt.Sprintf("Current Revision: %s", currentStyle.Render(shortRev))
+		// Add deployed date if available from first row (current deployment)
+		if len(rollback.Rows) > 0 && rollback.Rows[0].DeployedAt != nil {
+			dateStyle := lipgloss.NewStyle().Foreground(dimColor)
+			currentLine += dateStyle.Render(fmt.Sprintf(" (deployed %s)", rollback.Rows[0].DeployedAt.Format("Jan 02 15:04")))
+		}
+		lines = append(lines, currentLine, "")
 	}
 
-	// Show deployment history table
-	content += "Deployment History:\n\n"
+	// Section title with horizontal rule
+	sectionStyle := lipgloss.NewStyle().Foreground(dimColor)
+	titleText := " Select revision to rollback to "
+	ruleWidth := max(0, innerWidth-len(titleText)-4)
+	leftRule := strings.Repeat("─", ruleWidth/2)
+	rightRule := strings.Repeat("─", ruleWidth-ruleWidth/2)
+	lines = append(lines, sectionStyle.Render(leftRule+titleText+rightRule), "")
 
-	// Compute how many rows we can show to avoid overflowing the modal.
-	// This mirrors the height math used in renderRollbackModal.
-	header := m.renderBanner()
-	headerLines := countLines(header)
+	// Calculate column widths
+	// Fixed columns: ID(5), Revision(10), Deployed(14), then Author and Message share remaining
+	const colID = 5
+	const colRev = 10
+	const colDeployed = 14
+	const separatorWidth = 12 // 4 separators × 3 chars each " │ "
+	remainingWidth := max(20, innerWidth-colID-colRev-colDeployed-separatorWidth)
+	colAuthor := min(12, remainingWidth/3)
+	colMessage := remainingWidth - colAuthor
+
+	// Table header (with 2-char prefix to align with cursor column)
+	headerStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+	sepStyle := lipgloss.NewStyle().Foreground(dimColor)
+	sep := sepStyle.Render(" │ ")
+
+	headerLine := "  " + headerStyle.Render(padRight("#", colID)) + sep +
+		headerStyle.Render(padRight("REVISION", colRev)) + sep +
+		headerStyle.Render(padRight("DEPLOYED", colDeployed)) + sep +
+		headerStyle.Render(padRight("AUTHOR", colAuthor)) + sep +
+		headerStyle.Render("MESSAGE")
+	lines = append(lines, headerLine)
+
+	// Table separator (with 2-char prefix to align with cursor column)
+	sepLine := "  " + sepStyle.Render(strings.Repeat("─", colID)+"─┼─"+
+		strings.Repeat("─", colRev)+"─┼─"+
+		strings.Repeat("─", colDeployed)+"─┼─"+
+		strings.Repeat("─", colAuthor)+"─┼─"+
+		strings.Repeat("─", colMessage))
+	lines = append(lines, sepLine)
+
+	// Compute viewport for rows
+	banner := m.renderBanner()
+	bannerLines := countLines(banner)
 	const BORDER_LINES = 2
 	const STATUS_LINES = 1
-	const MARGIN_TOP_LINES = 1 // blank line between header and box
-	availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+headerLines+STATUS_LINES+MARGIN_TOP_LINES))
+	const MARGIN_TOP_LINES = 1
+	const HEADER_BAR_LINES = 2 // header bar + separator
+	const FOOTER_BAR_LINES = 2 // separator + footer
+	availableRows := max(0, m.state.Terminal.Rows-(BORDER_LINES+bannerLines+STATUS_LINES+MARGIN_TOP_LINES))
 
-	// Inside the modal we render the following fixed lines when in list mode:
-	// 2 (title + blank) + optional 2 for current revision + 2 (section header + blank)
-	// + 2 (blank + options) added below in this function
-	// + 3 (two blanks + instructions) appended by renderRollbackModal.
-	fixedTop := 2
-	if rollback.CurrentRevision != "" {
-		fixedTop += 2
-	}
-	fixedBottom := 2 + 3
+	// Fixed lines: current rev (2) + section title (2) + table header (2) + selected preview (3) + scroll indicators (2 possible)
+	fixedTop := 2 + 2 + 2 + HEADER_BAR_LINES
+	fixedBottom := 3 + FOOTER_BAR_LINES
 	rowsViewport := max(1, availableRows-fixedTop-fixedBottom)
 
-	// Window the rows around the selection
+	// Window around selection
 	total := len(rollback.Rows)
 	start := max(0, min(rollback.SelectedIdx-rowsViewport/2, total-rowsViewport))
 	end := min(start+rowsViewport, total)
 
-	// Indicators for clipped content
+	// Scroll indicator (top)
 	if start > 0 {
-		content += lipgloss.NewStyle().Foreground(dimColor).Render("… older entries above …") + "\n"
+		scrollStyle := lipgloss.NewStyle().Foreground(dimColor)
+		lines = append(lines, scrollStyle.Render("  ▲ more entries above"))
 	}
 
-	// Calculate the maximum line width inside the modal so rows never wrap
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	rowMaxWidth := max(0, containerWidth-4) // inner width (2 border + 2 padding)
+	// Table rows
+	idStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	revStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	dateStyle := lipgloss.NewStyle().Foreground(unknownColor)
+	authorStyle := lipgloss.NewStyle().Foreground(yellowBright)
+	msgStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	loadingStyle := lipgloss.NewStyle().Foreground(dimColor)
+	cursorStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
 
 	for i := start; i < end; i++ {
 		row := rollback.Rows[i]
-		var line string
 
-		// Build single-line summary: id, short rev, date, author, and message
-		idStyle := lipgloss.NewStyle().Foreground(whiteBright)
-		revisionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-		line += fmt.Sprintf("%s %s",
-			idStyle.Render(fmt.Sprintf("#%d", row.ID)),
-			revisionStyle.Render(row.Revision[:min(8, len(row.Revision))]))
-
-		if row.DeployedAt != nil {
-			dateStyle := lipgloss.NewStyle().Foreground(unknownColor)
-			line += " " + dateStyle.Render(row.DeployedAt.Format("2006-01-02 15:04"))
-		}
-
-		if row.Author != nil && row.Message != nil {
-			authorStyle := lipgloss.NewStyle().Foreground(yellowBright)
-			messageStyle := lipgloss.NewStyle().Foreground(whiteBright)
-			// Truncate commit message to single line to prevent overflow
-			message := strings.ReplaceAll(*row.Message, "\n", " ")
-			message = strings.ReplaceAll(message, "\r", " ")
-			message = truncateWithEllipsis(message, 60)
-			line += fmt.Sprintf(" %s: %s",
-				authorStyle.Render(*row.Author),
-				messageStyle.Render(message))
-		} else if row.MetaError != nil {
-			errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
-			line += " " + errorStyle.Render("(metadata unavailable)")
-		} else {
-			loadingStyle := lipgloss.NewStyle().Foreground(unknownColor)
-			line += " " + loadingStyle.Render("(loading metadata...)")
-		}
-
-		// Ensure single visual line within the modal width
-		line = clipAnsiToWidth(line, rowMaxWidth)
-		line = padRight(line, rowMaxWidth)
-
-		// Highlight entire row when selected
+		// Cursor indicator
+		cursor := "  "
 		if i == rollback.SelectedIdx {
-			content += selectedStyle.Render(line) + "\n"
+			cursor = cursorStyle.Render("▸ ")
+		}
+
+		// ID column
+		idText := fmt.Sprintf("%d", row.ID)
+
+		// Revision column
+		revText := row.Revision[:min(8, len(row.Revision))]
+
+		// Deployed date
+		deployedText := ""
+		if row.DeployedAt != nil {
+			deployedText = row.DeployedAt.Format("Jan 02 15:04")
+		}
+
+		// Author and Message
+		authorText := ""
+		msgText := ""
+		if row.Author != nil && row.Message != nil {
+			authorText = truncateWithEllipsis(*row.Author, colAuthor)
+			msg := strings.ReplaceAll(*row.Message, "\n", " ")
+			msg = strings.ReplaceAll(msg, "\r", " ")
+			msgText = truncateWithEllipsis(msg, colMessage)
+		} else if row.MetaError != nil {
+			msgText = "(unavailable)"
 		} else {
-			content += line + "\n"
+			msgText = "(loading...)"
+		}
+
+		// Build row
+		var rowLine string
+		if i == rollback.SelectedIdx {
+			// Selected row: apply highlight to each cell individually, keep separators dim
+			rowLine = cursor +
+				selectedStyle.Render(padRight(idText, colID)) + sep +
+				selectedStyle.Render(padRight(revText, colRev)) + sep +
+				selectedStyle.Render(padRight(deployedText, colDeployed)) + sep +
+				selectedStyle.Render(padRight(authorText, colAuthor)) + sep +
+				selectedStyle.Render(padRight(msgText, colMessage))
+		} else {
+			rowLine = cursor +
+				idStyle.Render(padRight(idText, colID)) + sep +
+				revStyle.Render(padRight(revText, colRev)) + sep +
+				dateStyle.Render(padRight(deployedText, colDeployed)) + sep +
+				authorStyle.Render(padRight(authorText, colAuthor)) + sep
+			if row.Author != nil && row.Message != nil {
+				rowLine += msgStyle.Render(padRight(msgText, colMessage))
+			} else {
+				rowLine += loadingStyle.Render(padRight(msgText, colMessage))
+			}
+		}
+
+		lines = append(lines, rowLine)
+	}
+
+	// Scroll indicator (bottom)
+	if end < total {
+		scrollStyle := lipgloss.NewStyle().Foreground(dimColor)
+		lines = append(lines, scrollStyle.Render("  ▼ more entries below"))
+	}
+
+	// Selected item preview section
+	lines = append(lines, "")
+	previewSep := sectionStyle.Render(strings.Repeat("─", innerWidth))
+	lines = append(lines, previewSep)
+
+	if rollback.SelectedIdx < len(rollback.Rows) {
+		selected := rollback.Rows[rollback.SelectedIdx]
+		previewStyle := lipgloss.NewStyle().Foreground(cyanBright)
+		shortRev := selected.Revision[:min(8, len(selected.Revision))]
+		preview := fmt.Sprintf("Selected: %s", previewStyle.Render(shortRev))
+		if selected.Author != nil {
+			preview += authorStyle.Render(fmt.Sprintf(" by %s", *selected.Author))
+		}
+		lines = append(lines, preview)
+
+		// Show full commit message on next line if available
+		if selected.Message != nil {
+			msg := strings.ReplaceAll(*selected.Message, "\n", " ")
+			msg = strings.ReplaceAll(msg, "\r", " ")
+			// Use available width minus some padding for the message
+			maxMsgWidth := max(20, innerWidth-4)
+			if len(msg) > maxMsgWidth {
+				// Wrap message across multiple lines if needed
+				msgStyle := lipgloss.NewStyle().Foreground(dimColor)
+				lines = append(lines, msgStyle.Render(fmt.Sprintf("  \"%s\"", msg[:maxMsgWidth])))
+				remaining := msg[maxMsgWidth:]
+				for len(remaining) > 0 {
+					chunk := remaining[:min(maxMsgWidth, len(remaining))]
+					remaining = remaining[len(chunk):]
+					lines = append(lines, msgStyle.Render("   "+chunk))
+				}
+			} else {
+				msgStyle := lipgloss.NewStyle().Foreground(dimColor)
+				lines = append(lines, msgStyle.Render(fmt.Sprintf("  \"%s\"", msg)))
+			}
 		}
 	}
 
-	if end < total {
-		content += lipgloss.NewStyle().Foreground(dimColor).Render("… newer entries below …") + "\n"
-	}
-
-	// No options in list view; options are configured in confirmation view
-	return content
+	return strings.Join(lines, "\n")
 }
 
-// renderRollbackConfirmation renders the confirmation screen
+// renderRollbackConfirmation renders the confirmation screen with boxed sections
 func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerHeight int, innerWidth int) string {
-	// Top details section (no title here)
-	content := ""
-
 	if len(rollback.Rows) == 0 || rollback.SelectedIdx >= len(rollback.Rows) {
-		return content + "Invalid selection"
+		return "Invalid selection"
 	}
 
 	selectedRow := rollback.Rows[rollback.SelectedIdx]
+	var lines []string
 
-	// App info
-	appStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-	content += fmt.Sprintf("Application: %s\n", appStyle.Render(rollback.AppName))
+	// Box drawing characters
+	boxStyle := lipgloss.NewStyle().Foreground(dimColor)
+	labelStyle := lipgloss.NewStyle().Foreground(dimColor)
+	valueStyle := lipgloss.NewStyle().Foreground(whiteBright)
+	currentRevStyle := lipgloss.NewStyle().Foreground(syncedColor).Bold(true)
+	targetRevStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+	arrowStyle := lipgloss.NewStyle().Foreground(cyanBright)
 
-	// Current revision
-	currentStyle := lipgloss.NewStyle().Foreground(syncedColor)
-	content += fmt.Sprintf("Current: %s\n", currentStyle.Render(rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))]))
+	// Calculate box width (leave some margin)
+	boxWidth := min(innerWidth-4, 70)
+	boxInnerWidth := boxWidth - 4 // 2 for border + 2 for padding
 
-	// Target revision
-	targetStyle := lipgloss.NewStyle().Foreground(yellowBright)
-	content += fmt.Sprintf("Rollback to: %s\n", targetStyle.Render(selectedRow.Revision[:min(8, len(selectedRow.Revision))]))
-
-	// Git metadata if available
-	if selectedRow.Author != nil && selectedRow.Message != nil {
-		content += fmt.Sprintf("Author: %s\n", *selectedRow.Author)
-		content += fmt.Sprintf("Message: %s\n", *selectedRow.Message)
-		if selectedRow.Date != nil {
-			content += fmt.Sprintf("Date: %s\n", selectedRow.Date.Format("2006-01-02 15:04:05"))
+	// Helper to create a boxed section
+	renderBox := func(title string, content []string) []string {
+		var box []string
+		// Top border with title
+		titleLen := len(title)
+		topBorder := "┌─ " + title + " " + strings.Repeat("─", max(0, boxWidth-titleLen-5)) + "┐"
+		box = append(box, boxStyle.Render(topBorder))
+		// Content lines
+		for _, line := range content {
+			padding := strings.Repeat(" ", max(0, boxInnerWidth-lipgloss.Width(line)))
+			box = append(box, boxStyle.Render("│")+"  "+line+padding+boxStyle.Render("│"))
 		}
+		// Bottom border
+		bottomBorder := "└" + strings.Repeat("─", boxWidth-2) + "┘"
+		box = append(box, boxStyle.Render(bottomBorder))
+		return box
 	}
 
-	// Prepare bottom-aligned confirmation block
-	if innerWidth < 20 {
-		innerWidth = 20
+	// CURRENT section
+	currentContent := []string{
+		"",
+		labelStyle.Render("Revision: ") + currentRevStyle.Render(rollback.CurrentRevision[:min(8, len(rollback.CurrentRevision))]),
 	}
-	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+	// Try to get current deployed date from first row
+	if len(rollback.Rows) > 0 && rollback.Rows[0].DeployedAt != nil {
+		currentContent = append(currentContent, labelStyle.Render("Deployed: ")+valueStyle.Render(rollback.Rows[0].DeployedAt.Format("Jan 02 15:04")))
+	}
+	currentContent = append(currentContent, "")
+
+	currentBox := renderBox("CURRENT (will be replaced)", currentContent)
+	lines = append(lines, currentBox...)
+
+	// Arrow between boxes
+	arrowLine := strings.Repeat(" ", boxWidth/2-1) + arrowStyle.Render("↓")
+	lines = append(lines, arrowLine)
+
+	// ROLLBACK TO section
+	targetContent := []string{
+		"",
+		labelStyle.Render("Revision: ") + targetRevStyle.Render(selectedRow.Revision[:min(8, len(selectedRow.Revision))]),
+	}
+	if selectedRow.Author != nil {
+		targetContent = append(targetContent, labelStyle.Render("Author:   ")+valueStyle.Render(*selectedRow.Author))
+	}
+	if selectedRow.Date != nil {
+		targetContent = append(targetContent, labelStyle.Render("Date:     ")+valueStyle.Render(selectedRow.Date.Format("Jan 02 15:04")))
+	} else if selectedRow.DeployedAt != nil {
+		targetContent = append(targetContent, labelStyle.Render("Deployed: ")+valueStyle.Render(selectedRow.DeployedAt.Format("Jan 02 15:04")))
+	}
+	if selectedRow.Message != nil {
+		msg := strings.ReplaceAll(*selectedRow.Message, "\n", " ")
+		msg = truncateWithEllipsis(msg, boxInnerWidth-12)
+		targetContent = append(targetContent, labelStyle.Render("Message:  ")+valueStyle.Render("\""+msg+"\""))
+	}
+	targetContent = append(targetContent, "")
+
+	targetBox := renderBox("ROLLBACK TO", targetContent)
+	lines = append(lines, targetBox...)
+
+	// Options section
+	lines = append(lines, "")
+	sectionStyle := lipgloss.NewStyle().Foreground(dimColor)
+	optionsTitle := " Options "
+	ruleWidth := max(0, boxWidth-len(optionsTitle))
+	leftRule := strings.Repeat("─", ruleWidth/2)
+	rightRule := strings.Repeat("─", ruleWidth-ruleWidth/2)
+	lines = append(lines, sectionStyle.Render(leftRule+optionsTitle+rightRule))
+	lines = append(lines, "")
+
+	// Options toggles
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
 	var opts strings.Builder
-	opts.WriteString(dim.Render("[p] Prune: "))
+	opts.WriteString("  ")
+	opts.WriteString(dim.Render("[p] Prune resources: "))
 	if rollback.Prune {
 		opts.WriteString(on.Render("Yes"))
 	} else {
 		opts.WriteString(dim.Render("No"))
 	}
-	opts.WriteString(dim.Render("   [w] Watch: "))
+	opts.WriteString("      ")
+	opts.WriteString(dim.Render("[w] Watch after rollback: "))
 	if rollback.Watch {
 		opts.WriteString(on.Render("Yes"))
 	} else {
 		opts.WriteString(dim.Render("No"))
 	}
-	// Build inner confirmation modal (bordered) with title
-	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
-	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
-	yesBtn := inactive.Render("Yes")
-	noBtn := inactive.Render("No")
-	if rollback.ConfirmSelected == 0 {
-		yesBtn = active.Render("Yes")
+	lines = append(lines, opts.String())
+
+	// Build the content string
+	content := strings.Join(lines, "\n")
+
+	// Calculate how much space we need for buttons at the bottom
+	// The buttons will be added by the modal container, so just return the content
+	// But we need to vertically center/position the content
+
+	contentLines := countLines(content)
+	// Reserve space for footer section (separator + buttons line)
+	const footerReserve = 3
+	availableForContent := innerHeight - footerReserve
+
+	// Center the content vertically if there's extra space
+	if contentLines < availableForContent {
+		topPadding := (availableForContent - contentLines) / 3 // bias toward top
+		if topPadding > 0 {
+			content = strings.Repeat("\n", topPadding) + content
+		}
 	}
-	if rollback.ConfirmSelected == 1 {
-		noBtn = active.Render("No")
-	}
-	buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), noBtn)
-
-	confirmTitle := lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true).Render("Confirm Rollback")
-	confirmInner := strings.Join([]string{
-		center.Render(confirmTitle),
-		"",
-		center.Render(opts.String()),
-		"",
-		center.Render(buttons),
-	}, "\n")
-
-	// Render confirmation content centered without an inner box
-	confirmBox := center.Render(confirmInner)
-
-	bottomBlock := strings.Builder{}
-	// Add a bit of top padding for the confirmation area
-	bottomBlock.WriteString("\n")
-	bottomBlock.WriteString(confirmBox)
-
-	// Now bottom-align the confirmation block by inserting filler lines
-	topLines := countLines(content)
-	bottomLines := countLines(bottomBlock.String())
-	filler := max(0, innerHeight-topLines-bottomLines)
-	if filler > 0 {
-		content += strings.Repeat("\n", filler)
-	}
-	content += bottomBlock.String()
 
 	return content
 }

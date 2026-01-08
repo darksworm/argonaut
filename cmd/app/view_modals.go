@@ -193,20 +193,20 @@ func (m *Model) renderNoServerModal() string {
 }
 
 func (m *Model) renderRollbackModal() string {
-	header := m.renderBanner()
-	headerLines := countLines(header)
+	banner := m.renderBanner()
+	bannerLines := countLines(banner)
 	const BORDER_LINES = 2
 	const STATUS_LINES = 1
 	const MARGIN_TOP_LINES = 1 // blank line between header and box
-	overhead := BORDER_LINES + headerLines + STATUS_LINES + MARGIN_TOP_LINES
+	const HEADER_BAR_LINES = 2 // header bar + separator inside modal
+	const FOOTER_BAR_LINES = 2 // separator + footer inside modal
+	overhead := BORDER_LINES + bannerLines + STATUS_LINES + MARGIN_TOP_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
 
 	containerWidth := max(0, m.state.Terminal.Cols-2)
-	// Expand modal height to fully occupy available space (align with other views)
-	// Use +2 here and adjust overall container height below to avoid clipping the status line.
 	contentHeight := max(3, availableRows+2)
 	innerWidth := max(0, containerWidth-4)
-	innerHeight := max(0, contentHeight-2)
+	innerHeight := max(0, contentHeight-2-HEADER_BAR_LINES-FOOTER_BAR_LINES)
 
 	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
 		var content string
@@ -219,6 +219,34 @@ func (m *Model) renderRollbackModal() string {
 	}
 
 	rollback := m.state.Rollback
+
+	// Determine header and footer based on mode
+	var headerTitle, footerInstructions string
+	var headerIcon string
+	if rollback.Mode == "confirm" {
+		headerIcon = "⚠"
+		headerTitle = "CONFIRM ROLLBACK"
+		footerInstructions = "" // Buttons are rendered in content
+	} else {
+		headerIcon = "↺"
+		headerTitle = "ROLLBACK"
+		footerInstructions = "j/k: Navigate   Enter: Select   d: Diff   Esc: Cancel"
+	}
+
+	// Build header bar
+	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	if rollback.Mode == "confirm" {
+		titleStyle = lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+	}
+	appNameStyle := lipgloss.NewStyle().Foreground(cyanBright)
+	dimStyle := lipgloss.NewStyle().Foreground(dimColor)
+
+	headerLeft := titleStyle.Render(headerIcon + " " + headerTitle)
+	headerRight := appNameStyle.Render(rollback.AppName)
+	headerPadding := max(0, innerWidth-lipgloss.Width(headerLeft)-lipgloss.Width(headerRight))
+	headerBar := headerLeft + strings.Repeat(" ", headerPadding) + headerRight
+	headerSeparator := dimStyle.Render(strings.Repeat("─", innerWidth))
+
 	var modalContent string
 	if rollback.Loading {
 		if rollback.Mode == "confirm" {
@@ -232,14 +260,48 @@ func (m *Model) renderRollbackModal() string {
 	} else if rollback.Mode == "confirm" {
 		modalContent = m.renderRollbackConfirmation(rollback, innerHeight, innerWidth)
 	} else {
-		modalContent = m.renderRollbackHistory(rollback)
+		modalContent = m.renderRollbackHistory(rollback, innerWidth)
 	}
 
-	if rollback.Mode != "confirm" {
+	// Build footer bar
+	footerSeparator := dimStyle.Render(strings.Repeat("─", innerWidth))
+	var footerBar string
+	if rollback.Mode == "confirm" && !rollback.Loading {
+		// Render buttons for confirmation
+		inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+		active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
+		inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
+		yesBtn := inactive.Render("Yes")
+		noBtn := inactive.Render("No")
+		if rollback.ConfirmSelected == 0 {
+			yesBtn = active.Render("Yes")
+		}
+		if rollback.ConfirmSelected == 1 {
+			noBtn = active.Render("No")
+		}
+		buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), noBtn)
+		buttonPadding := max(0, (innerWidth-lipgloss.Width(buttons))/2)
+		footerBar = strings.Repeat(" ", buttonPadding) + buttons
+	} else {
 		instructionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-		instructions := "j/k: Navigate • Enter: Select • Esc: Cancel"
-		modalContent += "\n\n" + instructionStyle.Render(instructions)
+		footerBar = instructionStyle.Render(footerInstructions)
 	}
+
+	// Compose modal content with header and footer
+	var fullContent strings.Builder
+	fullContent.WriteString(headerBar + "\n")
+	fullContent.WriteString(headerSeparator + "\n")
+	fullContent.WriteString(modalContent)
+
+	// Calculate remaining lines and pad to push footer to bottom
+	contentLines := countLines(fullContent.String())
+	totalInnerHeight := contentHeight - 2 // minus border
+	remainingLines := totalInnerHeight - contentLines - 2 // minus footer lines
+	if remainingLines > 0 {
+		fullContent.WriteString(strings.Repeat("\n", remainingLines))
+	}
+	fullContent.WriteString("\n" + footerSeparator + "\n")
+	fullContent.WriteString(footerBar)
 
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -250,22 +312,19 @@ func (m *Model) renderRollbackModal() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	modalContent = normalizeLinesToWidth(modalContent, innerWidth)
-	modalContent = clipAnsiToLines(modalContent, innerHeight)
-	styledContent := modalStyle.Render(modalContent)
+	finalContent := fullContent.String()
+	finalContent = normalizeLinesToWidth(finalContent, innerWidth)
+	finalContent = clipAnsiToLines(finalContent, contentHeight-2)
+	styledContent := modalStyle.Render(finalContent)
 
 	var sections []string
-	sections = append(sections, header)
-	// Add one blank line margin above the modal box to match other views
+	sections = append(sections, banner)
 	sections = append(sections, "")
 	sections = append(sections, styledContent)
-	// Add status line to ensure full-height composition like other views
 	status := m.renderStatusLine()
 	sections = append(sections, status)
 
 	content := strings.Join(sections, "\n")
-	// Use full terminal height here to accommodate the taller rollback modal while
-	// keeping the status line visible.
 	totalHeight := m.state.Terminal.Rows
 	content = clipAnsiToLines(content, totalHeight)
 	return mainContainerStyle.Height(totalHeight).Render(content)

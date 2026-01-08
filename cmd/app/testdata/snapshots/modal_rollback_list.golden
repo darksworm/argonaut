@@ -1,23 +1,21 @@
  Context: argo.example.com                                                           Argonaut dev   
                                                                                                     
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
- │ Rollback demo-app                                                                              │ 
+ │ ↺ ROLLBACK                                                                            demo-app │ 
+ │ ────────────────────────────────────────────────────────────────────────────────────────────── │ 
+ │ Current Revision: cafebabe (deployed Jul 01 12:34)                                             │ 
  │                                                                                                │ 
- │ Current: cafebabe                                                                              │ 
+ │ ───────────────────────────── Select revision to rollback to ─────────────────────────────     │ 
  │                                                                                                │ 
- │ Deployment History:                                                                            │ 
+ │   #     │ REVISION   │ DEPLOYED       │ AUTHOR       │ MESSAGE                                 │ 
+ │   ──────┼────────────┼────────────────┼──────────────┼──────────────────────────────────────── │ 
+ │ ▸ 30    │ a1b2c3d4   │ Jul 01 12:34   │ Jane Doe     │ Refactor and optimize                   │ 
+ │   29    │ 11223344   │ Jul 01 12:34   │              │ (loading...)                            │ 
+ │   28    │ deadbeef   │                │              │ (loading...)                            │ 
  │                                                                                                │ 
- │ #30 a1b2c3d4 2024-07-01 12:34 Jane Doe: Refactor and optimize                                  │ 
- │ #29 11223344 2024-07-01 12:34 (loading metadata...)                                            │ 
- │ #28 deadbeef (loading metadata...)                                                             │ 
- │                                                                                                │ 
- │                                                                                                │ 
- │ j/k: Navigate • Enter: Select • Esc: Cancel                                                    │ 
- │                                                                                                │ 
- │                                                                                                │ 
- │                                                                                                │ 
- │                                                                                                │ 
- │                                                                                                │ 
+ │ ────────────────────────────────────────────────────────────────────────────────────────────── │ 
+ │ Selected: a1b2c3d4 by Jane Doe                                                                 │ 
+ │   "Refactor and optimize"                                                                      │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
@@ -28,5 +26,7 @@
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
+ │ ────────────────────────────────────────────────────────────────────────────────────────────── │ 
+ │ j/k: Navigate   Enter: Select   d: Diff   Esc: Cancel                                          │ 
  ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
  <clusters>                                                                             Ready • 0/0 
