@@ -95,7 +95,7 @@ func TestMouseSelection(t *testing.T) {
 	// Check that we captured part of "cluster-a" - coordinate alignment may be off by 1-2 chars
 	// due to terminal rendering differences, so accept "uster-a" or "cluster-a"
 	if !strings.Contains(clipboardContent, "uster-a") {
-		t.Errorf("expected clipboard to contain 'uster-a' (from cluster-a), got: %q", clipboardContent)
+		t.Errorf("expected clipboard to contain 'cluster-a' or partial 'uster-a', got: %q", clipboardContent)
 	}
 
 	// Verify selection is reasonably precise - should be short, not the entire screen

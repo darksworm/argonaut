@@ -32,7 +32,7 @@ var selectionStyle = lipgloss.NewStyle().Reverse(true)
 
 // applySelectionHighlight overlays selection highlighting on rendered content.
 func (m *Model) applySelectionHighlight(content string) string {
-	if m.selection.IsEmpty() {
+	if m.selection == nil || m.selection.IsEmpty() {
 		return content
 	}
 

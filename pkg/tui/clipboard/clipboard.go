@@ -49,7 +49,7 @@ type CopyMsg struct {
 }
 
 // CopyCmd returns a tea.Cmd that copies text to clipboard.
-// It tries OSC 52 first, then falls back to native clipboard (pbcopy on macOS).
+// It tries native clipboard first (pbcopy on macOS), then falls back to OSC 52.
 func CopyCmd(text string) tea.Cmd {
 	if text == "" {
 		return func() tea.Msg {
@@ -57,17 +57,24 @@ func CopyCmd(text string) tea.Cmd {
 		}
 	}
 
-	return func() tea.Msg {
-		// Try native clipboard first (more reliable)
-		if err := copyNative(text); err == nil {
-			cblog.Info("Copied to clipboard via native method", "len", len(text))
+	// Try native clipboard first (more reliable)
+	if err := copyNative(text); err == nil {
+		cblog.Info("Copied to clipboard via native method", "len", len(text))
+		return func() tea.Msg {
 			return CopyMsg{Success: true, Text: text, Method: "native"}
 		}
-
-		// Fall back to OSC 52
-		cblog.Info("Native clipboard failed, trying OSC 52")
-		return CopyMsg{Success: true, Text: text, Method: "osc52"}
 	}
+
+	// Fall back to OSC 52 - actually send the escape sequence
+	cblog.Info("Native clipboard failed, trying OSC 52")
+	encoded := base64.StdEncoding.EncodeToString([]byte(text))
+	sequence := "\x1b]52;c;" + encoded + "\x07"
+	return tea.Batch(
+		tea.Printf("%s", sequence),
+		func() tea.Msg {
+			return CopyMsg{Success: true, Text: text, Method: "osc52"}
+		},
+	)
 }
 
 // CopyWithOSC52 returns just the OSC 52 sequence command (for terminals that support it).
