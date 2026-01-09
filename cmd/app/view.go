@@ -783,7 +783,6 @@ func (m *Model) renderConfirmSyncModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
-		Background(darkBG).
 		Padding(1, 2).
 		Width(modalWidth)
 
