@@ -128,6 +128,7 @@ func (m *Model) renderRollbackLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 28
 	w := max(minW, lipgloss.Width(content)+4)
@@ -142,6 +143,7 @@ func (m *Model) renderSyncLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 24
 	w := max(minW, lipgloss.Width(content)+4)
@@ -156,6 +158,7 @@ func (m *Model) renderChangelogLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 28
 	w := max(minW, lipgloss.Width(content)+4)
@@ -170,6 +173,7 @@ func (m *Model) renderInitialLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(magentaBright).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 32
 	w := max(minW, lipgloss.Width(content)+4)
@@ -184,6 +188,7 @@ func (m *Model) renderNoServerModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(magentaBright).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 40
 	w := max(minW, lipgloss.Width(content)+4)
@@ -319,6 +324,7 @@ func (m *Model) renderUpgradeConfirmModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(68).
 		AlignHorizontal(lipgloss.Center)
@@ -410,6 +416,7 @@ func (m *Model) renderUpgradeLoadingModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(50).
 		AlignHorizontal(lipgloss.Center)
@@ -438,6 +445,7 @@ func (m *Model) renderUpgradeErrorModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(redColor).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(80).
 		AlignHorizontal(lipgloss.Center)
@@ -458,6 +466,7 @@ func (m *Model) renderUpgradeSuccessModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(syncedColor).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(60).
 		AlignHorizontal(lipgloss.Center)
@@ -556,6 +565,7 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(modalWidth)
 
@@ -621,6 +631,7 @@ func (m *Model) renderAppDeleteLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 32
 	w := max(minW, lipgloss.Width(content)+4)
@@ -679,6 +690,7 @@ func (m *Model) renderResourceDeleteConfirmModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(modalWidth)
 
@@ -755,6 +767,7 @@ func (m *Model) renderResourceDeleteLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outOfSyncColor).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 32
 	w := max(minW, lipgloss.Width(content)+4)
@@ -815,6 +828,7 @@ func (m *Model) renderResourceSyncConfirmModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(syncedColor).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(modalWidth)
 
@@ -876,6 +890,7 @@ func (m *Model) renderResourceSyncLoadingModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(syncedColor).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 32
 	w := max(minW, lipgloss.Width(content)+4)
@@ -891,6 +906,7 @@ func (m *Model) renderNoDiffModal() string {
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(syncedColor).
+		Background(darkBG).
 		Padding(1, 2)
 	minW := 28
 	w := max(minW, lipgloss.Width(content)+4)
@@ -959,6 +975,7 @@ func (m *Model) renderK9sContextSelectionModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(50).
 		AlignHorizontal(lipgloss.Left)
@@ -977,6 +994,7 @@ func (m *Model) renderK9sErrorModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(redColor).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(60).
 		AlignHorizontal(lipgloss.Center)
@@ -1082,6 +1100,7 @@ func (m *Model) renderThemeSelectionModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
+		Background(darkBG).
 		Padding(1, 2).
 		Width(44).
 		AlignHorizontal(lipgloss.Left)
