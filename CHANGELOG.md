@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.11.0](https://github.com/darksworm/argonaut/compare/v2.10.0...v2.11.0) (2026-01-09)
+
+
+### Features
+
+* add mouse text selection and clipboard copy ([#175](https://github.com/darksworm/argonaut/issues/175)) ([ac216f8](https://github.com/darksworm/argonaut/commit/ac216f8447fd269c85b5968e594a44c5ac6b3d00))
+
+
+### Bug Fixes
+
+* modals now how consistent backgrounds ([#178](https://github.com/darksworm/argonaut/issues/178)) ([7dfc7b8](https://github.com/darksworm/argonaut/commit/7dfc7b8a08a58644532f61eed06bdb3a62f33da7))
+* the resource tree view is now cleared after watching a sync ([#182](https://github.com/darksworm/argonaut/issues/182)) ([b3abaf3](https://github.com/darksworm/argonaut/commit/b3abaf33e15b7d4bf9645de226fc86ea91c234ad))
+
 ## [2.10.0](https://github.com/darksworm/argonaut/compare/v2.9.0...v2.10.0) (2025-12-10)
 
 
