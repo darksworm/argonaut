@@ -40,18 +40,9 @@ func TestMouseSelection(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Wait for UI to be ready (clusters view)
-	if !tf.WaitForScreen("<clusters>", 5*time.Second) {
-		t.Fatalf("timeout waiting for clusters view\nScreen:\n%s", tf.Screen())
-	}
-
-	// Wait for loading to complete (loader to disappear)
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if !strings.Contains(tf.Screen(), "Loading...") {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
+	// Wait for UI to be ready and data to load (cluster-a appears on screen)
+	if !tf.WaitForPlain("cluster-a", 10*time.Second) {
+		t.Fatalf("timeout waiting for cluster-a to appear\nScreen:\n%s", tf.Screen())
 	}
 
 	// Find "cluster-a" text on screen to select it (mock server returns cluster-a)
@@ -137,17 +128,9 @@ func TestMouseSelectionClearsOnEscape(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	if !tf.WaitForScreen("<clusters>", 5*time.Second) {
-		t.Fatalf("timeout waiting for clusters view")
-	}
-
-	// Wait for loading to complete (loader to disappear)
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if !strings.Contains(tf.Screen(), "Loading...") {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
+	// Wait for UI to be ready and data to load (cluster-a appears on screen)
+	if !tf.WaitForPlain("cluster-a", 10*time.Second) {
+		t.Fatalf("timeout waiting for cluster-a to appear\nScreen:\n%s", tf.Screen())
 	}
 
 	// Start a selection but don't release - just click
@@ -211,29 +194,20 @@ func TestMouseSelectionMultiLine(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Navigate to apps view
-	if !tf.WaitForScreen("<clusters>", 5*time.Second) {
-		t.Fatalf("timeout waiting for clusters view")
+	// Wait for UI to be ready and data to load (cluster-a appears on screen)
+	if !tf.WaitForPlain("cluster-a", 10*time.Second) {
+		t.Fatalf("timeout waiting for cluster-a to appear\nScreen:\n%s", tf.Screen())
 	}
 
-	// Wait for loading to complete (loader to disappear)
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if !strings.Contains(tf.Screen(), "Loading...") {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	// Select cluster and go to apps
+	// Select cluster and navigate to apps view
 	tf.Enter()
-	if !tf.WaitForScreen("<apps>", 3*time.Second) {
-		// Might need to navigate through namespaces/projects first
+	// Wait for app-01 to appear (navigating through namespaces/projects if needed)
+	if !tf.WaitForPlain("app-01", 5*time.Second) {
 		tf.Enter()
-		if !tf.WaitForScreen("<apps>", 3*time.Second) {
+		if !tf.WaitForPlain("app-01", 3*time.Second) {
 			tf.Enter()
-			if !tf.WaitForScreen("<apps>", 3*time.Second) {
-				t.Fatalf("could not navigate to apps view\nScreen:\n%s", tf.Screen())
+			if !tf.WaitForPlain("app-01", 3*time.Second) {
+				t.Fatalf("could not navigate to apps view with app-01\nScreen:\n%s", tf.Screen())
 			}
 		}
 	}
