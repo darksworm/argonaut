@@ -654,6 +654,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// Clean up any existing tree watchers before starting new one
 				m.cleanupTreeWatchers()
+				// Reset tree view for fresh single-app session
+				m.treeView = treeview.NewTreeView(0, 0)
+				m.treeView.ApplyTheme(currentPalette)
+				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+				m.treeNav.Reset() // Reset scroll position
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
 				// find app
@@ -1024,6 +1029,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Watch {
 				// Clean up any existing tree watchers before starting new one
 				m.cleanupTreeWatchers()
+				// Reset tree view for fresh single-app session
+				m.treeView = treeview.NewTreeView(0, 0)
+				m.treeView.ApplyTheme(currentPalette)
+				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+				m.treeNav.Reset() // Reset scroll position
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
 				var appObj model.App
