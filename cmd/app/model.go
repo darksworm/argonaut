@@ -657,6 +657,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Reset tree view for fresh single-app session
 				m.treeView = treeview.NewTreeView(0, 0)
 				m.treeView.ApplyTheme(currentPalette)
+				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
@@ -1031,6 +1032,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Reset tree view for fresh single-app session
 				m.treeView = treeview.NewTreeView(0, 0)
 				m.treeView.ApplyTheme(currentPalette)
+				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
