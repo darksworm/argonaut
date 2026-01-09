@@ -15,7 +15,9 @@ import (
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
+	"github.com/darksworm/argonaut/pkg/tui/clipboard"
 	"github.com/darksworm/argonaut/pkg/tui/listnav"
+	"github.com/darksworm/argonaut/pkg/tui/selection"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
@@ -66,6 +68,7 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		treeNav:            listnav.New(),
 		themeNav:           listnav.New(),
 		rollbackNav:        listnav.New(),
+		selection:          selection.New(),
 	}
 }
 
@@ -78,6 +81,11 @@ func (m *Model) Init() tea.Cmd {
     // Initialize with terminal size request and startup commands
     var cmds []tea.Cmd
     cmds = append(cmds, m.spinner.Tick)
+
+	// Configure clipboard from config
+	if copyCmd := m.config.GetClipboardCopyCommand(); copyCmd != "" {
+		clipboard.SetCopyCommand(copyCmd)
+	}
 
 	// Apply theme to model components
 	m.applyThemeToModel()

@@ -351,6 +351,13 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 // handleEscape handles escape key (clear filters, exit modes)
 func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 	// Note: Global escape debounce is now handled in handleKeyMsg
+
+	// If there's an active text selection, clear it first
+	if !m.selection.IsEmpty() {
+		m.selection.Clear()
+		return m, nil
+	}
+
 	switch m.state.Mode {
 	case model.ModeSearch, model.ModeCommand, model.ModeTheme, model.ModeHelp, model.ModeConfirmSync, model.ModeRollback, model.ModeDiff, model.ModeNoDiff:
 		m.state.Mode = model.ModeNormal

@@ -19,6 +19,7 @@ type ArgonautConfig struct {
 	K9s             K9sConfig         `toml:"k9s,omitempty"`
 	Diff            DiffConfig        `toml:"diff,omitempty"`
 	PortForward     PortForwardConfig `toml:"port_forward,omitempty"`
+	Clipboard       ClipboardConfig   `toml:"clipboard,omitempty"`
 	LastSeenVersion string            `toml:"last_seen_version,omitempty"`
 }
 
@@ -49,6 +50,16 @@ type DiffConfig struct {
 // PortForwardConfig holds settings for kubectl port-forward mode
 type PortForwardConfig struct {
 	Namespace string `toml:"namespace,omitempty"` // Kubernetes namespace where ArgoCD is installed (default: "argocd")
+}
+
+// ClipboardConfig holds settings for clipboard operations
+type ClipboardConfig struct {
+	// CopyCommand is the command to copy text to clipboard.
+	// Text is passed via stdin. Examples: "pbcopy", "xclip -selection clipboard", "wl-copy"
+	CopyCommand string `toml:"copy_command,omitempty"`
+	// PasteCommand is the command to paste text from clipboard.
+	// Text is read from stdout. Examples: "pbpaste", "xclip -selection clipboard -o", "wl-paste"
+	PasteCommand string `toml:"paste_command,omitempty"`
 }
 
 
@@ -202,4 +213,14 @@ func (c *ArgonautConfig) GetPortForwardNamespace() string {
 		return c.PortForward.Namespace
 	}
 	return "argocd"
+}
+
+// GetClipboardCopyCommand returns the configured clipboard copy command, or empty for auto-detect
+func (c *ArgonautConfig) GetClipboardCopyCommand() string {
+	return c.Clipboard.CopyCommand
+}
+
+// GetClipboardPasteCommand returns the configured clipboard paste command, or empty for auto-detect
+func (c *ArgonautConfig) GetClipboardPasteCommand() string {
+	return c.Clipboard.PasteCommand
 }

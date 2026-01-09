@@ -85,6 +85,11 @@ func ensureBinary(t *testing.T) error {
 	return nil
 }
 
+// Workspace returns the isolated workspace directory for this test
+func (tf *TUITestFramework) Workspace() string {
+	return tf.workspace
+}
+
 // SetupWorkspace creates an isolated HOME and returns ARGOCD_CONFIG path to write
 func (tf *TUITestFramework) SetupWorkspace() (string, error) {
 	tf.t.Helper()
@@ -228,6 +233,60 @@ func (tf *TUITestFramework) readLoop() {
 func (tf *TUITestFramework) Send(keys string) error { _, err := tf.pty.Write([]byte(keys)); return err }
 func (tf *TUITestFramework) CtrlC() error           { return tf.Send("\x03") }
 func (tf *TUITestFramework) Enter() error           { return tf.Send("\r") }
+func (tf *TUITestFramework) Escape() error          { return tf.Send("\x1b") }
+
+// Mouse event methods using SGR encoding (\x1b[<Btn;X;Y M/m)
+// Coordinates are 1-based (terminal standard)
+
+// MouseClick sends a mouse button press at (x, y). Button: 0=left, 1=middle, 2=right
+func (tf *TUITestFramework) MouseClick(btn, x, y int) error {
+	return tf.Send(fmt.Sprintf("\x1b[<%d;%d;%dM", btn, x, y))
+}
+
+// MouseRelease sends a mouse button release at (x, y). Button: 0=left, 1=middle, 2=right
+func (tf *TUITestFramework) MouseRelease(btn, x, y int) error {
+	return tf.Send(fmt.Sprintf("\x1b[<%d;%d;%dm", btn, x, y))
+}
+
+// MouseMotion sends a mouse motion event at (x, y) with button held. Button: 0=left, 1=middle, 2=right
+func (tf *TUITestFramework) MouseMotion(btn, x, y int) error {
+	// SGR motion encoding: button + 32
+	return tf.Send(fmt.Sprintf("\x1b[<%d;%d;%dM", btn+32, x, y))
+}
+
+// MouseDrag simulates a click-drag-release sequence from (x1,y1) to (x2,y2)
+func (tf *TUITestFramework) MouseDrag(x1, y1, x2, y2 int) error {
+	// Press at start
+	if err := tf.MouseClick(0, x1, y1); err != nil {
+		return err
+	}
+	time.Sleep(10 * time.Millisecond)
+
+	// Generate intermediate motion events
+	steps := max(abs(x2-x1), abs(y2-y1))
+	if steps == 0 {
+		steps = 1
+	}
+	for i := 1; i <= steps; i++ {
+		x := x1 + (x2-x1)*i/steps
+		y := y1 + (y2-y1)*i/steps
+		if err := tf.MouseMotion(0, x, y); err != nil {
+			return err
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Release at end
+	time.Sleep(10 * time.Millisecond)
+	return tf.MouseRelease(0, x2, y2)
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
 
 func (tf *TUITestFramework) Snapshot() string {
 	tf.mu.Lock()
@@ -538,6 +597,17 @@ func WriteArgoConfigWithToken(path, baseURL, token string) error {
 	y.WriteString("  - name: default-user\n    auth-token: " + token + "\n")
 	y.WriteString("current-context: default\n")
 	return os.WriteFile(path, y.Bytes(), 0o644)
+}
+
+// WriteArgonautConfigWithClipboard writes an Argonaut config with custom clipboard command.
+// The clipboardFile is where the clipboard content will be written (for testing).
+func WriteArgonautConfigWithClipboard(workspace, clipboardFile string) error {
+	argonautCfgDir := filepath.Join(workspace, ".config", "argonaut")
+	configPath := filepath.Join(argonautCfgDir, "config.toml")
+	var cfg bytes.Buffer
+	cfg.WriteString("[clipboard]\n")
+	cfg.WriteString("copy_command = \"tee " + clipboardFile + "\"\n")
+	return os.WriteFile(configPath, cfg.Bytes(), 0o644)
 }
 
 // MockArgoServerForbidden returns 403 Forbidden for applications (simulating RBAC/forbidden)
