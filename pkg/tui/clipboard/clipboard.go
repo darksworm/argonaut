@@ -45,11 +45,21 @@ func GetCopyCommand() string {
 type CopyMsg struct {
 	Success bool
 	Text    string
-	Method  string // "osc52" or "native"
+	// Method indicates how the copy was performed: "native" or "osc52".
+	// Note: For "osc52", Success is optimistically set to true because OSC 52
+	// is a fire-and-forget protocol with no acknowledgment from the terminal.
+	// The copy may silently fail if the terminal doesn't support OSC 52 or has
+	// it disabled (e.g., tmux with set-clipboard off). Callers can check for
+	// Method == "osc52" if they need to handle this uncertainty differently.
+	Method string
 }
 
 // CopyCmd returns a tea.Cmd that copies text to clipboard.
 // It tries native clipboard first (pbcopy on macOS), then falls back to OSC 52.
+//
+// Note: OSC 52 success cannot be verified - it's a fire-and-forget escape sequence.
+// When OSC 52 is used, Success will be true even though the terminal may not have
+// processed it (unsupported terminal, security restrictions, etc.).
 func CopyCmd(text string) tea.Cmd {
 	if text == "" {
 		return func() tea.Msg {
