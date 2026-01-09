@@ -45,6 +45,15 @@ func TestMouseSelection(t *testing.T) {
 		t.Fatalf("timeout waiting for clusters view\nScreen:\n%s", tf.Screen())
 	}
 
+	// Wait for loading to complete (loader to disappear)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if !strings.Contains(tf.Screen(), "Loading...") {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
 	// Find "cluster-a" text on screen to select it (mock server returns cluster-a)
 	screen := tf.Screen()
 	lines := strings.Split(screen, "\n")
@@ -132,6 +141,15 @@ func TestMouseSelectionClearsOnEscape(t *testing.T) {
 		t.Fatalf("timeout waiting for clusters view")
 	}
 
+	// Wait for loading to complete (loader to disappear)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if !strings.Contains(tf.Screen(), "Loading...") {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
 	// Start a selection but don't release - just click
 	if err := tf.MouseClick(0, 10, 5); err != nil {
 		t.Fatalf("mouse click: %v", err)
@@ -196,6 +214,15 @@ func TestMouseSelectionMultiLine(t *testing.T) {
 	// Navigate to apps view
 	if !tf.WaitForScreen("<clusters>", 5*time.Second) {
 		t.Fatalf("timeout waiting for clusters view")
+	}
+
+	// Wait for loading to complete (loader to disappear)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if !strings.Contains(tf.Screen(), "Loading...") {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	// Select cluster and go to apps
