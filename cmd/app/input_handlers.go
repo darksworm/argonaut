@@ -1698,7 +1698,11 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		if err != nil || len(contexts) == 0 {
 			// No kubeconfig or no contexts - just launch k9s without context
 			cblog.With("component", "k9s").Warn("Could not load kubeconfig contexts", "err", err)
-			return m, m.openK9s(kind, namespace, "", name)
+			return m, m.openK9s(K9sResourceParams{
+				Kind:      kind,
+				Namespace: namespace,
+				Name:      name,
+			})
 		}
 
 		// Always show picker - even with single context, user must confirm
@@ -1711,7 +1715,12 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.openK9s(kind, namespace, context, name)
+	return m, m.openK9s(K9sResourceParams{
+		Kind:      kind,
+		Namespace: namespace,
+		Context:   context,
+		Name:      name,
+	})
 }
 
 // handleK9sContextSelectKeys handles input when selecting a kubeconfig context for k9s
@@ -1754,7 +1763,12 @@ func (m *Model) handleK9sContextSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		m.k9sPendingName = ""
 		m.state.Mode = model.ModeNormal
 
-		return m, m.openK9s(kind, namespace, selectedContext, name)
+		return m, m.openK9s(K9sResourceParams{
+			Kind:      kind,
+			Namespace: namespace,
+			Context:   selectedContext,
+			Name:      name,
+		})
 	}
 
 	return m, nil

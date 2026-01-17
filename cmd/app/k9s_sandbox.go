@@ -21,7 +21,7 @@ import (
 )
 
 // openK9s runs k9s in a PTY with a status bar at the bottom showing Argonaut context
-func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
+func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
@@ -45,25 +45,26 @@ func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
 		}
 
 		// Map the kind to k9s resource alias
-		resourceAlias := kind
-		if alias, ok := k9sResourceMap[kind]; ok {
+		resourceAlias := params.Kind
+		if alias, ok := k9sResourceMap[params.Kind]; ok {
 			resourceAlias = alias
 		} else {
-			resourceAlias = strings.ToLower(kind)
+			resourceAlias = strings.ToLower(params.Kind)
 		}
 
 		// Build args - include filter if name is provided
 		var args []string
-		if name != "" {
-			args = []string{"-c", fmt.Sprintf("%s /%s", resourceAlias, name)}
+		if params.Name != "" {
+			args = []string{"-c", fmt.Sprintf("%s /%s", resourceAlias, params.Name)}
 		} else {
 			args = []string{"-c", resourceAlias}
 		}
-		if namespace != "" {
-			args = append(args, "-n", namespace)
+		if params.Namespace != "" {
+			args = append(args, "-n", params.Namespace)
 		}
 
 		// Allow context override via config
+		context := params.Context
 		if cfgCtx := m.config.GetK9sContext(); cfgCtx != "" {
 			context = cfgCtx
 		}
@@ -138,7 +139,7 @@ func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
 
 		// Clear screen and draw initial status bar
 		fmt.Print("\x1b[2J\x1b[H")
-		drawStatusBarBottom(rows, cols, kind, namespace, context, name)
+		drawStatusBarBottom(rows, cols, params)
 
 		// Set up input forwarding from stdin to PTY with cancellation
 		// Note: On Unix terminals, blocking reads on stdin cannot be interrupted
@@ -164,7 +165,7 @@ func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
 		}()
 
 		// Process k9s output and inject status bar at frame boundaries
-		processK9sOutputWithStatusBar(ptmx, &sizeMu, &currentRows, &currentCols, kind, namespace, context, name)
+		processK9sOutputWithStatusBar(ptmx, &sizeMu, &currentRows, &currentCols, params)
 
 		// Wait for k9s to exit
 		if err := cmd.Wait(); err != nil {
@@ -188,7 +189,7 @@ func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
 }
 
 // processK9sOutputWithStatusBar reads k9s output and injects status bar at frame boundaries
-func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols *int, kind, namespace, context, name string) {
+func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols *int, params K9sResourceParams) {
 	buf := make([]byte, 32*1024)
 
 	for {
@@ -202,7 +203,7 @@ func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols
 			sizeMu.Unlock()
 
 			// Look for frame boundaries and inject status bar
-			output := injectStatusBarAtFrameBoundaries(data, r, c, kind, namespace, context, name)
+			output := injectStatusBarAtFrameBoundaries(data, r, c, params)
 
 			os.Stdout.Write(output)
 		}
@@ -213,9 +214,9 @@ func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols
 }
 
 // injectStatusBarAtFrameBoundaries finds frame boundary sequences and injects status bar after them
-func injectStatusBarAtFrameBoundaries(data []byte, rows, cols int, kind, namespace, context, name string) []byte {
+func injectStatusBarAtFrameBoundaries(data []byte, rows, cols int, params K9sResourceParams) []byte {
 	// Build the status bar injection sequence
-	statusBar := buildStatusBarSequence(rows, cols, kind, namespace, context, name)
+	statusBar := buildStatusBarSequence(rows, cols, params)
 
 	// Patterns that indicate frame boundaries:
 	// ESC[2J - clear entire screen (clears our status bar too!)
@@ -264,7 +265,7 @@ func injectStatusBarAtFrameBoundaries(data []byte, rows, cols int, kind, namespa
 }
 
 // buildStatusBarSequence creates the ANSI sequence to draw the status bar on the last row
-func buildStatusBarSequence(rows, cols int, kind, namespace, context, name string) []byte {
+func buildStatusBarSequence(rows, cols int, params K9sResourceParams) []byte {
 	var buf bytes.Buffer
 
 	// Save cursor, move to last row, clear line
@@ -274,18 +275,18 @@ func buildStatusBarSequence(rows, cols int, kind, namespace, context, name strin
 
 	// Build status bar content
 	left := " Argonaut » k9s"
-	if kind != "" {
-		left += fmt.Sprintf(" (%s", kind)
-		if namespace != "" {
-			left += "/" + namespace
+	if params.Kind != "" {
+		left += fmt.Sprintf(" (%s", params.Kind)
+		if params.Namespace != "" {
+			left += "/" + params.Namespace
 		}
-		if name != "" {
-			left += ": " + name
+		if params.Name != "" {
+			left += ": " + params.Name
 		}
 		left += ")"
 	}
-	if context != "" {
-		left += " [" + context + "]"
+	if params.Context != "" {
+		left += " [" + params.Context + "]"
 	}
 	right := ":q to return "
 
@@ -309,8 +310,8 @@ func buildStatusBarSequence(rows, cols int, kind, namespace, context, name strin
 }
 
 // drawStatusBarBottom draws the status bar on the last row of the terminal (for initial draw)
-func drawStatusBarBottom(rows, cols int, kind, namespace, context, name string) {
-	os.Stdout.Write(buildStatusBarSequence(rows, cols, kind, namespace, context, name))
+func drawStatusBarBottom(rows, cols int, params K9sResourceParams) {
+	os.Stdout.Write(buildStatusBarSequence(rows, cols, params))
 }
 
 // getTerminalSize returns the current terminal rows and cols
