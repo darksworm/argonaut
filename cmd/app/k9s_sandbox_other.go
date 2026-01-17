@@ -14,7 +14,7 @@ import (
 )
 
 // openK9s on non-Unix systems falls back to running k9s without the status bar sandbox
-func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
+func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
@@ -38,20 +38,26 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 		}
 
 		// Map the kind to k9s resource alias
-		resourceAlias := kind
-		if alias, ok := k9sResourceMap[kind]; ok {
+		resourceAlias := params.Kind
+		if alias, ok := k9sResourceMap[params.Kind]; ok {
 			resourceAlias = alias
 		} else {
-			resourceAlias = strings.ToLower(kind)
+			resourceAlias = strings.ToLower(params.Kind)
 		}
 
-		// Build args
-		args := []string{"-c", resourceAlias}
-		if namespace != "" {
-			args = append(args, "-n", namespace)
+		// Build args - include filter if name is provided
+		var args []string
+		if params.Name != "" {
+			args = []string{"-c", fmt.Sprintf("%s /%s", resourceAlias, params.Name)}
+		} else {
+			args = []string{"-c", resourceAlias}
+		}
+		if params.Namespace != "" {
+			args = append(args, "-n", params.Namespace)
 		}
 
 		// Allow context override via config
+		context := params.Context
 		if cfgCtx := m.config.GetK9sContext(); cfgCtx != "" {
 			context = cfgCtx
 		}

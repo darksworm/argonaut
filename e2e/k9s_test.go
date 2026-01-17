@@ -253,9 +253,9 @@ func TestK9s_OpenDeploymentResource(t *testing.T) {
 		t.Fatal("k9s was not invoked")
 	}
 
-	// Should contain -c deploy (resource alias for Deployment)
-	if !strings.Contains(args, "-c deploy") {
-		t.Errorf("expected args to contain '-c deploy', got: %s", args)
+	// Should contain -c 'deploy /demo-deploy' (resource alias + filter for Deployment)
+	if !strings.Contains(args, "-c deploy /demo-deploy") {
+		t.Errorf("expected args to contain '-c deploy /demo-deploy', got: %s", args)
 	}
 
 	// Should contain -n default (namespace)
@@ -351,9 +351,9 @@ func TestK9s_OpenServiceResource(t *testing.T) {
 		t.Fatal("k9s was not invoked")
 	}
 
-	// Should contain -c svc (resource alias for Service)
-	if !strings.Contains(args, "-c svc") {
-		t.Errorf("expected args to contain '-c svc', got: %s", args)
+	// Should contain -c 'svc /demo-svc' (resource alias + filter for Service)
+	if !strings.Contains(args, "-c svc /demo-svc") {
+		t.Errorf("expected args to contain '-c svc /demo-svc', got: %s", args)
 	}
 }
 

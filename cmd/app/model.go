@@ -92,6 +92,7 @@ type Model struct {
 	k9sContextSelected  int      // Selected index in context list
 	k9sPendingKind      string   // Resource kind to open in k9s
 	k9sPendingNamespace string   // Resource namespace to open in k9s
+	k9sPendingName      string   // Resource name to filter in k9s
 
 	// Text selection state for mouse-based copy
 	selection *selection.Selection

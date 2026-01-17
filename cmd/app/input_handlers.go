@@ -1698,7 +1698,11 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		if err != nil || len(contexts) == 0 {
 			// No kubeconfig or no contexts - just launch k9s without context
 			cblog.With("component", "k9s").Warn("Could not load kubeconfig contexts", "err", err)
-			return m, m.openK9s(kind, namespace, "")
+			return m, m.openK9s(K9sResourceParams{
+				Kind:      kind,
+				Namespace: namespace,
+				Name:      name,
+			})
 		}
 
 		// Always show picker - even with single context, user must confirm
@@ -1706,11 +1710,17 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		m.k9sContextSelected = 0
 		m.k9sPendingKind = kind
 		m.k9sPendingNamespace = namespace
+		m.k9sPendingName = name
 		m.state.Mode = model.ModeK9sContextSelect
 		return m, nil
 	}
 
-	return m, m.openK9s(kind, namespace, context)
+	return m, m.openK9s(K9sResourceParams{
+		Kind:      kind,
+		Namespace: namespace,
+		Context:   context,
+		Name:      name,
+	})
 }
 
 // handleK9sContextSelectKeys handles input when selecting a kubeconfig context for k9s
@@ -1725,6 +1735,9 @@ func (m *Model) handleK9sContextSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		// Cancel context selection
 		m.state.Mode = model.ModeNormal
 		m.k9sContextOptions = nil
+		m.k9sPendingKind = ""
+		m.k9sPendingNamespace = ""
+		m.k9sPendingName = ""
 		return m, nil
 	case "up", "k":
 		if m.k9sContextSelected > 0 {
@@ -1741,14 +1754,21 @@ func (m *Model) handleK9sContextSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		selectedContext := m.k9sContextOptions[m.k9sContextSelected]
 		kind := m.k9sPendingKind
 		namespace := m.k9sPendingNamespace
+		name := m.k9sPendingName
 
 		// Clear state
 		m.k9sContextOptions = nil
 		m.k9sPendingKind = ""
 		m.k9sPendingNamespace = ""
+		m.k9sPendingName = ""
 		m.state.Mode = model.ModeNormal
 
-		return m, m.openK9s(kind, namespace, selectedContext)
+		return m, m.openK9s(K9sResourceParams{
+			Kind:      kind,
+			Namespace: namespace,
+			Context:   selectedContext,
+			Name:      name,
+		})
 	}
 
 	return m, nil
