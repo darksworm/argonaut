@@ -16,8 +16,10 @@ import (
 
 // InputComponentState manages interactive input components
 type InputComponentState struct {
-	searchInput  textinput.Model
-	commandInput textinput.Model
+	searchInput   textinput.Model
+	commandInput  textinput.Model
+	usernameInput textinput.Model
+	passwordInput textinput.Model
 }
 
 // NewInputComponents creates a new input component state
@@ -34,9 +36,25 @@ func NewInputComponents() *InputComponentState {
 	commandInput.CharLimit = 200
 	commandInput.SetWidth(50)
 
+	// Create username input for login
+	usernameInput := textinput.New()
+	usernameInput.Placeholder = "Username"
+	usernameInput.CharLimit = 100
+	usernameInput.SetWidth(30)
+
+	// Create password input for login (masked)
+	passwordInput := textinput.New()
+	passwordInput.Placeholder = "Password"
+	passwordInput.CharLimit = 100
+	passwordInput.SetWidth(30)
+	passwordInput.EchoMode = textinput.EchoPassword
+	passwordInput.EchoCharacter = '•'
+
 	return &InputComponentState{
-		searchInput:  searchInput,
-		commandInput: commandInput,
+		searchInput:   searchInput,
+		commandInput:  commandInput,
+		usernameInput: usernameInput,
+		passwordInput: passwordInput,
 	}
 }
 
@@ -1254,6 +1272,74 @@ func (m *Model) handleSortCommand(arg string) (*Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		return model.StatusChangeMsg{Status: fmt.Sprintf("Sorting by %s (%s)", field, direction)}
 	}
+}
+
+// Login input methods
+
+// UpdateUsernameInput updates the username textinput component
+func (ic *InputComponentState) UpdateUsernameInput(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	ic.usernameInput, cmd = ic.usernameInput.Update(msg)
+	return cmd
+}
+
+// UpdatePasswordInput updates the password textinput component
+func (ic *InputComponentState) UpdatePasswordInput(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	ic.passwordInput, cmd = ic.passwordInput.Update(msg)
+	return cmd
+}
+
+// FocusUsernameInput focuses the username input
+func (ic *InputComponentState) FocusUsernameInput() {
+	ic.usernameInput.Focus()
+}
+
+// FocusPasswordInput focuses the password input
+func (ic *InputComponentState) FocusPasswordInput() {
+	ic.passwordInput.Focus()
+}
+
+// BlurLoginInputs removes focus from login inputs
+func (ic *InputComponentState) BlurLoginInputs() {
+	ic.usernameInput.Blur()
+	ic.passwordInput.Blur()
+}
+
+// GetUsernameValue returns current username input value
+func (ic *InputComponentState) GetUsernameValue() string {
+	return ic.usernameInput.Value()
+}
+
+// GetPasswordValue returns current password input value
+func (ic *InputComponentState) GetPasswordValue() string {
+	return ic.passwordInput.Value()
+}
+
+// SetUsernameValue sets the username input value
+func (ic *InputComponentState) SetUsernameValue(value string) {
+	ic.usernameInput.SetValue(value)
+}
+
+// SetPasswordValue sets the password input value
+func (ic *InputComponentState) SetPasswordValue(value string) {
+	ic.passwordInput.SetValue(value)
+}
+
+// ClearLoginInputs clears both login inputs
+func (ic *InputComponentState) ClearLoginInputs() {
+	ic.usernameInput.SetValue("")
+	ic.passwordInput.SetValue("")
+}
+
+// RenderUsernameInput renders the username input view
+func (ic *InputComponentState) RenderUsernameInput() string {
+	return ic.usernameInput.View()
+}
+
+// RenderPasswordInput renders the password input view
+func (ic *InputComponentState) RenderPasswordInput() string {
+	return ic.passwordInput.View()
 }
 
 // local helpers
