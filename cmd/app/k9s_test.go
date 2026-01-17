@@ -141,7 +141,7 @@ func TestInjectStatusBarAtFrameBoundaries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := injectStatusBarAtFrameBoundaries(tt.input, tt.rows, tt.cols, tt.kind, tt.namespace, tt.context)
+			output := injectStatusBarAtFrameBoundaries(tt.input, tt.rows, tt.cols, tt.kind, tt.namespace, tt.context, "")
 			tt.check(t, output)
 		})
 	}
@@ -207,7 +207,7 @@ func TestBuildStatusBarSequence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := buildStatusBarSequence(tt.rows, tt.cols, tt.kind, tt.namespace, tt.context)
+			output := buildStatusBarSequence(tt.rows, tt.cols, tt.kind, tt.namespace, tt.context, "")
 			outputStr := string(output)
 			for _, want := range tt.wantContains {
 				if !strings.Contains(outputStr, want) {
