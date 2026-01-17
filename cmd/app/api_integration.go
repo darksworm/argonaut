@@ -294,7 +294,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 }
 
 // startResourceDiffSession loads the diff for a specific resource and opens the diff pager
-func (m *Model) startResourceDiffSession(appName, group, kind, namespace, name string) tea.Cmd {
+func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -304,7 +304,7 @@ func (m *Model) startResourceDiffSession(appName, group, kind, namespace, name s
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, res.AppName)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
 		}
@@ -313,7 +313,7 @@ func (m *Model) startResourceDiffSession(appName, group, kind, namespace, name s
 		var targetDiff *services.ResourceDiff
 		for i := range diffs {
 			d := &diffs[i]
-			if d.Group == group && d.Kind == kind && d.Name == name && d.Namespace == namespace {
+			if d.Group == res.Group && d.Kind == res.Kind && d.Name == res.Name && d.Namespace == res.Namespace {
 				targetDiff = d
 				break
 			}
@@ -375,9 +375,9 @@ func (m *Model) startResourceDiffSession(appName, group, kind, namespace, name s
 		}
 
 		// Format and display
-		resourceTitle := fmt.Sprintf("%s/%s", kind, name)
-		if namespace != "" {
-			resourceTitle = fmt.Sprintf("%s/%s/%s", namespace, kind, name)
+		resourceTitle := fmt.Sprintf("%s/%s", res.Kind, res.Name)
+		if res.Namespace != "" {
+			resourceTitle = fmt.Sprintf("%s/%s/%s", res.Namespace, res.Kind, res.Name)
 		}
 		formatted := cleaned
 		if formattedOut, ferr := m.runDiffFormatterWithTitle(cleaned, resourceTitle); ferr == nil && strings.TrimSpace(formattedOut) != "" {
@@ -1034,7 +1034,14 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 				}
 			}
 
-			err := m.deleteApplicationHelper(ctx, deleteService, appName, appNamespace, cascade, propagationPolicy)
+			err := m.deleteApplicationHelper(ctx, deleteService, AppDeleteParams{
+				AppName:   appName,
+				Namespace: appNamespace,
+				Options: DeleteOptions{
+					Cascade:           cascade,
+					PropagationPolicy: propagationPolicy,
+				},
+			})
 			if err != nil {
 				cblog.With("component", "app-delete").Error("Failed to delete app", "app", appName, "err", err)
 				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", appName, err))
@@ -1063,12 +1070,12 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 }
 
 // deleteApplicationHelper performs the actual deletion of a single app
-func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, appName string, namespace *string, cascade bool, propagationPolicy string) error {
+func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, params AppDeleteParams) error {
 	deleteReq := appdelete.AppDeleteRequest{
-		AppName:           appName,
-		AppNamespace:      namespace,
-		Cascade:           cascade,
-		PropagationPolicy: propagationPolicy,
+		AppName:           params.AppName,
+		AppNamespace:      params.Namespace,
+		Cascade:           params.Options.Cascade,
+		PropagationPolicy: params.Options.PropagationPolicy,
 	}
 
 	response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
@@ -1088,11 +1095,11 @@ func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appde
 }
 
 // deleteSingleApplication deletes a specific application
-func (m *Model) deleteSingleApplication(appName string, namespace *string, cascade bool, propagationPolicy string) tea.Cmd {
+func (m *Model) deleteSingleApplication(params AppDeleteParams) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.AppDeleteErrorMsg{
-				AppName: appName,
+				AppName: params.AppName,
 				Error:   "No server configured",
 			}
 		}
@@ -1104,19 +1111,19 @@ func (m *Model) deleteSingleApplication(appName string, namespace *string, casca
 
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
 
-		if err := m.deleteApplicationHelper(ctx, deleteService, appName, namespace, cascade, propagationPolicy); err != nil {
+		if err := m.deleteApplicationHelper(ctx, deleteService, params); err != nil {
 			return model.AppDeleteErrorMsg{
-				AppName: appName,
+				AppName: params.AppName,
 				Error:   fmt.Sprintf("Failed to delete application: %v", err),
 			}
 		}
 
-		return model.AppDeleteSuccessMsg{AppName: appName}
+		return model.AppDeleteSuccessMsg{AppName: params.AppName}
 	}
 }
 
 // deleteSelectedResources deletes the specified resources from the cluster
-func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, cascade bool, propagationPolicy string, force bool) tea.Cmd {
+func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, opts DeleteOptions) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ResourceDeleteErrorMsg{Error: "No server configured"}
@@ -1131,7 +1138,7 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, ca
 
 	// Map cascade/propagationPolicy to orphan parameter
 	// orphan=true when cascade=false OR propagationPolicy="orphan"
-	orphan := !cascade || propagationPolicy == "orphan"
+	orphan := !opts.Cascade || opts.PropagationPolicy == "orphan"
 
 	// Collect unique app names for refresh after deletion
 	appNameSet := make(map[string]bool)
@@ -1145,7 +1152,7 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, ca
 
 	return func() tea.Msg {
 		cblog.With("component", "resource-delete").Info("Starting resource deletion",
-			"count", len(targets), "cascade", cascade, "policy", propagationPolicy, "orphan", orphan, "force", force)
+			"count", len(targets), "cascade", opts.Cascade, "policy", opts.PropagationPolicy, "orphan", orphan, "force", opts.Force)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -1169,7 +1176,7 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, ca
 				Version:      target.Version,
 				Group:        target.Group,
 				Orphan:       orphan,
-				Force:        force,
+				Force:        opts.Force,
 			}
 
 			err := appService.DeleteResource(ctx, req)

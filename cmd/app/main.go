@@ -190,7 +190,12 @@ func main() {
 	}
 
 	// Set up TLS trust configuration
-	setupTLSTrust(caCertFlag, caPathFlag, clientCertFlag, clientKeyFlag)
+	setupTLSTrust(TLSConfig{
+		CACertFile:     caCertFlag,
+		CACertDir:      caPathFlag,
+		ClientCertFile: clientCertFlag,
+		ClientKeyFile:  clientKeyFlag,
+	})
 
 	// Check if config file exists before loading (for "what's new" logic)
 	configExisted := config.ConfigFileExists()
@@ -447,19 +452,19 @@ func createFileStatusHandler() services.StatusChangeHandler {
 }
 
 // setupTLSTrust configures TLS trust using the trust package
-func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) {
+func setupTLSTrust(cfg TLSConfig) {
 	// Only configure custom TLS trust if flags or environment variables are provided
-	if caCertFile == "" && caCertDir == "" && clientCertFile == "" && clientKeyFile == "" &&
+	if cfg.CACertFile == "" && cfg.CACertDir == "" && cfg.ClientCertFile == "" && cfg.ClientKeyFile == "" &&
 		os.Getenv("SSL_CERT_FILE") == "" && os.Getenv("SSL_CERT_DIR") == "" {
 		return
 	}
 
 	// Configure trust options
 	opts := trust.Options{
-		CACertFile:     caCertFile,
-		CACertDir:      caCertDir,
-		ClientCertFile: clientCertFile,
-		ClientKeyFile:  clientKeyFile,
+		CACertFile:     cfg.CACertFile,
+		CACertDir:      cfg.CACertDir,
+		ClientCertFile: cfg.ClientCertFile,
+		ClientKeyFile:  cfg.ClientKeyFile,
 		Timeout:        30 * time.Second, // Default HTTP timeout
 		MinTLS:         tls.VersionTLS12, // Minimum TLS 1.2
 	}
@@ -476,11 +481,11 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 	// Load client certificate if provided
 	var clientCert *tls.Certificate
 
-	if clientCertFile != "" && clientKeyFile != "" {
+	if cfg.ClientCertFile != "" && cfg.ClientKeyFile != "" {
 		cblog.With("component", "tls").Info("Loading client certificate for mutual TLS authentication",
-			"cert", clientCertFile, "key", clientKeyFile)
+			"cert", cfg.ClientCertFile, "key", cfg.ClientKeyFile)
 		var err error
-		clientCert, err = trust.LoadClientCertificate(clientCertFile, clientKeyFile)
+		clientCert, err = trust.LoadClientCertificate(cfg.ClientCertFile, cfg.ClientKeyFile)
         if err != nil {
             cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
             // Include hint inline to avoid PTY read races
@@ -488,7 +493,7 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
             os.Exit(1)
         }
 		cblog.With("component", "tls").Info("Client certificate loaded successfully")
-	} else if clientCertFile != "" || clientKeyFile != "" {
+	} else if cfg.ClientCertFile != "" || cfg.ClientKeyFile != "" {
 		cblog.With("component", "tls").Warn("Incomplete client certificate configuration - both --client-cert and --client-cert-key are required")
 		fmt.Fprintf(os.Stderr, "Warning: Both --client-cert and --client-cert-key must be provided for client certificate authentication\n")
 	}
@@ -501,10 +506,10 @@ func setupTLSTrust(caCertFile, caCertDir, clientCertFile, clientKeyFile string) 
 
 	// Log successful trust setup
 	var certSources []string
-	if caCertFile != "" {
+	if cfg.CACertFile != "" {
 		certSources = append(certSources, "1 file")
 	}
-	if caCertDir != "" {
+	if cfg.CACertDir != "" {
 		certSources = append(certSources, "dir certs")
 	}
 

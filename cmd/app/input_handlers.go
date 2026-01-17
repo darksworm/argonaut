@@ -822,7 +822,14 @@ func (m *Model) executeAppDeletion() (tea.Model, tea.Cmd) {
 		return m, m.deleteSelectedApplications(m.state.Modals.DeleteCascade, m.state.Modals.DeletePropagationPolicy)
 	} else {
 		// Single app deletion
-		return m, m.deleteSingleApplication(appName, m.state.Modals.DeleteAppNamespace, m.state.Modals.DeleteCascade, m.state.Modals.DeletePropagationPolicy)
+		return m, m.deleteSingleApplication(AppDeleteParams{
+			AppName:   appName,
+			Namespace: m.state.Modals.DeleteAppNamespace,
+			Options: DeleteOptions{
+				Cascade:           m.state.Modals.DeleteCascade,
+				PropagationPolicy: m.state.Modals.DeletePropagationPolicy,
+			},
+		})
 	}
 }
 
@@ -961,9 +968,11 @@ func (m *Model) executeResourceDeletion() (tea.Model, tea.Cmd) {
 
 	return m, m.deleteSelectedResources(
 		m.state.Modals.ResourceDeleteTargets,
-		m.state.Modals.ResourceDeleteCascade,
-		m.state.Modals.ResourceDeletePropagationPolicy,
-		m.state.Modals.ResourceDeleteForce,
+		DeleteOptions{
+			Cascade:           m.state.Modals.ResourceDeleteCascade,
+			PropagationPolicy: m.state.Modals.ResourceDeletePropagationPolicy,
+			Force:             m.state.Modals.ResourceDeleteForce,
+		},
 	)
 }
 
@@ -1642,7 +1651,13 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 	}
 	m.state.Diff.Loading = true
 
-	return m, m.startResourceDiffSession(appName, group, kind, namespace, name)
+	return m, m.startResourceDiffSession(ResourceIdentifier{
+		AppName:   appName,
+		Group:     group,
+		Kind:      kind,
+		Namespace: namespace,
+		Name:      name,
+	})
 }
 
 // handleOpenK9s opens k9s for the currently selected resource in tree view
