@@ -14,7 +14,7 @@ import (
 )
 
 // openK9s on non-Unix systems falls back to running k9s without the status bar sandbox
-func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
+func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
@@ -45,8 +45,13 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 			resourceAlias = strings.ToLower(kind)
 		}
 
-		// Build args
-		args := []string{"-c", resourceAlias}
+		// Build args - include filter if name is provided
+		var args []string
+		if name != "" {
+			args = []string{"-c", fmt.Sprintf("%s /%s", resourceAlias, name)}
+		} else {
+			args = []string{"-c", resourceAlias}
+		}
 		if namespace != "" {
 			args = append(args, "-n", namespace)
 		}

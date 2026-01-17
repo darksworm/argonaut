@@ -21,7 +21,7 @@ import (
 )
 
 // openK9s runs k9s in a PTY with a status bar at the bottom showing Argonaut context
-func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
+func (m *Model) openK9s(kind, namespace, context, name string) tea.Cmd {
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
@@ -52,8 +52,13 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 			resourceAlias = strings.ToLower(kind)
 		}
 
-		// Build args
-		args := []string{"-c", resourceAlias}
+		// Build args - include filter if name is provided
+		var args []string
+		if name != "" {
+			args = []string{"-c", fmt.Sprintf("%s /%s", resourceAlias, name)}
+		} else {
+			args = []string{"-c", resourceAlias}
+		}
 		if namespace != "" {
 			args = append(args, "-n", namespace)
 		}
@@ -133,7 +138,7 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 
 		// Clear screen and draw initial status bar
 		fmt.Print("\x1b[2J\x1b[H")
-		drawStatusBarBottom(rows, cols, kind, namespace, context)
+		drawStatusBarBottom(rows, cols, kind, namespace, context, name)
 
 		// Set up input forwarding from stdin to PTY with cancellation
 		// Note: On Unix terminals, blocking reads on stdin cannot be interrupted
@@ -159,7 +164,7 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 		}()
 
 		// Process k9s output and inject status bar at frame boundaries
-		processK9sOutputWithStatusBar(ptmx, &sizeMu, &currentRows, &currentCols, kind, namespace, context)
+		processK9sOutputWithStatusBar(ptmx, &sizeMu, &currentRows, &currentCols, kind, namespace, context, name)
 
 		// Wait for k9s to exit
 		if err := cmd.Wait(); err != nil {
@@ -183,7 +188,7 @@ func (m *Model) openK9s(kind, namespace, context string) tea.Cmd {
 }
 
 // processK9sOutputWithStatusBar reads k9s output and injects status bar at frame boundaries
-func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols *int, kind, namespace, context string) {
+func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols *int, kind, namespace, context, name string) {
 	buf := make([]byte, 32*1024)
 
 	for {
@@ -197,7 +202,7 @@ func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols
 			sizeMu.Unlock()
 
 			// Look for frame boundaries and inject status bar
-			output := injectStatusBarAtFrameBoundaries(data, r, c, kind, namespace, context)
+			output := injectStatusBarAtFrameBoundaries(data, r, c, kind, namespace, context, name)
 
 			os.Stdout.Write(output)
 		}
@@ -208,9 +213,9 @@ func processK9sOutputWithStatusBar(ptmx *os.File, sizeMu *sync.Mutex, rows, cols
 }
 
 // injectStatusBarAtFrameBoundaries finds frame boundary sequences and injects status bar after them
-func injectStatusBarAtFrameBoundaries(data []byte, rows, cols int, kind, namespace, context string) []byte {
+func injectStatusBarAtFrameBoundaries(data []byte, rows, cols int, kind, namespace, context, name string) []byte {
 	// Build the status bar injection sequence
-	statusBar := buildStatusBarSequence(rows, cols, kind, namespace, context)
+	statusBar := buildStatusBarSequence(rows, cols, kind, namespace, context, name)
 
 	// Patterns that indicate frame boundaries:
 	// ESC[2J - clear entire screen (clears our status bar too!)
@@ -259,7 +264,7 @@ func injectStatusBarAtFrameBoundaries(data []byte, rows, cols int, kind, namespa
 }
 
 // buildStatusBarSequence creates the ANSI sequence to draw the status bar on the last row
-func buildStatusBarSequence(rows, cols int, kind, namespace, context string) []byte {
+func buildStatusBarSequence(rows, cols int, kind, namespace, context, name string) []byte {
 	var buf bytes.Buffer
 
 	// Save cursor, move to last row, clear line
@@ -273,6 +278,9 @@ func buildStatusBarSequence(rows, cols int, kind, namespace, context string) []b
 		left += fmt.Sprintf(" (%s", kind)
 		if namespace != "" {
 			left += "/" + namespace
+		}
+		if name != "" {
+			left += ": " + name
 		}
 		left += ")"
 	}
@@ -301,8 +309,8 @@ func buildStatusBarSequence(rows, cols int, kind, namespace, context string) []b
 }
 
 // drawStatusBarBottom draws the status bar on the last row of the terminal (for initial draw)
-func drawStatusBarBottom(rows, cols int, kind, namespace, context string) {
-	os.Stdout.Write(buildStatusBarSequence(rows, cols, kind, namespace, context))
+func drawStatusBarBottom(rows, cols int, kind, namespace, context, name string) {
+	os.Stdout.Write(buildStatusBarSequence(rows, cols, kind, namespace, context, name))
 }
 
 // getTerminalSize returns the current terminal rows and cols
