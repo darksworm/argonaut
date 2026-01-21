@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/darksworm/argonaut/compare/v2.11.0...v2.12.0) (2026-01-17)
+
+
+### Features
+
+* k9s opens with resource name filter pre-applied ([#184](https://github.com/darksworm/argonaut/issues/184)) ([69c1fb0](https://github.com/darksworm/argonaut/commit/69c1fb05c88de44733aea976fb7555e03a184efc))
+
 ## [2.11.0](https://github.com/darksworm/argonaut/compare/v2.10.0...v2.11.0) (2026-01-09)
 
 
