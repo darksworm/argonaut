@@ -179,6 +179,18 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 	return "", fmt.Errorf("user %s not found in ArgoCD config", currentUser)
 }
 
+// GetServerURLForCurrentContext returns the server URL for the current context
+// without requiring a token. Used for login flow.
+func (c *ArgoCLIConfig) GetServerURLForCurrentContext() (string, bool, error) {
+	serverConfig, err := c.GetCurrentServerConfig()
+	if err != nil {
+		return "", false, err
+	}
+
+	baseURL := ensureHTTPS(serverConfig.Server, serverConfig.PlainText)
+	return baseURL, serverConfig.Insecure, nil
+}
+
 // ToServerConfig converts the ArgoCD CLI config to our internal Server model
 func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 	serverConfig, err := c.GetCurrentServerConfig()

@@ -44,6 +44,8 @@ const (
 	ModeK9sContextSelect    Mode = "k9s-context-select"
 	ModeK9sError            Mode = "k9s-error"
 	ModeConfirmResourceSync Mode = "confirm-resource-sync"
+	ModeLogin               Mode = "login"         // Login prompt modal
+	ModeLoginLoading        Mode = "login-loading" // Login in progress
 )
 
 // App represents an ArgoCD application

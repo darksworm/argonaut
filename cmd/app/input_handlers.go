@@ -1196,6 +1196,116 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 	)
 }
 
+// handleLoginModeKeys handles input when in login mode
+func (m *Model) handleLoginModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If loading, only allow cancel
+	if m.state.Modals.LoginLoading {
+		switch msg.String() {
+		case "esc", "ctrl+c":
+			m.state.Modals.LoginLoading = false
+			return m, nil
+		}
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "tab", "down":
+		// Cycle through fields: username(0) -> password(1) -> save(2) -> login(3) -> cancel(4)
+		m.state.Modals.LoginFieldFocus = (m.state.Modals.LoginFieldFocus + 1) % 5
+		return m.updateLoginFocus()
+	case "shift+tab", "up":
+		// Reverse cycle
+		m.state.Modals.LoginFieldFocus = (m.state.Modals.LoginFieldFocus + 4) % 5
+		return m.updateLoginFocus()
+	case "enter":
+		switch m.state.Modals.LoginFieldFocus {
+		case 0: // Username field - move to password
+			m.state.Modals.LoginFieldFocus = 1
+			return m.updateLoginFocus()
+		case 1: // Password field - move to save checkbox
+			m.state.Modals.LoginFieldFocus = 2
+			return m.updateLoginFocus()
+		case 2: // Save checkbox - toggle and move to login button
+			m.state.Modals.LoginSaveCredentials = !m.state.Modals.LoginSaveCredentials
+			m.state.Modals.LoginFieldFocus = 3
+			return m.updateLoginFocus()
+		case 3: // Login button - submit
+			return m.submitLogin()
+		case 4: // Cancel button - cancel login
+			return m.cancelLogin()
+		}
+		return m, nil
+	case " ":
+		// Space toggles checkbox when focused
+		if m.state.Modals.LoginFieldFocus == 2 {
+			m.state.Modals.LoginSaveCredentials = !m.state.Modals.LoginSaveCredentials
+		}
+		return m, nil
+	case "esc":
+		return m.cancelLogin()
+	case "ctrl+c":
+		return m.cancelLogin()
+	default:
+		// Pass to focused input
+		switch m.state.Modals.LoginFieldFocus {
+		case 0:
+			cmd := m.inputComponents.UpdateUsernameInput(msg)
+			m.state.Modals.LoginUsername = m.inputComponents.GetUsernameValue()
+			return m, cmd
+		case 1:
+			cmd := m.inputComponents.UpdatePasswordInput(msg)
+			return m, cmd
+		}
+		return m, nil
+	}
+}
+
+// updateLoginFocus updates which login input is focused
+func (m *Model) updateLoginFocus() (tea.Model, tea.Cmd) {
+	m.inputComponents.BlurLoginInputs()
+	switch m.state.Modals.LoginFieldFocus {
+	case 0:
+		m.inputComponents.FocusUsernameInput()
+	case 1:
+		m.inputComponents.FocusPasswordInput()
+	}
+	return m, nil
+}
+
+// submitLogin handles login form submission
+func (m *Model) submitLogin() (tea.Model, tea.Cmd) {
+	username := m.inputComponents.GetUsernameValue()
+	password := m.inputComponents.GetPasswordValue()
+
+	if username == "" || password == "" {
+		errMsg := "Username and password are required"
+		m.state.Modals.LoginError = &errMsg
+		return m, nil
+	}
+
+	// Clear error and start loading
+	m.state.Modals.LoginError = nil
+	m.state.Modals.LoginLoading = true
+	m.inputComponents.BlurLoginInputs()
+
+	// Send login submit message
+	return m, func() tea.Msg {
+		return model.LoginSubmitMsg{
+			Username:        username,
+			Password:        password,
+			SaveCredentials: m.state.Modals.LoginSaveCredentials,
+		}
+	}
+}
+
+// cancelLogin handles login cancellation
+func (m *Model) cancelLogin() (tea.Model, tea.Cmd) {
+	m.inputComponents.BlurLoginInputs()
+	m.inputComponents.ClearLoginInputs()
+	m.state.Mode = model.ModeAuthRequired
+	return m, nil
+}
+
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -1384,6 +1494,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleK9sContextSelectKeys(msg)
 	case model.ModeK9sError:
 		return m.handleK9sErrorModeKeys(msg)
+	case model.ModeLogin, model.ModeLoginLoading:
+		return m.handleLoginModeKeys(msg)
 	}
 
 	// Tree view keys when in normal mode.

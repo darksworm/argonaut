@@ -39,6 +39,16 @@ func (e *PortForwardModeError) Error() string {
 	return "ArgoCD is configured for port-forward mode"
 }
 
+// NoTokenError indicates that no auth token was found but server URL is available
+type NoTokenError struct {
+	ServerURL string
+	Insecure  bool
+}
+
+func (e *NoTokenError) Error() string {
+	return "no auth token found"
+}
+
 // appVersion is the Argonaut version shown in the ASCII banner.
 // Override at build time: go build -ldflags "-X main.appVersion=1.16.0"
 var appVersion = "dev"
@@ -323,6 +333,16 @@ func main() {
 			// Set mode to show core detection view
 			m.state.Mode = model.ModeCoreDetected
 			m.state.Server = nil
+		} else if noTokenErr, isNoToken := err.(*NoTokenError); isNoToken {
+			// No token found - set up for auto-login
+			cblog.With("component", "app").Info("No auth token found, will attempt auto-login", "serverURL", noTokenErr.ServerURL)
+			m.state.Server = &model.Server{
+				BaseURL:  noTokenErr.ServerURL,
+				Insecure: noTokenErr.Insecure,
+			}
+			// Initialize login modal state with server URL
+			m.initLoginModal(noTokenErr.ServerURL, noTokenErr.Insecure)
+			// Mode will be set by validateAuthentication() based on auto-login result
 		} else {
 			cblog.With("component", "app").Error("Could not load Argo CD config", "err", err)
 			cblog.With("component", "app").Info("Please run 'argocd login' to configure and authenticate")
@@ -428,6 +448,15 @@ func loadArgoConfig(overridePath string) (*model.Server, error) {
 				return nil, &CoreModeError{}
 			}
 		}
+
+		// Check if it's a missing token error - return NoTokenError with server URL for login
+		if strings.Contains(err.Error(), "auth token") || strings.Contains(err.Error(), "no token") || strings.Contains(err.Error(), "argocd login") {
+			// Try to get server URL without token for login flow
+			if serverURL, insecure, urlErr := cfg.GetServerURLForCurrentContext(); urlErr == nil {
+				return nil, &NoTokenError{ServerURL: serverURL, Insecure: insecure}
+			}
+		}
+
 		return nil, fmt.Errorf("failed to parse server config: %w", err)
 	}
 

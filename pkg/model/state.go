@@ -165,6 +165,13 @@ type ModalState struct {
 	ChangelogLoading bool `json:"changelogLoading"`
 	// K9s error modal state
 	K9sError *string `json:"k9sError,omitempty"`
+	// Login modal state
+	LoginServerURL       string  `json:"loginServerURL,omitempty"`
+	LoginUsername        string  `json:"loginUsername,omitempty"`
+	LoginError           *string `json:"loginError,omitempty"`
+	LoginSaveCredentials bool    `json:"loginSaveCredentials"`
+	LoginFieldFocus      int     `json:"loginFieldFocus"` // 0=username, 1=password, 2=save checkbox, 3=login btn, 4=cancel btn
+	LoginLoading         bool    `json:"loginLoading"`
 }
 
 // AppState represents the complete application state for Bubbletea
