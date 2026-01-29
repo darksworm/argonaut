@@ -1,10 +1,11 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -283,32 +284,24 @@ func (s *ApplicationService) SyncApplication(ctx context.Context, appName string
 // WatchApplications starts watching for application changes
 func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan chan<- ApplicationWatchEvent) error {
 	cblog.With("component", "api").Info("WatchApplications: attempting to establish stream", "endpoint", "/api/v1/stream/applications")
-	stream, err := s.client.Stream(ctx, "/api/v1/stream/applications")
+	streamResp, err := s.client.Stream(ctx, "/api/v1/stream/applications")
 	if err != nil {
 		cblog.With("component", "api").Error("WatchApplications: failed to establish stream", "error", err)
 		return fmt.Errorf("failed to start watch stream: %w", err)
 	}
 	cblog.With("component", "api").Info("WatchApplications: stream established successfully")
-	defer stream.Close()
-
-	// Get SSE buffer configuration
-	initialSize, maxSize, growthFactor := getSSEBufferConfig()
-	currentSize := initialSize
 	
-	cblog.With("component", "api").Info("WatchApplications: configuring SSE scanner", 
-		"initialBuffer", initialSize, 
-		"maxBuffer", maxSize,
-		"growthFactor", growthFactor)
+	// Create AccumulatingSSEReader for reliable event processing
+	sseConfig := DefaultSSEConfig()
+	sseReader := NewAccumulatingSSEReader(streamResp.Body, sseConfig)
+	defer sseReader.Close()
 
-	// Create scanner with initial buffer size
-	scanner := bufio.NewScanner(stream)
-	scanner.Buffer(make([]byte, currentSize), maxSize)
-	scanner.Split(scanSSELines)
+	cblog.With("component", "api").Info("WatchApplications: configured AccumulatingSSEReader", 
+		"initialBuffer", sseConfig.InitialBuffer, 
+		"maxBuffer", sseConfig.MaxBuffer,
+		"maxAccumulated", sseConfig.MaxAccumulated)
 	
 	cblog.With("component", "api").Info("WatchApplications: starting to read from stream")
-	
-	retryCount := 0
-	maxRetries := 5
 	
 	for {
 		if ctx.Err() != nil {
@@ -316,92 +309,66 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 			return ctx.Err()
 		}
 
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				// Check if it's a buffer overflow error
-				if strings.Contains(err.Error(), "token too long") {
-					if currentSize >= maxSize {
-						cblog.With("component", "api").Error("WatchApplications: SSE event exceeds maximum buffer size",
-							"maxSize", maxSize,
-							"error", err)
-						return fmt.Errorf("SSE event exceeds maximum buffer size of %d MB: %w", maxSize/(1024*1024), err)
-					}
-					
-					// Grow the buffer
-					newSize := int(float64(currentSize) * growthFactor)
-					if newSize > maxSize {
-						newSize = maxSize
-					}
-					
-					cblog.With("component", "api").Info("WatchApplications: growing SSE buffer due to large event",
-						"oldSize", currentSize,
-						"newSize", newSize,
-						"retry", retryCount)
-					
-					currentSize = newSize
-					retryCount++
-					
-					if retryCount > maxRetries {
-						return fmt.Errorf("failed to process SSE stream after %d buffer resize attempts: %w", maxRetries, err)
-					}
-					
-					// Recreate scanner with larger buffer
-					// Note: We can't rewind the stream, so we'll need to reconnect
-					stream.Close()
-					stream, err = s.client.Stream(ctx, "/api/v1/stream/applications")
-					if err != nil {
-						return fmt.Errorf("failed to reconnect stream after buffer resize: %w", err)
-					}
-					defer stream.Close()
-					
-					scanner = bufio.NewScanner(stream)
-					scanner.Buffer(make([]byte, currentSize), maxSize)
-					scanner.Split(scanSSELines)
+		// Read next SSE event
+		eventData, err := sseReader.ReadEvent()
+		if err != nil {
+			if err == io.EOF {
+				// Stream ended normally
+				cblog.With("component", "api").Debug("WatchApplications: stream ended normally")
+				return nil
+			}
+			
+			// Check for event too large error
+			if errors.Is(err, ErrEventTooLarge) {
+				metrics := sseReader.Metrics()
+				cblog.With("component", "api").Error("WatchApplications: SSE event too large",
+					"maxEventSize", metrics.MaxEventSize,
+					"bufferResizes", metrics.BufferResizes,
+					"error", err)
+				return fmt.Errorf("SSE event exceeds maximum size: %w", err)
+			}
+			
+			return fmt.Errorf("error reading SSE event: %w", err)
+		}
+		
+		if len(eventData) == 0 {
+			continue
+		}
+		
+		// Process SSE event lines
+		lines := strings.Split(string(eventData), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || line == ":" {
+				// Skip empty lines and keep-alive messages
+				continue
+			}
+
+			cblog.With("component", "api").Debug("WatchApplications: processing line from event", "line", line)
+
+			// Handle Server-Sent Events format (lines starting with "data: ")
+			if strings.HasPrefix(line, "data: ") {
+				dataLine := strings.TrimPrefix(line, "data: ")
+				
+				var eventResult WatchEventResult
+				if err := json.Unmarshal([]byte(dataLine), &eventResult); err != nil {
+					cblog.With("component", "api").Warn("WatchApplications: failed to unmarshal event", "error", err, "line", dataLine)
+					// Skip malformed lines
 					continue
 				}
-				
-				// Other scanning error
-				return fmt.Errorf("stream scanning error: %w", err)
+				cblog.With("component", "api").Debug("WatchApplications: parsed event", "type", eventResult.Result.Type, "app", eventResult.Result.Application.Metadata.Name)
+
+				select {
+				case eventChan <- eventResult.Result:
+					cblog.With("component", "api").Debug("WatchApplications: sent event to channel")
+				case <-ctx.Done():
+					cblog.With("component", "api").Debug("WatchApplications: context cancelled during send")
+					return ctx.Err()
+				}
+			} else if !strings.HasPrefix(line, ":") {
+				// Skip comment lines (starting with ":" ) but log unexpected lines
+				cblog.With("component", "api").Debug("WatchApplications: skipping non-data line", "line", line)
 			}
-			// Scanner reached EOF normally
-			break
-		}
-
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		// SSE format: lines with just ":" are keep-alive messages
-		if line == ":" {
-			continue // Keep-alive message
-		}
-
-		cblog.With("component", "api").Debug("WatchApplications: received line from stream", "line", line)
-
-		// Handle Server-Sent Events format (lines starting with "data: ")
-		if strings.HasPrefix(line, "data: ") {
-			line = strings.TrimPrefix(line, "data: ")
-		} else {
-			// Skip non-data lines
-			cblog.With("component", "api").Debug("WatchApplications: skipping non-data line", "line", line)
-			continue
-		}
-
-		var eventResult WatchEventResult
-		if err := json.Unmarshal([]byte(line), &eventResult); err != nil {
-			cblog.With("component", "api").Warn("WatchApplications: failed to unmarshal event", "error", err, "line", line)
-			// Skip malformed lines
-			continue
-		}
-		cblog.With("component", "api").Debug("WatchApplications: parsed event", "type", eventResult.Result.Type, "app", eventResult.Result.Application.Metadata.Name)
-
-		select {
-		case eventChan <- eventResult.Result:
-			cblog.With("component", "api").Debug("WatchApplications: sent event to channel")
-		case <-ctx.Done():
-			cblog.With("component", "api").Debug("WatchApplications: context cancelled during send")
-			return ctx.Err()
 		}
 	}
 
@@ -622,30 +589,25 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 		path += "?appNamespace=" + url.QueryEscape(appNamespace)
 	}
 	cblog.With("component", "api").Debug("Starting resource tree watch", "app", appName, "path", path)
-	stream, err := s.client.Stream(ctx, path)
+	streamResp, err := s.client.Stream(ctx, path)
 	if err != nil {
 		cblog.With("component", "api").Error("Failed to start resource tree watch", "err", err, "app", appName)
 		return fmt.Errorf("failed to start resource tree watch: %w", err)
 	}
-	defer stream.Close()
+	
+	// Create AccumulatingSSEReader for reliable event processing
+	sseConfig := DefaultSSEConfig()
+	sseReader := NewAccumulatingSSEReader(streamResp.Body, sseConfig)
+	defer sseReader.Close()
 	cblog.With("component", "api").Debug("Resource tree stream established", "app", appName)
 
-	// Get SSE buffer configuration
-	initialSize, maxSize, growthFactor := getSSEBufferConfig()
-	currentSize := initialSize
-	
-	cblog.With("component", "api").Debug("WatchResourceTree: configuring SSE scanner",
+	cblog.With("component", "api").Debug("WatchResourceTree: configured AccumulatingSSEReader",
 		"app", appName,
-		"initialBuffer", initialSize,
-		"maxBuffer", maxSize)
-
-	scanner := bufio.NewScanner(stream)
-	scanner.Buffer(make([]byte, currentSize), maxSize)
-	scanner.Split(scanSSELines)
+		"initialBuffer", sseConfig.InitialBuffer,
+		"maxBuffer", sseConfig.MaxBuffer,
+		"maxAccumulated", sseConfig.MaxAccumulated)
 	
 	eventCount := 0
-	retryCount := 0
-	maxRetries := 5
 	
 	for {
 		if ctx.Err() != nil {
@@ -653,93 +615,66 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 			return ctx.Err()
 		}
 		
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				// Check if it's a buffer overflow error
-				if strings.Contains(err.Error(), "token too long") {
-					if currentSize >= maxSize {
-						cblog.With("component", "api").Error("WatchResourceTree: SSE event exceeds maximum buffer size",
-							"app", appName,
-							"maxSize", maxSize,
-							"error", err)
-						return fmt.Errorf("resource tree SSE event exceeds maximum buffer size of %d MB: %w", maxSize/(1024*1024), err)
-					}
-					
-					// Grow the buffer
-					newSize := int(float64(currentSize) * growthFactor)
-					if newSize > maxSize {
-						newSize = maxSize
-					}
-					
-					cblog.With("component", "api").Info("WatchResourceTree: growing SSE buffer due to large event",
-						"app", appName,
-						"oldSize", currentSize,
-						"newSize", newSize,
-						"retry", retryCount)
-					
-					currentSize = newSize
-					retryCount++
-					
-					if retryCount > maxRetries {
-						return fmt.Errorf("failed to process resource tree SSE stream after %d buffer resize attempts: %w", maxRetries, err)
-					}
-					
-					// Recreate scanner with larger buffer
-					// Note: We need to reconnect as we can't rewind the stream
-					stream.Close()
-					stream, err = s.client.Stream(ctx, path)
-					if err != nil {
-						return fmt.Errorf("failed to reconnect resource tree stream after buffer resize: %w", err)
-					}
-					defer stream.Close()
-					
-					scanner = bufio.NewScanner(stream)
-					scanner.Buffer(make([]byte, currentSize), maxSize)
-					scanner.Split(scanSSELines)
-					continue
-				}
-				
-				// Other scanning error
-				cblog.With("component", "api").Error("Stream scanning error", "err", err, "app", appName)
-				return fmt.Errorf("stream scanning error: %w", err)
+		// Read next SSE event
+		eventData, err := sseReader.ReadEvent()
+		if err != nil {
+			if err == io.EOF {
+				// Stream ended normally
+				cblog.With("component", "api").Debug("WatchResourceTree: stream ended normally", "app", appName)
+				return nil
 			}
-			// Scanner reached EOF normally
-			break
+			
+			// Check for event too large error
+			if errors.Is(err, ErrEventTooLarge) {
+				metrics := sseReader.Metrics()
+				cblog.With("component", "api").Error("WatchResourceTree: SSE event too large",
+					"app", appName,
+					"maxEventSize", metrics.MaxEventSize,
+					"bufferResizes", metrics.BufferResizes,
+					"error", err)
+				return fmt.Errorf("resource tree SSE event exceeds maximum size: %w", err)
+			}
+			
+			return fmt.Errorf("error reading SSE event: %w", err)
 		}
 		
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		if len(eventData) == 0 {
 			continue
 		}
+		
+		// Process SSE event lines
+		lines := strings.Split(string(eventData), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || line == ":" {
+				// Skip empty lines and keep-alive messages
+				continue
+			}
 
-		// SSE format: lines starting with "data: " contain the JSON payload
-		// Lines with just ":" are keep-alive messages
-		if line == ":" {
-			continue // Keep-alive message
-		}
+			// SSE format: lines starting with "data: " contain the JSON payload
+			if !strings.HasPrefix(line, "data: ") {
+				cblog.With("component", "api").Debug("Skipping non-data SSE line", "line", line)
+				continue
+			}
 
-		if !strings.HasPrefix(line, "data: ") {
-			cblog.With("component", "api").Debug("Skipping non-data SSE line", "line", line)
-			continue
-		}
+			// Strip the "data: " prefix to get the JSON
+			jsonData := strings.TrimPrefix(line, "data: ")
+			cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "data", jsonData)
 
-		// Strip the "data: " prefix to get the JSON
-		jsonData := strings.TrimPrefix(line, "data: ")
-		cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "data", jsonData)
-
-		var res ResourceTreeStreamResult
-		if err := json.Unmarshal([]byte(jsonData), &res); err != nil {
-			cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "data", jsonData)
-			continue
-		}
-		eventCount++
-		cblog.With("component", "api").Debug("Sending tree update", "app", appName, "event", eventCount)
-		select {
-		case out <- res.Result:
-			cblog.With("component", "api").Debug("Tree update sent", "app", appName, "event", eventCount)
-		case <-ctx.Done():
-			cblog.With("component", "api").Debug("Context done while sending, stopping", "app", appName)
-			return ctx.Err()
+			var res ResourceTreeStreamResult
+			if err := json.Unmarshal([]byte(jsonData), &res); err != nil {
+				cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "data", jsonData)
+				continue
+			}
+			eventCount++
+			cblog.With("component", "api").Debug("Sending tree update", "app", appName, "event", eventCount)
+			select {
+			case out <- res.Result:
+				cblog.With("component", "api").Debug("Tree update sent", "app", appName, "event", eventCount)
+			case <-ctx.Done():
+				cblog.With("component", "api").Debug("Context done while sending, stopping", "app", appName)
+				return ctx.Err()
+			}
 		}
 	}
 

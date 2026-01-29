@@ -174,11 +174,11 @@ func TestClient_GrpcWebRootPath_StreamMethod(t *testing.T) {
 		GrpcWebRootPath: grpcWebRootPath,
 	})
 
-	stream, err := client.Stream(context.Background(), requestPath)
+	streamResp, err := client.Stream(context.Background(), requestPath)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	defer stream.Close()
+	defer streamResp.Body.Close()
 
 	if receivedPath != expectedPath {
 		t.Errorf("Stream: Expected path %s, got %s", expectedPath, receivedPath)
