@@ -291,13 +291,80 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 	cblog.With("component", "api").Info("WatchApplications: stream established successfully")
 	defer stream.Close()
 
+	// Get SSE buffer configuration
+	initialSize, maxSize, growthFactor := getSSEBufferConfig()
+	currentSize := initialSize
+	
+	cblog.With("component", "api").Info("WatchApplications: configuring SSE scanner", 
+		"initialBuffer", initialSize, 
+		"maxBuffer", maxSize,
+		"growthFactor", growthFactor)
+
+	// Create scanner with initial buffer size
 	scanner := bufio.NewScanner(stream)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, currentSize), maxSize)
+	scanner.Split(scanSSELines)
+	
 	cblog.With("component", "api").Info("WatchApplications: starting to read from stream")
-	for scanner.Scan() {
+	
+	retryCount := 0
+	maxRetries := 5
+	
+	for {
 		if ctx.Err() != nil {
 			cblog.With("component", "api").Debug("WatchApplications: context cancelled")
 			return ctx.Err()
+		}
+
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				// Check if it's a buffer overflow error
+				if strings.Contains(err.Error(), "token too long") {
+					if currentSize >= maxSize {
+						cblog.With("component", "api").Error("WatchApplications: SSE event exceeds maximum buffer size",
+							"maxSize", maxSize,
+							"error", err)
+						return fmt.Errorf("SSE event exceeds maximum buffer size of %d MB: %w", maxSize/(1024*1024), err)
+					}
+					
+					// Grow the buffer
+					newSize := int(float64(currentSize) * growthFactor)
+					if newSize > maxSize {
+						newSize = maxSize
+					}
+					
+					cblog.With("component", "api").Info("WatchApplications: growing SSE buffer due to large event",
+						"oldSize", currentSize,
+						"newSize", newSize,
+						"retry", retryCount)
+					
+					currentSize = newSize
+					retryCount++
+					
+					if retryCount > maxRetries {
+						return fmt.Errorf("failed to process SSE stream after %d buffer resize attempts: %w", maxRetries, err)
+					}
+					
+					// Recreate scanner with larger buffer
+					// Note: We can't rewind the stream, so we'll need to reconnect
+					stream.Close()
+					stream, err = s.client.Stream(ctx, "/api/v1/stream/applications")
+					if err != nil {
+						return fmt.Errorf("failed to reconnect stream after buffer resize: %w", err)
+					}
+					defer stream.Close()
+					
+					scanner = bufio.NewScanner(stream)
+					scanner.Buffer(make([]byte, currentSize), maxSize)
+					scanner.Split(scanSSELines)
+					continue
+				}
+				
+				// Other scanning error
+				return fmt.Errorf("stream scanning error: %w", err)
+			}
+			// Scanner reached EOF normally
+			break
 		}
 
 		line := strings.TrimSpace(scanner.Text())
@@ -336,10 +403,6 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 			cblog.With("component", "api").Debug("WatchApplications: context cancelled during send")
 			return ctx.Err()
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("stream scanning error: %w", err)
 	}
 
 	return nil
@@ -567,14 +630,83 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 	defer stream.Close()
 	cblog.With("component", "api").Debug("Resource tree stream established", "app", appName)
 
+	// Get SSE buffer configuration
+	initialSize, maxSize, growthFactor := getSSEBufferConfig()
+	currentSize := initialSize
+	
+	cblog.With("component", "api").Debug("WatchResourceTree: configuring SSE scanner",
+		"app", appName,
+		"initialBuffer", initialSize,
+		"maxBuffer", maxSize)
+
 	scanner := bufio.NewScanner(stream)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, currentSize), maxSize)
+	scanner.Split(scanSSELines)
+	
 	eventCount := 0
-	for scanner.Scan() {
+	retryCount := 0
+	maxRetries := 5
+	
+	for {
 		if ctx.Err() != nil {
 			cblog.With("component", "api").Debug("Context cancelled, stopping tree watch", "app", appName)
 			return ctx.Err()
 		}
+		
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				// Check if it's a buffer overflow error
+				if strings.Contains(err.Error(), "token too long") {
+					if currentSize >= maxSize {
+						cblog.With("component", "api").Error("WatchResourceTree: SSE event exceeds maximum buffer size",
+							"app", appName,
+							"maxSize", maxSize,
+							"error", err)
+						return fmt.Errorf("resource tree SSE event exceeds maximum buffer size of %d MB: %w", maxSize/(1024*1024), err)
+					}
+					
+					// Grow the buffer
+					newSize := int(float64(currentSize) * growthFactor)
+					if newSize > maxSize {
+						newSize = maxSize
+					}
+					
+					cblog.With("component", "api").Info("WatchResourceTree: growing SSE buffer due to large event",
+						"app", appName,
+						"oldSize", currentSize,
+						"newSize", newSize,
+						"retry", retryCount)
+					
+					currentSize = newSize
+					retryCount++
+					
+					if retryCount > maxRetries {
+						return fmt.Errorf("failed to process resource tree SSE stream after %d buffer resize attempts: %w", maxRetries, err)
+					}
+					
+					// Recreate scanner with larger buffer
+					// Note: We need to reconnect as we can't rewind the stream
+					stream.Close()
+					stream, err = s.client.Stream(ctx, path)
+					if err != nil {
+						return fmt.Errorf("failed to reconnect resource tree stream after buffer resize: %w", err)
+					}
+					defer stream.Close()
+					
+					scanner = bufio.NewScanner(stream)
+					scanner.Buffer(make([]byte, currentSize), maxSize)
+					scanner.Split(scanSSELines)
+					continue
+				}
+				
+				// Other scanning error
+				cblog.With("component", "api").Error("Stream scanning error", "err", err, "app", appName)
+				return fmt.Errorf("stream scanning error: %w", err)
+			}
+			// Scanner reached EOF normally
+			break
+		}
+		
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
@@ -610,10 +742,7 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 			return ctx.Err()
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		cblog.With("component", "api").Error("Stream scanning error", "err", err, "app", appName)
-		return fmt.Errorf("stream scanning error: %w", err)
-	}
+
 	cblog.With("component", "api").Info("Tree watch stream ended", "app", appName, "events", eventCount)
 	return nil
 }
@@ -865,4 +994,124 @@ func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model
 	}
 
 	return rows
+}
+
+// RunResourceAction executes a resource action via ArgoCD's resource actions API v2
+// This is used for actions like promote, abort, pause, etc. on Argo Rollouts
+func (s *ApplicationService) RunResourceAction(ctx context.Context, req ResourceActionRequest) error {
+	if req.AppName == "" {
+		return fmt.Errorf("application name is required")
+	}
+	if req.ResourceName == "" {
+		return fmt.Errorf("resource name is required")
+	}
+	if req.Kind == "" {
+		return fmt.Errorf("resource kind is required")
+	}
+	if req.Action == "" {
+		return fmt.Errorf("action is required")
+	}
+
+	// Build the endpoint path for v2 resource actions API
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/resource/actions/v2", url.PathEscape(req.AppName))
+
+	// Build the request body (v2 API uses JSON body instead of query params)
+	body := map[string]interface{}{
+		"name":         req.AppName,
+		"resourceName": req.ResourceName,
+		"kind":         req.Kind,
+		"action":       req.Action,
+	}
+
+	if req.Namespace != "" {
+		body["namespace"] = req.Namespace
+	}
+	if req.Group != "" {
+		body["group"] = req.Group
+	}
+	if req.Version != "" {
+		body["version"] = req.Version
+	}
+	if req.AppNamespace != nil && *req.AppNamespace != "" {
+		body["appNamespace"] = *req.AppNamespace
+	}
+
+	_, err := s.client.Post(ctx, endpoint, body)
+	if err != nil {
+		return fmt.Errorf("failed to run action %s on %s/%s: %w", req.Action, req.Kind, req.ResourceName, err)
+	}
+
+	return nil
+}
+
+// ListResourceActions retrieves available actions for a specific resource
+func (s *ApplicationService) ListResourceActions(ctx context.Context, params ListResourceActionsParams) ([]string, error) {
+	if params.AppName == "" {
+		return nil, fmt.Errorf("application name is required")
+	}
+	if params.ResourceName == "" {
+		return nil, fmt.Errorf("resource name is required")
+	}
+	if params.Kind == "" {
+		return nil, fmt.Errorf("resource kind is required")
+	}
+
+	// Build the endpoint path
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/resource/actions", url.PathEscape(params.AppName))
+
+	// Build query parameters
+	queryParams := url.Values{}
+	queryParams.Set("resourceName", params.ResourceName)
+	queryParams.Set("kind", params.Kind)
+	if params.Namespace != "" {
+		queryParams.Set("namespace", params.Namespace)
+	}
+	if params.Group != "" {
+		queryParams.Set("group", params.Group)
+	}
+	if params.Version != "" {
+		queryParams.Set("version", params.Version)
+	}
+	if params.AppNamespace != nil && *params.AppNamespace != "" {
+		queryParams.Set("appNamespace", *params.AppNamespace)
+	}
+
+	endpoint += "?" + queryParams.Encode()
+
+	resp, err := s.client.Get(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list actions for %s/%s: %w", params.Kind, params.ResourceName, err)
+	}
+
+	// Parse the response - ArgoCD returns { "actions": [...] }
+	var result struct {
+		Actions []struct {
+			Name     string `json:"name"`
+			Disabled bool   `json:"disabled"`
+		} `json:"actions"`
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse actions response: %w", err)
+	}
+
+	// Extract enabled action names
+	var actions []string
+	for _, action := range result.Actions {
+		if !action.Disabled {
+			actions = append(actions, action.Name)
+		}
+	}
+
+	return actions, nil
+}
+
+// ListResourceActionsParams contains parameters for listing resource actions
+type ListResourceActionsParams struct {
+	AppName      string
+	AppNamespace *string
+	ResourceName string
+	Namespace    string
+	Kind         string
+	Group        string
+	Version      string
 }

@@ -15,6 +15,11 @@ import (
 
 // openK9s on non-Unix systems falls back to running k9s without the status bar sandbox
 func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
+	// Store current mode to restore later
+	if m.state != nil {
+		m.previousMode = m.state.Mode
+	}
+	
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})

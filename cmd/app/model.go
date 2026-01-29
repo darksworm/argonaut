@@ -62,6 +62,7 @@ type Model struct {
 	// Bubble Tea program reference for terminal hand-off (pager integration)
 	program *tea.Program
 	inPager bool
+	previousMode model.Mode // Mode to restore after pager closes
 
 	// Tree view component
 	treeView *treeview.TreeView
@@ -568,12 +569,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// No error, go back to normal mode
-		m.state.Mode = model.ModeNormal
+		// Restore the previous mode if set, otherwise go to normal
+		if m.previousMode != "" {
+			m.state.Mode = m.previousMode
+			m.previousMode = "" // Clear it for next time
+		} else {
+			m.state.Mode = model.ModeNormal
+		}
 		return m, nil
 
 	case k9sDoneMsg:
-		// k9s exited - restore normal mode
+		// k9s exited - restore previous mode
 		m.inPager = false
 
 		// If there was an error, show error popup
@@ -584,7 +590,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Mode = model.ModeK9sError
 			return m, nil
 		}
-		m.state.Mode = model.ModeNormal
+		
+		// Success - restore the previous mode if set, otherwise go to normal
+		if m.previousMode != "" {
+			m.state.Mode = m.previousMode
+			m.previousMode = "" // Clear it for next time
+		} else {
+			m.state.Mode = model.ModeNormal
+		}
 		return m, nil
 
 	case model.AuthErrorMsg:
@@ -1131,6 +1144,84 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle rollback diff request
 		if m.state.Rollback != nil {
 			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, msg.Revision)
+		}
+		return m, nil
+
+	// Rollouts message handlers
+	case model.RolloutsLoadedMsg:
+		// Handle rollouts discovery completion
+		if m.state.Rollouts == nil {
+			return m, nil
+		}
+		if msg.Error != "" {
+			m.state.Rollouts.Loading = false
+			m.state.Rollouts.Error = msg.Error
+			cblog.With("component", "rollouts").Error("Rollouts load failed", "err", msg.Error)
+		} else {
+			m.state.Rollouts.Rollouts = msg.Rollouts
+			m.state.Rollouts.Loading = false
+			m.state.Rollouts.Error = ""
+			cblog.With("component", "rollouts").Info("Rollouts loaded", "count", len(msg.Rollouts))
+		}
+		return m, nil
+
+	case model.RolloutsActionExecutedMsg:
+		// Handle rollout action completion
+		if msg.Success {
+			m.statusService.Set(fmt.Sprintf("Action '%s' completed for rollout %s", msg.Action, msg.RolloutName))
+			// Refresh rollouts list after action
+			if m.state.Rollouts != nil {
+				m.state.Rollouts.Loading = true
+				m.state.Rollouts.Mode = "list"
+				m.state.Rollouts.PendingAction = ""
+			}
+			return m, m.startRolloutsSession()
+		} else {
+			m.statusService.Error(fmt.Sprintf("Action '%s' failed for rollout %s: %s", msg.Action, msg.RolloutName, msg.Error))
+			if m.state.Rollouts != nil {
+				m.state.Rollouts.Error = msg.Error
+				m.state.Rollouts.Mode = "list"
+				m.state.Rollouts.PendingAction = ""
+			}
+		}
+		return m, nil
+
+	case model.RolloutsNavigationMsg:
+		// Handle rollouts list navigation
+		if m.state.Rollouts != nil && len(m.state.Rollouts.Rollouts) > 0 {
+			newIdx := m.state.Rollouts.SelectedIdx + msg.Direction
+			if newIdx >= 0 && newIdx < len(m.state.Rollouts.Rollouts) {
+				m.state.Rollouts.SelectedIdx = newIdx
+			}
+		}
+		return m, nil
+
+	case model.RolloutsActionRequestMsg:
+		// Handle request to perform action on selected rollout
+		if m.state.Rollouts != nil && len(m.state.Rollouts.Rollouts) > 0 {
+			m.state.Rollouts.PendingAction = msg.Action
+			m.state.Rollouts.Mode = "confirm"
+			m.state.Rollouts.ConfirmSelected = 0 // Default to "Yes"
+		}
+		return m, nil
+
+	case model.RolloutsConfirmActionMsg:
+		// Handle confirmation of rollout action
+		if m.state.Rollouts != nil && m.state.Rollouts.Mode == "confirm" && m.state.Rollouts.PendingAction != "" {
+			if m.state.Rollouts.SelectedIdx < len(m.state.Rollouts.Rollouts) {
+				rollout := m.state.Rollouts.Rollouts[m.state.Rollouts.SelectedIdx]
+				action := m.state.Rollouts.PendingAction
+				m.state.Rollouts.Loading = true
+				return m, m.executeRolloutAction(rollout, action)
+			}
+		}
+		return m, nil
+
+	case model.RolloutsCancelActionMsg:
+		// Handle cancellation of pending rollout action
+		if m.state.Rollouts != nil {
+			m.state.Rollouts.Mode = "list"
+			m.state.Rollouts.PendingAction = ""
 		}
 		return m, nil
 

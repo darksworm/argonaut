@@ -336,11 +336,29 @@ func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan cha
 		err := s.appService.WatchApplications(ctx, watchEventChan)
 		if err != nil && ctx.Err() == nil {
 			cblog.With("component", "services").Error("Watch stream error", "err", err)
+			
+			// Check if it's a stream/buffer error (not an auth error)
+			if strings.Contains(err.Error(), "SSE event exceeds") || strings.Contains(err.Error(), "buffer") || strings.Contains(err.Error(), "token too long") {
+				// This is a stream/buffer error, not an auth error
+				streamErr := apperrors.New(apperrors.ErrorStream, "BUFFER_OVERFLOW",
+					"SSE stream buffer overflow - events too large").
+					WithCause(err).
+					WithUserAction("Contact your administrator - ArgoCD may be sending oversized events").
+					AsRecoverable()
+				eventChan <- ArgoApiEvent{Type: "stream-error", Error: streamErr}
+				return
+			}
+			
 			// Map auth-related errors to a dedicated event so the TUI can switch to auth-required
 			if ae, ok := err.(*apperrors.ArgonautError); ok {
 				if ae.IsCategory(apperrors.ErrorAuth) || hasHTTPStatus(ae, 401, 403) || ae.IsCode("UNAUTHORIZED") || ae.IsCode("AUTHENTICATION_FAILED") {
 					eventChan <- ArgoApiEvent{Type: "auth-error", Error: err}
 					eventChan <- ArgoApiEvent{Type: "status-change", Status: "Auth required"}
+					return
+				}
+				// Check if it's already categorized as a stream error
+				if ae.IsCategory(apperrors.ErrorStream) {
+					eventChan <- ArgoApiEvent{Type: "stream-error", Error: ae}
 					return
 				}
 			}

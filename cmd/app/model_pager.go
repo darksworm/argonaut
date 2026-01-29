@@ -21,6 +21,11 @@ func (m *Model) SetProgram(p *tea.Program) { m.program = p }
 
 // openTextPager releases the terminal and runs less -R with the given text
 func (m *Model) openTextPager(title, text string) tea.Cmd {
+	// Store current mode to restore later
+	if m.state != nil {
+		m.previousMode = m.state.Mode
+	}
+	
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
@@ -53,6 +58,11 @@ func (m *Model) openTextPager(title, text string) tea.Cmd {
 // configured via ARGONAUT_DIFF_VIEWER. The command may include {left} and {right}
 // placeholders for file paths.
 func (m *Model) openInteractiveDiffViewer(leftFile, rightFile, cmdStr string) tea.Msg {
+	// Store current mode to restore later
+	if m.state != nil {
+		m.previousMode = m.state.Mode
+	}
+	
 	if m.program != nil {
 		m.program.Send(pauseRenderingMsg{})
 		_ = m.program.ReleaseTerminal()

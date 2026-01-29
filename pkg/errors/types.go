@@ -18,6 +18,7 @@ const (
 	ErrorPermission  ErrorCategory = "permission"
 	ErrorUnavailable ErrorCategory = "unavailable"
 	ErrorInternal    ErrorCategory = "internal"
+	ErrorStream      ErrorCategory = "stream" // For SSE/streaming errors
 )
 
 // ErrorSeverity represents the severity level of an error

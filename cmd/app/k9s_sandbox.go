@@ -22,6 +22,11 @@ import (
 
 // openK9s runs k9s in a PTY with a status bar at the bottom showing Argonaut context
 func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
+	// Store current mode to restore later
+	if m.state != nil {
+		m.previousMode = m.state.Mode
+	}
+	
 	return func() tea.Msg {
 		if m.program != nil {
 			m.program.Send(pauseRenderingMsg{})
