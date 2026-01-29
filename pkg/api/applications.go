@@ -371,8 +371,6 @@ func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan ch
 			}
 		}
 	}
-
-	return nil
 }
 
 // SyncOptions represents options for syncing an application
@@ -677,9 +675,6 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 			}
 		}
 	}
-
-	cblog.With("component", "api").Info("Tree watch stream ended", "app", appName, "events", eventCount)
-	return nil
 }
 
 // GetUserInfo validates user authentication by checking session info

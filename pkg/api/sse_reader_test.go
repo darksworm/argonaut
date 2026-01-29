@@ -223,6 +223,10 @@ func TestAccumulatingSSEReader_EventTooLarge(t *testing.T) {
 		MaxBuffer:      1 * MB,
 		MaxAccumulated: 2 * MB, // Small limit for testing
 		GrowthStrategy: "adaptive",
+		SmallGrowth:    256 * KB,
+		MediumGrowth:   512 * KB,
+		LargeGrowth:    1 * MB,
+		XLargeGrowth:   2 * MB,
 	}
 	
 	// Create 3MB event (exceeds MaxAccumulated)
@@ -361,6 +365,11 @@ func TestAccumulatingSSEReader_SwitchFromScannerToDirect(t *testing.T) {
 		InitialBuffer:  256 * KB,
 		MaxBuffer:      16 * MB,
 		MaxAccumulated: 32 * MB,
+		GrowthStrategy: "adaptive",
+		SmallGrowth:    256 * KB,
+		MediumGrowth:   512 * KB,
+		LargeGrowth:    1 * MB,
+		XLargeGrowth:   2 * MB,
 	}
 	reader := NewAccumulatingSSEReader(stream, config)
 	defer reader.Close()
@@ -422,6 +431,11 @@ func BenchmarkAccumulatingSSEReader_LargeEvents(b *testing.B) {
 			InitialBuffer:  256 * KB,
 			MaxBuffer:      16 * MB,
 			MaxAccumulated: 32 * MB,
+			GrowthStrategy: "adaptive",
+			SmallGrowth:    256 * KB,
+			MediumGrowth:   512 * KB,
+			LargeGrowth:    1 * MB,
+			XLargeGrowth:   2 * MB,
 		}
 		reader := NewAccumulatingSSEReader(stream, config)
 		
@@ -432,6 +446,101 @@ func BenchmarkAccumulatingSSEReader_LargeEvents(b *testing.B) {
 			}
 		}
 		reader.Close()
+	}
+}
+
+func TestAccumulatingSSEReader_ReadLine_SingleDataLine(t *testing.T) {
+	// Test single data line
+	data := "data: {\"type\":\"ADDED\",\"app\":\"test-app\"}\n\n"
+	
+	stream := &mockReadCloser{reader: strings.NewReader(data)}
+	reader := NewAccumulatingSSEReader(stream, nil)
+	defer reader.Close()
+	
+	line, err := reader.ReadLine()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	
+	expected := "{\"type\":\"ADDED\",\"app\":\"test-app\"}"
+	if line != expected {
+		t.Errorf("ReadLine result: got %q, want %q", line, expected)
+	}
+}
+
+func TestAccumulatingSSEReader_ReadLine_MultipleDataLines(t *testing.T) {
+	// Test multiple data lines in single event
+	data := "data: line1\ndata: line2\ndata: line3\n\n"
+	
+	stream := &mockReadCloser{reader: strings.NewReader(data)}
+	reader := NewAccumulatingSSEReader(stream, nil)
+	defer reader.Close()
+	
+	line, err := reader.ReadLine()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	
+	expected := "line1\nline2\nline3"
+	if line != expected {
+		t.Errorf("ReadLine result: got %q, want %q", line, expected)
+	}
+}
+
+func TestAccumulatingSSEReader_ReadLine_MixedPrefixes(t *testing.T) {
+	// Test both "data:" and "data: " prefixes
+	data := "data:no-space\ndata: with-space\ndata:another-no-space\n\n"
+	
+	stream := &mockReadCloser{reader: strings.NewReader(data)}
+	reader := NewAccumulatingSSEReader(stream, nil)
+	defer reader.Close()
+	
+	line, err := reader.ReadLine()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	
+	expected := "no-space\nwith-space\nanother-no-space"
+	if line != expected {
+		t.Errorf("ReadLine result: got %q, want %q", line, expected)
+	}
+}
+
+func TestAccumulatingSSEReader_ReadLine_WithCommentLines(t *testing.T) {
+	// Test event with data lines and comment lines (should ignore comments)
+	data := ": comment line\ndata: actual data 1\n: another comment\ndata: actual data 2\n\n"
+	
+	stream := &mockReadCloser{reader: strings.NewReader(data)}
+	reader := NewAccumulatingSSEReader(stream, nil)
+	defer reader.Close()
+	
+	line, err := reader.ReadLine()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	
+	expected := "actual data 1\nactual data 2"
+	if line != expected {
+		t.Errorf("ReadLine result: got %q, want %q", line, expected)
+	}
+}
+
+func TestAccumulatingSSEReader_ReadLine_EmptyEvent(t *testing.T) {
+	// Test event with no data lines
+	data := ": comment only\n\n"
+	
+	stream := &mockReadCloser{reader: strings.NewReader(data)}
+	reader := NewAccumulatingSSEReader(stream, nil)
+	defer reader.Close()
+	
+	line, err := reader.ReadLine()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	
+	expected := ""
+	if line != expected {
+		t.Errorf("ReadLine result: got %q, want %q", line, expected)
 	}
 }
 
@@ -459,6 +568,11 @@ func BenchmarkAccumulatingSSEReader_MixedSizes(b *testing.B) {
 			InitialBuffer:  256 * KB,
 			MaxBuffer:      16 * MB,
 			MaxAccumulated: 32 * MB,
+			GrowthStrategy: "adaptive",
+			SmallGrowth:    256 * KB,
+			MediumGrowth:   512 * KB,
+			LargeGrowth:    1 * MB,
+			XLargeGrowth:   2 * MB,
 		}
 		reader := NewAccumulatingSSEReader(stream, config)
 		

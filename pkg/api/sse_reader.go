@@ -86,8 +86,8 @@ type AccumulatingSSEReader struct {
 	bufferSize  int        // Current buffer size
 	config      *SSEConfig
 	metrics     *SSEMetrics
-	scanner     *bufio.Scanner // For normal-sized events
-	useScanner  bool           // Whether to use scanner
+	bufReader   *bufio.Reader  // Unified reader for both scanning and direct reads
+	useScanner  bool           // Whether to use scanner mode
 }
 
 // NewAccumulatingSSEReader creates a new SSE reader that handles large events gracefully
@@ -116,29 +116,12 @@ func NewAccumulatingSSEReader(stream io.ReadCloser, config *SSEConfig) *Accumula
 		useScanner: true,
 	}
 	
-	// Create scanner for normal-sized events
-	reader.scanner = bufio.NewScanner(stream)
-	reader.scanner.Buffer(make([]byte, config.InitialBuffer), config.MaxBuffer)
-	reader.scanner.Split(scanSSEEvents)
+	// Create unified buffer reader to prevent data loss during transitions
+	reader.bufReader = bufio.NewReaderSize(stream, config.InitialBuffer)
 	
 	return reader
 }
 
-// scanSSEEvents is a split function for SSE events (double newline terminated)
-func scanSSEEvents(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	// Look for double newline (SSE event boundary)
-	if idx := bytes.Index(data, []byte("\n\n")); idx >= 0 {
-		return idx + 2, data[:idx+2], nil
-	}
-	
-	// If at EOF with data, return it
-	if atEOF && len(data) > 0 {
-		return len(data), data, nil
-	}
-	
-	// Need more data
-	return 0, nil, nil
-}
 
 // calculateNextBufferSize determines the next buffer size using adaptive growth
 func (r *AccumulatingSSEReader) calculateNextBufferSize() int {
@@ -186,28 +169,17 @@ func (r *AccumulatingSSEReader) growBuffer() error {
 	return nil
 }
 
-// tryScanner attempts to read an event using the scanner
+// tryScanner attempts to read an event using scanner-like logic with bufio.Reader
 func (r *AccumulatingSSEReader) tryScanner() ([]byte, error) {
 	if !r.useScanner {
 		return nil, nil
 	}
 	
-	if r.scanner.Scan() {
-		event := r.scanner.Bytes()
-		r.metrics.EventsProcessed++
-		if len(event) > r.metrics.MaxEventSize {
-			r.metrics.MaxEventSize = len(event)
-		}
-		// Make a copy since scanner reuses the buffer
-		result := make([]byte, len(event))
-		copy(result, event)
-		return result, nil
-	}
-	
-	if err := r.scanner.Err(); err != nil {
-		// Check for buffer overflow
-		if err == bufio.ErrTooLong || strings.Contains(err.Error(), "token too long") {
-			// Switch to direct reading mode
+	// Read event using bufio.Reader directly to avoid data loss
+	event, err := r.readEventFromBufReader()
+	if err != nil {
+		// Check for buffer overflow - switch to direct reading mode
+		if err == ErrBufferOverflow {
 			r.useScanner = false
 			// Try to grow buffer for direct reading
 			if r.bufferSize < r.config.MaxBuffer {
@@ -218,14 +190,37 @@ func (r *AccumulatingSSEReader) tryScanner() ([]byte, error) {
 		return nil, err
 	}
 	
-	// EOF reached
-	return nil, io.EOF
+	if event != nil {
+		r.metrics.EventsProcessed++
+		if len(event) > r.metrics.MaxEventSize {
+			r.metrics.MaxEventSize = len(event)
+		}
+	}
+	
+	return event, nil
 }
 
-// readDirectUntilEventEnd reads directly from stream for large events
-func (r *AccumulatingSSEReader) readDirectUntilEventEnd() ([]byte, error) {
+// readEventFromBufReader reads an event using the bufio.Reader for consistent buffering
+func (r *AccumulatingSSEReader) readEventFromBufReader() ([]byte, error) {
+	// If we have leftover data from previous event, check it first
+	if len(r.accumulated) > 0 {
+		if idx := bytes.Index(r.accumulated, []byte("\n\n")); idx >= 0 {
+			event := make([]byte, idx+2)
+			copy(event, r.accumulated[:idx+2])
+			
+			// Keep remainder for next event
+			remainder := r.accumulated[idx+2:]
+			r.accumulated = r.accumulated[:0]
+			if len(remainder) > 0 {
+				r.accumulated = append(r.accumulated, remainder...)
+			}
+			
+			return event, nil
+		}
+	}
+	
 	for {
-		n, err := r.stream.Read(r.buffer)
+		n, err := r.bufReader.Read(r.buffer)
 		if n > 0 {
 			r.accumulated = append(r.accumulated, r.buffer[:n]...)
 			r.metrics.AccumulatedBytes = len(r.accumulated)
@@ -242,12 +237,12 @@ func (r *AccumulatingSSEReader) readDirectUntilEventEnd() ([]byte, error) {
 					r.accumulated = append(r.accumulated, remainder...)
 				}
 				
-				r.metrics.EventsProcessed++
-				if len(event) > r.metrics.MaxEventSize {
-					r.metrics.MaxEventSize = len(event)
-				}
-				
 				return event, nil
+			}
+			
+			// Check if we're accumulating too much for scanner mode
+			if r.useScanner && len(r.accumulated) > r.config.MaxBuffer/4 {
+				return nil, ErrBufferOverflow
 			}
 			
 			// Check accumulated size limits
@@ -255,31 +250,32 @@ func (r *AccumulatingSSEReader) readDirectUntilEventEnd() ([]byte, error) {
 				return nil, fmt.Errorf("%w: accumulated %d MB exceeds max %d MB",
 					ErrEventTooLarge, len(r.accumulated)/MB, r.config.MaxAccumulated/MB)
 			}
-			
-			// Try to grow buffer if we're accumulating a lot
-			if len(r.accumulated) > r.bufferSize && r.bufferSize < r.config.MaxBuffer {
-				if err := r.growBuffer(); err == nil {
-					// Successfully grew buffer
-					continue
-				}
-			}
 		}
 		
 		if err != nil {
-			if err == io.EOF && len(r.accumulated) > 0 {
-				// Return accumulated data as final event
-				event := r.accumulated
-				r.accumulated = nil
-				return event, io.EOF
+			if err == io.EOF {
+				if len(r.accumulated) > 0 {
+					// Return accumulated data as final event
+					event := r.accumulated
+					r.accumulated = r.accumulated[:0] // Clear properly
+					return event, nil // Return nil error so data is accessible
+				}
+				return nil, io.EOF
 			}
 			return nil, err
 		}
 	}
 }
 
+// readDirectUntilEventEnd reads directly for large events using the same bufio.Reader
+func (r *AccumulatingSSEReader) readDirectUntilEventEnd() ([]byte, error) {
+	// Use the same bufReader to maintain consistency and prevent data loss
+	return r.readEventFromBufReader()
+}
+
 // ReadEvent reads the next SSE event, handling large events gracefully
 func (r *AccumulatingSSEReader) ReadEvent() ([]byte, error) {
-	// First try scanner for normal-sized events
+	// First try scanner-like reading for normal-sized events
 	if r.useScanner {
 		event, err := r.tryScanner()
 		if event != nil || (err != nil && err != io.EOF) {
@@ -294,28 +290,41 @@ func (r *AccumulatingSSEReader) ReadEvent() ([]byte, error) {
 			}
 			return nil, io.EOF
 		}
-		// Scanner failed with buffer overflow, switch to direct reading
+		// Scanner mode failed with buffer overflow, switched to direct reading
 	}
 	
-	// Fall back to direct reading for large events
+	// Use direct reading for large events (still uses same bufReader)
 	return r.readDirectUntilEventEnd()
 }
 
-// ReadLine reads a single line (for line-by-line processing)
+// ReadLine reads and concatenates all data lines from an SSE event
 func (r *AccumulatingSSEReader) ReadLine() (string, error) {
-	// This is a simplified version for reading single lines
-	// Used when processing SSE data line by line
+	// Read the full SSE event
 	event, err := r.ReadEvent()
 	if err != nil {
 		return "", err
 	}
 	
-	// Split into lines and return first data line
+	// Split into lines and collect all data lines
 	lines := bytes.Split(event, []byte("\n"))
+	var dataLines []string
+	
 	for _, line := range lines {
-		if bytes.HasPrefix(line, []byte("data: ")) {
-			return string(bytes.TrimPrefix(line, []byte("data: "))), nil
+		// Handle both "data:" and "data: " prefixes
+		if bytes.HasPrefix(line, []byte("data:")) {
+			// Strip "data:" prefix
+			dataContent := bytes.TrimPrefix(line, []byte("data:"))
+			// Remove single leading space if present
+			if len(dataContent) > 0 && dataContent[0] == ' ' {
+				dataContent = dataContent[1:]
+			}
+			dataLines = append(dataLines, string(dataContent))
 		}
+	}
+	
+	// Join all data lines with newlines
+	if len(dataLines) > 0 {
+		return strings.Join(dataLines, "\n"), nil
 	}
 	
 	return "", nil
