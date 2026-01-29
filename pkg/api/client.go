@@ -175,7 +175,8 @@ func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
 }
 
 // Stream performs a streaming GET request for Server-Sent Events
-func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error) {
+// Returns both the stream body and response headers for potential future use
+func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, error) {
 	// No timeout for streams - managed by caller context
 	url := c.buildURL(path)
 
@@ -215,7 +216,10 @@ func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error)
 			WithContext("path", path)
 	}
 
-	return resp.Body, nil
+	return &StreamResponse{
+		Body:    resp.Body,
+		Headers: resp.Header,
+	}, nil
 }
 
 // request performs the actual HTTP request
