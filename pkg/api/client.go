@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -102,6 +103,15 @@ func NewClient(server *model.Server) *Client {
 		insecure:        server.Insecure,
 		grpcWebRootPath: server.GrpcWebRootPath,
 	}
+}
+
+// sanitizeURL removes any embedded credentials from a URL for safe logging
+func sanitizeURL(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.User != nil {
+		u.User = nil
+		return u.String()
+	}
+	return rawURL
 }
 
 // buildURL constructs the full URL including the gRPC-web root path if configured
@@ -200,8 +210,15 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 			return nil, timeoutErr.WithContext("url", url)
 		}
 
+		// Log the actual error at warn level so users can see what went wrong
+		cblog.With("component", "api", "op", "http").Warn("HTTP request failed",
+			"method", "GET",
+			"url", sanitizeURL(url),
+			"error", err.Error(),
+		)
+
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "STREAM_REQUEST_FAILED",
-			"Stream request failed").
+			fmt.Sprintf("Stream request failed: %v", err)).
 			WithContext("url", url).
 			AsRecoverable().
 			WithUserAction("Check your network connection and ArgoCD server status")
@@ -281,8 +298,16 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				WithUserAction("Server may be unreachable - check your connection")
 		}
 
+		// Log the actual error at warn level so users can see what went wrong
+		// This will show TLS certificate errors, connection refused, etc.
+		cblog.With("component", "api", "op", "http").Warn("HTTP request failed",
+			"method", method,
+			"url", sanitizeURL(url),
+			"error", err.Error(),
+		)
+
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "HTTP_REQUEST_FAILED",
-			"HTTP request failed").
+			fmt.Sprintf("HTTP request failed: %v", err)).
 			WithContext("method", method).
 			WithContext("url", url).
 			AsRecoverable().
@@ -303,7 +328,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 		// Log request/response metadata at error level
 		cblog.With("component", "api", "op", "http").Error("http error",
 			"method", method,
-			"url", url,
+			"url", sanitizeURL(url),
 			"status", resp.StatusCode,
 			"len", len(respBody),
 		)
