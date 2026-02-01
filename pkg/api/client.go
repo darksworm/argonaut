@@ -200,8 +200,15 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 			return nil, timeoutErr.WithContext("url", url)
 		}
 
+		// Log the actual error at warn level so users can see what went wrong
+		cblog.With("component", "api", "op", "http").Warn("HTTP request failed",
+			"method", "GET",
+			"url", url,
+			"error", err.Error(),
+		)
+
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "STREAM_REQUEST_FAILED",
-			"Stream request failed").
+			fmt.Sprintf("Stream request failed: %v", err)).
 			WithContext("url", url).
 			AsRecoverable().
 			WithUserAction("Check your network connection and ArgoCD server status")
