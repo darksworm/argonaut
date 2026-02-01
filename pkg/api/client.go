@@ -281,8 +281,16 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				WithUserAction("Server may be unreachable - check your connection")
 		}
 
+		// Log the actual error at warn level so users can see what went wrong
+		// This will show TLS certificate errors, connection refused, etc.
+		cblog.With("component", "api", "op", "http").Warn("HTTP request failed",
+			"method", method,
+			"url", url,
+			"error", err.Error(),
+		)
+
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "HTTP_REQUEST_FAILED",
-			"HTTP request failed").
+			fmt.Sprintf("HTTP request failed: %v", err)).
 			WithContext("method", method).
 			WithContext("url", url).
 			AsRecoverable().
