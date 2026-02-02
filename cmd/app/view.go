@@ -271,11 +271,6 @@ const (
 // View implements tea.Model.View - 1:1 mapping from React App.tsx
 func (m *Model) View() tea.View {
 	m.renderCount++
-	cblog.With("component", "view").Debug("View() called",
-		"render_count", m.renderCount,
-		"mode", m.state.Mode,
-		"view", m.state.Navigation.View,
-		"apps_count", len(m.state.Apps))
 
 	var content string
 	// Don't show plain "Starting..." - let renderMainLayout handle the loading modal
@@ -459,14 +454,6 @@ func (m *Model) getVisibleItems() []interface{} {
 	// Derive unique groups and filtered apps from current state, mirroring TS useVisibleItems
 	// 1) Gather filtered apps through selected scopes
 	apps := m.state.Apps
-	cblog.With("component", "view").Debug("getVisibleItems called",
-		"total_apps", len(apps),
-		"first_app", func() string {
-			if len(apps) > 0 {
-				return fmt.Sprintf("%s (health=%s, sync=%s)", apps[0].Name, apps[0].Health, apps[0].Sync)
-			}
-			return "no apps"
-		}())
 
 	// Filter by clusters scope
 	if len(m.state.Selections.ScopeClusters) > 0 {

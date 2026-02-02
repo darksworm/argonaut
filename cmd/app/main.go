@@ -388,7 +388,7 @@ func setupLogging() {
 	}
 	cblog.SetDefault(logger)
 
-	cblog.With("component", "app").Info("Argo CD Apps started", "logFile", f.Name())
+	cblog.With("component", "app").Info("Argo CD Apps started", "version", appVersion, "logFile", f.Name())
 }
 
 // loadArgoConfig loads ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)
