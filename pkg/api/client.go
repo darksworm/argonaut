@@ -67,15 +67,15 @@ func NewClient(server *model.Server) *Client {
 			}
 		}
 	} else {
-		// Create HTTP transport with fast connection timeouts
+		// Create HTTP transport with reasonable timeouts for problematic TLS
 		transport := &http.Transport{
 			// Connection establishment timeout - should be very fast
 			DialContext: (&net.Dialer{
-				Timeout:   2 * time.Second,
+				Timeout:   5 * time.Second,
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
-			TLSHandshakeTimeout:   3 * time.Second,
-			ResponseHeaderTimeout: 5 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second, // Increased for slow certificate validation
+			ResponseHeaderTimeout: 10 * time.Second, // Increased to match TLS timeout
 			// Keep connections alive for efficiency
 			IdleConnTimeout:     30 * time.Second,
 			MaxIdleConns:        10,
@@ -203,6 +203,13 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 
+	// Log the stream request for debugging
+	cblog.With("component", "api", "op", "stream").Debug("Making stream request",
+		"method", "GET",
+		"url", sanitizeURL(url),
+		"type", "SSE",
+	)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		// Check for timeout
@@ -270,19 +277,39 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
+	// Log the request for debugging
+	cblog.With("component", "api", "op", "http").Debug("Making HTTP request",
+		"method", method,
+		"url", sanitizeURL(url),
+		"timeout", "10s",
+	)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		// Check for timeout first - context errors have priority
 		if ctx.Err() == context.DeadlineExceeded {
+			// Log the timeout at warn level for visibility
+			cblog.With("component", "api", "op", "http").Warn("Request timed out",
+				"method", method,
+				"url", sanitizeURL(url),
+				"timeout", "context deadline exceeded",
+				"error", err.Error(),
+			)
 			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
 				"Request timed out - server may be unreachable").
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", "5s").
+				WithContext("timeout", "10s").
 				WithUserAction("Check your connection to ArgoCD server and try again")
 		}
 
 		if ctx.Err() == context.Canceled {
+			// Log the cancellation for debugging
+			cblog.With("component", "api", "op", "http").Warn("Request was canceled",
+				"method", method,
+				"url", sanitizeURL(url),
+				"error", err.Error(),
+			)
 			return nil, apperrors.New(apperrors.ErrorInternal, "REQUEST_CANCELLED",
 				"Request was cancelled").
 				WithContext("method", method).
@@ -291,6 +318,13 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 
 		// Check if it's a network timeout from the transport layer
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// Log network timeout for visibility
+			cblog.With("component", "api", "op", "http").Warn("Network timeout",
+				"method", method,
+				"url", sanitizeURL(url),
+				"timeout", "network/transport layer",
+				"error", err.Error(),
+			)
 			return nil, apperrors.TimeoutError("NETWORK_TIMEOUT",
 				"Network connection timed out").
 				WithContext("method", method).
