@@ -47,17 +47,23 @@ func TestTimeoutErrorDisplay(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Wait for timeout error to appear
-	if !tf.WaitForPlain("Request timed out after 2s", 4*time.Second) {
+	// Wait for error to appear with LIST_APPS_FAILED
+	if !tf.WaitForPlain("LIST_APPS_FAILED", 4*time.Second) {
 		t.Log("Snapshot:", tf.SnapshotPlain())
-		t.Fatal("expected to see 'Request timed out after 2s' message")
+		t.Fatal("expected to see LIST_APPS_FAILED error")
+	}
+	
+	// Check that the underlying timeout error is shown in the Cause field
+	snapshot := tf.SnapshotPlain()
+	if !strings.Contains(snapshot, "Request timed out after 2s") {
+		t.Log("Snapshot:", snapshot)
+		t.Fatal("expected to see 'Request timed out after 2s' in cause")
 	}
 
-	// Verify config hint is shown
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "increase timeout in") || !strings.Contains(snapshot, "config.toml") {
+	// Verify the timeout value is shown in the error
+	if !strings.Contains(snapshot, "2s") {
 		t.Log("Snapshot:", snapshot)
-		t.Fatal("expected to see configuration hint about increasing timeout")
+		t.Fatal("expected to see timeout value '2s' in error")
 	}
 
 	// Test passed

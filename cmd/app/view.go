@@ -1003,6 +1003,12 @@ func (m *Model) renderErrorView() string {
 			errorContent += fmt.Sprintf("\nSuggestion:\n%s\n", actionStyle.Render(err.UserAction))
 		}
 
+		// Show underlying cause if present (for wrapped errors)
+		if err.Cause != nil {
+			causeStyle := lipgloss.NewStyle().Foreground(yellowBright)
+			errorContent += fmt.Sprintf("\nCause:\n%s\n", causeStyle.Render(err.Cause.Error()))
+		}
+		
 		// Additional context (if available) - but filter out redundant info
 		if err.Context != nil && len(err.Context) > 0 {
 			contextStyle := lipgloss.NewStyle().Foreground(unknownColor)
