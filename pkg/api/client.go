@@ -281,7 +281,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	cblog.With("component", "api", "op", "http").Debug("Making HTTP request",
 		"method", method,
 		"url", sanitizeURL(url),
-		"timeout", "10s",
+		"timeout", appcontext.DefaultTimeouts.API.String(),
 	)
 
 	resp, err := c.httpClient.Do(req)
@@ -299,7 +299,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"Request timed out - server may be unreachable").
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", "10s").
+				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
 				WithUserAction("Check your connection to ArgoCD server and try again")
 		}
 
