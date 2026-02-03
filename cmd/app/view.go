@@ -1003,12 +1003,22 @@ func (m *Model) renderErrorView() string {
 			errorContent += fmt.Sprintf("\nSuggestion:\n%s\n", actionStyle.Render(err.UserAction))
 		}
 
-		// Additional context (if available)
+		// Additional context (if available) - but filter out redundant info
 		if err.Context != nil && len(err.Context) > 0 {
 			contextStyle := lipgloss.NewStyle().Foreground(unknownColor)
 			errorContent += "\nContext:\n"
 			for key, value := range err.Context {
-				errorContent += fmt.Sprintf("  %s: %s\n", contextStyle.Render(key), contextStyle.Render(fmt.Sprintf("%v", value)))
+				// Skip timeout in context if it's already in the message
+				if key == "timeout" && strings.Contains(err.Message, fmt.Sprintf("%v", value)) {
+					continue
+				}
+				// Special handling for status codes
+				if key == "statusCode" {
+					codeStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+					errorContent += fmt.Sprintf("  HTTP Status: %s\n", codeStyle.Render(fmt.Sprintf("%v", value)))
+				} else if key != "url" && key != "method" { // Skip URL and method as they're often verbose
+					errorContent += fmt.Sprintf("  %s: %s\n", contextStyle.Render(key), contextStyle.Render(fmt.Sprintf("%v", value)))
+				}
 			}
 		}
 

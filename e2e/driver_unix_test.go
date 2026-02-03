@@ -128,6 +128,19 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 	if tf.workspace != "" {
 		tf.cmd.Dir = tf.workspace
 	}
+	// Create low timeout config for all E2E tests to make them faster
+	configDir := filepath.Join(tf.workspace, ".config", "argonaut")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	testConfig := `[http_timeouts]
+# Use lower timeout for E2E tests to speed them up
+request_timeout = "2s"`
+	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
+		return err
+	}
+	
 	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"LC_ALL=C",
@@ -135,7 +148,7 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 		"HOME="+tf.workspace,
 		"ARGONAUT_E2E=1",
 		// Force isolated Argonaut config - clear any inherited config paths
-		"ARGONAUT_CONFIG="+filepath.Join(tf.workspace, ".config", "argonaut", "config.toml"),
+		"ARGONAUT_CONFIG="+configPath,
 		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
 	)
 	env = append(env, extraEnv...)
@@ -174,6 +187,19 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 	if tf.workspace != "" {
 		tf.cmd.Dir = tf.workspace
 	}
+	// Create low timeout config for all E2E tests to make them faster
+	configDir := filepath.Join(tf.workspace, ".config", "argonaut")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	testConfig := `[http_timeouts]
+# Use lower timeout for E2E tests to speed them up
+request_timeout = "2s"`
+	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
+		return err
+	}
+	
 	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"LC_ALL=C",
@@ -181,7 +207,7 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 		"HOME="+tf.workspace,
 		"ARGONAUT_E2E=1",
 		// Force isolated Argonaut config - clear any inherited config paths
-		"ARGONAUT_CONFIG="+filepath.Join(tf.workspace, ".config", "argonaut", "config.toml"),
+		"ARGONAUT_CONFIG="+configPath,
 		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
 	)
 	env = append(env, extraEnv...)

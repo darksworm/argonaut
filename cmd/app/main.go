@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/config"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/portforward"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -215,6 +216,11 @@ func main() {
 	// Apply theme colors
 	palette := theme.FromConfig(argonautConfig)
 	applyTheme(palette)
+
+	// Apply HTTP timeout configuration
+	requestTimeout := argonautConfig.GetRequestTimeout()
+	appcontext.SetRequestTimeout(requestTimeout)
+	cblog.With("component", "app").Debug("Applied request timeout", "timeout", requestTimeout.String())
 
 	// Create the initial model
 	m := NewModel(argonautConfig)

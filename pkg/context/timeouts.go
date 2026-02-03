@@ -124,3 +124,16 @@ func WithSyncTimeout(parent context.Context) (context.Context, context.CancelFun
 func WithResourceTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return WithTimeout(parent, OpResource)
 }
+
+// SetRequestTimeout updates all request-related timeouts to the specified duration
+// This affects API, Auth, Sync, and Resource operations
+// UI and Stream timeouts remain unchanged
+func SetRequestTimeout(timeout time.Duration) {
+	DefaultTimeouts.API = timeout
+	DefaultTimeouts.Auth = timeout
+	DefaultTimeouts.Sync = timeout
+	DefaultTimeouts.Resource = timeout
+	DefaultTimeouts.Default = timeout
+	// Keep UI timeout at 2s for responsiveness
+	// Keep Stream timeout at 0 (no timeout)
+}

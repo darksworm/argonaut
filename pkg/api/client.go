@@ -296,11 +296,11 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
-				"Request timed out - server may be unreachable").
+				fmt.Sprintf("Request timed out after %s", appcontext.DefaultTimeouts.API.String())).
 				WithContext("method", method).
 				WithContext("url", url).
 				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
-				WithUserAction("Check your connection to ArgoCD server and try again")
+				WithUserAction("For large deployments, increase timeout in ~/.config/argonaut/config.toml")
 		}
 
 		if ctx.Err() == context.Canceled {
@@ -326,10 +326,11 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("NETWORK_TIMEOUT",
-				"Network connection timed out").
+				fmt.Sprintf("Network connection timed out after %s", appcontext.DefaultTimeouts.API.String())).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithUserAction("Server may be unreachable - check your connection")
+				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
+				WithUserAction("For large deployments, increase timeout in ~/.config/argonaut/config.toml")
 		}
 
 		// Log the actual error at warn level so users can see what went wrong

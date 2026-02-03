@@ -244,6 +244,9 @@ context = ""              # Override Kubernetes context for k9s
 [diff]
 viewer = ""               # Interactive diff viewer (e.g., "code --diff {left} {right}", "meld {left} {right}")
 formatter = ""            # Diff formatter command (e.g., "delta --side-by-side")
+
+[http_timeouts]
+request_timeout = "10s"   # Timeout for HTTP requests (increase for large deployments)
 ```
 
 ### Configuration Options
@@ -312,6 +315,27 @@ formatter = "delta --side-by-side --line-numbers"
 ```
 
 If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+
+#### `[http_timeouts]`
+
+Settings for HTTP request timeouts. Useful for large deployments with thousands of applications where API responses take longer.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `request_timeout` | Timeout for all HTTP requests to ArgoCD API. Use Go duration format (e.g., "30s", "1m", "90s") | `"10s"` |
+
+**Examples:**
+
+```toml
+[http_timeouts]
+# For large deployments with thousands of applications
+request_timeout = "60s"
+
+# For very large deployments
+request_timeout = "2m"
+```
+
+> **Note:** If you're experiencing timeout errors when listing applications or resources, increase this value. The timeout applies to all API operations including listing applications, getting resources, and sync operations.
 
 #### `[port_forward]`
 

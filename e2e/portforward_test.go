@@ -52,7 +52,8 @@ func TestPortForward_HappyPath(t *testing.T) {
 
 	// Should see cluster from mock server (proves tunnel worked)
 	// The app initially shows clusters view with "cluster-a" from our mock server
-	if !tf.WaitForPlain("cluster-a", 10*time.Second) {
+	// With 2s request timeout, connection should be faster
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected to see 'cluster-a' after port-forward established")
 	}
