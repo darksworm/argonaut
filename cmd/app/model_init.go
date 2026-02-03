@@ -133,7 +133,10 @@ func (m *Model) validateAuthentication() tea.Cmd {
 				strings.Contains(errStr, "no such host") ||
 				strings.Contains(errStr, "network is unreachable") ||
 				strings.Contains(errStr, "timeout") ||
-				strings.Contains(errStr, "dial tcp") {
+				strings.Contains(errStr, "dial tcp") ||
+				strings.Contains(errStr, "tls:") ||
+				strings.Contains(errStr, "x509:") ||
+				strings.Contains(errStr, "certificate") {
 				return model.SetModeMsg{Mode: model.ModeConnectionError}
 			}
 
