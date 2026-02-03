@@ -487,6 +487,26 @@ func TestHTTPTimeoutConfigGetters(t *testing.T) {
 			expectTimeout:  "invalid", // Raw value is returned
 			expectDuration: "10s",     // But parsed duration is default
 		},
+		{
+			name: "zero timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "0s",
+				},
+			},
+			expectTimeout:  "0s",  // Raw value is returned
+			expectDuration: "10s", // But parsed duration is default
+		},
+		{
+			name: "negative timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "-5s",
+				},
+			},
+			expectTimeout:  "-5s", // Raw value is returned
+			expectDuration: "10s", // But parsed duration is default
+		},
 	}
 
 	for _, tt := range tests {

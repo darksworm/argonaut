@@ -296,11 +296,11 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
-				fmt.Sprintf("Request timed out after %s", appcontext.DefaultTimeouts.API.String())).
+				fmt.Sprintf("Request timed out after %s - server did not respond in time", appcontext.DefaultTimeouts.API.String())).
 				WithContext("method", method).
 				WithContext("url", url).
 				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
-				WithUserAction("For large deployments, increase timeout in ~/.config/argonaut/config.toml")
+				WithUserAction("Check network connection and server status. For slow servers, increase request_timeout in config")
 		}
 
 		if ctx.Err() == context.Canceled {
@@ -330,7 +330,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				WithContext("method", method).
 				WithContext("url", url).
 				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
-				WithUserAction("For large deployments, increase timeout in ~/.config/argonaut/config.toml")
+				WithUserAction("Check network/firewall settings and TLS configuration. Increase request_timeout if needed")
 		}
 
 		// Log the actual error at warn level so users can see what went wrong
