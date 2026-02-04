@@ -29,11 +29,8 @@ func TestMouseSelection(t *testing.T) {
 	}
 	WriteArgoConfig(cfgPath, srv.URL)
 
-	// Setup mock clipboard via config (writes to a temp file instead of system clipboard)
+	// Clipboard file is now automatically set up by the test framework
 	clipboardFile := filepath.Join(tf.Workspace(), "clipboard.txt")
-	if err := WriteArgonautConfigWithClipboard(tf.Workspace(), clipboardFile); err != nil {
-		t.Fatalf("write argonaut config: %v", err)
-	}
 
 	// Start app
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
@@ -184,11 +181,8 @@ func TestMouseSelectionMultiLine(t *testing.T) {
 	}
 	WriteArgoConfig(cfgPath, srv.URL)
 
-	// Setup mock clipboard via config
+	// Clipboard file is now automatically set up by the test framework
 	clipboardFile := filepath.Join(tf.Workspace(), "clipboard.txt")
-	if err := WriteArgonautConfigWithClipboard(tf.Workspace(), clipboardFile); err != nil {
-		t.Fatalf("write argonaut config: %v", err)
-	}
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
 		t.Fatalf("start app: %v", err)

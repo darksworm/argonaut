@@ -134,9 +134,19 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 		return err
 	}
 	configPath := filepath.Join(configDir, "config.toml")
+	
+	// Create a mock clipboard file for all tests (even if they don't use it)
+	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
+	
+	// Create test config with both timeout and clipboard settings
 	testConfig := `[http_timeouts]
 # Use lower timeout for E2E tests to speed them up
-request_timeout = "2s"`
+request_timeout = "2s"
+
+[clipboard]
+# Mock clipboard for tests - writes to file instead of system clipboard
+copy_command = "tee ` + clipboardFile + `"`
+	
 	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
 		return err
 	}
@@ -193,9 +203,19 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 		return err
 	}
 	configPath := filepath.Join(configDir, "config.toml")
+	
+	// Create a mock clipboard file for all tests (even if they don't use it)
+	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
+	
+	// Create test config with both timeout and clipboard settings
 	testConfig := `[http_timeouts]
 # Use lower timeout for E2E tests to speed them up
-request_timeout = "2s"`
+request_timeout = "2s"
+
+[clipboard]
+# Mock clipboard for tests - writes to file instead of system clipboard
+copy_command = "tee ` + clipboardFile + `"`
+	
 	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
 		return err
 	}
@@ -625,16 +645,7 @@ func WriteArgoConfigWithToken(path, baseURL, token string) error {
 	return os.WriteFile(path, y.Bytes(), 0o644)
 }
 
-// WriteArgonautConfigWithClipboard writes an Argonaut config with custom clipboard command.
-// The clipboardFile is where the clipboard content will be written (for testing).
-func WriteArgonautConfigWithClipboard(workspace, clipboardFile string) error {
-	argonautCfgDir := filepath.Join(workspace, ".config", "argonaut")
-	configPath := filepath.Join(argonautCfgDir, "config.toml")
-	var cfg bytes.Buffer
-	cfg.WriteString("[clipboard]\n")
-	cfg.WriteString("copy_command = \"tee " + clipboardFile + "\"\n")
-	return os.WriteFile(configPath, cfg.Bytes(), 0o644)
-}
+// Removed WriteArgonautConfigWithClipboard - clipboard config is now set automatically by StartAppArgs
 
 // MockArgoServerForbidden returns 403 Forbidden for applications (simulating RBAC/forbidden)
 func MockArgoServerForbidden() (*httptest.Server, error) {
