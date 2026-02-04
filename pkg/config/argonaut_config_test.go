@@ -433,3 +433,141 @@ func TestPortForwardConfigGetters(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPTimeoutConfigGetters(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         *ArgonautConfig
+		expectTimeout  string
+		expectDuration string
+	}{
+		{
+			name:           "empty config returns default 10s",
+			config:         &ArgonautConfig{},
+			expectTimeout:  "10s",
+			expectDuration: "10s",
+		},
+		{
+			name: "custom timeout 30s",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "30s",
+				},
+			},
+			expectTimeout:  "30s",
+			expectDuration: "30s",
+		},
+		{
+			name: "custom timeout 1m",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "1m",
+				},
+			},
+			expectTimeout:  "1m",
+			expectDuration: "1m0s",
+		},
+		{
+			name: "custom timeout 90s",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "90s",
+				},
+			},
+			expectTimeout:  "90s",
+			expectDuration: "1m30s",
+		},
+		{
+			name: "invalid timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "invalid",
+				},
+			},
+			expectTimeout:  "invalid", // Raw value is returned
+			expectDuration: "10s",     // But parsed duration is default
+		},
+		{
+			name: "zero timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "0s",
+				},
+			},
+			expectTimeout:  "0s",  // Raw value is returned
+			expectDuration: "10s", // But parsed duration is default
+		},
+		{
+			name: "negative timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "-5s",
+				},
+			},
+			expectTimeout:  "-5s", // Raw value is returned
+			expectDuration: "10s", // But parsed duration is default
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test raw string getter
+			if got := tt.config.GetRequestTimeoutString(); got != tt.expectTimeout {
+				t.Errorf("GetRequestTimeoutString() = %q, want %q", got, tt.expectTimeout)
+			}
+
+			// Test parsed duration getter
+			gotDuration := tt.config.GetRequestTimeout()
+			if gotDuration.String() != tt.expectDuration {
+				t.Errorf("GetRequestTimeout() = %q, want %q", gotDuration.String(), tt.expectDuration)
+			}
+		})
+	}
+}
+
+func TestSaveAndLoadHTTPTimeoutConfig(t *testing.T) {
+	// Create a temporary directory
+	tempDir := t.TempDir()
+
+	// Override config path
+	originalConfig := os.Getenv("ARGONAUT_CONFIG")
+	defer os.Setenv("ARGONAUT_CONFIG", originalConfig)
+
+	configPath := filepath.Join(tempDir, "test_timeout_config.toml")
+	os.Setenv("ARGONAUT_CONFIG", configPath)
+
+	// Create test config with HTTPTimeouts
+	testConfig := &ArgonautConfig{
+		Appearance: AppearanceConfig{
+			Theme: "dracula",
+		},
+		HTTPTimeouts: HTTPTimeoutConfig{
+			RequestTimeout: "45s",
+		},
+	}
+
+	// Save config
+	err := SaveArgonautConfig(testConfig)
+	if err != nil {
+		t.Fatalf("SaveArgonautConfig() failed: %v", err)
+	}
+
+	// Load config back
+	loadedConfig, err := LoadArgonautConfig()
+	if err != nil {
+		t.Fatalf("LoadArgonautConfig() failed: %v", err)
+	}
+
+	// Verify HTTPTimeouts config
+	if loadedConfig.GetRequestTimeoutString() != "45s" {
+		t.Errorf("RequestTimeout mismatch: expected %q, got %q",
+			"45s", loadedConfig.GetRequestTimeoutString())
+	}
+
+	// Verify parsed duration
+	expectedDuration := "45s"
+	if loadedConfig.GetRequestTimeout().String() != expectedDuration {
+		t.Errorf("Parsed timeout mismatch: expected %q, got %q",
+			expectedDuration, loadedConfig.GetRequestTimeout().String())
+	}
+}

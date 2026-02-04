@@ -88,8 +88,8 @@ func TestTLSUntrustedCert(t *testing.T) {
 	}
 
 	// Expect connection error (since TLS handshake will fail with untrusted cert)
-	// Wait longer as TLS handshake timeout is now 10 seconds
-	if !tf.WaitForPlain("Connection Error", 12*time.Second) {
+	// With 2s timeout, we can wait for 4s instead of 12s
+	if !tf.WaitForPlain("Connection Error", 4*time.Second) {
 		t.Log("Snapshot:", tf.SnapshotPlain())
 		t.Fatal("expected 'Connection Error' message when using untrusted certificate")
 	}
@@ -200,8 +200,8 @@ func TestTLSClientCertAuthFails(t *testing.T) {
 	}
 
 	// Should see connection error due to missing client certificate
-	// Wait longer as TLS handshake timeout is now 10 seconds
-	if !tf.WaitForPlain("Connection Error", 12*time.Second) {
+	// With 2s timeout, we can wait for 4s instead of 12s
+	if !tf.WaitForPlain("Connection Error", 4*time.Second) {
 		t.Log("Snapshot:", tf.SnapshotPlain())
 		t.Fatal("expected 'Connection Error' when client cert is required but not provided")
 	}

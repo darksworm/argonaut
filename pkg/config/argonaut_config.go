@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -14,13 +15,14 @@ const DefaultThemeName = "tokyo-night"
 
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
-	Appearance      AppearanceConfig  `toml:"appearance"`
-	Sort            SortConfig        `toml:"sort,omitempty"`
-	K9s             K9sConfig         `toml:"k9s,omitempty"`
-	Diff            DiffConfig        `toml:"diff,omitempty"`
-	PortForward     PortForwardConfig `toml:"port_forward,omitempty"`
-	Clipboard       ClipboardConfig   `toml:"clipboard,omitempty"`
-	LastSeenVersion string            `toml:"last_seen_version,omitempty"`
+	Appearance      AppearanceConfig   `toml:"appearance"`
+	Sort            SortConfig         `toml:"sort,omitempty"`
+	K9s             K9sConfig          `toml:"k9s,omitempty"`
+	Diff            DiffConfig         `toml:"diff,omitempty"`
+	PortForward     PortForwardConfig  `toml:"port_forward,omitempty"`
+	Clipboard       ClipboardConfig    `toml:"clipboard,omitempty"`
+	HTTPTimeouts    HTTPTimeoutConfig  `toml:"http_timeouts,omitempty"`
+	LastSeenVersion string             `toml:"last_seen_version,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
@@ -60,6 +62,16 @@ type ClipboardConfig struct {
 	// PasteCommand is the command to paste text from clipboard.
 	// Text is read from stdout. Examples: "pbpaste", "xclip -selection clipboard -o", "wl-paste"
 	PasteCommand string `toml:"paste_command,omitempty"`
+}
+
+// HTTPTimeoutConfig holds HTTP request timeout settings.
+// This configuration is essential for large deployments where API operations
+// may take longer due to the volume of data being processed.
+type HTTPTimeoutConfig struct {
+	// RequestTimeout is the timeout for HTTP requests (e.g., "30s", "1m", "90s")
+	// Default is "10s". Increase for large deployments with thousands of applications.
+	// Zero or negative values are ignored and default timeout is used.
+	RequestTimeout string `toml:"request_timeout,omitempty"`
 }
 
 
@@ -223,4 +235,36 @@ func (c *ArgonautConfig) GetClipboardCopyCommand() string {
 // GetClipboardPasteCommand returns the configured clipboard paste command, or empty for auto-detect
 func (c *ArgonautConfig) GetClipboardPasteCommand() string {
 	return c.Clipboard.PasteCommand
+}
+
+// GetRequestTimeoutString returns the raw string value of the request timeout configuration.
+// If no timeout is configured, returns the default value of "10s".
+// This method returns the raw string without validation.
+func (c *ArgonautConfig) GetRequestTimeoutString() string {
+	if c.HTTPTimeouts.RequestTimeout != "" {
+		return c.HTTPTimeouts.RequestTimeout
+	}
+	return "10s"
+}
+
+// GetRequestTimeout returns the parsed duration for request timeout, defaulting to 10s
+// Validates that the timeout is positive and returns default if invalid
+func (c *ArgonautConfig) GetRequestTimeout() time.Duration {
+	if c.HTTPTimeouts.RequestTimeout == "" {
+		return 10 * time.Second
+	}
+	
+	duration, err := time.ParseDuration(c.HTTPTimeouts.RequestTimeout)
+	if err != nil {
+		// If parsing fails, return default
+		return 10 * time.Second
+	}
+	
+	// Validate that timeout is positive
+	if duration <= 0 {
+		// Log warning and return default for zero or negative durations
+		return 10 * time.Second
+	}
+	
+	return duration
 }
