@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.13.0](https://github.com/darksworm/argonaut/compare/v2.12.0...v2.13.0) (2026-02-04)
+
+
+### Features
+
+* add configurable HTTP request timeouts to support large deployments ([#198](https://github.com/darksworm/argonaut/issues/198)) ([3e93408](https://github.com/darksworm/argonaut/commit/3e93408c12bb7ae31101cd69dfa392b91e587b44))
+
+
+### Bug Fixes
+
+* improve timeout handling and add detailed error logging ([#197](https://github.com/darksworm/argonaut/issues/197)) ([93eb657](https://github.com/darksworm/argonaut/commit/93eb657822ebc8cbc34263d991e9494f22626109))
+* make HTTP request failure reasons visible ([#194](https://github.com/darksworm/argonaut/issues/194)) ([c5af367](https://github.com/darksworm/argonaut/commit/c5af3676b7852629b5392ef8cecfa5c9b3018327))
+* rewrote SSE buffer handling to eliminate data loss and false auth errors ([#191](https://github.com/darksworm/argonaut/issues/191)) ([5e78176](https://github.com/darksworm/argonaut/commit/5e781765ffae988bbfb6a36651f7c2affec36b63))
+
 ## [2.12.0](https://github.com/darksworm/argonaut/compare/v2.11.0...v2.12.0) (2026-01-17)
 
 
