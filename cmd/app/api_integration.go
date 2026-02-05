@@ -140,72 +140,133 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 	}
 }
 
-// consumeWatchEvent reads a single service event and converts it to a tea message
-func (m *Model) consumeWatchEvent() tea.Cmd {
+// eventResult holds the classification of a single watch event
+type eventResult struct {
+	update     *model.AppUpdatedMsg // non-nil for app-updated events
+	deleteName string               // non-empty for app-deleted events
+	immediate  tea.Msg              // non-nil for non-batchable events (auth-error, api-error, etc.)
+}
+
+// classifyWatchEvent converts a service event into an eventResult for batching.
+// Batchable events (app-updated, app-deleted) are returned via update/deleteName fields.
+// Non-batchable events (auth-error, api-error, etc.) are returned via immediate field.
+func classifyWatchEvent(ev services.ArgoApiEvent) eventResult {
+	switch ev.Type {
+	case "app-updated":
+		if ev.App != nil {
+			var resourcesData []byte
+			if len(ev.Resources) > 0 {
+				resourcesData, _ = json.Marshal(ev.Resources)
+			}
+			return eventResult{update: &model.AppUpdatedMsg{App: *ev.App, ResourcesJSON: resourcesData}}
+		}
+	case "app-deleted":
+		if ev.AppName != "" {
+			return eventResult{deleteName: ev.AppName}
+		}
+	case "apps-loaded":
+		if ev.Apps != nil {
+			return eventResult{immediate: model.AppsLoadedMsg{Apps: ev.Apps}}
+		}
+	case "status-change":
+		if ev.Status != "" {
+			return eventResult{immediate: model.StatusChangeMsg{Status: ev.Status}}
+		}
+	case "auth-error":
+		if ev.Error != nil {
+			return eventResult{immediate: model.AuthErrorMsg{Error: ev.Error}}
+		}
+	case "api-error":
+		if ev.Error != nil {
+			var argErr *apperrors.ArgonautError
+			if stdErrors.As(ev.Error, &argErr) {
+				if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
+					return eventResult{immediate: model.AuthErrorMsg{Error: ev.Error}}
+				}
+				return eventResult{immediate: model.StructuredErrorMsg{Error: argErr}}
+			}
+			if isAuthenticationError(ev.Error.Error()) {
+				return eventResult{immediate: model.AuthErrorMsg{Error: ev.Error}}
+			}
+			return eventResult{immediate: model.ApiErrorMsg{Message: ev.Error.Error()}}
+		}
+	}
+	return eventResult{}
+}
+
+// consumeWatchEvents reads events from the watch channel, batching app-updated
+// and app-deleted events for up to 500ms to reduce render cycles.
+// Non-batchable events (auth-error, api-error, etc.) are returned immediately
+// or included in the batch's Immediate field if encountered during batching.
+func (m *Model) consumeWatchEvents() tea.Cmd {
 	return func() tea.Msg {
 		if m.watchChan == nil {
-			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
+			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
 			return nil
 		}
+
+		// Block on first event
 		ev, ok := <-m.watchChan
 		if !ok {
-			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
 			return nil
 		}
-		cblog.With("component", "watch").Debug("consumeWatchEvent: received event",
-			"type", ev.Type,
-			"has_app", ev.App != nil,
-			"app_name", ev.AppName)
-		switch ev.Type {
-		case "apps-loaded":
-			if ev.Apps != nil {
-				return model.AppsLoadedMsg{Apps: ev.Apps}
-			}
-		case "app-updated":
-			if ev.App != nil {
-				cblog.With("component", "watch").Info("Sending AppUpdatedMsg",
-					"app_name", ev.App.Name,
-					"health", ev.App.Health,
-					"sync", ev.App.Sync,
-					"resources_count", len(ev.Resources))
-				var resourcesData []byte
-				if len(ev.Resources) > 0 {
-					resourcesData, _ = json.Marshal(ev.Resources)
+
+		result := classifyWatchEvent(ev)
+
+		// If first event is non-batchable, return it directly
+		if result.immediate != nil {
+			return result.immediate
+		}
+
+		// Start batching
+		var updates []model.AppUpdatedMsg
+		var deletes []string
+		if result.update != nil {
+			updates = append(updates, *result.update)
+		}
+		if result.deleteName != "" {
+			deletes = append(deletes, result.deleteName)
+		}
+
+		// Drain for up to 500ms
+		timer := time.NewTimer(500 * time.Millisecond)
+		defer timer.Stop()
+
+		var immediate tea.Msg
+	loop:
+		for {
+			select {
+			case ev, ok := <-m.watchChan:
+				if !ok {
+					break loop
 				}
-				return model.AppUpdatedMsg{App: *ev.App, ResourcesJSON: resourcesData}
-			}
-		case "app-deleted":
-			if ev.AppName != "" {
-				return model.AppDeletedMsg{AppName: ev.AppName}
-			}
-		case "status-change":
-			if ev.Status != "" {
-				return model.StatusChangeMsg{Status: ev.Status}
-			}
-		case "auth-error":
-			if ev.Error != nil {
-				return model.AuthErrorMsg{Error: ev.Error}
-			}
-		case "api-error":
-			if ev.Error != nil {
-				// If the service emitted a generic api-error but the error is auth-related,
-				// surface it as an AuthErrorMsg so the UI switches to auth-required.
-				var argErr *apperrors.ArgonautError
-				if stdErrors.As(ev.Error, &argErr) {
-					// Treat 401/403 as auth-required regardless of category
-					if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
-						return model.AuthErrorMsg{Error: ev.Error}
-					}
-					// Forward structured to error view
-					return model.StructuredErrorMsg{Error: argErr}
+				result := classifyWatchEvent(ev)
+				if result.immediate != nil {
+					immediate = result.immediate
+					break loop
 				}
-				if isAuthenticationError(ev.Error.Error()) {
-					return model.AuthErrorMsg{Error: ev.Error}
+				if result.update != nil {
+					updates = append(updates, *result.update)
 				}
-				return model.ApiErrorMsg{Message: ev.Error.Error()}
+				if result.deleteName != "" {
+					deletes = append(deletes, result.deleteName)
+				}
+			case <-timer.C:
+				break loop
 			}
 		}
-		return nil
+
+		cblog.With("component", "watch").Debug("consumeWatchEvents: batch complete",
+			"updates", len(updates),
+			"deletes", len(deletes),
+			"has_immediate", immediate != nil)
+
+		return model.AppsBatchUpdateMsg{
+			Updates:   updates,
+			Deletes:   deletes,
+			Immediate: immediate,
+		}
 	}
 }
 

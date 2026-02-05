@@ -307,9 +307,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
 			close(m.watchChan)
 		}()
-		// Start consuming events
+		// Start consuming events (batched)
 		return m, tea.Batch(
-			m.consumeWatchEvent(),
+			m.consumeWatchEvents(),
 		)
 
 	// API Event messages
@@ -340,7 +340,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// If watch is already running, just switch to normal mode and keep consuming
 		return m, tea.Batch(
 			func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
-			m.consumeWatchEvent(),
+			m.consumeWatchEvents(),
 		)
 
 	case model.AppUpdatedMsg:
@@ -373,7 +373,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cblog.With("component", "watch").Debug("Apps list updated",
 			"total_apps", len(m.state.Apps),
 			"updated_app", updated.Name)
-		return m, m.consumeWatchEvent()
+		return m, m.consumeWatchEvents()
 
 	case model.AppDeletedMsg:
 		name := msg.AppName
@@ -391,7 +391,57 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
 			m.state.Navigation.SelectedIdx = len(visibleItems) - 1
 		}
-		return m, m.consumeWatchEvent()
+		return m, m.consumeWatchEvents()
+
+	case model.AppsBatchUpdateMsg:
+		// Apply all updates in one pass
+		for _, upd := range msg.Updates {
+			found := false
+			for i, a := range m.state.Apps {
+				if a.Name == upd.App.Name {
+					m.state.Apps[i] = upd.App
+					found = true
+					break
+				}
+			}
+			if !found {
+				m.state.Apps = append(m.state.Apps, upd.App)
+			}
+			// Update tree view sync statuses
+			if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
+				var resources []api.ResourceStatus
+				if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+					m.treeView.SetResourceStatuses(upd.App.Name, resources)
+				}
+			}
+		}
+		// Apply all deletes in one pass
+		for _, name := range msg.Deletes {
+			for i, a := range m.state.Apps {
+				if a.Name == name {
+					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+					break
+				}
+			}
+		}
+		// Adjust selection bounds after deletes
+		if len(msg.Deletes) > 0 {
+			visibleItems := m.getVisibleItemsForCurrentView()
+			if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
+				m.state.Navigation.SelectedIdx = len(visibleItems) - 1
+			}
+		}
+		cblog.With("component", "watch").Debug("AppsBatchUpdateMsg processed",
+			"updates", len(msg.Updates),
+			"deletes", len(msg.Deletes),
+			"total_apps", len(m.state.Apps))
+		// Continue watching + re-dispatch immediate event if present
+		cmds := []tea.Cmd{m.consumeWatchEvents()}
+		if msg.Immediate != nil {
+			imm := msg.Immediate
+			cmds = append(cmds, func() tea.Msg { return imm })
+		}
+		return m, tea.Batch(cmds...)
 
 	case model.StatusChangeMsg:
 		// Now safe to log since we're using file logging
@@ -402,7 +452,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Diff.Loading = false
 		}
 
-		return m, m.consumeWatchEvent()
+		return m, nil
 
 	case model.ResourceTreeLoadedMsg:
 		// Populate tree view with loaded data (single or multi-app)
@@ -426,8 +476,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
-		// Continue consuming watch events to receive app updates (for sync status)
-		return m, m.consumeWatchEvent()
+		return m, nil
 
 		// removed: resources list loader
 

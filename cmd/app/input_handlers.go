@@ -1583,8 +1583,6 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.startWatchingResourceTree(*appObj))
 		}
 		cmds = append(cmds, m.consumeTreeEvent())
-		// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-		cmds = append(cmds, m.consumeWatchEvent())
 		return m, tea.Batch(cmds...)
 	}
 	// Fallback to single app tree view
@@ -1609,8 +1607,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.state.Navigation.View = model.ViewTree
 	m.state.UI.TreeAppName = &app.Name
 	m.treeLoading = true
-	// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent(), m.consumeWatchEvent())
+	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 
 // handleResourceDiff shows the diff for the currently selected resource in tree view
