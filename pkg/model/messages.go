@@ -467,3 +467,45 @@ type ChangelogLoadedMsg struct {
 	Content string
 	Error   error
 }
+
+// Login Messages - for automatic login functionality
+
+// LoginSubmitMsg is sent when user submits the login form
+type LoginSubmitMsg struct {
+	Username        string
+	Password        string
+	SaveCredentials bool
+}
+
+// LoginSuccessMsg is sent when login succeeds
+type LoginSuccessMsg struct {
+	Token    string
+	Username string
+}
+
+// LoginErrorMsg is sent when login fails
+type LoginErrorMsg struct {
+	Error string
+}
+
+// AutoLoginAttemptMsg triggers an automatic login attempt using stored credentials
+type AutoLoginAttemptMsg struct {
+	ServerURL string
+	Insecure  bool
+}
+
+// AutoLoginResultMsg is the result of an automatic login attempt
+type AutoLoginResultMsg struct {
+	Success  bool
+	Token    string
+	Username string
+	Error    error
+}
+
+// LoginCancelMsg is sent when user cancels the login modal
+type LoginCancelMsg struct{}
+
+// LoginFieldFocusMsg changes focus within the login form
+type LoginFieldFocusMsg struct {
+	Field int // 0=username, 1=password, 2=save, 3=login, 4=cancel
+}

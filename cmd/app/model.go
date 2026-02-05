@@ -616,6 +616,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeAuthRequired} })
 
+	// Login messages
+	case model.AutoLoginAttemptMsg:
+		// Set mode to show loading while attempting auto-login
+		m.state.Mode = model.ModeLoginLoading
+		m.state.Modals.LoginServerURL = msg.ServerURL
+		m.state.Modals.InitialLoading = false
+		return m, m.handleAutoLoginAttempt(msg)
+
+	case model.AutoLoginResultMsg:
+		return m.handleAutoLoginResult(msg)
+
+	case model.LoginSubmitMsg:
+		return m, m.handleLoginSubmit(msg)
+
+	case model.LoginSuccessMsg:
+		return m.handleLoginSuccess(msg)
+
+	case model.LoginErrorMsg:
+		return m.handleLoginError(msg)
+
+	case model.LoginCancelMsg:
+		m.inputComponents.BlurLoginInputs()
+		m.inputComponents.ClearLoginInputs()
+		m.state.Mode = model.ModeAuthRequired
+		return m, nil
+
 	// Navigation update messages
 	case model.NavigationUpdateMsg:
 		if msg.NewView != nil {

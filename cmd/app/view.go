@@ -301,6 +301,8 @@ func (m *Model) View() tea.View {
 			content = m.renderConnectionErrorView()
 		case model.ModeCoreDetected:
 			content = m.renderCoreDetectedView()
+		case model.ModeLogin, model.ModeLoginLoading:
+			content = m.renderLoginView()
 		default:
 			content = m.renderMainLayout()
 		}

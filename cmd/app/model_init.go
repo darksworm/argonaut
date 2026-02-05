@@ -118,6 +118,15 @@ func (m *Model) validateAuthentication() tea.Cmd {
 			return model.SetModeMsg{Mode: model.ModeAuthRequired}
 		}
 
+		// If we have a server URL but no token, trigger auto-login
+		if m.state.Server.Token == "" {
+			cblog.With("component", "auth").Info("No token configured, attempting auto-login")
+			return model.AutoLoginAttemptMsg{
+				ServerURL: m.state.Server.BaseURL,
+				Insecure:  m.state.Server.Insecure,
+			}
+		}
+
 		// Create API service to validate authentication
 		appService := api.NewApplicationService(m.state.Server)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -140,8 +149,12 @@ func (m *Model) validateAuthentication() tea.Cmd {
 				return model.SetModeMsg{Mode: model.ModeConnectionError}
 			}
 
-			// Otherwise, it's likely an authentication issue
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+			// Token is invalid/expired - trigger auto-login to try stored credentials
+			cblog.With("component", "auth").Info("Token invalid, attempting auto-login")
+			return model.AutoLoginAttemptMsg{
+				ServerURL: m.state.Server.BaseURL,
+				Insecure:  m.state.Server.Insecure,
+			}
 		}
 
 		cblog.With("component", "auth").Info("Authentication validated successfully")
