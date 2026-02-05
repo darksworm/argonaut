@@ -22,11 +22,12 @@ import (
 
 // Client represents an HTTP client for ArgoCD API
 type Client struct {
-	baseURL         string
-	token           string
-	httpClient      *http.Client
-	insecure        bool
-	grpcWebRootPath string
+	baseURL          string
+	token            string
+	httpClient       *http.Client
+	streamHTTPClient *http.Client // Separate client for SSE streams (no ResponseHeaderTimeout)
+	insecure         bool
+	grpcWebRootPath  string
 }
 
 var customHTTPClient *http.Client
@@ -96,12 +97,45 @@ func NewClient(server *model.Server) *Client {
 		}
 	}
 
+	// Create a separate HTTP client for SSE streams.
+	// Streams must not have ResponseHeaderTimeout because the server may
+	// not send headers until the first event (which could be minutes away
+	// when using resourceVersion).
+	streamTransport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		// No ResponseHeaderTimeout for streams
+		IdleConnTimeout:     30 * time.Second,
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 2,
+	}
+	if server.Insecure {
+		streamTransport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	// If we cloned a custom transport for regular requests, also apply its TLS config to stream
+	if customHTTPClient != nil {
+		if transport, ok := httpClient.Transport.(*http.Transport); ok {
+			streamTransport = transport.Clone()
+			// Remove ResponseHeaderTimeout for streams
+			streamTransport.ResponseHeaderTimeout = 0
+		}
+	}
+	streamHTTPClient := &http.Client{
+		Transport: streamTransport,
+	}
+
 	return &Client{
-		baseURL:         server.BaseURL,
-		token:           server.Token,
-		httpClient:      httpClient,
-		insecure:        server.Insecure,
-		grpcWebRootPath: server.GrpcWebRootPath,
+		baseURL:          server.BaseURL,
+		token:            server.Token,
+		httpClient:       httpClient,
+		streamHTTPClient: streamHTTPClient,
+		insecure:         server.Insecure,
+		grpcWebRootPath:  server.GrpcWebRootPath,
 	}
 }
 
@@ -210,7 +244,8 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 		"type", "SSE",
 	)
 
-	resp, err := c.httpClient.Do(req)
+	// Use the stream-specific HTTP client (no ResponseHeaderTimeout)
+	resp, err := c.streamHTTPClient.Do(req)
 	if err != nil {
 		// Check for timeout
 		if timeoutErr := appcontext.HandleTimeout(ctx, appcontext.OpStream); timeoutErr != nil {

@@ -40,32 +40,22 @@ Add `fields` query parameter to both list and watch API calls, matching what the
 
 **Defined field constants** in `pkg/api/applications.go`:
 ```go
+// List uses items.spec (whole spec) because ArgoCD's field selection does not
+// reliably support sub-field paths like items.spec.destination.
 var AppListFields = []string{
     "metadata.resourceVersion",
     "items.metadata.name",
     "items.metadata.namespace",
     "items.metadata.ownerReferences",
-    "items.spec.destination",
-    "items.spec.project",
+    "items.spec",
     "items.status.sync.status",
     "items.status.health",
     "items.status.operationState.finishedAt",
     "items.status.operationState.startedAt",
 }
 
-var AppWatchFields = []string{
-    "result.type",
-    "result.application.metadata.name",
-    "result.application.metadata.namespace",
-    "result.application.metadata.ownerReferences",
-    "result.application.spec.destination",
-    "result.application.spec.project",
-    "result.application.status.sync.status",
-    "result.application.status.health",
-    "result.application.status.operationState.finishedAt",
-    "result.application.status.operationState.startedAt",
-    "result.application.status.resources",
-}
+// Watch stream does NOT support field selection — only resourceVersion is passed.
+var AppWatchFields []string // empty
 ```
 
 **Changes made:**

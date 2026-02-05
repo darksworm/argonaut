@@ -107,41 +107,24 @@ type ListApplicationsResult struct {
 }
 
 // AppListFields contains the fields needed for the app list view.
-// Based on analysis of ConvertToApp() and getVisibleItems():
-//   metadata.name, metadata.namespace, metadata.ownerReferences → Name, AppNamespace, ApplicationSet
-//   spec.destination → ClusterID, ClusterLabel, Namespace
-//   spec.project → Project
-//   status.sync.status, status.health → Sync, Health
-//   status.operationState.finishedAt/startedAt → LastSyncAt
+// Uses items.spec (whole spec) because ArgoCD's field selection does not
+// reliably support sub-field paths like items.spec.destination.
+// This matches the approach used by ArgoCD's own web UI.
 var AppListFields = []string{
 	"metadata.resourceVersion",
 	"items.metadata.name",
 	"items.metadata.namespace",
 	"items.metadata.ownerReferences",
-	"items.spec.destination",
-	"items.spec.project",
+	"items.spec",
 	"items.status.sync.status",
 	"items.status.health",
 	"items.status.operationState.finishedAt",
 	"items.status.operationState.startedAt",
 }
 
-// AppWatchFields contains the fields needed for the watch stream.
-// Includes status.resources because watch events forward resource sync statuses
-// to the tree view via handleWatchEvent() → ArgoApiEvent.Resources.
-var AppWatchFields = []string{
-	"result.type",
-	"result.application.metadata.name",
-	"result.application.metadata.namespace",
-	"result.application.metadata.ownerReferences",
-	"result.application.spec.destination",
-	"result.application.spec.project",
-	"result.application.status.sync.status",
-	"result.application.status.health",
-	"result.application.status.operationState.finishedAt",
-	"result.application.status.operationState.startedAt",
-	"result.application.status.resources",
-}
+// AppWatchFields is intentionally empty — the stream endpoint does not support
+// field selection. Only resourceVersion is passed to avoid the initial full dump.
+var AppWatchFields []string
 
 // DeploymentHistory represents a deployment history entry from ArgoCD API
 type DeploymentHistory struct {
