@@ -283,6 +283,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Data messages
 	case model.SetAppsMsg:
 		m.state.Apps = msg.Apps
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		return m, nil
 
 	case model.SetServerMsg:
@@ -319,6 +320,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			"watchChan_nil", m.watchChan == nil,
 			"resourceVersion", msg.ResourceVersion)
 		m.state.Apps = msg.Apps
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		// Store resource version for watch coordination
 		if msg.ResourceVersion != "" {
 			m.lastResourceVersion = msg.ResourceVersion
@@ -344,23 +346,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case model.AppUpdatedMsg:
-		// upsert app
+		// upsert app using index for O(1) lookup
 		updated := msg.App
 		cblog.With("component", "watch").Debug("AppUpdatedMsg received",
 			"app", updated.Name,
 			"health", updated.Health,
 			"sync", updated.Sync)
 		found := false
-		for i, a := range m.state.Apps {
-			if a.Name == updated.Name {
+		if idx := m.state.Index; idx != nil {
+			if i, ok := idx.NameToIndex[updated.Name]; ok && i < len(m.state.Apps) {
 				m.state.Apps[i] = updated
 				found = true
-				break
 			}
 		}
 		if !found {
 			m.state.Apps = append(m.state.Apps, updated)
 		}
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 
 		// Update tree view sync statuses if we're viewing the tree and have resource data
 		if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(msg.ResourcesJSON) > 0 {
@@ -377,14 +379,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.AppDeletedMsg:
 		name := msg.AppName
-		// Remove app while preserving order
-		for i, a := range m.state.Apps {
-			if a.Name == name {
-				// Remove the app at index i by combining slices before and after
+		// Remove app using index for O(1) lookup
+		if idx := m.state.Index; idx != nil {
+			if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) {
 				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-				break
+			}
+		} else {
+			for i, a := range m.state.Apps {
+				if a.Name == name {
+					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+					break
+				}
 			}
 		}
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		// Keep selection at the same index position
 		// Only adjust if selection is now beyond the list bounds
 		visibleItems := m.getVisibleItemsForCurrentView()
@@ -394,14 +402,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.consumeWatchEvents()
 
 	case model.AppsBatchUpdateMsg:
-		// Apply all updates in one pass
+		// Apply all updates in one pass using index for O(1) lookups
 		for _, upd := range msg.Updates {
 			found := false
-			for i, a := range m.state.Apps {
-				if a.Name == upd.App.Name {
+			if idx := m.state.Index; idx != nil {
+				if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) {
 					m.state.Apps[i] = upd.App
 					found = true
-					break
+				}
+			}
+			if !found {
+				// Fallback to linear scan (index may be stale after earlier append in this loop)
+				for i, a := range m.state.Apps {
+					if a.Name == upd.App.Name {
+						m.state.Apps[i] = upd.App
+						found = true
+						break
+					}
 				}
 			}
 			if !found {
@@ -415,15 +432,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		// Apply all deletes in one pass
+		// Apply all deletes in one pass (iterate backwards to preserve indices)
 		for _, name := range msg.Deletes {
-			for i, a := range m.state.Apps {
-				if a.Name == name {
-					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-					break
+			deleteIdx := -1
+			if idx := m.state.Index; idx != nil {
+				if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {
+					deleteIdx = i
 				}
 			}
+			if deleteIdx < 0 {
+				for i, a := range m.state.Apps {
+					if a.Name == name {
+						deleteIdx = i
+						break
+					}
+				}
+			}
+			if deleteIdx >= 0 {
+				m.state.Apps = append(m.state.Apps[:deleteIdx], m.state.Apps[deleteIdx+1:]...)
+			}
 		}
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		// Adjust selection bounds after deletes
 		if len(msg.Deletes) > 0 {
 			visibleItems := m.getVisibleItemsForCurrentView()
@@ -754,14 +783,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle successful application deletion
 		m.statusService.Set(fmt.Sprintf("Application %s deleted successfully", msg.AppName))
 
-		// Remove app from local state while preserving order
-		for i, app := range m.state.Apps {
-			if app.Name == msg.AppName {
-				// Remove the app at index i by combining slices before and after
+		// Remove app from local state using index for O(1) lookup
+		if idx := m.state.Index; idx != nil {
+			if i, ok := idx.NameToIndex[msg.AppName]; ok && i < len(m.state.Apps) {
 				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-				break
+			}
+		} else {
+			for i, app := range m.state.Apps {
+				if app.Name == msg.AppName {
+					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+					break
+				}
 			}
 		}
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 
 		// Clear modal state and return to normal mode
 		m.state.Mode = model.ModeNormal
