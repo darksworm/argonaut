@@ -33,9 +33,12 @@ func MockArgoServerMultipleApps() (*httptest.Server, error) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
-		// Keep connection open until server closes
+		fl, _ := w.(http.Flusher)
 		w.Header().Set("Content-Type", "application/json")
-		<-r.Context().Done()
+		_, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-charlie","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Degraded"}}}}}` + "\n"))
+		if fl != nil {
+			fl.Flush()
+		}
 	})
 	srv := httptest.NewServer(mux)
 	return srv, nil
