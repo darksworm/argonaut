@@ -50,6 +50,20 @@ type Model struct {
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 
+	// Watch cleanup function for stopping the current watch stream
+	watchCleanup func()
+
+	// Watch generation counter — incremented on each watch restart to prevent
+	// stale batch handlers from spawning duplicate consumers
+	watchGeneration int
+
+	// Current project scope the watch stream is filtered by (nil = unfiltered).
+	// Compared with SelectionState.ScopeProjects to detect when a restart is needed.
+	watchScopeProjects []string
+
+	// Debounce version counter for scope changes (prevents thrashing during rapid navigation)
+	scopeVersion int
+
 	// Resource version from last list call (for watch coordination)
 	lastResourceVersion string
 
@@ -230,7 +244,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.ClearAllSelectionsMsg:
 		m.state.Selections = *model.NewSelectionState()
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
 
 	// UI messages
 	case model.SetSearchQueryMsg:
@@ -292,9 +307,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
 	case watchStartedMsg:
-		// Set up the watch channel with proper forwarding
-		m.watchChan = make(chan services.ArgoApiEvent, 100)
-		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
+		// Store cleanup function for scoped watch restarts (Phase 4)
+		m.watchCleanup = msg.cleanup
+
+		// Set up the watch channel with proper forwarding.
+		// IMPORTANT: capture ch locally so the goroutine always operates on THIS
+		// channel even if m.watchChan is replaced by a scoped watch restart.
+		ch := make(chan services.ArgoApiEvent, 100)
+		m.watchChan = ch
+		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding",
+			"generation", m.watchGeneration)
 		go func() {
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
 			eventCount := 0
@@ -303,15 +325,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
 					"event_number", eventCount,
 					"type", ev.Type)
-				m.watchChan <- ev
+				ch <- ev
 			}
 			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
-			close(m.watchChan)
+			close(ch)
 		}()
 		// Start consuming events (batched)
-		return m, tea.Batch(
-			m.consumeWatchEvents(),
-		)
+		return m, m.consumeWatchEvents()
 
 	// API Event messages
 	case model.AppsLoadedMsg:
@@ -339,11 +359,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.startWatchingApplications(),
 			)
 		}
-		// If watch is already running, just switch to normal mode and keep consuming
-		return m, tea.Batch(
-			func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
-			m.consumeWatchEvents(),
-		)
+		// Watch is already running — the batch handler maintains the chain.
+		// Do NOT call consumeWatchEvents() here to avoid duplicate consumers.
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }
 
 	case model.AppUpdatedMsg:
 		// upsert app using index for O(1) lookup
@@ -463,9 +481,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cblog.With("component", "watch").Debug("AppsBatchUpdateMsg processed",
 			"updates", len(msg.Updates),
 			"deletes", len(msg.Deletes),
-			"total_apps", len(m.state.Apps))
-		// Continue watching + re-dispatch immediate event if present
-		cmds := []tea.Cmd{m.consumeWatchEvents()}
+			"total_apps", len(m.state.Apps),
+			"batch_gen", msg.Generation,
+			"current_gen", m.watchGeneration)
+		// Continue watching + re-dispatch immediate event if present.
+		// Only continue the watch chain if this batch is from the current generation;
+		// stale batches from a pre-restart watch must not spawn duplicate consumers.
+		var cmds []tea.Cmd
+		if msg.Generation == m.watchGeneration {
+			cmds = append(cmds, m.consumeWatchEvents())
+		}
 		if msg.Immediate != nil {
 			imm := msg.Immediate
 			cmds = append(cmds, func() tea.Msg { return imm })
@@ -723,8 +748,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Navigation.SelectedIdx = 0
 			m.listNav.Reset()
 		}
-		// m.ui.UpdateListItems(m.state)
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
+
+	// Phase 4: Scoped streaming — debounced watch restart on project scope change
+	case watchScopeDebounceMsg:
+		if msg.version != m.scopeVersion {
+			// Stale debounce tick (scope changed again since this was scheduled)
+			return m, nil
+		}
+		return m, m.restartWatchWithScope()
 
 	case model.SyncCompletedMsg:
 		// Handle single app sync completion

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -68,40 +69,51 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 	}
 }
 
-// WatchStartedMsg indicates the watch stream has started
+// watchStartedMsg indicates the watch stream has started
 type watchStartedMsg struct {
 	eventChan <-chan services.ArgoApiEvent
+	cleanup   func()
+}
+
+// watchScopeDebounceMsg is sent after 500ms to trigger a scoped watch restart.
+// The version field prevents stale debounce ticks from restarting the watch.
+type watchScopeDebounceMsg struct {
+	version int
 }
 
 // startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
 	cblog.With("component", "api_integration").Info("startWatchingApplications called",
 		"watchChan_nil", m.watchChan == nil,
-		"resourceVersion", m.lastResourceVersion)
+		"resourceVersion", m.lastResourceVersion,
+		"scopeProjects", m.watchScopeProjects)
 	if m.state.Server == nil {
 		return nil
 	}
 
-	// Capture resourceVersion at call time (before closure executes)
+	// Capture values at call time (before closure executes)
 	resourceVersion := m.lastResourceVersion
+	projects := m.watchScopeProjects
 
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup",
-			"resourceVersion", resourceVersion)
+			"resourceVersion", resourceVersion,
+			"projects", projects)
 		// Create context for the watch stream
 		ctx := context.Background()
 
 		// Create a new ArgoApiService with the current server
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		// Build watch options with resourceVersion and field selection
+		// Build watch options with resourceVersion, field selection, and project filter
 		watchOpts := &api.WatchOptions{
 			ResourceVersion: resourceVersion,
 			Fields:          api.AppWatchFields,
+			Projects:        projects,
 		}
 
 		// Start watching applications with options
-		eventChan, _, err := apiService.WatchApplicationsWithOptions(ctx, m.state.Server, watchOpts)
+		eventChan, cleanup, err := apiService.WatchApplicationsWithOptions(ctx, m.state.Server, watchOpts)
 		if err != nil {
 			// Promote auth-related errors to AuthErrorMsg
 			var argErr *apperrors.ArgonautError
@@ -119,7 +131,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
-		return watchStartedMsg{eventChan: eventChan}
+		return watchStartedMsg{eventChan: eventChan, cleanup: cleanup}
 	}
 }
 
@@ -198,15 +210,22 @@ func classifyWatchEvent(ev services.ArgoApiEvent) eventResult {
 // and app-deleted events for up to 500ms to reduce render cycles.
 // Non-batchable events (auth-error, api-error, etc.) are returned immediately
 // or included in the batch's Immediate field if encountered during batching.
+//
+// IMPORTANT: ch and gen are captured at call time so that if the watch is restarted
+// (m.watchChan replaced), this closure operates on the old channel and produces a
+// batch tagged with the old generation. The handler checks the generation to avoid
+// spawning duplicate consumers for the new channel.
 func (m *Model) consumeWatchEvents() tea.Cmd {
+	ch := m.watchChan         // capture at call time
+	gen := m.watchGeneration  // capture at call time
 	return func() tea.Msg {
-		if m.watchChan == nil {
+		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
 			return nil
 		}
 
 		// Block on first event
-		ev, ok := <-m.watchChan
+		ev, ok := <-ch
 		if !ok {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
 			return nil
@@ -237,7 +256,7 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 	loop:
 		for {
 			select {
-			case ev, ok := <-m.watchChan:
+			case ev, ok := <-ch:
 				if !ok {
 					break loop
 				}
@@ -260,14 +279,82 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 		cblog.With("component", "watch").Debug("consumeWatchEvents: batch complete",
 			"updates", len(updates),
 			"deletes", len(deletes),
-			"has_immediate", immediate != nil)
+			"has_immediate", immediate != nil,
+			"generation", gen)
 
 		return model.AppsBatchUpdateMsg{
-			Updates:   updates,
-			Deletes:   deletes,
-			Immediate: immediate,
+			Updates:    updates,
+			Deletes:    deletes,
+			Immediate:  immediate,
+			Generation: gen,
 		}
 	}
+}
+
+// maybeRestartWatchForScope checks if the current watch stream's project filter
+// differs from the user's active ScopeProjects selection. If different, it schedules
+// a debounced watch restart (500ms) to avoid thrashing during rapid navigation.
+func (m *Model) maybeRestartWatchForScope() tea.Cmd {
+	newProjects := sortedScopeProjects(m.state.Selections.ScopeProjects)
+	if stringSlicesEqual(newProjects, m.watchScopeProjects) {
+		return nil // No change
+	}
+	cblog.With("component", "watch").Info("maybeRestartWatchForScope: scope changed, scheduling restart",
+		"current", m.watchScopeProjects,
+		"new", newProjects)
+	m.scopeVersion++
+	version := m.scopeVersion
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return watchScopeDebounceMsg{version: version}
+	})
+}
+
+// restartWatchWithScope stops the current watch stream and starts a new one
+// filtered to the active ScopeProjects. This reduces ongoing SSE traffic when
+// the user has drilled down to specific projects.
+func (m *Model) restartWatchWithScope() tea.Cmd {
+	m.watchScopeProjects = sortedScopeProjects(m.state.Selections.ScopeProjects)
+	m.watchGeneration++ // Invalidate old consumers
+	cblog.With("component", "watch").Info("restartWatchWithScope: restarting watch",
+		"projects", m.watchScopeProjects,
+		"generation", m.watchGeneration)
+
+	// Stop current watch
+	if m.watchCleanup != nil {
+		m.watchCleanup()
+		m.watchCleanup = nil
+	}
+	// Note: m.watchChan will be closed by the forwarding goroutine when it detects
+	// the service eventChan closed. The old consumeWatchEvents will receive ok=false
+	// and return nil, naturally ending the old watch chain.
+
+	// Start new watch (will create new watchChan via watchStartedMsg)
+	return m.startWatchingApplications()
+}
+
+// sortedScopeProjects extracts project names from a scope map and returns them sorted.
+func sortedScopeProjects(scope map[string]bool) []string {
+	var projects []string
+	for p, ok := range scope {
+		if ok {
+			projects = append(projects, p)
+		}
+	}
+	sort.Strings(projects)
+	return projects
+}
+
+// stringSlicesEqual returns true if two string slices have equal content.
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // startDiffSession loads diffs and opens the diff pager

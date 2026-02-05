@@ -176,9 +176,10 @@ type AppDeletedMsg struct {
 // to reduce render cycles during high-activity periods (e.g., cluster-wide sync).
 // Matches ArgoCD web UI's 500ms event batching strategy.
 type AppsBatchUpdateMsg struct {
-	Updates   []AppUpdatedMsg
-	Deletes   []string
-	Immediate tea.Msg // Non-batchable event encountered during batching (auth-error, api-error, etc.)
+	Updates    []AppUpdatedMsg
+	Deletes    []string
+	Immediate  tea.Msg // Non-batchable event encountered during batching (auth-error, api-error, etc.)
+	Generation int     // Watch generation that produced this batch (for safe watch restarts)
 }
 
 // AppDeleteRequestMsg represents a request to delete an application

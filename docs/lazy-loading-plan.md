@@ -174,29 +174,29 @@ func BuildAppIndex(apps []App) *AppIndex
 
 ---
 
-### Phase 4: Scoped Streaming with Project Filters
+### Phase 4: Scoped Streaming with Project Filters ✅ DONE
 
-When user drills down to specific projects, restart SSE with `projects` query param (supported by ArgoCD API on both list and stream).
+When user drills down to specific projects, restart SSE with `projects` query param to reduce ongoing SSE traffic.
 
-**Add options** to `pkg/api/applications.go`:
-```go
-type WatchOptions struct {
-    Projects        []string
-    ResourceVersion string
-    Fields          []string
-}
-```
+**Implementation:**
+- `WatchOptions.Projects` (already existed from Phase 1) is now wired through `startWatchingApplications()` to the watch URL
+- `maybeRestartWatchForScope()` detects when `ScopeProjects` differs from the current watch filter
+- 500ms debounce via `watchScopeDebounceMsg` prevents thrashing during rapid navigation
+- `restartWatchWithScope()` cancels the old watch (via stored cleanup func) and starts a new one
+- Watch generation counter (`watchGeneration`) prevents stale batch handlers from spawning duplicate consumers
+- `consumeWatchEvents()` captures `ch` and `gen` at call time to avoid races on watch restart
+- `watchStartedMsg` goroutine captures the channel locally (not via `m.watchChan`) so old goroutines don't close new channels
 
-**Scoped watch trigger** — when `ScopeProjects` changes:
-1. `m.argoService.Cleanup()` to close current stream
-2. Start new watch with `WatchOptions{Projects: selectedProjects}`
-3. Debounce 500ms to avoid thrashing during rapid navigation
+**Bug fixes included:**
+- Fixed `AppsLoadedMsg` handler to not call `consumeWatchEvents()` when watch is already running (avoids duplicate consumers)
+- Fixed `watchStartedMsg` forwarding goroutine to use captured local channel instead of `m.watchChan`
 
 **Files changed:**
-- `pkg/api/applications.go` — `WatchOptions` struct, update URL building
-- `pkg/services/argo.go` — update interface to accept options
-- `cmd/app/api_integration.go` — `restartWatchWithScope()`
-- `cmd/app/model.go` — trigger reconnect on scope change
+- `pkg/model/messages.go` — add `Generation` field to `AppsBatchUpdateMsg`
+- `cmd/app/api_integration.go` — `restartWatchWithScope()`, `maybeRestartWatchForScope()`, updated `consumeWatchEvents()` and `startWatchingApplications()`
+- `cmd/app/model.go` — watch lifecycle fields, `watchScopeDebounceMsg` handler, generation checking in batch handler
+- `cmd/app/input_handlers.go` — trigger scope check in `handleDrillDown()` and `handleEscape()`
+- `cmd/app/batch_watch_test.go` — 10 new tests for Phase 4 (generation, channel capture, helpers, scope detection)
 
 ---
 

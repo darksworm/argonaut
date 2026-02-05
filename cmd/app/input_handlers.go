@@ -201,6 +201,11 @@ func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Phase 4: Check if project scope changed → restart watch with project filter
+	if cmd := m.maybeRestartWatchForScope(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -421,7 +426,8 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			m.state.Selections.ScopeClusters = model.NewStringSet()
 			m.state.Navigation.SelectedIdx = 0
 		}
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
 	}
 }
 

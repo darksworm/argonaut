@@ -250,3 +250,146 @@ func TestConsumeWatchEvents_ClosedChannel(t *testing.T) {
 		t.Errorf("expected nil for closed watchChan, got %T", msg)
 	}
 }
+
+func TestConsumeWatchEvents_GenerationTagged(t *testing.T) {
+	m := &Model{
+		watchChan:       make(chan services.ArgoApiEvent, 10),
+		watchGeneration: 5,
+	}
+
+	m.watchChan <- services.ArgoApiEvent{
+		Type: "app-updated",
+		App:  &model.App{Name: "test"},
+	}
+
+	cmd := m.consumeWatchEvents()
+	msg := cmd()
+
+	batch, ok := msg.(model.AppsBatchUpdateMsg)
+	if !ok {
+		t.Fatalf("expected AppsBatchUpdateMsg, got %T", msg)
+	}
+	if batch.Generation != 5 {
+		t.Errorf("expected generation 5, got %d", batch.Generation)
+	}
+}
+
+func TestConsumeWatchEvents_CapturesChannelAtCallTime(t *testing.T) {
+	// Verify that consumeWatchEvents captures the channel at call time,
+	// not at execution time. This prevents races when the watch is restarted.
+	oldCh := make(chan services.ArgoApiEvent, 10)
+	m := &Model{watchChan: oldCh}
+
+	// Create the command (captures oldCh)
+	cmd := m.consumeWatchEvents()
+
+	// Replace the channel (simulating a watch restart)
+	newCh := make(chan services.ArgoApiEvent, 10)
+	m.watchChan = newCh
+
+	// Send event to OLD channel
+	oldCh <- services.ArgoApiEvent{
+		Type: "app-updated",
+		App:  &model.App{Name: "from-old"},
+	}
+
+	// The command should read from the OLD channel
+	msg := cmd()
+	batch, ok := msg.(model.AppsBatchUpdateMsg)
+	if !ok {
+		t.Fatalf("expected AppsBatchUpdateMsg, got %T", msg)
+	}
+	if len(batch.Updates) != 1 || batch.Updates[0].App.Name != "from-old" {
+		t.Errorf("expected update from old channel, got %v", batch.Updates)
+	}
+}
+
+func TestSortedScopeProjects(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]bool
+		expected []string
+	}{
+		{"nil map", nil, nil},
+		{"empty map", map[string]bool{}, nil},
+		{"single project", map[string]bool{"proj-a": true}, []string{"proj-a"}},
+		{"multiple sorted", map[string]bool{"proj-c": true, "proj-a": true, "proj-b": true}, []string{"proj-a", "proj-b", "proj-c"}},
+		{"with false values", map[string]bool{"proj-a": true, "proj-b": false, "proj-c": true}, []string{"proj-a", "proj-c"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sortedScopeProjects(tt.input)
+			if !stringSlicesEqual(result, tt.expected) {
+				t.Errorf("sortedScopeProjects(%v) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestStringSlicesEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		a, b     []string
+		expected bool
+	}{
+		{"both nil", nil, nil, true},
+		{"both empty", []string{}, []string{}, true},
+		{"nil vs empty", nil, []string{}, true}, // both length 0
+		{"equal", []string{"a", "b"}, []string{"a", "b"}, true},
+		{"different length", []string{"a"}, []string{"a", "b"}, false},
+		{"different content", []string{"a", "b"}, []string{"a", "c"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := stringSlicesEqual(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("stringSlicesEqual(%v, %v) = %v, want %v", tt.a, tt.b, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMaybeRestartWatchForScope_NoChange(t *testing.T) {
+	m := &Model{
+		state:              model.NewAppState(),
+		watchScopeProjects: nil,
+	}
+	// No scope set, no change → should return nil
+	cmd := m.maybeRestartWatchForScope()
+	if cmd != nil {
+		t.Error("expected nil cmd when scope hasn't changed")
+	}
+}
+
+func TestMaybeRestartWatchForScope_ScopeChanged(t *testing.T) {
+	m := &Model{
+		state:              model.NewAppState(),
+		watchScopeProjects: nil,
+		scopeVersion:       0,
+	}
+	// Set a project scope
+	m.state.Selections.ScopeProjects = map[string]bool{"proj-a": true}
+
+	cmd := m.maybeRestartWatchForScope()
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd when scope changed")
+	}
+	if m.scopeVersion != 1 {
+		t.Errorf("expected scopeVersion 1, got %d", m.scopeVersion)
+	}
+}
+
+func TestMaybeRestartWatchForScope_SameScope(t *testing.T) {
+	m := &Model{
+		state:              model.NewAppState(),
+		watchScopeProjects: []string{"proj-a"},
+	}
+	m.state.Selections.ScopeProjects = map[string]bool{"proj-a": true}
+
+	cmd := m.maybeRestartWatchForScope()
+	if cmd != nil {
+		t.Error("expected nil cmd when scope matches current watch")
+	}
+}
