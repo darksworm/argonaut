@@ -94,7 +94,53 @@ type WatchEventResult struct {
 
 // ListApplicationsResponse represents the response from listing applications
 type ListApplicationsResponse struct {
+	Metadata struct {
+		ResourceVersion string `json:"resourceVersion"`
+	} `json:"metadata"`
 	Items []ArgoApplication `json:"items"`
+}
+
+// ListApplicationsResult wraps the list result with metadata for watch coordination
+type ListApplicationsResult struct {
+	Apps            []model.App
+	ResourceVersion string
+}
+
+// AppListFields contains the fields needed for the app list view.
+// Based on analysis of ConvertToApp() and getVisibleItems():
+//   metadata.name, metadata.namespace, metadata.ownerReferences → Name, AppNamespace, ApplicationSet
+//   spec.destination → ClusterID, ClusterLabel, Namespace
+//   spec.project → Project
+//   status.sync.status, status.health → Sync, Health
+//   status.operationState.finishedAt/startedAt → LastSyncAt
+var AppListFields = []string{
+	"metadata.resourceVersion",
+	"items.metadata.name",
+	"items.metadata.namespace",
+	"items.metadata.ownerReferences",
+	"items.spec.destination",
+	"items.spec.project",
+	"items.status.sync.status",
+	"items.status.health",
+	"items.status.operationState.finishedAt",
+	"items.status.operationState.startedAt",
+}
+
+// AppWatchFields contains the fields needed for the watch stream.
+// Includes status.resources because watch events forward resource sync statuses
+// to the tree view via handleWatchEvent() → ArgoApiEvent.Resources.
+var AppWatchFields = []string{
+	"result.type",
+	"result.application.metadata.name",
+	"result.application.metadata.namespace",
+	"result.application.metadata.ownerReferences",
+	"result.application.spec.destination",
+	"result.application.spec.project",
+	"result.application.status.sync.status",
+	"result.application.status.health",
+	"result.application.status.operationState.finishedAt",
+	"result.application.status.operationState.startedAt",
+	"result.application.status.resources",
 }
 
 // DeploymentHistory represents a deployment history entry from ArgoCD API
@@ -150,18 +196,39 @@ func NewApplicationService(server *model.Server) *ApplicationService {
 
 // ListApplications retrieves all applications from ArgoCD
 func (s *ApplicationService) ListApplications(ctx context.Context) ([]model.App, error) {
-	data, err := s.client.Get(ctx, "/api/v1/applications")
+	result, err := s.ListApplicationsWithMeta(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.Apps, nil
+}
+
+// ListApplicationsWithMeta retrieves all applications with metadata (resourceVersion)
+// for coordinating with watch streams
+func (s *ApplicationService) ListApplicationsWithMeta(ctx context.Context) (*ListApplicationsResult, error) {
+	// Build URL with field selection
+	endpoint := "/api/v1/applications"
+	if len(AppListFields) > 0 {
+		endpoint += "?fields=" + url.QueryEscape(strings.Join(AppListFields, ","))
+	}
+
+	data, err := s.client.Get(ctx, endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list applications: %w", err)
 	}
 
-	// First, try to parse as { items: [...] }
+	// First, try to parse as { metadata: { resourceVersion: "..." }, items: [...] }
 	var withItems struct {
+		Metadata struct {
+			ResourceVersion string `json:"resourceVersion"`
+		} `json:"metadata"`
 		Items []json.RawMessage `json:"items"`
 	}
 	if err := json.Unmarshal(data, &withItems); err != nil {
 		return nil, fmt.Errorf("failed to parse applications response: %w", err)
 	}
+
+	resourceVersion := withItems.Metadata.ResourceVersion
 
 	var rawItems []json.RawMessage
 	if len(withItems.Items) > 0 {
@@ -216,7 +283,10 @@ func (s *ApplicationService) ListApplications(ctx context.Context) ([]model.App,
 		apps = append(apps, app)
 	}
 
-	return apps, nil
+	return &ListApplicationsResult{
+		Apps:            apps,
+		ResourceVersion: resourceVersion,
+	}, nil
 }
 
 // GetManagedResourceDiffs fetches managed resource diffs for an application
@@ -281,10 +351,42 @@ func (s *ApplicationService) SyncApplication(ctx context.Context, appName string
 	return nil
 }
 
+// WatchOptions configures the watch stream
+type WatchOptions struct {
+	ResourceVersion string   // Start watching from this version (avoids initial full dump)
+	Fields          []string // Field selection for watch events
+	Projects        []string // Filter by project names
+}
+
 // WatchApplications starts watching for application changes
 func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan chan<- ApplicationWatchEvent) error {
-	cblog.With("component", "api").Info("WatchApplications: attempting to establish stream", "endpoint", "/api/v1/stream/applications")
-	streamResp, err := s.client.Stream(ctx, "/api/v1/stream/applications")
+	return s.WatchApplicationsWithOptions(ctx, eventChan, nil)
+}
+
+// WatchApplicationsWithOptions starts watching with configurable options
+func (s *ApplicationService) WatchApplicationsWithOptions(ctx context.Context, eventChan chan<- ApplicationWatchEvent, opts *WatchOptions) error {
+	// Build the stream URL with query parameters
+	endpoint := "/api/v1/stream/applications"
+	params := url.Values{}
+
+	if opts != nil {
+		if opts.ResourceVersion != "" {
+			params.Set("resourceVersion", opts.ResourceVersion)
+		}
+		if len(opts.Fields) > 0 {
+			params.Set("fields", strings.Join(opts.Fields, ","))
+		}
+		for _, p := range opts.Projects {
+			params.Add("projects", p)
+		}
+	}
+
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
+	}
+
+	cblog.With("component", "api").Info("WatchApplications: attempting to establish stream", "endpoint", endpoint)
+	streamResp, err := s.client.Stream(ctx, endpoint)
 	if err != nil {
 		cblog.With("component", "api").Error("WatchApplications: failed to establish stream", "error", err)
 		return fmt.Errorf("failed to start watch stream: %w", err)

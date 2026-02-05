@@ -50,6 +50,9 @@ type Model struct {
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 
+	// Resource version from last list call (for watch coordination)
+	lastResourceVersion string
+
 	// bubbles spinner for loading
 	spinner spinner.Model
 
@@ -313,8 +316,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.AppsLoadedMsg:
 		cblog.With("component", "model").Info("AppsLoadedMsg received",
 			"apps_count", len(msg.Apps),
-			"watchChan_nil", m.watchChan == nil)
+			"watchChan_nil", m.watchChan == nil,
+			"resourceVersion", msg.ResourceVersion)
 		m.state.Apps = msg.Apps
+		// Store resource version for watch coordination
+		if msg.ResourceVersion != "" {
+			m.lastResourceVersion = msg.ResourceVersion
+		}
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
 		// m.ui.UpdateListItems(m.state)

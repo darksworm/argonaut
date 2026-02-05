@@ -41,9 +41,8 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		// Create a new ArgoApiService with the current server
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		// Load applications
-		// [API] Calling ListApplications - removed printf to avoid TUI interference
-		apps, err := apiService.ListApplications(ctx, m.state.Server)
+		// Load applications with metadata (resourceVersion for watch coordination)
+		result, err := apiService.ListApplicationsWithMeta(ctx, m.state.Server)
 		if err != nil {
 			// Unwrap structured errors if wrapped
 			var argErr *apperrors.ArgonautError
@@ -62,8 +61,10 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		}
 
 		// Successfully loaded applications
-		// [API] Successfully loaded applications - removed printf to avoid TUI interference
-		return model.AppsLoadedMsg{Apps: apps}
+		return model.AppsLoadedMsg{
+			Apps:            result.Apps,
+			ResourceVersion: result.ResourceVersion,
+		}
 	}
 }
 
@@ -74,21 +75,33 @@ type watchStartedMsg struct {
 
 // startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
-	cblog.With("component", "api_integration").Info("startWatchingApplications called", "watchChan_nil", m.watchChan == nil)
+	cblog.With("component", "api_integration").Info("startWatchingApplications called",
+		"watchChan_nil", m.watchChan == nil,
+		"resourceVersion", m.lastResourceVersion)
 	if m.state.Server == nil {
 		return nil
 	}
 
+	// Capture resourceVersion at call time (before closure executes)
+	resourceVersion := m.lastResourceVersion
+
 	return func() tea.Msg {
-		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup")
+		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup",
+			"resourceVersion", resourceVersion)
 		// Create context for the watch stream
 		ctx := context.Background()
 
 		// Create a new ArgoApiService with the current server
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		// Start watching applications
-		eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
+		// Build watch options with resourceVersion and field selection
+		watchOpts := &api.WatchOptions{
+			ResourceVersion: resourceVersion,
+			Fields:          api.AppWatchFields,
+		}
+
+		// Start watching applications with options
+		eventChan, _, err := apiService.WatchApplicationsWithOptions(ctx, m.state.Server, watchOpts)
 		if err != nil {
 			// Promote auth-related errors to AuthErrorMsg
 			var argErr *apperrors.ArgonautError

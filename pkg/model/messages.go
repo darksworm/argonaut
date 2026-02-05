@@ -157,7 +157,8 @@ type SetAPIVersionMsg struct {
 
 // AppsLoadedMsg is sent when apps are loaded
 type AppsLoadedMsg struct {
-	Apps []App
+	Apps            []App
+	ResourceVersion string // For coordinating with watch stream
 }
 
 // AppUpdatedMsg is sent when an app is updated
