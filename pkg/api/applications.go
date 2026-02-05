@@ -92,14 +92,6 @@ type WatchEventResult struct {
 	Result ApplicationWatchEvent `json:"result"`
 }
 
-// ListApplicationsResponse represents the response from listing applications
-type ListApplicationsResponse struct {
-	Metadata struct {
-		ResourceVersion string `json:"resourceVersion"`
-	} `json:"metadata"`
-	Items []ArgoApplication `json:"items"`
-}
-
 // ListApplicationsResult wraps the list result with metadata for watch coordination
 type ListApplicationsResult struct {
 	Apps            []model.App
