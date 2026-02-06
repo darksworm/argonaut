@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
@@ -292,24 +293,49 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case watchStartedMsg:
 		m.cleanupAppWatcher()
-		m.appWatchCleanup = msg.cleanup
 
 		// Set up the watch channel with proper forwarding
 		m.watchChan = make(chan services.ArgoApiEvent, 100)
 		outCh := m.watchChan
+		stopForwarding := make(chan struct{})
+		var stopOnce sync.Once
+		upstreamCleanup := msg.cleanup
+		m.appWatchCleanup = func() {
+			stopOnce.Do(func() {
+				close(stopForwarding)
+			})
+			if upstreamCleanup != nil {
+				upstreamCleanup()
+			}
+		}
+
 		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
 		go func() {
+			defer close(outCh)
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
 			eventCount := 0
-			for ev := range msg.eventChan {
-				eventCount++
-				cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
-					"event_number", eventCount,
-					"type", ev.Type)
-				outCh <- ev
+			for {
+				select {
+				case <-stopForwarding:
+					cblog.With("component", "watch").Debug("watchStartedMsg: stop signal received")
+					return
+				case ev, ok := <-msg.eventChan:
+					if !ok {
+						cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed")
+						return
+					}
+					eventCount++
+					cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
+						"event_number", eventCount,
+						"type", ev.Type)
+					select {
+					case outCh <- ev:
+					case <-stopForwarding:
+						cblog.With("component", "watch").Debug("watchStartedMsg: stop while forwarding event")
+						return
+					}
+				}
 			}
-			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
-			close(outCh)
 		}()
 		// Start consuming events
 		return m, tea.Batch(

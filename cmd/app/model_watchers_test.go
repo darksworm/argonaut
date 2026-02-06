@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -99,5 +100,42 @@ func TestAuthErrorMsg_CleansUpAppWatcher(t *testing.T) {
 	}
 	if m.appWatchCleanup != nil {
 		t.Fatal("expected appWatchCleanup to be cleared after auth error")
+	}
+}
+
+func TestWatchStartedMsg_CleanupStopsForwarderWithoutUpstreamClose(t *testing.T) {
+	m := NewModel(nil)
+
+	cleanupCalls := 0
+	eventChan := make(chan services.ArgoApiEvent)
+
+	newModel, cmd := m.Update(watchStartedMsg{
+		eventChan: eventChan,
+		cleanup:   func() { cleanupCalls++ },
+	})
+	m = newModel.(*Model)
+
+	if cmd == nil {
+		t.Fatal("expected consumeWatchEvent command from watchStartedMsg")
+	}
+
+	done := make(chan any, 1)
+	go func() {
+		done <- cmd()
+	}()
+
+	m.cleanupAppWatcher()
+
+	select {
+	case msg := <-done:
+		if msg != nil {
+			t.Fatalf("expected nil message when watcher is stopped, got %T", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("consumeWatchEvent did not unblock after cleanup")
+	}
+
+	if cleanupCalls != 1 {
+		t.Fatalf("expected upstream cleanup to be called once, got %d", cleanupCalls)
 	}
 }
