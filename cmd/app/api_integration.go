@@ -70,6 +70,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 // WatchStartedMsg indicates the watch stream has started
 type watchStartedMsg struct {
 	eventChan <-chan services.ArgoApiEvent
+	cleanup   func()
 }
 
 // startWatchingApplications starts the real-time watch stream
@@ -88,7 +89,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Start watching applications
-		eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
+		eventChan, cleanup, err := apiService.WatchApplications(ctx, m.state.Server)
 		if err != nil {
 			// Promote auth-related errors to AuthErrorMsg
 			var argErr *apperrors.ArgonautError
@@ -106,7 +107,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
-		return watchStartedMsg{eventChan: eventChan}
+		return watchStartedMsg{eventChan: eventChan, cleanup: cleanup}
 	}
 }
 
