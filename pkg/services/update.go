@@ -537,7 +537,7 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 		}
 
 		switch header.Typeflag {
-		case tar.TypeReg:
+		case tar.TypeReg, tar.TypeRegA:
 			// Regular file
 			file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
@@ -556,6 +556,8 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 			}
 		case tar.TypeSymlink, tar.TypeLink:
 			return fmt.Errorf("unsupported archive entry type for %s", header.Name)
+		default:
+			return fmt.Errorf("unsupported tar entry type %q for %s (size=%d)", header.Typeflag, header.Name, header.Size)
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/darksworm/argonaut/pkg/model"
@@ -76,6 +77,40 @@ func TestExtractTarGzRejectsSymlink(t *testing.T) {
 	err := svc.extractTarGz(bytes.NewReader(archive), destDir)
 	if err == nil {
 		t.Fatal("expected symlink archive entry to be rejected")
+	}
+}
+
+func TestExtractTarGzRejectsUnknownTypeWithPayload(t *testing.T) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	payload := []byte("unsupported payload")
+	if err := tw.WriteHeader(&tar.Header{
+		Name:     "unknown",
+		Mode:     0o600,
+		Size:     int64(len(payload)),
+		Typeflag: byte('V'),
+	}); err != nil {
+		t.Fatalf("write unknown header: %v", err)
+	}
+	if _, err := tw.Write(payload); err != nil {
+		t.Fatalf("write unknown payload: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+
+	svc := &UpdateServiceImpl{}
+	err := svc.extractTarGz(bytes.NewReader(buf.Bytes()), t.TempDir())
+	if err == nil {
+		t.Fatal("expected unknown tar type to be rejected")
+	}
+	if !strings.Contains(err.Error(), "unsupported tar entry type") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

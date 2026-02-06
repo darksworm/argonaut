@@ -50,6 +50,8 @@ type Model struct {
 
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
+	// Closed when the current app watch forwarder stops.
+	watchDone chan struct{}
 	// Cleanup callback for active applications watcher
 	appWatchCleanup func()
 
@@ -295,8 +297,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cleanupAppWatcher()
 
 		// Set up the watch channel with proper forwarding
-		m.watchChan = make(chan services.ArgoApiEvent, 100)
-		outCh := m.watchChan
+		outCh := make(chan services.ArgoApiEvent, 100)
+		done := make(chan struct{})
+		m.watchChan = outCh
+		m.watchDone = done
 		stopForwarding := make(chan struct{})
 		var stopOnce sync.Once
 		upstreamCleanup := msg.cleanup
@@ -311,7 +315,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
 		go func() {
-			defer close(outCh)
+			defer close(done)
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
 			eventCount := 0
 			for {

@@ -130,14 +130,25 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 
 // consumeWatchEvent reads a single service event and converts it to a tea message
 func (m *Model) consumeWatchEvent() tea.Cmd {
+	ch := m.watchChan
+	done := m.watchDone
 	return func() tea.Msg {
-		if m.watchChan == nil {
+		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
 			return nil
 		}
-		ev, ok := <-m.watchChan
-		if !ok {
-			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+		var (
+			ev services.ArgoApiEvent
+			ok bool
+		)
+		select {
+		case ev, ok = <-ch:
+			if !ok {
+				cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+				return nil
+			}
+		case <-done:
+			cblog.With("component", "watch").Debug("consumeWatchEvent: watchDone signaled")
 			return nil
 		}
 		cblog.With("component", "watch").Debug("consumeWatchEvent: received event",
