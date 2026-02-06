@@ -50,6 +50,10 @@ type Model struct {
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 
+	// Closed by the forwarder when the current watch stream ends.
+	// Keeps shutdown signaling separate from the shared event channel.
+	watchDone chan struct{}
+
 	// Watch cleanup function for stopping the current watch stream
 	watchCleanup func()
 
@@ -337,10 +341,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// IMPORTANT: capture ch locally so the goroutine always operates on THIS
 		// channel even if m.watchChan is replaced by a scoped watch restart.
 		ch := make(chan services.ArgoApiEvent, 100)
+		done := make(chan struct{})
 		m.watchChan = ch
+		m.watchDone = done
 		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding",
 			"generation", m.watchGeneration)
 		go func() {
+			defer close(done)
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
 			eventCount := 0
 			for ev := range msg.eventChan {
@@ -350,8 +357,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					"type", ev.Type)
 				ch <- ev
 			}
-			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
-			close(ch)
+			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, signaling watchDone")
 		}()
 		// Start consuming events (batched)
 		return m, m.consumeWatchEvents()
