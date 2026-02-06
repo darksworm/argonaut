@@ -256,24 +256,16 @@ func classifyWatchEvent(ev services.ArgoApiEvent) eventResult {
 func (m *Model) consumeWatchEvents() tea.Cmd {
 	ch := m.watchChan        // capture at call time
 	gen := m.watchGeneration // capture at call time
-	done := m.watchDone      // capture at call time
 	return func() tea.Msg {
 		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
 			return nil
 		}
 
-		// Block on first event or stream completion.
-		var ev services.ArgoApiEvent
-		var ok bool
-		select {
-		case ev, ok = <-ch:
-			if !ok {
-				cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
-				return nil
-			}
-		case <-done:
-			cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
+		// Block on first event
+		ev, ok := <-ch
+		if !ok {
+			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
 			return nil
 		}
 
@@ -328,8 +320,6 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 				if op, ok := result.toBatchOperation(); ok {
 					operations = append(operations, op)
 				}
-			case <-done:
-				break loop
 			case <-timer.C:
 				break loop
 			}
