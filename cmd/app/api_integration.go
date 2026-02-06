@@ -71,8 +71,12 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 
 // watchStartedMsg indicates the watch stream has started
 type watchStartedMsg struct {
-	eventChan <-chan services.ArgoApiEvent
-	cleanup   func()
+	eventChan        <-chan services.ArgoApiEvent
+	cleanup          func()
+	generation       int
+	scopeProjects    []string
+	replaceOldWatch  func()
+	startSequenceNum int
 }
 
 // watchScopeDebounceMsg is sent after 500ms to trigger a scoped watch restart.
@@ -83,22 +87,33 @@ type watchScopeDebounceMsg struct {
 
 // startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
+	return m.startWatchingApplicationsWithConfig(m.watchScopeProjects, m.watchGeneration, nil)
+}
+
+func (m *Model) startWatchingApplicationsWithConfig(projects []string, generation int, replaceOldWatch func()) tea.Cmd {
 	cblog.With("component", "api_integration").Info("startWatchingApplications called",
 		"watchChan_nil", m.watchChan == nil,
 		"resourceVersion", m.lastResourceVersion,
-		"scopeProjects", m.watchScopeProjects)
+		"scopeProjects", projects,
+		"generation", generation)
 	if m.state.Server == nil {
 		return nil
 	}
 
+	m.watchStartSequence++
+	startSeq := m.watchStartSequence
 	// Capture values at call time (before closure executes)
 	resourceVersion := m.lastResourceVersion
-	projects := m.watchScopeProjects
+	capturedProjects := append([]string(nil), projects...)
+	capturedGeneration := generation
+	capturedReplaceOldWatch := replaceOldWatch
 
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup",
 			"resourceVersion", resourceVersion,
-			"projects", projects)
+			"projects", capturedProjects,
+			"generation", capturedGeneration,
+			"start_seq", startSeq)
 		// Create context for the watch stream
 		ctx := context.Background()
 
@@ -109,7 +124,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 		watchOpts := &api.WatchOptions{
 			ResourceVersion: resourceVersion,
 			Fields:          api.AppWatchFields,
-			Projects:        projects,
+			Projects:        capturedProjects,
 		}
 
 		// Start watching applications with options
@@ -131,7 +146,14 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
-		return watchStartedMsg{eventChan: eventChan, cleanup: cleanup}
+		return watchStartedMsg{
+			eventChan:        eventChan,
+			cleanup:          cleanup,
+			generation:       capturedGeneration,
+			scopeProjects:    capturedProjects,
+			replaceOldWatch:  capturedReplaceOldWatch,
+			startSequenceNum: startSeq,
+		}
 	}
 }
 
@@ -157,6 +179,22 @@ type eventResult struct {
 	update     *model.AppUpdatedMsg // non-nil for app-updated events
 	deleteName string               // non-empty for app-deleted events
 	immediate  tea.Msg              // non-nil for non-batchable events (auth-error, api-error, etc.)
+}
+
+func (r eventResult) toBatchOperation() (model.AppBatchOperation, bool) {
+	if r.update != nil {
+		return model.AppBatchOperation{
+			Type:   model.AppBatchOperationUpdate,
+			Update: r.update,
+		}, true
+	}
+	if r.deleteName != "" {
+		return model.AppBatchOperation{
+			Type:   model.AppBatchOperationDelete,
+			Delete: r.deleteName,
+		}, true
+	}
+	return model.AppBatchOperation{}, false
 }
 
 // classifyWatchEvent converts a service event into an eventResult for batching.
@@ -216,8 +254,8 @@ func classifyWatchEvent(ev services.ArgoApiEvent) eventResult {
 // batch tagged with the old generation. The handler checks the generation to avoid
 // spawning duplicate consumers for the new channel.
 func (m *Model) consumeWatchEvents() tea.Cmd {
-	ch := m.watchChan         // capture at call time
-	gen := m.watchGeneration  // capture at call time
+	ch := m.watchChan        // capture at call time
+	gen := m.watchGeneration // capture at call time
 	return func() tea.Msg {
 		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
@@ -241,11 +279,15 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 		// Start batching
 		var updates []model.AppUpdatedMsg
 		var deletes []string
+		var operations []model.AppBatchOperation
 		if result.update != nil {
 			updates = append(updates, *result.update)
 		}
 		if result.deleteName != "" {
 			deletes = append(deletes, result.deleteName)
+		}
+		if op, ok := result.toBatchOperation(); ok {
+			operations = append(operations, op)
 		}
 
 		// Drain for up to 500ms
@@ -271,6 +313,9 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 				if result.deleteName != "" {
 					deletes = append(deletes, result.deleteName)
 				}
+				if op, ok := result.toBatchOperation(); ok {
+					operations = append(operations, op)
+				}
 			case <-timer.C:
 				break loop
 			}
@@ -285,6 +330,7 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 		return model.AppsBatchUpdateMsg{
 			Updates:    updates,
 			Deletes:    deletes,
+			Operations: operations,
 			Immediate:  immediate,
 			Generation: gen,
 		}
@@ -313,23 +359,15 @@ func (m *Model) maybeRestartWatchForScope() tea.Cmd {
 // filtered to the active ScopeProjects. This reduces ongoing SSE traffic when
 // the user has drilled down to specific projects.
 func (m *Model) restartWatchWithScope() tea.Cmd {
-	m.watchScopeProjects = sortedScopeProjects(m.state.Selections.ScopeProjects)
-	m.watchGeneration++ // Invalidate old consumers
+	newProjects := sortedScopeProjects(m.state.Selections.ScopeProjects)
+	targetGeneration := m.watchGeneration + 1
 	cblog.With("component", "watch").Info("restartWatchWithScope: restarting watch",
-		"projects", m.watchScopeProjects,
-		"generation", m.watchGeneration)
+		"projects", newProjects,
+		"target_generation", targetGeneration)
 
-	// Stop current watch
-	if m.watchCleanup != nil {
-		m.watchCleanup()
-		m.watchCleanup = nil
-	}
-	// Note: m.watchChan will be closed by the forwarding goroutine when it detects
-	// the service eventChan closed. The old consumeWatchEvents will receive ok=false
-	// and return nil, naturally ending the old watch chain.
-
-	// Start new watch (will create new watchChan via watchStartedMsg)
-	return m.startWatchingApplications()
+	// Start the new watch first; once it is confirmed via watchStartedMsg,
+	// we stop the old stream to avoid dropping updates during setup failures.
+	return m.startWatchingApplicationsWithConfig(newProjects, targetGeneration, m.watchCleanup)
 }
 
 // sortedScopeProjects extracts project names from a scope map and returns them sorted.

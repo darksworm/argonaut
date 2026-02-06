@@ -137,6 +137,18 @@ func TestConsumeWatchEvents_MixedUpdatesAndDeletes(t *testing.T) {
 	if batch.Deletes[0] != "app-2" {
 		t.Errorf("expected delete of 'app-2', got %q", batch.Deletes[0])
 	}
+	if len(batch.Operations) != 3 {
+		t.Fatalf("expected 3 ordered operations, got %d", len(batch.Operations))
+	}
+	if batch.Operations[0].Type != model.AppBatchOperationUpdate || batch.Operations[0].Update == nil || batch.Operations[0].Update.App.Name != "app-1" {
+		t.Fatalf("unexpected operation[0]: %#v", batch.Operations[0])
+	}
+	if batch.Operations[1].Type != model.AppBatchOperationDelete || batch.Operations[1].Delete != "app-2" {
+		t.Fatalf("unexpected operation[1]: %#v", batch.Operations[1])
+	}
+	if batch.Operations[2].Type != model.AppBatchOperationUpdate || batch.Operations[2].Update == nil || batch.Operations[2].Update.App.Name != "app-3" {
+		t.Fatalf("unexpected operation[2]: %#v", batch.Operations[2])
+	}
 }
 
 func TestConsumeWatchEvents_ImmediateEventStopsBatching(t *testing.T) {
@@ -391,5 +403,139 @@ func TestMaybeRestartWatchForScope_SameScope(t *testing.T) {
 	cmd := m.maybeRestartWatchForScope()
 	if cmd != nil {
 		t.Error("expected nil cmd when scope matches current watch")
+	}
+}
+
+func TestRestartWatchWithScope_DoesNotStopOldWatchBeforeStartSucceeds(t *testing.T) {
+	stoppedOldWatch := false
+	m := &Model{
+		state: model.NewAppState(),
+		watchCleanup: func() {
+			stoppedOldWatch = true
+		},
+	}
+	m.state.Server = &model.Server{BaseURL: "https://example.com", Token: "x"}
+	m.state.Selections.ScopeProjects = map[string]bool{"proj-a": true}
+
+	_ = m.restartWatchWithScope()
+
+	if stoppedOldWatch {
+		t.Fatal("expected old watch to remain active until new watch starts")
+	}
+}
+
+func TestWatchStartedMsg_IgnoresStaleStartAndCleansItUp(t *testing.T) {
+	staleCleanupCalled := false
+	m := &Model{
+		state:              model.NewAppState(),
+		watchStartSequence: 5,
+		watchGeneration:    2,
+	}
+
+	msg := watchStartedMsg{
+		eventChan:        make(chan services.ArgoApiEvent),
+		cleanup:          func() { staleCleanupCalled = true },
+		generation:       3,
+		scopeProjects:    []string{"proj-a"},
+		startSequenceNum: 4, // stale
+	}
+
+	_, cmd := m.Update(msg)
+	if cmd != nil {
+		t.Fatal("expected nil cmd for stale watchStartedMsg")
+	}
+	if !staleCleanupCalled {
+		t.Fatal("expected stale watch to be cleaned up")
+	}
+	if m.watchCleanup != nil {
+		t.Fatal("expected active watch cleanup to remain unchanged")
+	}
+	if m.watchGeneration != 2 {
+		t.Fatalf("expected generation unchanged, got %d", m.watchGeneration)
+	}
+}
+
+func TestWatchStartedMsg_AppliesFreshStartAndStopsOldWatch(t *testing.T) {
+	oldWatchStopped := false
+	newWatchStopped := false
+	eventChan := make(chan services.ArgoApiEvent)
+	defer close(eventChan)
+
+	m := &Model{
+		state:              model.NewAppState(),
+		watchStartSequence: 7,
+		watchGeneration:    2,
+	}
+
+	msg := watchStartedMsg{
+		eventChan:        eventChan,
+		cleanup:          func() { newWatchStopped = true },
+		generation:       3,
+		scopeProjects:    []string{"proj-a", "proj-b"},
+		replaceOldWatch:  func() { oldWatchStopped = true },
+		startSequenceNum: 7,
+	}
+
+	_, cmd := m.Update(msg)
+	if cmd == nil {
+		t.Fatal("expected consume command for fresh watch start")
+	}
+	if !oldWatchStopped {
+		t.Fatal("expected old watch to be stopped after new start was confirmed")
+	}
+	if newWatchStopped {
+		t.Fatal("did not expect new watch cleanup to run")
+	}
+	if m.watchGeneration != 3 {
+		t.Fatalf("expected generation 3, got %d", m.watchGeneration)
+	}
+	if len(m.watchScopeProjects) != 2 || m.watchScopeProjects[0] != "proj-a" || m.watchScopeProjects[1] != "proj-b" {
+		t.Fatalf("unexpected watch scope projects: %v", m.watchScopeProjects)
+	}
+	if m.watchCleanup == nil {
+		t.Fatal("expected new watch cleanup to be stored")
+	}
+}
+
+func TestAppsBatchUpdateMsg_PreservesDeleteThenUpdateOrder(t *testing.T) {
+	m := &Model{state: model.NewAppState()}
+	m.state.Apps = []model.App{{Name: "app-a", Health: "Old"}}
+	m.state.Index = model.BuildAppIndex(m.state.Apps)
+
+	msg := model.AppsBatchUpdateMsg{
+		Operations: []model.AppBatchOperation{
+			{Type: model.AppBatchOperationDelete, Delete: "app-a"},
+			{Type: model.AppBatchOperationUpdate, Update: &model.AppUpdatedMsg{App: model.App{Name: "app-a", Health: "New"}}},
+		},
+		Generation: 0,
+	}
+
+	_, _ = m.Update(msg)
+
+	if len(m.state.Apps) != 1 {
+		t.Fatalf("expected app recreated by ordered operations, got %d apps", len(m.state.Apps))
+	}
+	if m.state.Apps[0].Health != "New" {
+		t.Fatalf("expected recreated app health 'New', got %q", m.state.Apps[0].Health)
+	}
+}
+
+func TestAppsBatchUpdateMsg_PreservesUpdateThenDeleteOrder(t *testing.T) {
+	m := &Model{state: model.NewAppState()}
+	m.state.Apps = []model.App{{Name: "app-a", Health: "Old"}}
+	m.state.Index = model.BuildAppIndex(m.state.Apps)
+
+	msg := model.AppsBatchUpdateMsg{
+		Operations: []model.AppBatchOperation{
+			{Type: model.AppBatchOperationUpdate, Update: &model.AppUpdatedMsg{App: model.App{Name: "app-a", Health: "New"}}},
+			{Type: model.AppBatchOperationDelete, Delete: "app-a"},
+		},
+		Generation: 0,
+	}
+
+	_, _ = m.Update(msg)
+
+	if len(m.state.Apps) != 0 {
+		t.Fatalf("expected app deleted by ordered operations, got %d apps", len(m.state.Apps))
 	}
 }

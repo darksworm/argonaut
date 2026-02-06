@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -64,6 +63,9 @@ type Model struct {
 
 	// Debounce version counter for scope changes (prevents thrashing during rapid navigation)
 	scopeVersion int
+
+	// Monotonic sequence for start-watch attempts; guards against late/stale starts.
+	watchStartSequence int
 
 	// Resource version from last list call (for watch coordination)
 	lastResourceVersion string
@@ -308,6 +310,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
 	case watchStartedMsg:
+		// Ignore stale/late watch start completions and stop their streams.
+		if msg.startSequenceNum != m.watchStartSequence {
+			cblog.With("component", "watch").Debug("watchStartedMsg: ignoring stale start",
+				"msg_start_seq", msg.startSequenceNum,
+				"current_start_seq", m.watchStartSequence)
+			if msg.cleanup != nil {
+				msg.cleanup()
+			}
+			return m, nil
+		}
+
+		// New stream is confirmed; now stop the previous stream (if any).
+		if msg.replaceOldWatch != nil {
+			msg.replaceOldWatch()
+		}
+
+		// Activate generation/scope for the new stream.
+		m.watchGeneration = msg.generation
+		m.watchScopeProjects = append([]string(nil), msg.scopeProjects...)
+
 		// Store cleanup function for scoped watch restarts (Phase 4)
 		m.watchCleanup = msg.cleanup
 
@@ -365,70 +387,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }
 
 	case model.AppsBatchUpdateMsg:
-		// Apply all updates in one pass using index for O(1) lookups
-		for _, upd := range msg.Updates {
-			found := false
-			if idx := m.state.Index; idx != nil {
-				if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) {
-					m.state.Apps[i] = upd.App
-					found = true
-				}
-			}
-			if !found {
-				// Fallback to linear scan (index may be stale after earlier append in this loop)
-				for i, a := range m.state.Apps {
-					if a.Name == upd.App.Name {
-						m.state.Apps[i] = upd.App
-						found = true
-						break
+		deletesApplied := 0
+		// Preferred path: apply ordered operations to preserve stream semantics.
+		if len(msg.Operations) > 0 {
+			for _, op := range msg.Operations {
+				switch op.Type {
+				case model.AppBatchOperationUpdate:
+					if op.Update != nil {
+						m.applyBatchAppUpdate(*op.Update)
+					}
+				case model.AppBatchOperationDelete:
+					if op.Delete != "" && m.applyBatchAppDelete(op.Delete) {
+						deletesApplied++
 					}
 				}
 			}
-			if !found {
-				m.state.Apps = append(m.state.Apps, upd.App)
+		} else {
+			// Backward-compatible fallback for older/non-ordered producers.
+			for _, upd := range msg.Updates {
+				m.applyBatchAppUpdate(upd)
 			}
-			// Update tree view sync statuses
-			if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
-				var resources []api.ResourceStatus
-				if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
-					m.treeView.SetResourceStatuses(upd.App.Name, resources)
+			for _, name := range msg.Deletes {
+				if m.applyBatchAppDelete(name) {
+					deletesApplied++
 				}
 			}
-		}
-		// Collect delete indices, then remove in reverse order to preserve positions
-		seen := make(map[string]struct{}, len(msg.Deletes))
-		deleteIndices := make([]int, 0, len(msg.Deletes))
-		for _, name := range msg.Deletes {
-			if _, dup := seen[name]; dup {
-				continue
-			}
-			seen[name] = struct{}{}
-			deleteIdx := -1
-			if idx := m.state.Index; idx != nil {
-				if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {
-					deleteIdx = i
-				}
-			}
-			if deleteIdx < 0 {
-				for i, a := range m.state.Apps {
-					if a.Name == name {
-						deleteIdx = i
-						break
-					}
-				}
-			}
-			if deleteIdx >= 0 {
-				deleteIndices = append(deleteIndices, deleteIdx)
-			}
-		}
-		// Sort descending so higher indices are removed first (preserves lower indices)
-		slices.SortFunc(deleteIndices, func(a, b int) int { return b - a })
-		for _, i := range deleteIndices {
-			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
 		}
 		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		// Adjust selection bounds after deletes
-		if len(msg.Deletes) > 0 {
+		if deletesApplied > 0 {
 			visibleItems := m.getVisibleItemsForCurrentView()
 			if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
 				m.state.Navigation.SelectedIdx = len(visibleItems) - 1
@@ -1302,4 +1289,53 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
+	found := false
+	if idx := m.state.Index; idx != nil {
+		if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) {
+			m.state.Apps[i] = upd.App
+			found = true
+		}
+	}
+	if !found {
+		// Fallback to linear scan (index may be stale during in-batch mutations)
+		for i, a := range m.state.Apps {
+			if a.Name == upd.App.Name {
+				m.state.Apps[i] = upd.App
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		m.state.Apps = append(m.state.Apps, upd.App)
+	}
+	// Update tree view sync statuses
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
+		var resources []api.ResourceStatus
+		if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+			m.treeView.SetResourceStatuses(upd.App.Name, resources)
+		}
+	}
+}
+
+func (m *Model) applyBatchAppDelete(name string) bool {
+	if name == "" {
+		return false
+	}
+	if idx := m.state.Index; idx != nil {
+		if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {
+			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			return true
+		}
+	}
+	for i, a := range m.state.Apps {
+		if a.Name == name {
+			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

@@ -178,8 +178,24 @@ type AppDeletedMsg struct {
 type AppsBatchUpdateMsg struct {
 	Updates    []AppUpdatedMsg
 	Deletes    []string
-	Immediate  tea.Msg // Non-batchable event encountered during batching (auth-error, api-error, etc.)
-	Generation int     // Watch generation that produced this batch (for safe watch restarts)
+	Operations []AppBatchOperation // Ordered stream operations (preserves update/delete ordering)
+	Immediate  tea.Msg             // Non-batchable event encountered during batching (auth-error, api-error, etc.)
+	Generation int                 // Watch generation that produced this batch (for safe watch restarts)
+}
+
+// AppBatchOperationType identifies the operation kind in an ordered batch.
+type AppBatchOperationType string
+
+const (
+	AppBatchOperationUpdate AppBatchOperationType = "update"
+	AppBatchOperationDelete AppBatchOperationType = "delete"
+)
+
+// AppBatchOperation represents one ordered stream operation.
+type AppBatchOperation struct {
+	Type   AppBatchOperationType
+	Update *AppUpdatedMsg
+	Delete string
 }
 
 // AppDeleteRequestMsg represents a request to delete an application
