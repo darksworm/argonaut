@@ -395,8 +395,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		// Collect delete indices, then remove in reverse order to preserve positions
+		seen := make(map[string]struct{}, len(msg.Deletes))
 		deleteIndices := make([]int, 0, len(msg.Deletes))
 		for _, name := range msg.Deletes {
+			if _, dup := seen[name]; dup {
+				continue
+			}
+			seen[name] = struct{}{}
 			deleteIdx := -1
 			if idx := m.state.Index; idx != nil {
 				if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {

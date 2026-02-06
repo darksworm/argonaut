@@ -78,8 +78,10 @@ After Phase 1 with `resourceVersion`, the initial burst is eliminated. But batch
 **New message** in `pkg/model/messages.go`:
 ```go
 type AppsBatchUpdateMsg struct {
-    Updates []AppUpdatedMsg
-    Deletes []string
+    Updates   []AppUpdatedMsg
+    Deletes   []string
+    Immediate tea.Msg  // non-batchable event that interrupted batching
+    Generation int     // watch generation to prevent stale handlers
 }
 ```
 

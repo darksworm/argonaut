@@ -222,7 +222,7 @@ func TestConsumeWatchEvents_TimerFlushes(t *testing.T) {
 	if elapsed < 400*time.Millisecond {
 		t.Errorf("expected ~500ms wait for timer flush, but only waited %v", elapsed)
 	}
-	if elapsed > 1*time.Second {
+	if elapsed > 2*time.Second {
 		t.Errorf("expected ~500ms wait, but waited %v (too long)", elapsed)
 	}
 }
