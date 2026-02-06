@@ -70,6 +70,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 // WatchStartedMsg indicates the watch stream has started
 type watchStartedMsg struct {
 	eventChan <-chan services.ArgoApiEvent
+	cleanup   func()
 }
 
 // startWatchingApplications starts the real-time watch stream
@@ -88,7 +89,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Start watching applications
-		eventChan, _, err := apiService.WatchApplications(ctx, m.state.Server)
+		eventChan, cleanup, err := apiService.WatchApplications(ctx, m.state.Server)
 		if err != nil {
 			// Promote auth-related errors to AuthErrorMsg
 			var argErr *apperrors.ArgonautError
@@ -106,7 +107,7 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
-		return watchStartedMsg{eventChan: eventChan}
+		return watchStartedMsg{eventChan: eventChan, cleanup: cleanup}
 	}
 }
 
@@ -129,14 +130,25 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 
 // consumeWatchEvent reads a single service event and converts it to a tea message
 func (m *Model) consumeWatchEvent() tea.Cmd {
+	ch := m.watchChan
+	done := m.watchDone
 	return func() tea.Msg {
-		if m.watchChan == nil {
+		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
 			return nil
 		}
-		ev, ok := <-m.watchChan
-		if !ok {
-			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+		var (
+			ev services.ArgoApiEvent
+			ok bool
+		)
+		select {
+		case ev, ok = <-ch:
+			if !ok {
+				cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+				return nil
+			}
+		case <-done:
+			cblog.With("component", "watch").Debug("consumeWatchEvent: watchDone signaled")
 			return nil
 		}
 		cblog.With("component", "watch").Debug("consumeWatchEvent: received event",

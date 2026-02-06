@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
@@ -49,6 +50,10 @@ type Model struct {
 
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
+	// Closed when the current app watch forwarder stops.
+	watchDone chan struct{}
+	// Cleanup callback for active applications watcher
+	appWatchCleanup func()
 
 	// bubbles spinner for loading
 	spinner spinner.Model
@@ -283,26 +288,58 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.SetServerMsg:
+		m.cleanupAppWatcher()
 		m.state.Server = msg.Server
 		// Also fetch API version and start watching
 		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
 	case watchStartedMsg:
+		m.cleanupAppWatcher()
+
 		// Set up the watch channel with proper forwarding
-		m.watchChan = make(chan services.ArgoApiEvent, 100)
+		outCh := make(chan services.ArgoApiEvent, 100)
+		done := make(chan struct{})
+		m.watchChan = outCh
+		m.watchDone = done
+		stopForwarding := make(chan struct{})
+		var stopOnce sync.Once
+		upstreamCleanup := msg.cleanup
+		m.appWatchCleanup = func() {
+			stopOnce.Do(func() {
+				close(stopForwarding)
+			})
+			if upstreamCleanup != nil {
+				upstreamCleanup()
+			}
+		}
+
 		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
 		go func() {
+			defer close(done)
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
 			eventCount := 0
-			for ev := range msg.eventChan {
-				eventCount++
-				cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
-					"event_number", eventCount,
-					"type", ev.Type)
-				m.watchChan <- ev
+			for {
+				select {
+				case <-stopForwarding:
+					cblog.With("component", "watch").Debug("watchStartedMsg: stop signal received")
+					return
+				case ev, ok := <-msg.eventChan:
+					if !ok {
+						cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed")
+						return
+					}
+					eventCount++
+					cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
+						"event_number", eventCount,
+						"type", ev.Type)
+					select {
+					case outCh <- ev:
+					case <-stopForwarding:
+						cblog.With("component", "watch").Debug("watchStartedMsg: stop while forwarding event")
+						return
+					}
+				}
 			}
-			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
-			close(m.watchChan)
 		}()
 		// Start consuming events
 		return m, tea.Batch(
@@ -472,6 +509,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ApiErrorMsg:
+		m.cleanupAppWatcher()
 		// If we're already in auth-required mode, suppress generic API errors to avoid
 		// overriding the auth-required view with a generic error panel.
 		if m.state.Mode == model.ModeAuthRequired {
@@ -588,6 +626,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.AuthErrorMsg:
+		m.cleanupAppWatcher()
 		// Log error and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
