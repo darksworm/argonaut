@@ -66,10 +66,10 @@ func MockArgoServerRefresh(validToken string) (*httptest.Server, *RefreshRecorde
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[
+		_, _ = w.Write([]byte(wrapListResponse(`[
             {"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}},
             {"metadata":{"name":"demo2","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}
-        ]}`))
+        ]`, "1000")))
 	})
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
 		if !requireAuth(w, r) {
@@ -117,9 +117,11 @@ func MockArgoServerRefresh(validToken string) (*httptest.Server, *RefreshRecorde
 			return
 		}
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/event-stream")
 		// Send one event and return (don't block)
-		_, _ = w.Write([]byte(`data: {"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}` + "\n"))
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`)))
+		}
 		if fl != nil {
 			fl.Flush()
 		}

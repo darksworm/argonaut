@@ -23,19 +23,21 @@ func MockArgoServerMultipleApps() (*httptest.Server, error) {
 		// Sync: OutOfSync, Synced, Unknown
 		// Health: Degraded, Healthy, Progressing
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[
+		_, _ = w.Write([]byte(wrapListResponse(`[
 			{"metadata":{"name":"app-charlie","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Degraded"}}},
 			{"metadata":{"name":"app-alpha","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}},
 			{"metadata":{"name":"app-bravo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Unknown"},"health":{"status":"Progressing"}}}
-		]}`))
+		]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-charlie","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Degraded"}}}}}` + "\n"))
+		w.Header().Set("Content-Type", "text/event-stream")
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-charlie","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Degraded"}}}}}`)))
+		}
 		if fl != nil {
 			fl.Flush()
 		}
