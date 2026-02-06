@@ -508,7 +508,7 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 		}
 
 		switch header.Typeflag {
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			// Regular file
 			file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, os.FileMode(header.Mode))
 			if err != nil {
@@ -525,8 +525,6 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 			if err := os.MkdirAll(destPath, os.FileMode(header.Mode)); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
 			}
-		default:
-			return fmt.Errorf("unsupported tar entry type %q for %s (size=%d)", header.Typeflag, header.Name, header.Size)
 		}
 	}
 
