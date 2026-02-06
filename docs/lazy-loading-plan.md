@@ -13,7 +13,7 @@ The ArgoCD web UI (`ui/src/app/applications/`) uses this pattern:
 **The ArgoCD UI does NOT use separate cluster/project endpoints for navigation.** Everything comes from the app list with field selection.
 
 ### ArgoCD Web UI's Field Selection (for reference)
-```
+```text
 List fields:  metadata.resourceVersion, items.metadata.name, items.metadata.namespace,
               items.metadata.labels, items.spec, items.status.sync.status,
               items.status.health, items.status.resources, ...
@@ -209,7 +209,7 @@ When user drills down to specific projects, restart SSE with `projects` query pa
 | `pkg/api/applications.go` | 1,4 | Add `fields`+`resourceVersion` params, `WatchOptions` |
 | `pkg/services/argo.go` | 1,4 | Thread fields/resourceVersion/options through interface |
 | `cmd/app/api_integration.go` | 1,2,4 | ResourceVersion threading, batch consumer, scoped watch |
-| `cmd/app/model.go` | 2,3 | Batch handler, index rebuild calls |
+| `cmd/app/model.go` | 2,3,4 | Batch handler, index rebuild calls, watch lifecycle + scoped restart |
 | `pkg/model/messages.go` | 2 | Add `AppsBatchUpdateMsg` |
 | `pkg/model/index.go` | 3 | NEW — `AppIndex` + `BuildAppIndex()` |
 | `pkg/model/state.go` | 3 | Add `Index` field |

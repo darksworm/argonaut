@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -421,13 +422,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		// Sort descending so higher indices are removed first (preserves lower indices)
-		for i := 0; i < len(deleteIndices); i++ {
-			for j := i + 1; j < len(deleteIndices); j++ {
-				if deleteIndices[j] > deleteIndices[i] {
-					deleteIndices[i], deleteIndices[j] = deleteIndices[j], deleteIndices[i]
-				}
-			}
-		}
+		slices.SortFunc(deleteIndices, func(a, b int) int { return b - a })
 		for _, i := range deleteIndices {
 			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
 		}
@@ -779,8 +774,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Remove app from local state using index for O(1) lookup
 		if idx := m.state.Index; idx != nil {
-			if i, ok := idx.NameToIndex[msg.AppName]; ok && i < len(m.state.Apps) {
+			if i, ok := idx.NameToIndex[msg.AppName]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == msg.AppName {
 				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			} else {
+				// Index stale — fall through to linear scan
+				for i, app := range m.state.Apps {
+					if app.Name == msg.AppName {
+						m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+						break
+					}
+				}
 			}
 		} else {
 			for i, app := range m.state.Apps {
