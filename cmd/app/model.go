@@ -1294,7 +1294,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 	found := false
 	if idx := m.state.Index; idx != nil {
-		if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) {
+		if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == upd.App.Name {
 			m.state.Apps[i] = upd.App
 			found = true
 		}

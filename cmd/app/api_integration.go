@@ -271,9 +271,13 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 
 		result := classifyWatchEvent(ev)
 
-		// If first event is non-batchable, return it directly
+		// If first event is non-batchable, wrap it in a batch so the
+		// AppsBatchUpdateMsg handler continues the watch consumer chain.
 		if result.immediate != nil {
-			return result.immediate
+			return model.AppsBatchUpdateMsg{
+				Immediate:  result.immediate,
+				Generation: gen,
+			}
 		}
 
 		// Start batching

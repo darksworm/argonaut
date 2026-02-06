@@ -201,9 +201,14 @@ func TestConsumeWatchEvents_NonBatchableFirstEvent(t *testing.T) {
 	cmd := m.consumeWatchEvents()
 	msg := cmd()
 
-	// When the first event is non-batchable, it should be returned directly
-	if _, ok := msg.(model.AuthErrorMsg); !ok {
-		t.Fatalf("expected AuthErrorMsg returned directly, got %T", msg)
+	// Non-batchable first event should be wrapped in AppsBatchUpdateMsg
+	// so the batch handler continues the watch consumer chain.
+	batch, ok := msg.(model.AppsBatchUpdateMsg)
+	if !ok {
+		t.Fatalf("expected AppsBatchUpdateMsg wrapping non-batchable event, got %T", msg)
+	}
+	if _, ok := batch.Immediate.(model.AuthErrorMsg); !ok {
+		t.Fatalf("expected AuthErrorMsg in Immediate, got %T", batch.Immediate)
 	}
 }
 
