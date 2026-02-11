@@ -1726,6 +1726,18 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		// Always show picker - even with single context, user must confirm
 		m.k9sContextOptions = contexts
 		m.k9sContextSelected = 0
+		// Pre-select current context for convenience so users who haven't
+		// switched contexts can just press Enter
+		if kc, kcErr := kubeconfig.Load(); kcErr == nil {
+			if current := kc.GetCurrentContext(); current != "" {
+				for i, c := range contexts {
+					if c == current {
+						m.k9sContextSelected = i
+						break
+					}
+				}
+			}
+		}
 		m.k9sPendingKind = kind
 		m.k9sPendingNamespace = namespace
 		m.k9sPendingName = name
@@ -1801,12 +1813,12 @@ func (m *Model) findK9sContext(clusterID string) (string, error) {
 		return "", err
 	}
 
-	// Special case: in-cluster means use current context
+	// in-cluster uses https://kubernetes.default.svc which doesn't map to any
+	// external kubeconfig URL, so auto-detection is unreliable. The user's
+	// current-context may have been switched to a different cluster.
+	// Force the context picker so the user explicitly confirms.
 	if clusterID == "in-cluster" {
-		if current := kc.GetCurrentContext(); current != "" {
-			return current, nil
-		}
-		return "", fmt.Errorf("in-cluster specified but no current context set")
+		return "", fmt.Errorf("in-cluster apps require manual context selection")
 	}
 
 	// Only accept exact name match - no fuzzy or partial matching
