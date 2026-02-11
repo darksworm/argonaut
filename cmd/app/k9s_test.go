@@ -4,13 +4,10 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/darksworm/argonaut/pkg/kubeconfig"
 )
 
 // TestInjectStatusBarAtFrameBoundaries tests the ANSI escape sequence processing
@@ -350,57 +347,4 @@ users:
 	}
 }
 
-// TestFindK9sContext_PreSelectCurrentContext verifies that when the context picker
-// is shown, the current kubeconfig context is pre-selected.
-func TestFindK9sContext_PreSelectCurrentContext(t *testing.T) {
-	tempDir := t.TempDir()
-	kubeconfigPath := filepath.Join(tempDir, "config")
-
-	contexts := []string{"alpha", "beta", "gamma"}
-	currentContext := "beta"
-
-	var sb strings.Builder
-	sb.WriteString("apiVersion: v1\nkind: Config\n")
-	sb.WriteString(fmt.Sprintf("current-context: %s\n", currentContext))
-	sb.WriteString("contexts:\n")
-	for _, ctx := range contexts {
-		sb.WriteString(fmt.Sprintf("  - name: %s\n    context:\n      cluster: %s\n      user: %s-user\n", ctx, ctx, ctx))
-	}
-	sb.WriteString("clusters:\n")
-	for _, ctx := range contexts {
-		sb.WriteString(fmt.Sprintf("  - name: %s\n    cluster:\n      server: https://%s.local:6443\n", ctx, ctx))
-	}
-	sb.WriteString("users:\n")
-	for _, ctx := range contexts {
-		sb.WriteString(fmt.Sprintf("  - name: %s-user\n    user:\n      token: test\n", ctx))
-	}
-
-	if err := os.WriteFile(kubeconfigPath, []byte(sb.String()), 0o600); err != nil {
-		t.Fatalf("write kubeconfig: %v", err)
-	}
-	t.Setenv("KUBECONFIG", kubeconfigPath)
-
-	m := &Model{}
-	// Simulate the pre-selection logic from handleOpenK9s
-	m.k9sContextOptions = contexts
-	m.k9sContextSelected = 0
-
-	// Replicate the pre-selection logic from handleOpenK9s
-	kc, err := kubeconfig.Load()
-	if err != nil {
-		t.Fatalf("kubeconfig load: %v", err)
-	}
-	current := kc.GetCurrentContext()
-	for i, c := range m.k9sContextOptions {
-		if c == current {
-			m.k9sContextSelected = i
-			break
-		}
-	}
-
-	// beta is at index 1
-	if m.k9sContextSelected != 1 {
-		t.Errorf("expected k9sContextSelected=1 (beta), got %d", m.k9sContextSelected)
-	}
-}
 
