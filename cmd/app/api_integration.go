@@ -256,16 +256,27 @@ func classifyWatchEvent(ev services.ArgoApiEvent) eventResult {
 func (m *Model) consumeWatchEvents() tea.Cmd {
 	ch := m.watchChan        // capture at call time
 	gen := m.watchGeneration // capture at call time
+	done := m.watchDone      // capture at call time
 	return func() tea.Msg {
 		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
 			return nil
 		}
 
-		// Block on first event
-		ev, ok := <-ch
-		if !ok {
-			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
+		// Block on first event (also listen on done so we don't block forever
+		// when cleanupAppWatcher stops the forwarding goroutine).
+		var (
+			ev services.ArgoApiEvent
+			ok bool
+		)
+		select {
+		case ev, ok = <-ch:
+			if !ok {
+				cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
+				return nil
+			}
+		case <-done:
+			cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
 			return nil
 		}
 

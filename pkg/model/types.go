@@ -20,30 +20,30 @@ const (
 type Mode string
 
 const (
-	ModeNormal          Mode = "normal"
-	ModeLoading         Mode = "loading"
-	ModeSearch          Mode = "search"
-	ModeCommand         Mode = "command"
-	ModeTheme           Mode = "theme"
-	ModeHelp            Mode = "help"
-	ModeConfirmSync     Mode = "confirm-sync"
-	ModeRollback        Mode = "rollback"
+	ModeNormal                Mode = "normal"
+	ModeLoading               Mode = "loading"
+	ModeSearch                Mode = "search"
+	ModeCommand               Mode = "command"
+	ModeTheme                 Mode = "theme"
+	ModeHelp                  Mode = "help"
+	ModeConfirmSync           Mode = "confirm-sync"
+	ModeRollback              Mode = "rollback"
 	ModeConfirmAppDelete      Mode = "confirm-app-delete"
 	ModeConfirmResourceDelete Mode = "confirm-resource-delete"
 	ModeExternal              Mode = "external"
-	ModeDiff            Mode = "diff"
-	ModeAuthRequired    Mode = "auth-required"
-	ModeRulerLine       Mode = "rulerline"
-	ModeError           Mode = "error"
-	ModeConnectionError Mode = "connection-error"
-	ModeCoreDetected    Mode = "core-detected"
-	ModeUpgrade         Mode = "upgrade"
-	ModeUpgradeError    Mode = "upgrade-error"
-	ModeUpgradeSuccess  Mode = "upgrade-success"
-	ModeNoDiff           Mode = "no-diff"
-	ModeK9sContextSelect    Mode = "k9s-context-select"
-	ModeK9sError            Mode = "k9s-error"
-	ModeConfirmResourceSync Mode = "confirm-resource-sync"
+	ModeDiff                  Mode = "diff"
+	ModeAuthRequired          Mode = "auth-required"
+	ModeRulerLine             Mode = "rulerline"
+	ModeError                 Mode = "error"
+	ModeConnectionError       Mode = "connection-error"
+	ModeCoreDetected          Mode = "core-detected"
+	ModeUpgrade               Mode = "upgrade"
+	ModeUpgradeError          Mode = "upgrade-error"
+	ModeUpgradeSuccess        Mode = "upgrade-success"
+	ModeNoDiff                Mode = "no-diff"
+	ModeK9sContextSelect      Mode = "k9s-context-select"
+	ModeK9sError              Mode = "k9s-error"
+	ModeConfirmResourceSync   Mode = "confirm-resource-sync"
 )
 
 // App represents an ArgoCD application
@@ -224,15 +224,17 @@ const (
 
 // UpdateInfo contains information about available updates
 type UpdateInfo struct {
-	Available        bool          `json:"available"`
-	CurrentVersion   string        `json:"current_version"`
-	LatestVersion    string        `json:"latest_version"`
-	PublishedAt      time.Time     `json:"published_at"`
-	InstallMethod    InstallMethod `json:"install_method"`
-	DownloadURL      string        `json:"download_url,omitempty"`
-	LastChecked      time.Time     `json:"last_checked"`
-	CheckIntervalMin int           `json:"check_interval_min"`
-	NotificationShownAt *time.Time `json:"notification_shown_at,omitempty"`
+	Available           bool          `json:"available"`
+	CurrentVersion      string        `json:"current_version"`
+	LatestVersion       string        `json:"latest_version"`
+	PublishedAt         time.Time     `json:"published_at"`
+	InstallMethod       InstallMethod `json:"install_method"`
+	DownloadURL         string        `json:"download_url,omitempty"`
+	ChecksumURL         string        `json:"checksum_url,omitempty"`
+	ChecksumSHA256      string        `json:"checksum_sha256,omitempty"`
+	LastChecked         time.Time     `json:"last_checked"`
+	CheckIntervalMin    int           `json:"check_interval_min"`
+	NotificationShownAt *time.Time    `json:"notification_shown_at,omitempty"`
 }
 
 // ResourceDeleteTarget represents a resource to be deleted

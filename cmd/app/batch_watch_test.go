@@ -470,6 +470,7 @@ func TestWatchStartedMsg_AppliesFreshStartAndStopsOldWatch(t *testing.T) {
 		state:              model.NewAppState(),
 		watchStartSequence: 7,
 		watchGeneration:    2,
+		appWatchCleanup:    func() { oldWatchStopped = true },
 	}
 
 	msg := watchStartedMsg{
@@ -477,7 +478,6 @@ func TestWatchStartedMsg_AppliesFreshStartAndStopsOldWatch(t *testing.T) {
 		cleanup:          func() { newWatchStopped = true },
 		generation:       3,
 		scopeProjects:    []string{"proj-a", "proj-b"},
-		replaceOldWatch:  func() { oldWatchStopped = true },
 		startSequenceNum: 7,
 	}
 
