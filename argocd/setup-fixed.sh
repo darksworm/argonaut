@@ -29,7 +29,8 @@ else
 fi
 
 # Always apply to ensure latest version
-kubectl -n argocd apply -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# Use --server-side to avoid the 262KB annotation limit on large CRDs (applicationsets.argoproj.io)
+kubectl -n argocd apply --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
 # 3) Wait for ArgoCD to be ready
 echo "Waiting for ArgoCD to be ready..."
