@@ -707,6 +707,95 @@ func TestK9s_ContextPicker_NavigateWithJK(t *testing.T) {
 	}
 }
 
+// TestK9s_InCluster_ShowsContextPicker verifies that when an app uses "in-cluster"
+// as destination, the context picker is always shown instead of auto-detecting.
+// Also verifies the current kubeconfig context is pre-selected.
+func TestK9s_InCluster_ShowsContextPicker(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithInCluster()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
+	// Set up kubeconfig with current-context=staging-cluster
+	// The old code would blindly use staging-cluster; the fix shows a picker instead
+	kubeconfigPath := setupMultipleContextsKubeconfigWithCurrent(t, tf.workspace,
+		[]string{"dev-cluster", "staging-cluster", "prod-cluster"}, "staging-cluster")
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
+		"ARGONAUT_K9S_COMMAND="+mockK9s,
+		"KUBECONFIG="+kubeconfigPath,
+	); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("in-cluster", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("resources demo")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Deployment", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("tree view not loaded")
+	}
+
+	// Navigate to Deployment
+	_ = tf.Send("j")
+	time.Sleep(200 * time.Millisecond)
+
+	// Press K - should show context picker (not auto-detect)
+	_ = tf.Send("K")
+
+	if !tf.WaitForPlain("Select Kubernetes Context", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context picker should appear for in-cluster apps")
+	}
+
+	// All contexts should be visible
+	snapshot := tf.SnapshotPlain()
+	for _, ctx := range []string{"dev-cluster", "staging-cluster", "prod-cluster"} {
+		if !strings.Contains(snapshot, ctx) {
+			t.Errorf("context %q not visible in picker", ctx)
+		}
+	}
+
+	// Current context (staging-cluster) should be pre-selected.
+	// Just press Enter to confirm the pre-selected context.
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("mock k9s was not launched")
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify k9s was called with staging-cluster (the pre-selected current context)
+	args := readMockK9sArgs(t, argsFile)
+	if !strings.Contains(args, "--context staging-cluster") {
+		t.Errorf("expected pre-selected context 'staging-cluster', got args: %s", args)
+	}
+}
+
 // ---- Keyboard Input Tests ----
 
 // TestK9s_KeyboardInputForwarded verifies that keyboard input from the user

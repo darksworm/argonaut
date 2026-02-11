@@ -1164,6 +1164,42 @@ func MockArgoServerWithResources() (*httptest.Server, error) {
 	return srv, nil
 }
 
+// MockArgoServerWithInCluster is like MockArgoServerWithResources but uses
+// "in-cluster" as the destination name, simulating ArgoCD managing apps on
+// the same cluster it runs on.
+func MockArgoServerWithInCluster() (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"in-cluster","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"e2e"}`))
+	})
+	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"demo-deploy","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"Synced"},
+			{"kind":"Service","name":"demo-svc","namespace":"default","version":"v1","group":"","uid":"svc-1","status":"Synced"}
+		]}`))
+	})
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "text/event-stream")
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"in-cluster","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
+		}
+		if fl != nil {
+			fl.Flush()
+		}
+	})
+	srv := httptest.NewServer(mux)
+	return srv, nil
+}
+
 // ---- Port-forward testing helpers ----
 
 // MockKubectlOptions configures mock kubectl behavior for port-forward testing

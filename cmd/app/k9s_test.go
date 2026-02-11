@@ -4,6 +4,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -279,4 +281,70 @@ func TestK9sResourceMapCoverage(t *testing.T) {
 		}
 	}
 }
+
+// TestFindK9sContext_InCluster verifies that in-cluster always returns an error
+// so the context picker is shown, rather than blindly trusting current-context.
+func TestFindK9sContext_InCluster(t *testing.T) {
+	// Set up a kubeconfig with a current-context so the old code would have returned it
+	tempDir := t.TempDir()
+	kubeconfigPath := filepath.Join(tempDir, "config")
+	content := `apiVersion: v1
+kind: Config
+current-context: minikube
+contexts:
+  - name: minikube
+    context:
+      cluster: minikube
+      user: minikube-user
+  - name: prod
+    context:
+      cluster: prod
+      user: prod-user
+clusters:
+  - name: minikube
+    cluster:
+      server: https://192.168.49.2:8443
+  - name: prod
+    cluster:
+      server: https://prod.example.com:6443
+users:
+  - name: minikube-user
+    user:
+      token: test
+  - name: prod-user
+    user:
+      token: test
+`
+	if err := os.WriteFile(kubeconfigPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write kubeconfig: %v", err)
+	}
+	t.Setenv("KUBECONFIG", kubeconfigPath)
+
+	m := &Model{}
+
+	// in-cluster must return error to trigger context picker
+	_, err := m.findK9sContext("in-cluster")
+	if err == nil {
+		t.Fatal("findK9sContext('in-cluster') should return error, got nil")
+	}
+	if !strings.Contains(err.Error(), "manual context selection") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+
+	// Named cluster that matches a context should still work
+	ctx, err := m.findK9sContext("minikube")
+	if err != nil {
+		t.Fatalf("findK9sContext('minikube') unexpected error: %v", err)
+	}
+	if ctx != "minikube" {
+		t.Errorf("expected context 'minikube', got %q", ctx)
+	}
+
+	// Unknown cluster should return error
+	_, err = m.findK9sContext("unknown-cluster")
+	if err == nil {
+		t.Fatal("findK9sContext('unknown-cluster') should return error, got nil")
+	}
+}
+
 
