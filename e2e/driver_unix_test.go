@@ -51,6 +51,9 @@ type TUITestFramework struct {
 	vt     vt10x.Terminal
 	vtRows int
 	vtCols int
+
+	// extraConfig is additional TOML config appended to the test config file
+	extraConfig string
 }
 
 func NewTUITest(t *testing.T) *TUITestFramework {
@@ -138,19 +141,24 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 	// Create a mock clipboard file for all tests (even if they don't use it)
 	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
 	
-	// Create test config with both timeout and clipboard settings
-	testConfig := `[http_timeouts]
+	// Create test config with both timeout and clipboard settings.
+	// Extra config is prepended so top-level keys appear before TOML sections.
+	testConfig := ""
+	if tf.extraConfig != "" {
+		testConfig += tf.extraConfig + "\n"
+	}
+	testConfig += `[http_timeouts]
 # Use lower timeout for E2E tests to speed them up
 request_timeout = "2s"
 
 [clipboard]
 # Mock clipboard for tests - writes to file instead of system clipboard
 copy_command = "tee ` + clipboardFile + `"`
-	
+
 	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
 		return err
 	}
-	
+
 	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"LC_ALL=C",
@@ -207,19 +215,24 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 	// Create a mock clipboard file for all tests (even if they don't use it)
 	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
 	
-	// Create test config with both timeout and clipboard settings
-	testConfig := `[http_timeouts]
+	// Create test config with both timeout and clipboard settings.
+	// Extra config is prepended so top-level keys appear before TOML sections.
+	testConfig := ""
+	if tf.extraConfig != "" {
+		testConfig += tf.extraConfig + "\n"
+	}
+	testConfig += `[http_timeouts]
 # Use lower timeout for E2E tests to speed them up
 request_timeout = "2s"
 
 [clipboard]
 # Mock clipboard for tests - writes to file instead of system clipboard
 copy_command = "tee ` + clipboardFile + `"`
-	
+
 	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
 		return err
 	}
-	
+
 	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"LC_ALL=C",

@@ -525,6 +525,76 @@ func TestHTTPTimeoutConfigGetters(t *testing.T) {
 	}
 }
 
+func TestParseDefaultView(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantView   string
+		wantScope  string
+		wantValue  string
+	}{
+		// Empty / zero
+		{name: "empty string", input: "", wantView: "", wantScope: "", wantValue: ""},
+
+		// All view aliases without arguments
+		{name: "apps", input: "apps", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "app", input: "app", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "application", input: "application", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "applications", input: "applications", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "clusters", input: "clusters", wantView: "clusters", wantScope: "", wantValue: ""},
+		{name: "cluster", input: "cluster", wantView: "clusters", wantScope: "", wantValue: ""},
+		{name: "cls", input: "cls", wantView: "clusters", wantScope: "", wantValue: ""},
+		{name: "namespaces", input: "namespaces", wantView: "namespaces", wantScope: "", wantValue: ""},
+		{name: "namespace", input: "namespace", wantView: "namespaces", wantScope: "", wantValue: ""},
+		{name: "ns", input: "ns", wantView: "namespaces", wantScope: "", wantValue: ""},
+		{name: "projects", input: "projects", wantView: "projects", wantScope: "", wantValue: ""},
+		{name: "project", input: "project", wantView: "projects", wantScope: "", wantValue: ""},
+		{name: "proj", input: "proj", wantView: "projects", wantScope: "", wantValue: ""},
+		{name: "appsets", input: "appsets", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "appset", input: "appset", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "applicationsets", input: "applicationsets", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "applicationset", input: "applicationset", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "as", input: "as", wantView: "applicationsets", wantScope: "", wantValue: ""},
+
+		// View + scope argument drill-down
+		{name: "cluster with arg", input: "cluster production", wantView: "namespaces", wantScope: "cluster", wantValue: "production"},
+		{name: "cls with arg", input: "cls production", wantView: "namespaces", wantScope: "cluster", wantValue: "production"},
+		{name: "ns with arg", input: "ns my-namespace", wantView: "projects", wantScope: "namespace", wantValue: "my-namespace"},
+		{name: "namespace with arg", input: "namespace my-namespace", wantView: "projects", wantScope: "namespace", wantValue: "my-namespace"},
+		{name: "project with arg", input: "project myproj", wantView: "apps", wantScope: "project", wantValue: "myproj"},
+		{name: "proj with arg", input: "proj myproj", wantView: "apps", wantScope: "project", wantValue: "myproj"},
+		{name: "appset with arg", input: "appset myset", wantView: "apps", wantScope: "appset", wantValue: "myset"},
+		{name: "as with arg", input: "as myset", wantView: "apps", wantScope: "appset", wantValue: "myset"},
+		{name: "apps with arg (no scope)", input: "apps myapp", wantView: "apps", wantScope: "", wantValue: ""},
+
+		// Invalid inputs
+		{name: "invalid tree", input: "tree", wantView: "", wantScope: "", wantValue: ""},
+		{name: "invalid unknown", input: "unknown", wantView: "", wantScope: "", wantValue: ""},
+		{name: "invalid sync", input: "sync", wantView: "", wantScope: "", wantValue: ""},
+
+		// Whitespace handling
+		{name: "leading/trailing whitespace", input: "  apps  ", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "extra whitespace between", input: "ns   my-namespace", wantView: "projects", wantScope: "namespace", wantValue: "my-namespace"},
+		{name: "only whitespace", input: "   ", wantView: "", wantScope: "", wantValue: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ArgonautConfig{DefaultView: tt.input}
+			view, scopeType, scopeValue := cfg.ParseDefaultView()
+			if view != tt.wantView {
+				t.Errorf("view = %q, want %q", view, tt.wantView)
+			}
+			if scopeType != tt.wantScope {
+				t.Errorf("scopeType = %q, want %q", scopeType, tt.wantScope)
+			}
+			if scopeValue != tt.wantValue {
+				t.Errorf("scopeValue = %q, want %q", scopeValue, tt.wantValue)
+			}
+		})
+	}
+}
+
 func TestSaveAndLoadHTTPTimeoutConfig(t *testing.T) {
 	// Create a temporary directory
 	tempDir := t.TempDir()

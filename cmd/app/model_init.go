@@ -44,8 +44,25 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		CheckIntervalMin: 60, // Check every hour
 	})
 
+	state := model.NewAppState()
+
+	// Apply default view from config
+	if view, scopeType, scopeValue := cfg.ParseDefaultView(); view != "" {
+		state.Navigation.View = model.View(view)
+		switch scopeType {
+		case "cluster":
+			state.Selections.ScopeClusters = model.StringSetFromSlice([]string{scopeValue})
+		case "namespace":
+			state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{scopeValue})
+		case "project":
+			state.Selections.ScopeProjects = model.StringSetFromSlice([]string{scopeValue})
+		case "appset":
+			state.Selections.ScopeApplicationSets = model.StringSetFromSlice([]string{scopeValue})
+		}
+	}
+
 	return &Model{
-		state:              model.NewAppState(),
+		state:              state,
 		argoService:        services.NewArgoApiService(nil),
 		navigationService:  services.NewNavigationService(),
 		statusService:      services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
