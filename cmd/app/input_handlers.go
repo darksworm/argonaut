@@ -1508,6 +1508,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.handleOpenDiffForSelection()
 		}
 		return m, nil
+	case "K":
+		// Open Application CR in k9s (apps view)
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleOpenAppK9s()
+		}
 	case "R":
 		cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
 		if m.state.Navigation.View == model.ViewApps {
@@ -1674,9 +1679,9 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No resource selected"} }
 	}
 
-	// Skip Application nodes - they're synthetic roots
+	// Application nodes: open the ArgoCD Application CR itself
 	if kind == "Application" {
-		return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Select a Kubernetes resource to open in k9s"} }
+		return m.openK9sForApplicationCR(name)
 	}
 
 	cblog.With("component", "k9s").Debug("Opening k9s for resource",
@@ -1751,6 +1756,84 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		Context:   context,
 		Name:      name,
 	})
+}
+
+// openK9sForApplicationCR opens k9s for an ArgoCD Application CR.
+// We always show the context picker because we don't know which kubeconfig
+// context maps to the ArgoCD management cluster.
+func (m *Model) openK9sForApplicationCR(appName string) (tea.Model, tea.Cmd) {
+	// Find the app to get its AppNamespace
+	var namespace string
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name == appName {
+			if m.state.Apps[i].AppNamespace != nil {
+				namespace = *m.state.Apps[i].AppNamespace
+			}
+			break
+		}
+	}
+
+	cblog.With("component", "k9s").Debug("Opening k9s for Application CR",
+		"name", appName, "namespace", namespace)
+
+	// Always show context picker for Application CRs
+	contexts, err := kubeconfig.ListContextNames()
+	if err != nil || len(contexts) == 0 {
+		cblog.With("component", "k9s").Warn("Could not load kubeconfig contexts", "err", err)
+		return m, m.openK9s(K9sResourceParams{
+			Kind:      "Application",
+			Namespace: namespace,
+			Name:      appName,
+		})
+	}
+
+	m.k9sContextOptions = contexts
+	m.k9sContextSelected = 0
+	if kc, kcErr := kubeconfig.Load(); kcErr == nil {
+		if current := kc.GetCurrentContext(); current != "" {
+			for i, c := range contexts {
+				if c == current {
+					m.k9sContextSelected = i
+					break
+				}
+			}
+		}
+	}
+	m.k9sPendingKind = "Application"
+	m.k9sPendingNamespace = namespace
+	m.k9sPendingName = appName
+	m.state.Mode = model.ModeK9sContextSelect
+	return m, nil
+}
+
+// handleOpenAppK9s opens k9s for the Application CR from the app list view
+func (m *Model) handleOpenAppK9s() (tea.Model, tea.Cmd) {
+	if m.state.Navigation.View != model.ViewApps {
+		return m, nil
+	}
+
+	visibleItems := m.getVisibleItemsForCurrentView()
+	if len(visibleItems) == 0 {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "No applications visible"}
+		}
+	}
+
+	idx := m.state.Navigation.SelectedIdx
+	if idx < 0 || idx >= len(visibleItems) {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "No application selected"}
+		}
+	}
+
+	app, ok := visibleItems[idx].(model.App)
+	if !ok {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Selected item is not an application"}
+		}
+	}
+
+	return m.openK9sForApplicationCR(app.Name)
 }
 
 // handleK9sContextSelectKeys handles input when selecting a kubeconfig context for k9s

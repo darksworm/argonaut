@@ -46,7 +46,7 @@ func (m *Model) renderHelpModal() string {
 
 	// APPS VIEW - hotkeys and commands specific to apps view
 	appsView := strings.Join([]string{
-		keycap("s"), " sync ", bullet(), " ", keycap("R"), " rollback ", bullet(), " ", keycap("r"), " resources ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", keycap("Ctrl+D"), " delete",
+		keycap("s"), " sync ", bullet(), " ", keycap("R"), " rollback ", bullet(), " ", keycap("r"), " resources ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", keycap("K"), " open in k9s ", bullet(), " ", keycap("Ctrl+D"), " delete",
 		"\n",
 		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app] ", bullet(), " ", mono(":delete"), " [app]",
 		"\n",
