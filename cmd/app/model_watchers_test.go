@@ -52,12 +52,17 @@ func TestWatchStartedMsg_ReplacesCleanupAndForwardsEvents(t *testing.T) {
 	}
 
 	if cmd == nil {
-		t.Fatal("expected consumeWatchEvent command from watchStartedMsg")
+		t.Fatal("expected consumeWatchEvents command from watchStartedMsg")
 	}
-	msg := cmd()
-	statusMsg, ok := msg.(model.StatusChangeMsg)
+	result := cmd()
+	// The batch system wraps non-batchable events in AppsBatchUpdateMsg.Immediate
+	batchMsg, ok := result.(model.AppsBatchUpdateMsg)
 	if !ok {
-		t.Fatalf("expected StatusChangeMsg, got %T", msg)
+		t.Fatalf("expected AppsBatchUpdateMsg, got %T", result)
+	}
+	statusMsg, ok := batchMsg.Immediate.(model.StatusChangeMsg)
+	if !ok {
+		t.Fatalf("expected StatusChangeMsg in Immediate, got %T", batchMsg.Immediate)
 	}
 	if statusMsg.Status != "watching" {
 		t.Fatalf("expected forwarded status 'watching', got %q", statusMsg.Status)

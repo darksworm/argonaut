@@ -55,6 +55,26 @@ type Model struct {
 	// Cleanup callback for active applications watcher
 	appWatchCleanup func()
 
+	// Watch cleanup function for stopping the current watch stream
+	watchCleanup func()
+
+	// Watch generation counter — incremented on each watch restart to prevent
+	// stale batch handlers from spawning duplicate consumers
+	watchGeneration int
+
+	// Current project scope the watch stream is filtered by (nil = unfiltered).
+	// Compared with SelectionState.ScopeProjects to detect when a restart is needed.
+	watchScopeProjects []string
+
+	// Debounce version counter for scope changes (prevents thrashing during rapid navigation)
+	scopeVersion int
+
+	// Monotonic sequence for start-watch attempts; guards against late/stale starts.
+	watchStartSequence int
+
+	// Resource version from last list call (for watch coordination)
+	lastResourceVersion string
+
 	// bubbles spinner for loading
 	spinner spinner.Model
 
@@ -232,7 +252,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.ClearAllSelectionsMsg:
 		m.state.Selections = *model.NewSelectionState()
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
 
 	// UI messages
 	case model.SetSearchQueryMsg:
@@ -285,6 +306,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Data messages
 	case model.SetAppsMsg:
 		m.state.Apps = msg.Apps
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		return m, nil
 
 	case model.SetServerMsg:
@@ -294,9 +316,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
 	case watchStartedMsg:
+		// Ignore stale/late watch start completions and stop their streams.
+		if msg.startSequenceNum != m.watchStartSequence {
+			cblog.With("component", "watch").Debug("watchStartedMsg: ignoring stale start",
+				"msg_start_seq", msg.startSequenceNum,
+				"current_start_seq", m.watchStartSequence)
+			if msg.cleanup != nil {
+				msg.cleanup()
+			}
+			return m, nil
+		}
+
+		// New stream is confirmed; clean up the previous watch (forwarding goroutine + upstream).
 		m.cleanupAppWatcher()
 
-		// Set up the watch channel with proper forwarding
+		// Activate generation/scope for the new stream.
+		m.watchGeneration = msg.generation
+		m.watchScopeProjects = append([]string(nil), msg.scopeProjects...)
+
+		// Store cleanup function for scoped watch restarts (Phase 4)
+		m.watchCleanup = msg.cleanup
+
+		// Set up the watch channel with proper forwarding.
 		outCh := make(chan services.ArgoApiEvent, 100)
 		done := make(chan struct{})
 		m.watchChan = outCh
@@ -313,7 +354,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
+		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding",
+			"generation", m.watchGeneration)
 		go func() {
 			defer close(done)
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
@@ -341,17 +383,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}()
-		// Start consuming events
-		return m, tea.Batch(
-			m.consumeWatchEvent(),
-		)
+		// Start consuming events (batched)
+		return m, m.consumeWatchEvents()
 
 	// API Event messages
 	case model.AppsLoadedMsg:
 		cblog.With("component", "model").Info("AppsLoadedMsg received",
 			"apps_count", len(msg.Apps),
-			"watchChan_nil", m.watchChan == nil)
+			"watchChan_nil", m.watchChan == nil,
+			"resourceVersion", msg.ResourceVersion)
 		m.state.Apps = msg.Apps
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
+		// Store resource version for watch coordination
+		if msg.ResourceVersion != "" {
+			m.lastResourceVersion = msg.ResourceVersion
+		}
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
 		// m.ui.UpdateListItems(m.state)
@@ -366,61 +412,63 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.startWatchingApplications(),
 			)
 		}
-		// If watch is already running, just switch to normal mode and keep consuming
-		return m, tea.Batch(
-			func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
-			m.consumeWatchEvent(),
-		)
+		// Watch is already running — the batch handler maintains the chain.
+		// Do NOT call consumeWatchEvents() here to avoid duplicate consumers.
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }
 
-	case model.AppUpdatedMsg:
-		// upsert app
-		updated := msg.App
-		cblog.With("component", "watch").Debug("AppUpdatedMsg received",
-			"app", updated.Name,
-			"health", updated.Health,
-			"sync", updated.Sync)
-		found := false
-		for i, a := range m.state.Apps {
-			if a.Name == updated.Name {
-				m.state.Apps[i] = updated
-				found = true
-				break
+	case model.AppsBatchUpdateMsg:
+		deletesApplied := 0
+		// Preferred path: apply ordered operations to preserve stream semantics.
+		if len(msg.Operations) > 0 {
+			for _, op := range msg.Operations {
+				switch op.Type {
+				case model.AppBatchOperationUpdate:
+					if op.Update != nil {
+						m.applyBatchAppUpdate(*op.Update)
+					}
+				case model.AppBatchOperationDelete:
+					if op.Delete != "" && m.applyBatchAppDelete(op.Delete) {
+						deletesApplied++
+					}
+				}
+			}
+		} else {
+			// Backward-compatible fallback for older/non-ordered producers.
+			for _, upd := range msg.Updates {
+				m.applyBatchAppUpdate(upd)
+			}
+			for _, name := range msg.Deletes {
+				if m.applyBatchAppDelete(name) {
+					deletesApplied++
+				}
 			}
 		}
-		if !found {
-			m.state.Apps = append(m.state.Apps, updated)
-		}
-
-		// Update tree view sync statuses if we're viewing the tree and have resource data
-		if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(msg.ResourcesJSON) > 0 {
-			var resources []api.ResourceStatus
-			if json.Unmarshal(msg.ResourcesJSON, &resources) == nil {
-				m.treeView.SetResourceStatuses(updated.Name, resources)
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
+		// Adjust selection bounds after deletes
+		if deletesApplied > 0 {
+			visibleItems := m.getVisibleItemsForCurrentView()
+			if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
+				m.state.Navigation.SelectedIdx = len(visibleItems) - 1
 			}
 		}
-
-		cblog.With("component", "watch").Debug("Apps list updated",
+		cblog.With("component", "watch").Debug("AppsBatchUpdateMsg processed",
+			"updates", len(msg.Updates),
+			"deletes", len(msg.Deletes),
 			"total_apps", len(m.state.Apps),
-			"updated_app", updated.Name)
-		return m, m.consumeWatchEvent()
-
-	case model.AppDeletedMsg:
-		name := msg.AppName
-		// Remove app while preserving order
-		for i, a := range m.state.Apps {
-			if a.Name == name {
-				// Remove the app at index i by combining slices before and after
-				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-				break
-			}
+			"batch_gen", msg.Generation,
+			"current_gen", m.watchGeneration)
+		// Continue watching + re-dispatch immediate event if present.
+		// Only continue the watch chain if this batch is from the current generation;
+		// stale batches from a pre-restart watch must not spawn duplicate consumers.
+		var cmds []tea.Cmd
+		if msg.Generation == m.watchGeneration {
+			cmds = append(cmds, m.consumeWatchEvents())
 		}
-		// Keep selection at the same index position
-		// Only adjust if selection is now beyond the list bounds
-		visibleItems := m.getVisibleItemsForCurrentView()
-		if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
-			m.state.Navigation.SelectedIdx = len(visibleItems) - 1
+		if msg.Immediate != nil {
+			imm := msg.Immediate
+			cmds = append(cmds, func() tea.Msg { return imm })
 		}
-		return m, m.consumeWatchEvent()
+		return m, tea.Batch(cmds...)
 
 	case model.StatusChangeMsg:
 		// Now safe to log since we're using file logging
@@ -431,7 +479,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Diff.Loading = false
 		}
 
-		return m, m.consumeWatchEvent()
+		return m, nil
 
 	case model.ResourceTreeLoadedMsg:
 		// Populate tree view with loaded data (single or multi-app)
@@ -455,8 +503,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
-		// Continue consuming watch events to receive app updates (for sync status)
-		return m, m.consumeWatchEvent()
+		return m, nil
 
 		// removed: resources list loader
 
@@ -676,8 +723,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Navigation.SelectedIdx = 0
 			m.listNav.Reset()
 		}
-		// m.ui.UpdateListItems(m.state)
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
+
+	// Phase 4: Scoped streaming — debounced watch restart on project scope change
+	case watchScopeDebounceMsg:
+		if msg.version != m.scopeVersion {
+			// Stale debounce tick (scope changed again since this was scheduled)
+			return m, nil
+		}
+		return m, m.restartWatchWithScope()
 
 	case model.SyncCompletedMsg:
 		// Handle single app sync completion
@@ -736,14 +791,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle successful application deletion
 		m.statusService.Set(fmt.Sprintf("Application %s deleted successfully", msg.AppName))
 
-		// Remove app from local state while preserving order
-		for i, app := range m.state.Apps {
-			if app.Name == msg.AppName {
-				// Remove the app at index i by combining slices before and after
+		// Remove app from local state using index for O(1) lookup
+		if idx := m.state.Index; idx != nil {
+			if i, ok := idx.NameToIndex[msg.AppName]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == msg.AppName {
 				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-				break
+			} else {
+				// Index stale — fall through to linear scan
+				for i, app := range m.state.Apps {
+					if app.Name == msg.AppName {
+						m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+						break
+					}
+				}
+			}
+		} else {
+			for i, app := range m.state.Apps {
+				if app.Name == msg.AppName {
+					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+					break
+				}
 			}
 		}
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 
 		// Clear modal state and return to normal mode
 		m.state.Mode = model.ModeNormal
@@ -1252,4 +1321,53 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
+	found := false
+	if idx := m.state.Index; idx != nil {
+		if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == upd.App.Name {
+			m.state.Apps[i] = upd.App
+			found = true
+		}
+	}
+	if !found {
+		// Fallback to linear scan (index may be stale during in-batch mutations)
+		for i, a := range m.state.Apps {
+			if a.Name == upd.App.Name {
+				m.state.Apps[i] = upd.App
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		m.state.Apps = append(m.state.Apps, upd.App)
+	}
+	// Update tree view sync statuses
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
+		var resources []api.ResourceStatus
+		if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+			m.treeView.SetResourceStatuses(upd.App.Name, resources)
+		}
+	}
+}
+
+func (m *Model) applyBatchAppDelete(name string) bool {
+	if name == "" {
+		return false
+	}
+	if idx := m.state.Index; idx != nil {
+		if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {
+			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			return true
+		}
+	}
+	for i, a := range m.state.Apps {
+		if a.Name == name {
+			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

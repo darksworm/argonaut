@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -41,9 +42,8 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		// Create a new ArgoApiService with the current server
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		// Load applications
-		// [API] Calling ListApplications - removed printf to avoid TUI interference
-		apps, err := apiService.ListApplications(ctx, m.state.Server)
+		// Load applications with metadata (resourceVersion for watch coordination)
+		result, err := apiService.ListApplicationsWithMeta(ctx, m.state.Server)
 		if err != nil {
 			// Unwrap structured errors if wrapped
 			var argErr *apperrors.ArgonautError
@@ -62,34 +62,73 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		}
 
 		// Successfully loaded applications
-		// [API] Successfully loaded applications - removed printf to avoid TUI interference
-		return model.AppsLoadedMsg{Apps: apps}
+		return model.AppsLoadedMsg{
+			Apps:            result.Apps,
+			ResourceVersion: result.ResourceVersion,
+		}
 	}
 }
 
-// WatchStartedMsg indicates the watch stream has started
+// watchStartedMsg indicates the watch stream has started
 type watchStartedMsg struct {
-	eventChan <-chan services.ArgoApiEvent
-	cleanup   func()
+	eventChan        <-chan services.ArgoApiEvent
+	cleanup          func()
+	generation       int
+	scopeProjects    []string
+	replaceOldWatch  func()
+	startSequenceNum int
+}
+
+// watchScopeDebounceMsg is sent after 500ms to trigger a scoped watch restart.
+// The version field prevents stale debounce ticks from restarting the watch.
+type watchScopeDebounceMsg struct {
+	version int
 }
 
 // startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
-	cblog.With("component", "api_integration").Info("startWatchingApplications called", "watchChan_nil", m.watchChan == nil)
+	return m.startWatchingApplicationsWithConfig(m.watchScopeProjects, m.watchGeneration, nil)
+}
+
+func (m *Model) startWatchingApplicationsWithConfig(projects []string, generation int, replaceOldWatch func()) tea.Cmd {
+	cblog.With("component", "api_integration").Info("startWatchingApplications called",
+		"watchChan_nil", m.watchChan == nil,
+		"resourceVersion", m.lastResourceVersion,
+		"scopeProjects", projects,
+		"generation", generation)
 	if m.state.Server == nil {
 		return nil
 	}
 
+	m.watchStartSequence++
+	startSeq := m.watchStartSequence
+	// Capture values at call time (before closure executes)
+	resourceVersion := m.lastResourceVersion
+	capturedProjects := append([]string(nil), projects...)
+	capturedGeneration := generation
+	capturedReplaceOldWatch := replaceOldWatch
+
 	return func() tea.Msg {
-		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup")
+		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup",
+			"resourceVersion", resourceVersion,
+			"projects", capturedProjects,
+			"generation", capturedGeneration,
+			"start_seq", startSeq)
 		// Create context for the watch stream
 		ctx := context.Background()
 
 		// Create a new ArgoApiService with the current server
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		// Start watching applications
-		eventChan, cleanup, err := apiService.WatchApplications(ctx, m.state.Server)
+		// Build watch options with resourceVersion, field selection, and project filter
+		watchOpts := &api.WatchOptions{
+			ResourceVersion: resourceVersion,
+			Fields:          api.AppWatchFields,
+			Projects:        capturedProjects,
+		}
+
+		// Start watching applications with options
+		eventChan, cleanup, err := apiService.WatchApplicationsWithOptions(ctx, m.state.Server, watchOpts)
 		if err != nil {
 			// Promote auth-related errors to AuthErrorMsg
 			var argErr *apperrors.ArgonautError
@@ -107,7 +146,14 @@ func (m *Model) startWatchingApplications() tea.Cmd {
 
 		// Return message with the event channel so Update can set it properly
 		cblog.With("component", "watch").Info("Watch started successfully, returning watchStartedMsg")
-		return watchStartedMsg{eventChan: eventChan, cleanup: cleanup}
+		return watchStartedMsg{
+			eventChan:        eventChan,
+			cleanup:          cleanup,
+			generation:       capturedGeneration,
+			scopeProjects:    capturedProjects,
+			replaceOldWatch:  capturedReplaceOldWatch,
+			startSequenceNum: startSeq,
+		}
 	}
 }
 
@@ -128,15 +174,97 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 	}
 }
 
-// consumeWatchEvent reads a single service event and converts it to a tea message
-func (m *Model) consumeWatchEvent() tea.Cmd {
-	ch := m.watchChan
-	done := m.watchDone
+// eventResult holds the classification of a single watch event
+type eventResult struct {
+	update     *model.AppUpdatedMsg // non-nil for app-updated events
+	deleteName string               // non-empty for app-deleted events
+	immediate  tea.Msg              // non-nil for non-batchable events (auth-error, api-error, etc.)
+}
+
+func (r eventResult) toBatchOperation() (model.AppBatchOperation, bool) {
+	if r.update != nil {
+		return model.AppBatchOperation{
+			Type:   model.AppBatchOperationUpdate,
+			Update: r.update,
+		}, true
+	}
+	if r.deleteName != "" {
+		return model.AppBatchOperation{
+			Type:   model.AppBatchOperationDelete,
+			Delete: r.deleteName,
+		}, true
+	}
+	return model.AppBatchOperation{}, false
+}
+
+// classifyWatchEvent converts a service event into an eventResult for batching.
+// Batchable events (app-updated, app-deleted) are returned via update/deleteName fields.
+// Non-batchable events (auth-error, api-error, etc.) are returned via immediate field.
+func classifyWatchEvent(ev services.ArgoApiEvent) eventResult {
+	switch ev.Type {
+	case "app-updated":
+		if ev.App != nil {
+			var resourcesData []byte
+			if len(ev.Resources) > 0 {
+				resourcesData, _ = json.Marshal(ev.Resources)
+			}
+			return eventResult{update: &model.AppUpdatedMsg{App: *ev.App, ResourcesJSON: resourcesData}}
+		}
+	case "app-deleted":
+		if ev.AppName != "" {
+			return eventResult{deleteName: ev.AppName}
+		}
+	case "apps-loaded":
+		if ev.Apps != nil {
+			return eventResult{immediate: model.AppsLoadedMsg{Apps: ev.Apps}}
+		}
+	case "status-change":
+		if ev.Status != "" {
+			return eventResult{immediate: model.StatusChangeMsg{Status: ev.Status}}
+		}
+	case "auth-error":
+		if ev.Error != nil {
+			return eventResult{immediate: model.AuthErrorMsg{Error: ev.Error}}
+		}
+	case "api-error":
+		if ev.Error != nil {
+			var argErr *apperrors.ArgonautError
+			if stdErrors.As(ev.Error, &argErr) {
+				if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
+					return eventResult{immediate: model.AuthErrorMsg{Error: ev.Error}}
+				}
+				return eventResult{immediate: model.StructuredErrorMsg{Error: argErr}}
+			}
+			if isAuthenticationError(ev.Error.Error()) {
+				return eventResult{immediate: model.AuthErrorMsg{Error: ev.Error}}
+			}
+			return eventResult{immediate: model.ApiErrorMsg{Message: ev.Error.Error()}}
+		}
+	}
+	return eventResult{}
+}
+
+// consumeWatchEvents reads events from the watch channel, batching app-updated
+// and app-deleted events for up to 500ms to reduce render cycles.
+// Non-batchable events (auth-error, api-error, etc.) are returned immediately
+// or included in the batch's Immediate field if encountered during batching.
+//
+// IMPORTANT: ch and gen are captured at call time so that if the watch is restarted
+// (m.watchChan replaced), this closure operates on the old channel and produces a
+// batch tagged with the old generation. The handler checks the generation to avoid
+// spawning duplicate consumers for the new channel.
+func (m *Model) consumeWatchEvents() tea.Cmd {
+	ch := m.watchChan        // capture at call time
+	gen := m.watchGeneration // capture at call time
+	done := m.watchDone      // capture at call time
 	return func() tea.Msg {
 		if ch == nil {
-			cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan is nil")
+			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
 			return nil
 		}
+
+		// Block on first event (also listen on done so we don't block forever
+		// when cleanupAppWatcher stops the forwarding goroutine).
 		var (
 			ev services.ArgoApiEvent
 			ok bool
@@ -144,68 +272,142 @@ func (m *Model) consumeWatchEvent() tea.Cmd {
 		select {
 		case ev, ok = <-ch:
 			if !ok {
-				cblog.With("component", "watch").Debug("consumeWatchEvent: watchChan closed")
+				cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
 				return nil
 			}
 		case <-done:
-			cblog.With("component", "watch").Debug("consumeWatchEvent: watchDone signaled")
+			cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
 			return nil
 		}
-		cblog.With("component", "watch").Debug("consumeWatchEvent: received event",
-			"type", ev.Type,
-			"has_app", ev.App != nil,
-			"app_name", ev.AppName)
-		switch ev.Type {
-		case "apps-loaded":
-			if ev.Apps != nil {
-				return model.AppsLoadedMsg{Apps: ev.Apps}
-			}
-		case "app-updated":
-			if ev.App != nil {
-				cblog.With("component", "watch").Info("Sending AppUpdatedMsg",
-					"app_name", ev.App.Name,
-					"health", ev.App.Health,
-					"sync", ev.App.Sync,
-					"resources_count", len(ev.Resources))
-				var resourcesData []byte
-				if len(ev.Resources) > 0 {
-					resourcesData, _ = json.Marshal(ev.Resources)
-				}
-				return model.AppUpdatedMsg{App: *ev.App, ResourcesJSON: resourcesData}
-			}
-		case "app-deleted":
-			if ev.AppName != "" {
-				return model.AppDeletedMsg{AppName: ev.AppName}
-			}
-		case "status-change":
-			if ev.Status != "" {
-				return model.StatusChangeMsg{Status: ev.Status}
-			}
-		case "auth-error":
-			if ev.Error != nil {
-				return model.AuthErrorMsg{Error: ev.Error}
-			}
-		case "api-error":
-			if ev.Error != nil {
-				// If the service emitted a generic api-error but the error is auth-related,
-				// surface it as an AuthErrorMsg so the UI switches to auth-required.
-				var argErr *apperrors.ArgonautError
-				if stdErrors.As(ev.Error, &argErr) {
-					// Treat 401/403 as auth-required regardless of category
-					if hasHTTPStatusCtx(argErr, 401, 403) || argErr.IsCategory(apperrors.ErrorAuth) || argErr.IsCode("UNAUTHORIZED") || argErr.IsCode("AUTHENTICATION_FAILED") {
-						return model.AuthErrorMsg{Error: ev.Error}
-					}
-					// Forward structured to error view
-					return model.StructuredErrorMsg{Error: argErr}
-				}
-				if isAuthenticationError(ev.Error.Error()) {
-					return model.AuthErrorMsg{Error: ev.Error}
-				}
-				return model.ApiErrorMsg{Message: ev.Error.Error()}
+
+		result := classifyWatchEvent(ev)
+
+		// If first event is non-batchable, wrap it in a batch so the
+		// AppsBatchUpdateMsg handler continues the watch consumer chain.
+		if result.immediate != nil {
+			return model.AppsBatchUpdateMsg{
+				Immediate:  result.immediate,
+				Generation: gen,
 			}
 		}
-		return nil
+
+		// Start batching
+		var updates []model.AppUpdatedMsg
+		var deletes []string
+		var operations []model.AppBatchOperation
+		if result.update != nil {
+			updates = append(updates, *result.update)
+		}
+		if result.deleteName != "" {
+			deletes = append(deletes, result.deleteName)
+		}
+		if op, ok := result.toBatchOperation(); ok {
+			operations = append(operations, op)
+		}
+
+		// Drain for up to 500ms
+		timer := time.NewTimer(500 * time.Millisecond)
+		defer timer.Stop()
+
+		var immediate tea.Msg
+	loop:
+		for {
+			select {
+			case ev, ok := <-ch:
+				if !ok {
+					break loop
+				}
+				result := classifyWatchEvent(ev)
+				if result.immediate != nil {
+					immediate = result.immediate
+					break loop
+				}
+				if result.update != nil {
+					updates = append(updates, *result.update)
+				}
+				if result.deleteName != "" {
+					deletes = append(deletes, result.deleteName)
+				}
+				if op, ok := result.toBatchOperation(); ok {
+					operations = append(operations, op)
+				}
+			case <-timer.C:
+				break loop
+			}
+		}
+
+		cblog.With("component", "watch").Debug("consumeWatchEvents: batch complete",
+			"updates", len(updates),
+			"deletes", len(deletes),
+			"has_immediate", immediate != nil,
+			"generation", gen)
+
+		return model.AppsBatchUpdateMsg{
+			Updates:    updates,
+			Deletes:    deletes,
+			Operations: operations,
+			Immediate:  immediate,
+			Generation: gen,
+		}
 	}
+}
+
+// maybeRestartWatchForScope checks if the current watch stream's project filter
+// differs from the user's active ScopeProjects selection. If different, it schedules
+// a debounced watch restart (500ms) to avoid thrashing during rapid navigation.
+func (m *Model) maybeRestartWatchForScope() tea.Cmd {
+	newProjects := sortedScopeProjects(m.state.Selections.ScopeProjects)
+	if stringSlicesEqual(newProjects, m.watchScopeProjects) {
+		return nil // No change
+	}
+	cblog.With("component", "watch").Info("maybeRestartWatchForScope: scope changed, scheduling restart",
+		"current", m.watchScopeProjects,
+		"new", newProjects)
+	m.scopeVersion++
+	version := m.scopeVersion
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return watchScopeDebounceMsg{version: version}
+	})
+}
+
+// restartWatchWithScope stops the current watch stream and starts a new one
+// filtered to the active ScopeProjects. This reduces ongoing SSE traffic when
+// the user has drilled down to specific projects.
+func (m *Model) restartWatchWithScope() tea.Cmd {
+	newProjects := sortedScopeProjects(m.state.Selections.ScopeProjects)
+	targetGeneration := m.watchGeneration + 1
+	cblog.With("component", "watch").Info("restartWatchWithScope: restarting watch",
+		"projects", newProjects,
+		"target_generation", targetGeneration)
+
+	// Start the new watch first; once it is confirmed via watchStartedMsg,
+	// we stop the old stream to avoid dropping updates during setup failures.
+	return m.startWatchingApplicationsWithConfig(newProjects, targetGeneration, m.watchCleanup)
+}
+
+// sortedScopeProjects extracts project names from a scope map and returns them sorted.
+func sortedScopeProjects(scope map[string]bool) []string {
+	var projects []string
+	for p, ok := range scope {
+		if ok {
+			projects = append(projects, p)
+		}
+	}
+	sort.Strings(projects)
+	return projects
+}
+
+// stringSlicesEqual returns true if two string slices have equal content.
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // startDiffSession loads diffs and opens the diff pager

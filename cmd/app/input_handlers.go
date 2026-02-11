@@ -201,6 +201,11 @@ func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Phase 4: Check if project scope changed → restart watch with project filter
+	if cmd := m.maybeRestartWatchForScope(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -421,7 +426,8 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			m.state.Selections.ScopeClusters = model.NewStringSet()
 			m.state.Navigation.SelectedIdx = 0
 		}
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
 	}
 }
 
@@ -1583,8 +1589,6 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.startWatchingResourceTree(*appObj))
 		}
 		cmds = append(cmds, m.consumeTreeEvent())
-		// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-		cmds = append(cmds, m.consumeWatchEvent())
 		return m, tea.Batch(cmds...)
 	}
 	// Fallback to single app tree view
@@ -1609,8 +1613,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.state.Navigation.View = model.ViewTree
 	m.state.UI.TreeAppName = &app.Name
 	m.treeLoading = true
-	// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent(), m.consumeWatchEvent())
+	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 
 // handleResourceDiff shows the diff for the currently selected resource in tree view

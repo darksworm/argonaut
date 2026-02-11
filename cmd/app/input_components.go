@@ -831,8 +831,6 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 						cmds = append(cmds, m.startWatchingResourceTree(*appObj))
 					}
 					cmds = append(cmds, m.consumeTreeEvent())
-					// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-					cmds = append(cmds, m.consumeWatchEvent())
 					return m, tea.Batch(cmds...)
 				} else if len(names) == 1 {
 					// Single app selected via checkbox
@@ -878,8 +876,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.state.Navigation.View = model.ViewTree
 			m.state.UI.TreeAppName = &target
 			m.treeLoading = true
-			// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent(), m.consumeWatchEvent())
+			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
 		case "all":
 			m.state.Selections = *model.NewSelectionState()
 			m.state.UI.SearchQuery = ""

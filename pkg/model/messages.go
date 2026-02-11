@@ -157,7 +157,8 @@ type SetAPIVersionMsg struct {
 
 // AppsLoadedMsg is sent when apps are loaded
 type AppsLoadedMsg struct {
-	Apps []App
+	Apps            []App
+	ResourceVersion string // For coordinating with watch stream
 }
 
 // AppUpdatedMsg is sent when an app is updated
@@ -169,6 +170,32 @@ type AppUpdatedMsg struct {
 // AppDeletedMsg is sent when an app is deleted (from watch stream)
 type AppDeletedMsg struct {
 	AppName string
+}
+
+// AppsBatchUpdateMsg is sent when multiple app updates/deletes are batched together
+// to reduce render cycles during high-activity periods (e.g., cluster-wide sync).
+// Matches ArgoCD web UI's 500ms event batching strategy.
+type AppsBatchUpdateMsg struct {
+	Updates    []AppUpdatedMsg
+	Deletes    []string
+	Operations []AppBatchOperation // Ordered stream operations (preserves update/delete ordering)
+	Immediate  tea.Msg             // Non-batchable event encountered during batching (auth-error, api-error, etc.)
+	Generation int                 // Watch generation that produced this batch (for safe watch restarts)
+}
+
+// AppBatchOperationType identifies the operation kind in an ordered batch.
+type AppBatchOperationType string
+
+const (
+	AppBatchOperationUpdate AppBatchOperationType = "update"
+	AppBatchOperationDelete AppBatchOperationType = "delete"
+)
+
+// AppBatchOperation represents one ordered stream operation.
+type AppBatchOperation struct {
+	Type   AppBatchOperationType
+	Update *AppUpdatedMsg
+	Delete string
 }
 
 // AppDeleteRequestMsg represents a request to delete an application

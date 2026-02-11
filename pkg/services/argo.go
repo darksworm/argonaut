@@ -19,9 +19,15 @@ type ArgoApiService interface {
 	// ListApplications retrieves all applications from ArgoCD
 	ListApplications(ctx context.Context, server *model.Server) ([]model.App, error)
 
+	// ListApplicationsWithMeta retrieves all applications with metadata (resourceVersion)
+	ListApplicationsWithMeta(ctx context.Context, server *model.Server) (*api.ListApplicationsResult, error)
+
 	// WatchApplications starts watching for application changes
 	// Returns a channel for events and a cleanup function
 	WatchApplications(ctx context.Context, server *model.Server) (<-chan ArgoApiEvent, func(), error)
+
+	// WatchApplicationsWithOptions starts watching with configurable options
+	WatchApplicationsWithOptions(ctx context.Context, server *model.Server, opts *api.WatchOptions) (<-chan ArgoApiEvent, func(), error)
 
 	// SyncApplication syncs a specific application
 	SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error
@@ -94,6 +100,15 @@ func NewArgoApiService(server *model.Server) ArgoApiService {
 
 // ListApplications implements ArgoApiService.ListApplications
 func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model.Server) ([]model.App, error) {
+	result, err := s.ListApplicationsWithMeta(ctx, server)
+	if err != nil {
+		return nil, err
+	}
+	return result.Apps, nil
+}
+
+// ListApplicationsWithMeta implements ArgoApiService.ListApplicationsWithMeta
+func (s *ArgoApiServiceImpl) ListApplicationsWithMeta(ctx context.Context, server *model.Server) (*api.ListApplicationsResult, error) {
 	if server == nil {
 		return nil, apperrors.ConfigError("SERVER_MISSING",
 			"Server configuration is required").
@@ -109,10 +124,10 @@ func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model
 	defer cancel()
 
 	// Use retry mechanism for network operations
-	var apps []model.App
+	var result *api.ListApplicationsResult
 	err := retry.RetryAPIOperation(ctx, "ListApplications", func(attempt int) error {
 		var opErr error
-		apps, opErr = s.appService.ListApplications(ctx)
+		result, opErr = s.appService.ListApplicationsWithMeta(ctx)
 		return opErr
 	})
 
@@ -129,11 +144,16 @@ func (s *ArgoApiServiceImpl) ListApplications(ctx context.Context, server *model
 			WithUserAction("Check your ArgoCD server connection and try again")
 	}
 
-	return apps, nil
+	return result, nil
 }
 
 // WatchApplications implements ArgoApiService.WatchApplications
 func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *model.Server) (<-chan ArgoApiEvent, func(), error) {
+	return s.WatchApplicationsWithOptions(ctx, server, nil)
+}
+
+// WatchApplicationsWithOptions implements ArgoApiService.WatchApplicationsWithOptions
+func (s *ArgoApiServiceImpl) WatchApplicationsWithOptions(ctx context.Context, server *model.Server, opts *api.WatchOptions) (<-chan ArgoApiEvent, func(), error) {
 	if server == nil {
 		return nil, nil, apperrors.ConfigError("SERVER_MISSING",
 			"Server configuration is required").
@@ -155,10 +175,8 @@ func (s *ArgoApiServiceImpl) WatchApplications(ctx context.Context, server *mode
 	go func() {
 		defer close(eventChan)
 
-		// Start watching - no need for status message
-
-		// Start real watch stream
-		s.startWatchStream(watchCtx, eventChan)
+		// Start real watch stream with options
+		s.startWatchStream(watchCtx, eventChan, opts)
 	}()
 
 	cleanup := func() {
@@ -326,14 +344,14 @@ func (s *ArgoApiServiceImpl) Cleanup() {
 }
 
 // startWatchStream starts the application watch stream
-func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan chan<- ArgoApiEvent) {
+func (s *ArgoApiServiceImpl) startWatchStream(ctx context.Context, eventChan chan<- ArgoApiEvent, opts *api.WatchOptions) {
 	cblog.With("component", "services").Info("startWatchStream: starting watch stream")
 	watchEventChan := make(chan api.ApplicationWatchEvent, 100)
 
 	go func() {
 		defer close(watchEventChan)
 		cblog.With("component", "services").Info("startWatchStream: calling WatchApplications")
-		err := s.appService.WatchApplications(ctx, watchEventChan)
+		err := s.appService.WatchApplicationsWithOptions(ctx, watchEventChan, opts)
 		if err != nil && ctx.Err() == nil {
 			cblog.With("component", "services").Error("Watch stream error", "err", err)
 			// Map auth-related errors to a dedicated event so the TUI can switch to auth-required

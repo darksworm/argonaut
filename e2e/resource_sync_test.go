@@ -83,12 +83,12 @@ func MockArgoServerForResourceSync(validToken string) (*httptest.Server, *Resour
 		}
 		w.Header().Set("Content-Type", "application/json")
 		// One app for testing resource sync
-		_, _ = w.Write([]byte(`{"items":[
+		_, _ = w.Write([]byte(wrapListResponse(`[
 			{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"},"resources":[
 				{"group":"apps","version":"v1","kind":"Deployment","namespace":"default","name":"nginx-deployment","status":"OutOfSync","health":{"status":"Healthy"}},
 				{"group":"","version":"v1","kind":"Service","namespace":"default","name":"nginx-service","status":"Synced","health":{"status":"Healthy"}}
 			]}}
-		]}`))
+		]`, "1000")))
 	})
 
 	// Resource tree with actual resources
@@ -535,11 +535,11 @@ func MockArgoServerForResourceSyncError(validToken string, errorCode int, errorM
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[
+		_, _ = w.Write([]byte(wrapListResponse(`[
 			{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"},"resources":[
 				{"group":"apps","version":"v1","kind":"Deployment","namespace":"default","name":"nginx-deployment","status":"OutOfSync","health":{"status":"Healthy"}}
 			]}}
-		]}`))
+		]`, "1000")))
 	})
 
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
