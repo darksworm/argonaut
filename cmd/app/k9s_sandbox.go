@@ -98,8 +98,6 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 			cblog.With("component", "k9s").Error("Failed to start k9s PTY", "err", err)
 			return k9sDoneMsg{Err: err}
 		}
-		defer ptmx.Close()
-
 		// Shared state for current terminal size
 		var sizeMu sync.Mutex
 		currentRows := rows
@@ -141,23 +139,30 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 		fmt.Print("\x1b[2J\x1b[H")
 		drawStatusBarBottom(rows, cols, params)
 
-		// Set up input forwarding from stdin to PTY with cancellation
-		// Note: On Unix terminals, blocking reads on stdin cannot be interrupted
-		// without closing the file descriptor. We close ptmx to unblock writes,
-		// but the goroutine may remain blocked on stdin read until the next keystroke.
+		// Set up input forwarding from a duplicated stdin fd to the PTY.
+		// We dup stdin so we can close the dup after k9s exits, which
+		// unblocks the goroutine's Read immediately — preventing it from
+		// competing with Bubble Tea for the real stdin and swallowing a keypress.
+		stdinDupFd, err := syscall.Dup(int(os.Stdin.Fd()))
+		if err != nil {
+			cblog.With("component", "k9s").Error("Failed to dup stdin", "err", err)
+			ptmx.Close()
+			return k9sDoneMsg{Err: fmt.Errorf("failed to dup stdin: %w", err)}
+		}
+		stdinFile := os.NewFile(uintptr(stdinDupFd), "stdin-dup")
+
 		stdinDone := make(chan struct{})
 		go func() {
 			defer close(stdinDone)
 			buf := make([]byte, 1024)
 			for {
-				n, err := os.Stdin.Read(buf)
+				n, err := stdinFile.Read(buf)
 				if err != nil {
 					return
 				}
 				if n > 0 {
 					_, err = ptmx.Write(buf[:n])
 					if err != nil {
-						// ptmx closed, exit goroutine
 						return
 					}
 				}
@@ -172,17 +177,11 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 			cblog.With("component", "k9s").Debug("k9s exited", "err", err)
 		}
 
-		// Close ptmx to unblock the stdin forwarding goroutine's write
+		// Close ptmx and the duplicated stdin fd. Closing stdinFile unblocks
+		// the goroutine's Read immediately so it exits deterministically.
 		ptmx.Close()
-
-		// Wait briefly for stdin goroutine to exit (it will exit on next write attempt)
-		// Don't block forever - stdin read may be blocked waiting for user input
-		select {
-		case <-stdinDone:
-		case <-time.After(100 * time.Millisecond):
-			// Goroutine is blocked on stdin read - this is expected behavior
-			// It will exit when the user presses a key or the program terminates
-		}
+		stdinFile.Close()
+		<-stdinDone
 
 		return k9sDoneMsg{Err: nil}
 	}
