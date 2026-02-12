@@ -165,6 +165,8 @@ type ModalState struct {
 	ChangelogLoading bool `json:"changelogLoading"`
 	// K9s error modal state
 	K9sError *string `json:"k9sError,omitempty"`
+	// Default view warning modal state
+	DefaultViewWarning *string `json:"defaultViewWarning,omitempty"`
 }
 
 // AppState represents the complete application state for Bubbletea

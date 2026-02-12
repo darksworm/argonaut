@@ -991,6 +991,31 @@ func (m *Model) renderK9sErrorModal() string {
 	return modalStyle.Render(content)
 }
 
+// renderDefaultViewWarningModal renders the default_view config warning popup
+func (m *Model) renderDefaultViewWarningModal() string {
+	if m.state.Modals.DefaultViewWarning == nil {
+		return ""
+	}
+
+	warningMsg := *m.state.Modals.DefaultViewWarning
+
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(progressColor).
+		Padding(1, 2).
+		Width(60).
+		AlignHorizontal(lipgloss.Center)
+
+	title := lipgloss.NewStyle().
+		Foreground(progressColor).
+		Bold(true).
+		Render("Invalid default_view")
+
+	content := fmt.Sprintf("%s\n\n%s\n\nPress Enter or Esc to close", title, warningMsg)
+
+	return modalStyle.Render(content)
+}
+
 // renderThemeSelectionModal renders the theme selection overlay
 func (m *Model) renderThemeSelectionModal() string {
 	m.ensureThemeOptionsLoaded()

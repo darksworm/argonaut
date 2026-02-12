@@ -250,7 +250,7 @@ func (c *ArgonautConfig) GetRequestTimeoutString() string {
 }
 
 // ParseDefaultView parses the default_view config value into a view, scope type, and scope value.
-// Returns zero values if the input is empty or invalid.
+// Returns zero values if the input is empty. Returns an error message if the input is invalid.
 // The view is returned as a string matching model.View constants (e.g. "apps", "clusters").
 // When an argument is provided, drill-down logic applies:
 //   - cluster+arg → namespaces view scoped to cluster
@@ -258,10 +258,10 @@ func (c *ArgonautConfig) GetRequestTimeoutString() string {
 //   - project+arg → apps view scoped to project
 //   - appset+arg → apps view scoped to appset
 //   - app+arg → apps view (no scope)
-func (c *ArgonautConfig) ParseDefaultView() (view string, scopeType string, scopeValue string) {
+func (c *ArgonautConfig) ParseDefaultView() (view string, scopeType string, scopeValue string, errMsg string) {
 	input := strings.TrimSpace(c.DefaultView)
 	if input == "" {
-		return "", "", ""
+		return "", "", "", ""
 	}
 
 	// Split on whitespace: command + optional arg
@@ -302,14 +302,14 @@ func (c *ArgonautConfig) ParseDefaultView() (view string, scopeType string, scop
 
 	def, ok := aliases[cmd]
 	if !ok {
-		return "", "", ""
+		return "", "", "", fmt.Sprintf("Malformed default_view in config: %q\nValid options: apps, clusters, ns, proj, appset\nExample: default_view = \"cluster production\"", input)
 	}
 
 	if arg == "" || def.drillView == "" {
-		return def.view, "", ""
+		return def.view, "", "", ""
 	}
 
-	return def.drillView, def.scopeType, arg
+	return def.drillView, def.scopeType, arg, ""
 }
 
 // GetRequestTimeout returns the parsed duration for request timeout, defaulting to 10s

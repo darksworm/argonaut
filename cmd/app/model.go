@@ -124,6 +124,9 @@ type Model struct {
 
 	// Last rendered content (plain text, for selection extraction)
 	lastRenderedLines []string
+
+	// Pending default_view scope to validate after apps load
+	pendingDefaultViewScope *defaultViewScope
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -400,7 +403,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
-		// m.ui.UpdateListItems(m.state)
+
+		// Validate pending default_view scope against loaded data
+		m.validateDefaultViewScope()
+
+		// Determine which mode to transition to
+		targetMode := model.ModeNormal
+		if m.state.Modals.DefaultViewWarning != nil {
+			targetMode = model.ModeDefaultViewWarning
+		}
 
 		// Only start watching if we haven't already started
 		// (watchChan is set when watch starts)
@@ -408,13 +419,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cblog.With("component", "model").Info("Starting watch as watchChan is nil")
 			// Start watching for app updates after initial load
 			return m, tea.Batch(
-				func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
+				func() tea.Msg { return model.SetModeMsg{Mode: targetMode} },
 				m.startWatchingApplications(),
 			)
 		}
 		// Watch is already running — the batch handler maintains the chain.
 		// Do NOT call consumeWatchEvents() here to avoid duplicate consumers.
-		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} }
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: targetMode} }
 
 	case model.AppsBatchUpdateMsg:
 		deletesApplied := 0

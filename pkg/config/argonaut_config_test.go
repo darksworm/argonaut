@@ -532,6 +532,7 @@ func TestParseDefaultView(t *testing.T) {
 		wantView   string
 		wantScope  string
 		wantValue  string
+		wantErr    bool
 	}{
 		// Empty / zero
 		{name: "empty string", input: "", wantView: "", wantScope: "", wantValue: ""},
@@ -567,10 +568,10 @@ func TestParseDefaultView(t *testing.T) {
 		{name: "as with arg", input: "as myset", wantView: "apps", wantScope: "appset", wantValue: "myset"},
 		{name: "apps with arg (no scope)", input: "apps myapp", wantView: "apps", wantScope: "", wantValue: ""},
 
-		// Invalid inputs
-		{name: "invalid tree", input: "tree", wantView: "", wantScope: "", wantValue: ""},
-		{name: "invalid unknown", input: "unknown", wantView: "", wantScope: "", wantValue: ""},
-		{name: "invalid sync", input: "sync", wantView: "", wantScope: "", wantValue: ""},
+		// Invalid inputs — should return error
+		{name: "invalid tree", input: "tree", wantView: "", wantScope: "", wantValue: "", wantErr: true},
+		{name: "invalid unknown", input: "unknown", wantView: "", wantScope: "", wantValue: "", wantErr: true},
+		{name: "invalid sync", input: "sync", wantView: "", wantScope: "", wantValue: "", wantErr: true},
 
 		// Whitespace handling
 		{name: "leading/trailing whitespace", input: "  apps  ", wantView: "apps", wantScope: "", wantValue: ""},
@@ -581,7 +582,7 @@ func TestParseDefaultView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &ArgonautConfig{DefaultView: tt.input}
-			view, scopeType, scopeValue := cfg.ParseDefaultView()
+			view, scopeType, scopeValue, errMsg := cfg.ParseDefaultView()
 			if view != tt.wantView {
 				t.Errorf("view = %q, want %q", view, tt.wantView)
 			}
@@ -590,6 +591,12 @@ func TestParseDefaultView(t *testing.T) {
 			}
 			if scopeValue != tt.wantValue {
 				t.Errorf("scopeValue = %q, want %q", scopeValue, tt.wantValue)
+			}
+			if tt.wantErr && errMsg == "" {
+				t.Error("expected error message, got empty")
+			}
+			if !tt.wantErr && errMsg != "" {
+				t.Errorf("unexpected error message: %q", errMsg)
 			}
 		})
 	}
