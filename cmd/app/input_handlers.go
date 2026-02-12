@@ -1717,37 +1717,7 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 	// IMPORTANT: Always prompt user to select - never auto-select to prevent
 	// accidentally operating on the wrong cluster
 	if !contextFound {
-		contexts, err := kubeconfig.ListContextNames()
-		if err != nil || len(contexts) == 0 {
-			// No kubeconfig or no contexts - just launch k9s without context
-			cblog.With("component", "k9s").Warn("Could not load kubeconfig contexts", "err", err)
-			return m, m.openK9s(K9sResourceParams{
-				Kind:      kind,
-				Namespace: namespace,
-				Name:      name,
-			})
-		}
-
-		// Always show picker - even with single context, user must confirm
-		m.k9sContextOptions = contexts
-		m.k9sContextSelected = 0
-		// Pre-select current context for convenience so users who haven't
-		// switched contexts can just press Enter
-		if kc, kcErr := kubeconfig.Load(); kcErr == nil {
-			if current := kc.GetCurrentContext(); current != "" {
-				for i, c := range contexts {
-					if c == current {
-						m.k9sContextSelected = i
-						break
-					}
-				}
-			}
-		}
-		m.k9sPendingKind = kind
-		m.k9sPendingNamespace = namespace
-		m.k9sPendingName = name
-		m.state.Mode = model.ModeK9sContextSelect
-		return m, nil
+		return m.showK9sContextPicker(kind, namespace, name)
 	}
 
 	return m, m.openK9s(K9sResourceParams{
@@ -1776,19 +1746,26 @@ func (m *Model) openK9sForApplicationCR(appName string) (tea.Model, tea.Cmd) {
 	cblog.With("component", "k9s").Debug("Opening k9s for Application CR",
 		"name", appName, "namespace", namespace)
 
-	// Always show context picker for Application CRs
+	return m.showK9sContextPicker("Application", namespace, appName)
+}
+
+// showK9sContextPicker loads kubeconfig contexts and shows the context picker UI.
+// Falls back to launching k9s without a context if no contexts are available.
+func (m *Model) showK9sContextPicker(kind, namespace, name string) (tea.Model, tea.Cmd) {
 	contexts, err := kubeconfig.ListContextNames()
 	if err != nil || len(contexts) == 0 {
 		cblog.With("component", "k9s").Warn("Could not load kubeconfig contexts", "err", err)
 		return m, m.openK9s(K9sResourceParams{
-			Kind:      "Application",
+			Kind:      kind,
 			Namespace: namespace,
-			Name:      appName,
+			Name:      name,
 		})
 	}
 
 	m.k9sContextOptions = contexts
 	m.k9sContextSelected = 0
+	// Pre-select current context for convenience so users who haven't
+	// switched contexts can just press Enter
 	if kc, kcErr := kubeconfig.Load(); kcErr == nil {
 		if current := kc.GetCurrentContext(); current != "" {
 			for i, c := range contexts {
@@ -1799,9 +1776,9 @@ func (m *Model) openK9sForApplicationCR(appName string) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	m.k9sPendingKind = "Application"
+	m.k9sPendingKind = kind
 	m.k9sPendingNamespace = namespace
-	m.k9sPendingName = appName
+	m.k9sPendingName = name
 	m.state.Mode = model.ModeK9sContextSelect
 	return m, nil
 }
