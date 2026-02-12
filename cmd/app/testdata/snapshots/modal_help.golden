@@ -8,7 +8,8 @@
  │ VIEWS        :cls|:clusters • :ns|:namespaces • :proj|:projects • :apps                        │ 
  │              :appsets|:applicationsets • :theme • :logs                                        │ 
  │                                                                                                │ 
- │ APPS VIEW     s  sync •  R  rollback •  r  resources •  d  diff •  Ctrl+D  delete              │ 
+ │ APPS VIEW     s  sync •  R  rollback •  r  resources •  d  diff •  K  open in k9s •  Ctrl+D    │ 
+ │ delete                                                                                         │ 
  │              :diff [app] • :sync [app] • :rollback [app] • :delete [app]                       │ 
  │              :refresh [app] • :refresh! [app] (hard) • :sort health|sync asc|desc              │ 
  │              :resources [app] • :up • :all                                                     │ 
@@ -19,7 +20,6 @@
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

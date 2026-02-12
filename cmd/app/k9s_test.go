@@ -259,6 +259,7 @@ func TestK9sResourceMapCoverage(t *testing.T) {
 		"RoleBinding":              "rolebinding",
 		"ClusterRole":              "clusterrole",
 		"ClusterRoleBinding":       "clusterrolebinding",
+		"Application":              "applications.argoproj.io",
 	}
 
 	for kind, expectedAlias := range expectedMappings {
