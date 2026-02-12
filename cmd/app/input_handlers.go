@@ -1732,19 +1732,22 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 // We always show the context picker because we don't know which kubeconfig
 // context maps to the ArgoCD management cluster.
 func (m *Model) openK9sForApplicationCR(appName string) (tea.Model, tea.Cmd) {
-	// Find the app to get its AppNamespace
-	var namespace string
+	// Default to "argocd" — the standard ArgoCD installation namespace.
+	// Override only when the app is found with an explicit AppNamespace.
+	namespace := "argocd"
+	usingDefault := true
 	for i := range m.state.Apps {
 		if m.state.Apps[i].Name == appName {
 			if m.state.Apps[i].AppNamespace != nil {
 				namespace = *m.state.Apps[i].AppNamespace
+				usingDefault = false
 			}
 			break
 		}
 	}
 
 	cblog.With("component", "k9s").Debug("Opening k9s for Application CR",
-		"name", appName, "namespace", namespace)
+		"name", appName, "namespace", namespace, "usingDefault", usingDefault)
 
 	return m.showK9sContextPicker("Application", namespace, appName)
 }
