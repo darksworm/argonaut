@@ -211,6 +211,24 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 			tempRoots = append(tempRoots, node)
 		}
 	}
+
+	// Filter out Application nodes that would duplicate the synthetic root.
+	// ArgoCD's resource tree stream sometimes includes the Application CR itself.
+	// Promote any children of the filtered node to roots.
+	filtered := make([]*treeNode, 0, len(tempRoots))
+	for _, node := range tempRoots {
+		if node.kind == "Application" && node.name == appName {
+			for _, child := range node.children {
+				child.parent = nil
+				filtered = append(filtered, child)
+			}
+			delete(v.nodesByUID, node.uid)
+			continue
+		}
+		filtered = append(filtered, node)
+	}
+	tempRoots = filtered
+
 	// Sort roots and children
 	sortNodes := func(list []*treeNode) {
 		sort.Slice(list, func(i, j int) bool {
