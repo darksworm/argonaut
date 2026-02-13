@@ -11,12 +11,14 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"unicode/utf8"
 	"time"
 	"unsafe"
 
 	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/creack/pty"
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -139,30 +141,50 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 		fmt.Print("\x1b[2J\x1b[H")
 		drawStatusBarBottom(rows, cols, params)
 
-		// Set up input forwarding from a duplicated stdin fd to the PTY.
-		// We dup stdin so we can close the dup after k9s exits, which
-		// unblocks the goroutine's Read immediately — preventing it from
-		// competing with Bubble Tea for the real stdin and swallowing a keypress.
-		stdinDupFd, err := syscall.Dup(int(os.Stdin.Fd()))
+		// Set up input forwarding from stdin to the PTY using
+		// unix.Select with a cancellation pipe. This lets us unblock
+		// the goroutine deterministically after k9s exits without
+		// modifying fd flags (SetNonblock corrupts the shared file
+		// description) or relying on Go's poller (SetReadDeadline
+		// doesn't work on dup'd terminal fds on macOS).
+		cancelR, cancelW, err := os.Pipe()
 		if err != nil {
-			cblog.With("component", "k9s").Error("Failed to dup stdin", "err", err)
+			cblog.With("component", "k9s").Error("Failed to create cancel pipe", "err", err)
 			ptmx.Close()
-			return k9sDoneMsg{Err: fmt.Errorf("failed to dup stdin: %w", err)}
+			return k9sDoneMsg{Err: fmt.Errorf("failed to create cancel pipe: %w", err)}
 		}
-		stdinFile := os.NewFile(uintptr(stdinDupFd), "stdin-dup")
 
 		stdinDone := make(chan struct{})
 		go func() {
 			defer close(stdinDone)
+			defer cancelR.Close()
+			stdinFd := int(os.Stdin.Fd())
+			cancelFd := int(cancelR.Fd())
 			buf := make([]byte, 1024)
 			for {
-				n, err := stdinFile.Read(buf)
+				rfds := &unix.FdSet{}
+				rfds.Set(stdinFd)
+				rfds.Set(cancelFd)
+				maxFd := stdinFd
+				if cancelFd > maxFd {
+					maxFd = cancelFd
+				}
+				_, err := unix.Select(maxFd+1, rfds, nil, nil, nil)
 				if err != nil {
+					if err == syscall.EINTR {
+						continue
+					}
 					return
 				}
-				if n > 0 {
-					_, err = ptmx.Write(buf[:n])
-					if err != nil {
+				if rfds.IsSet(cancelFd) {
+					return
+				}
+				if rfds.IsSet(stdinFd) {
+					n, err := syscall.Read(stdinFd, buf)
+					if err != nil || n <= 0 {
+						return
+					}
+					if _, err := ptmx.Write(buf[:n]); err != nil {
 						return
 					}
 				}
@@ -177,10 +199,10 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 			cblog.With("component", "k9s").Debug("k9s exited", "err", err)
 		}
 
-		// Close ptmx and the duplicated stdin fd. Closing stdinFile unblocks
-		// the goroutine's Read immediately so it exits deterministically.
+		// Close the cancel pipe to unblock the goroutine's select(),
+		// then wait for it to exit deterministically.
 		ptmx.Close()
-		stdinFile.Close()
+		cancelW.Close()
 		<-stdinDone
 
 		return k9sDoneMsg{Err: nil}
@@ -274,23 +296,10 @@ func buildStatusBarSequence(rows, cols int, params K9sResourceParams) []byte {
 
 	// Build status bar content
 	left := " Argonaut » k9s"
-	if params.Kind != "" {
-		left += fmt.Sprintf(" (%s", params.Kind)
-		if params.Namespace != "" {
-			left += "/" + params.Namespace
-		}
-		if params.Name != "" {
-			left += ": " + params.Name
-		}
-		left += ")"
-	}
-	if params.Context != "" {
-		left += " [" + params.Context + "]"
-	}
 	right := ":q to return "
 
-	// Calculate padding
-	padding := cols - len(left) - len(right)
+	// Calculate padding using rune count (» is multi-byte UTF-8)
+	padding := cols - utf8.RuneCountInString(left) - utf8.RuneCountInString(right)
 	if padding < 1 {
 		padding = 1
 	}

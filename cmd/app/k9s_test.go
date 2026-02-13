@@ -178,9 +178,6 @@ func TestBuildStatusBarSequence(t *testing.T) {
 				"\x1b[2K",         // Clear line
 				"Argonaut",        // App name
 				"k9s",             // k9s identifier
-				"Pod",             // Kind
-				"default",         // Namespace
-				"minikube",        // Context
 				":q to return",    // Help text
 				"\x1b8",           // Restore cursor
 			},
@@ -206,8 +203,9 @@ func TestBuildStatusBarSequence(t *testing.T) {
 			namespace: "",
 			context:   "prod",
 			wantContains: []string{
-				"Node",
-				"prod",
+				"Argonaut",
+				"k9s",
+				":q to return",
 			},
 		},
 	}
