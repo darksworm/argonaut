@@ -111,12 +111,13 @@ func (m *Model) validateDefaultViewScope() {
 	if m.pendingDefaultViewScope == nil {
 		return
 	}
-	scope := m.pendingDefaultViewScope
-	m.pendingDefaultViewScope = nil
 
 	if m.state.Index == nil {
-		return
+		return // Index not yet built; keep pendingDefaultViewScope for next call
 	}
+
+	scope := m.pendingDefaultViewScope
+	m.pendingDefaultViewScope = nil
 
 	var exists bool
 	var label string

@@ -41,13 +41,11 @@ func TestDefaultViewApps(t *testing.T) {
 		t.Fatal("expected 'Synced' status in apps view")
 	}
 
-	// Verify we're NOT in clusters view — the screen should show app details,
-	// not a cluster list. In clusters view "cluster-a" appears as a selectable item.
-	// In apps view "cluster-a" may appear in the app's cluster column, so we check
-	// that the view header/breadcrumb shows "Applications" or similar apps view indicator.
-	screen := tf.Screen()
-	if screen == "" {
-		t.Fatal("screen is empty")
+	// Verify we're in apps view by checking the status line breadcrumb.
+	// The status line shows "<apps>" in apps view and "<clusters>" in clusters view.
+	if !tf.WaitForPlain("<apps>", 3*time.Second) {
+		screen := tf.Screen()
+		t.Fatalf("expected '<apps>' breadcrumb in status line, got:\n%s", screen)
 	}
 }
 

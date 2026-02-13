@@ -182,6 +182,9 @@ func TestDefaultViewWarning_ScopeProjectNotFound(t *testing.T) {
 	if !strings.Contains(*m.state.Modals.DefaultViewWarning, "Project") {
 		t.Errorf("warning should mention 'Project', got: %s", *m.state.Modals.DefaultViewWarning)
 	}
+	if m.state.Navigation.View != model.ViewClusters {
+		t.Fatalf("expected fallback to ViewClusters, got: %v", m.state.Navigation.View)
+	}
 }
 
 func TestDefaultViewWarning_ScopeAppsetNotFound(t *testing.T) {
@@ -199,6 +202,40 @@ func TestDefaultViewWarning_ScopeAppsetNotFound(t *testing.T) {
 	}
 	if !strings.Contains(*m.state.Modals.DefaultViewWarning, "ApplicationSet") {
 		t.Errorf("warning should mention 'ApplicationSet', got: %s", *m.state.Modals.DefaultViewWarning)
+	}
+	if m.state.Navigation.View != model.ViewClusters {
+		t.Fatalf("expected fallback to ViewClusters, got: %v", m.state.Navigation.View)
+	}
+}
+
+func TestDefaultViewWarning_NilIndexPreservesPendingScope(t *testing.T) {
+	cfg := config.GetDefaultConfig()
+	cfg.DefaultView = "cluster production"
+
+	m := NewModel(cfg)
+
+	// Pending scope should be set
+	if m.pendingDefaultViewScope == nil {
+		t.Fatal("expected pending scope")
+	}
+
+	// Call validate WITHOUT building the index — scope must be preserved
+	m.validateDefaultViewScope()
+
+	if m.pendingDefaultViewScope == nil {
+		t.Fatal("pendingDefaultViewScope was consumed despite nil index")
+	}
+
+	// Now build index and validate — scope should be consumed successfully
+	m.state.Apps = buildTestApps()
+	m.state.Index = model.BuildAppIndex(m.state.Apps)
+	m.validateDefaultViewScope()
+
+	if m.pendingDefaultViewScope != nil {
+		t.Error("pendingDefaultViewScope should be nil after successful validation")
+	}
+	if m.state.Modals.DefaultViewWarning != nil {
+		t.Errorf("unexpected warning when entity exists: %s", *m.state.Modals.DefaultViewWarning)
 	}
 }
 
