@@ -56,28 +56,17 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 		t.Fatalf("send Ctrl+D: %v", err)
 	}
 
-	// Wait for delete confirmation modal to appear
+	// Wait for delete confirmation modal to fully render (including options)
 	if !tf.WaitForPlain("Delete demo?", 2*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("delete confirmation modal not shown")
 	}
-
-	// Verify modal shows the correct app name
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "demo") {
-		t.Log(snapshot)
-		t.Fatal("delete modal should show app name 'demo'")
-	}
-
-	// Verify cascade warning is shown
-	if !strings.Contains(snapshot, "c: Cascade On") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("c: Cascade On", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("delete modal should show cascade warning")
 	}
-
-	// Verify safety instructions
-	if !strings.Contains(snapshot, "Delete (y)") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("Delete (y)", 1*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("delete modal should show safety instructions")
 	}
 
