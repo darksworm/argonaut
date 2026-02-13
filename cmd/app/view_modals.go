@@ -984,9 +984,22 @@ func (m *Model) renderK9sErrorModal() string {
 	title := lipgloss.NewStyle().
 		Foreground(redColor).
 		Bold(true).
-		Render("k9s Error")
+		Render("✗ k9s Error")
 
-	content := fmt.Sprintf("%s\n\n%s\n\nPress Enter or Esc to close", title, errorMsg)
+	body := lipgloss.NewStyle().Foreground(whiteBright).Render(errorMsg)
+
+	// Keycap-styled dismiss hint
+	keycapFG := ensureContrastingForeground(keycapBG, whiteBright)
+	keycap := func(s string) string {
+		return lipgloss.NewStyle().Background(keycapBG).Foreground(keycapFG).Padding(0, 1).Render(s)
+	}
+	dimText := func(s string) string {
+		return lipgloss.NewStyle().Foreground(dimColor).Render(s)
+	}
+	dismiss := fmt.Sprintf("%s %s %s %s %s",
+		dimText("Press"), keycap("Enter"), dimText("or"), keycap("Esc"), dimText("to close"))
+
+	content := fmt.Sprintf("%s\n\n%s\n\n%s", title, body, dismiss)
 
 	return modalStyle.Render(content)
 }
@@ -1009,11 +1022,77 @@ func (m *Model) renderDefaultViewWarningModal() string {
 	title := lipgloss.NewStyle().
 		Foreground(progressColor).
 		Bold(true).
-		Render("Invalid default_view")
+		Render("⚠ Invalid default_view")
 
-	content := fmt.Sprintf("%s\n\n%s\n\nPress Enter or Esc to close", title, warningMsg)
+	// Style the warning body: highlight quoted values, dim secondary lines
+	styledBody := styleWarningBody(warningMsg)
+
+	// Keycap-styled dismiss hint
+	keycapFG := ensureContrastingForeground(keycapBG, whiteBright)
+	keycap := func(s string) string {
+		return lipgloss.NewStyle().Background(keycapBG).Foreground(keycapFG).Padding(0, 1).Render(s)
+	}
+	dimText := func(s string) string {
+		return lipgloss.NewStyle().Foreground(dimColor).Render(s)
+	}
+	dismiss := fmt.Sprintf("%s %s %s %s %s",
+		dimText("Press"), keycap("Enter"), dimText("or"), keycap("Esc"), dimText("to close"))
+
+	content := fmt.Sprintf("%s\n\n%s\n\n%s", title, styledBody, dismiss)
 
 	return modalStyle.Render(content)
+}
+
+// styleWarningBody adds visual styling to warning message text.
+// Highlights quoted strings in accent color and dims hint/fallback lines.
+func styleWarningBody(msg string) string {
+	accentStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
+	dimStyle := lipgloss.NewStyle().Foreground(dimColor)
+	textStyle := lipgloss.NewStyle().Foreground(whiteBright)
+
+	var result strings.Builder
+	lines := strings.Split(msg, "\n")
+	for i, line := range lines {
+		if i > 0 {
+			result.WriteString("\n")
+		}
+		switch {
+		case strings.HasPrefix(line, "Valid options:") || strings.HasPrefix(line, "Example:"):
+			// Dim hint lines but highlight the values after the colon
+			colonIdx := strings.Index(line, ":")
+			label := dimStyle.Render(line[:colonIdx+1])
+			value := accentStyle.Render(line[colonIdx+1:])
+			result.WriteString(label + value)
+		case strings.Contains(line, "Falling back"):
+			result.WriteString(dimStyle.Render(line))
+		default:
+			// Highlight quoted strings within the line
+			result.WriteString(highlightQuoted(line, textStyle, accentStyle))
+		}
+	}
+	return result.String()
+}
+
+// highlightQuoted renders text with quoted substrings highlighted in accent style.
+func highlightQuoted(s string, base, accent lipgloss.Style) string {
+	var result strings.Builder
+	for {
+		qStart := strings.IndexByte(s, '"')
+		if qStart < 0 {
+			result.WriteString(base.Render(s))
+			break
+		}
+		qEnd := strings.IndexByte(s[qStart+1:], '"')
+		if qEnd < 0 {
+			result.WriteString(base.Render(s))
+			break
+		}
+		qEnd += qStart + 1
+		result.WriteString(base.Render(s[:qStart]))
+		result.WriteString(accent.Render(s[qStart : qEnd+1]))
+		s = s[qEnd+1:]
+	}
+	return result.String()
 }
 
 // renderThemeSelectionModal renders the theme selection overlay
