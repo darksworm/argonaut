@@ -266,6 +266,17 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// Default view warning modal
+	if m.state.Mode == model.ModeDefaultViewWarning {
+		modal := m.renderDefaultViewWarningModal()
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	// App Delete modal (confirmation or loading state)
 	if m.state.Mode == model.ModeConfirmAppDelete {
 		modal := ""

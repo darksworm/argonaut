@@ -44,6 +44,7 @@ const (
 	ModeK9sContextSelect      Mode = "k9s-context-select"
 	ModeK9sError              Mode = "k9s-error"
 	ModeConfirmResourceSync   Mode = "confirm-resource-sync"
+	ModeDefaultViewWarning    Mode = "default-view-warning"
 )
 
 // App represents an ArgoCD application

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -44,8 +45,32 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		CheckIntervalMin: 60, // Check every hour
 	})
 
+	state := model.NewAppState()
+
+	// Apply default view from config
+	var pendingDefaultViewScope *defaultViewScope
+	if view, scopeType, scopeValue, errMsg := cfg.ParseDefaultView(); errMsg != "" {
+		// Malformed default_view — store warning to show after app loads
+		state.Modals.DefaultViewWarning = &errMsg
+	} else if view != "" {
+		state.Navigation.View = model.View(view)
+		if scopeType != "" && scopeValue != "" {
+			switch scopeType {
+			case "cluster":
+				state.Selections.ScopeClusters = model.StringSetFromSlice([]string{scopeValue})
+			case "namespace":
+				state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{scopeValue})
+			case "project":
+				state.Selections.ScopeProjects = model.StringSetFromSlice([]string{scopeValue})
+			case "appset":
+				state.Selections.ScopeApplicationSets = model.StringSetFromSlice([]string{scopeValue})
+			}
+			pendingDefaultViewScope = &defaultViewScope{scopeType: scopeType, scopeValue: scopeValue}
+		}
+	}
+
 	return &Model{
-		state:              model.NewAppState(),
+		state:              state,
 		argoService:        services.NewArgoApiService(nil),
 		navigationService:  services.NewNavigationService(),
 		statusService:      services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
@@ -67,8 +92,77 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		listNav:            listnav.New(),
 		treeNav:            listnav.New(),
 		themeNav:           listnav.New(),
-		rollbackNav:        listnav.New(),
-		selection:          selection.New(),
+		rollbackNav:            listnav.New(),
+		selection:              selection.New(),
+		pendingDefaultViewScope: pendingDefaultViewScope,
+	}
+}
+
+// defaultViewScope holds pending scope validation info from default_view config.
+// Validated after apps are loaded to check if the scoped entity actually exists.
+type defaultViewScope struct {
+	scopeType  string // "cluster", "namespace", "project", or "appset"
+	scopeValue string
+}
+
+// validateDefaultViewScope checks if the scoped entity from default_view exists
+// in the loaded app data. If not, sets a warning and resets navigation to defaults.
+func (m *Model) validateDefaultViewScope() {
+	if m.pendingDefaultViewScope == nil {
+		return
+	}
+
+	if m.state.Index == nil {
+		return // Index not yet built; keep pendingDefaultViewScope for next call
+	}
+
+	scope := m.pendingDefaultViewScope
+	m.pendingDefaultViewScope = nil
+
+	var exists bool
+	var label string
+	switch scope.scopeType {
+	case "cluster":
+		label = "Cluster"
+		for _, c := range m.state.Index.Clusters {
+			if c == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	case "namespace":
+		label = "Namespace"
+		for _, n := range m.state.Index.Namespaces {
+			if n == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	case "project":
+		label = "Project"
+		for _, p := range m.state.Index.Projects {
+			if p == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	case "appset":
+		label = "ApplicationSet"
+		for _, a := range m.state.Index.ApplicationSets {
+			if a == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	}
+
+	if !exists {
+		warning := fmt.Sprintf("%s %q from default_view not found.\nFalling back to default view.", label, scope.scopeValue)
+		m.state.Modals.DefaultViewWarning = &warning
+		// Reset to default navigation
+		m.state.Navigation.View = model.ViewClusters
+		m.state.Navigation.SelectedIdx = 0
+		m.state.Selections = *model.NewSelectionState()
 	}
 }
 

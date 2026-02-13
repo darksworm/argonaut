@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
@@ -22,6 +23,7 @@ type ArgonautConfig struct {
 	PortForward     PortForwardConfig  `toml:"port_forward,omitempty"`
 	Clipboard       ClipboardConfig    `toml:"clipboard,omitempty"`
 	HTTPTimeouts    HTTPTimeoutConfig  `toml:"http_timeouts,omitempty"`
+	DefaultView     string             `toml:"default_view,omitempty"`
 	LastSeenVersion string             `toml:"last_seen_version,omitempty"`
 }
 
@@ -245,6 +247,69 @@ func (c *ArgonautConfig) GetRequestTimeoutString() string {
 		return c.HTTPTimeouts.RequestTimeout
 	}
 	return "10s"
+}
+
+// ParseDefaultView parses the default_view config value into a view, scope type, and scope value.
+// Returns zero values if the input is empty. Returns an error message if the input is invalid.
+// The view is returned as a string matching model.View constants (e.g. "apps", "clusters").
+// When an argument is provided, drill-down logic applies:
+//   - cluster+arg → namespaces view scoped to cluster
+//   - namespace+arg → projects view scoped to namespace
+//   - project+arg → apps view scoped to project
+//   - appset+arg → apps view scoped to appset
+//   - app+arg → apps view (no scope)
+func (c *ArgonautConfig) ParseDefaultView() (view string, scopeType string, scopeValue string, errMsg string) {
+	input := strings.TrimSpace(c.DefaultView)
+	if input == "" {
+		return "", "", "", ""
+	}
+
+	// Split on whitespace: command + optional arg
+	parts := strings.Fields(input)
+	cmd := parts[0]
+	var arg string
+	if len(parts) > 1 {
+		arg = parts[1]
+	}
+
+	// Alias lookup: maps all aliases to a canonical command name
+	type viewDef struct {
+		view      string // view to show (without arg)
+		drillView string // view to show when arg is provided
+		scopeType string // scope type when arg is provided
+	}
+
+	aliases := map[string]viewDef{
+		"app":             {view: "apps"},
+		"apps":            {view: "apps"},
+		"application":     {view: "apps"},
+		"applications":    {view: "apps"},
+		"cluster":         {view: "clusters", drillView: "namespaces", scopeType: "cluster"},
+		"clusters":        {view: "clusters", drillView: "namespaces", scopeType: "cluster"},
+		"cls":             {view: "clusters", drillView: "namespaces", scopeType: "cluster"},
+		"namespace":       {view: "namespaces", drillView: "projects", scopeType: "namespace"},
+		"namespaces":      {view: "namespaces", drillView: "projects", scopeType: "namespace"},
+		"ns":              {view: "namespaces", drillView: "projects", scopeType: "namespace"},
+		"project":         {view: "projects", drillView: "apps", scopeType: "project"},
+		"projects":        {view: "projects", drillView: "apps", scopeType: "project"},
+		"proj":            {view: "projects", drillView: "apps", scopeType: "project"},
+		"appset":          {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"appsets":         {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"applicationset":  {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"applicationsets": {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"as":              {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+	}
+
+	def, ok := aliases[cmd]
+	if !ok {
+		return "", "", "", fmt.Sprintf("Malformed default_view in config: %q\nValid options: apps, clusters, ns, proj, appset\nExample: default_view = \"cluster production\"", input)
+	}
+
+	if arg == "" || def.drillView == "" {
+		return def.view, "", "", ""
+	}
+
+	return def.drillView, def.scopeType, arg, ""
 }
 
 // GetRequestTimeout returns the parsed duration for request timeout, defaulting to 10s

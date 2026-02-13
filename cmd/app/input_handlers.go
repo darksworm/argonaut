@@ -539,6 +539,17 @@ func (m *Model) handleK9sErrorModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleDefaultViewWarningModeKeys handles input when default_view warning modal is shown
+func (m *Model) handleDefaultViewWarningModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter", "esc", "q":
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.DefaultViewWarning = nil
+		return m, nil
+	}
+	return m, nil
+}
+
 // removed: resources list mode
 
 // handleDiffModeKeys handles non-navigation input in diff mode.
@@ -1390,6 +1401,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleK9sContextSelectKeys(msg)
 	case model.ModeK9sError:
 		return m.handleK9sErrorModeKeys(msg)
+	case model.ModeDefaultViewWarning:
+		return m.handleDefaultViewWarningModeKeys(msg)
 	}
 
 	// Tree view keys when in normal mode.
