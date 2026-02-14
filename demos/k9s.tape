@@ -48,12 +48,21 @@ Sleep 3s
 
 # Scale deployment: 1 → 2 replicas
 Type "s"
-Sleep 300ms
+Sleep 500ms
 Backspace
 Type "2"
-Sleep 300ms
+Sleep 500ms
 Enter
 Sleep 3s
+
+# Switch to pods view to see the new replica
+Type ":pods"
+Enter
+Sleep 3s
+
+# Ensure we're back at main k9s view
+Escape
+Sleep 500ms
 
 # Exit k9s
 Type ":q"
