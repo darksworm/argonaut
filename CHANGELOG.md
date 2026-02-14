@@ -5,21 +5,21 @@
 
 ### Features
 
-* add configurable default_view setting ([#210](https://github.com/darksworm/argonaut/issues/210)) ([238f026](https://github.com/darksworm/argonaut/commit/238f026fbd0675166d83eae58d47f5b961019b15))
-* open Application CR in k9s ([#209](https://github.com/darksworm/argonaut/issues/209)) ([c1fba4f](https://github.com/darksworm/argonaut/commit/c1fba4fd5501fb34740a652bdcedbe8195dd381d))
+* set `default_view` in the config to start Argonaut in a specific view, e.g. `apps` or `ctx prod` ([#210](https://github.com/darksworm/argonaut/issues/210)) ([238f026](https://github.com/darksworm/argonaut/commit/238f026fbd0675166d83eae58d47f5b961019b15))
+* pressing `shift+k` on an Application resource now opens it in k9s ([#209](https://github.com/darksworm/argonaut/issues/209)) ([c1fba4f](https://github.com/darksworm/argonaut/commit/c1fba4fd5501fb34740a652bdcedbe8195dd381d))
 
 
 ### Bug Fixes
 
-* deduplicate Application line in tree view and prevent swallowed keypress after exiting k9s ([#206](https://github.com/darksworm/argonaut/issues/206)) ([#211](https://github.com/darksworm/argonaut/issues/211)) ([12197c6](https://github.com/darksworm/argonaut/commit/12197c6f9fd51010f9837bf1fad1efc8ec4e9c91))
-* don't use wrong kubeconfig context when opening k9s for "in-cluster" apps ([#207](https://github.com/darksworm/argonaut/issues/207)) ([83b5b76](https://github.com/darksworm/argonaut/commit/83b5b76fc07cc6afa38370670f0194df29b8fad4))
-* harden pr-prerelease workflow against unauthorized use and injection ([e62be07](https://github.com/darksworm/argonaut/commit/e62be0721ee43d29d517e675467a6141b81d79e5))
-* harden updater and app-watch lifecycle ([#201](https://github.com/darksworm/argonaut/issues/201)) ([dbfbf1d](https://github.com/darksworm/argonaut/commit/dbfbf1dff6e0973f479ee8d13be7b1067f6fa371))
+* fixed duplicate Application line in tree view and swallowed keypress after exiting k9s ([#206](https://github.com/darksworm/argonaut/issues/206)) ([#211](https://github.com/darksworm/argonaut/issues/211)) ([12197c6](https://github.com/darksworm/argonaut/commit/12197c6f9fd51010f9837bf1fad1efc8ec4e9c91))
+* fixed use of the wrong kubeconfig context when opening k9s for "in-cluster" apps ([#207](https://github.com/darksworm/argonaut/issues/207)) ([83b5b76](https://github.com/darksworm/argonaut/commit/83b5b76fc07cc6afa38370670f0194df29b8fad4))
+* hardened the pr-prerelease workflow against unauthorized use and injection ([e62be07](https://github.com/darksworm/argonaut/commit/e62be0721ee43d29d517e675467a6141b81d79e5))
+* hardened the updater and app-watch lifecycle ([#201](https://github.com/darksworm/argonaut/issues/201)) ([dbfbf1d](https://github.com/darksworm/argonaut/commit/dbfbf1dff6e0973f479ee8d13be7b1067f6fa371))
 
 
 ### Performance Improvements
 
-* optimize for large ArgoCD deployments ([#200](https://github.com/darksworm/argonaut/issues/200)) ([d69b460](https://github.com/darksworm/argonaut/commit/d69b460558a74b730dec0de5782a55b8b3477c11))
+* optimized Argonaut for large ArgoCD deployments - now only on-screen elements are loaded and tracked ([#200](https://github.com/darksworm/argonaut/issues/200)) ([d69b460](https://github.com/darksworm/argonaut/commit/d69b460558a74b730dec0de5782a55b8b3477c11))
 
 ## [2.13.0](https://github.com/darksworm/argonaut/compare/v2.12.0...v2.13.0) (2026-02-04)
 
