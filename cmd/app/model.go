@@ -1355,11 +1355,14 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 	if !found {
 		m.state.Apps = append(m.state.Apps, upd.App)
 	}
-	// Update tree view sync statuses
-	if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
-		var resources []api.ResourceStatus
-		if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
-			m.treeView.SetResourceStatuses(upd.App.Name, resources)
+	// Update tree view app metadata and resource sync statuses
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree {
+		m.treeView.SetAppMeta(upd.App.Name, upd.App.Health, upd.App.Sync)
+		if len(upd.ResourcesJSON) > 0 {
+			var resources []api.ResourceStatus
+			if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+				m.treeView.SetResourceStatuses(upd.App.Name, resources)
+			}
 		}
 	}
 }

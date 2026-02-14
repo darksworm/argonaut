@@ -5,14 +5,16 @@
 # Scenario set via ARGONAUT_DEMO_SCENARIO=k9s in Makefile
 # Usage: cd demos && make record-k9s
 
-Output demos/k9s.gif
+Output demos/k9s.mp4
 
 Set Shell "bash"
 Set Theme "TokyoNight"
-Set FontSize 16
-Set Width 1100
-Set Height 600
+Set FontSize 29
+Set Width 1920
+Set Height 1080
 Set Padding 0
+Set WindowBar ""
+Set BorderRadius 0
 Set TypingSpeed 50ms
 
 # Launch (default_view = "apps" so we land directly in apps view)
@@ -50,11 +52,6 @@ Sleep 300ms
 Backspace
 Type "2"
 Sleep 300ms
-Enter
-Sleep 3s
-
-# Switch to pods view to see the new replica
-Type ":pods"
 Enter
 Sleep 3s
 

@@ -506,30 +506,35 @@ func startMockServer(apps []argoApp, done <-chan struct{}) *httptest.Server {
 		if fl != nil {
 			fl.Flush()
 		}
-		// Listen for sync completions and send updated SSE events
+		// Listen for sync completions and send updated SSE events.
+		// Send the update multiple times with delays to ensure the client
+		// picks it up even if a watch restart race consumes the first event.
 		for {
 			select {
 			case name := <-syncNotify:
 				mu.Lock()
-				app, ok := appByName[name]
-				if ok {
-					// App was already updated in-place by sync handler;
-					// send the current (Synced) state as an SSE event.
+				_, ok := appByName[name]
+				if !ok {
+					mu.Unlock()
+					continue
+				}
+				mu.Unlock()
+				// Send 3 times over ~1s to beat any race with watch reconnect
+				for i := 0; i < 3; i++ {
+					time.Sleep(300 * time.Millisecond)
+					mu.Lock()
 					evt := map[string]interface{}{
 						"result": map[string]interface{}{
 							"type":        "MODIFIED",
-							"application": *app,
+							"application": *appByName[name],
 						},
 					}
 					evtJSON, _ := json.Marshal(evt)
 					mu.Unlock()
-					time.Sleep(150 * time.Millisecond)
 					_, _ = fmt.Fprintf(w, "data: %s\n\n", evtJSON)
 					if fl != nil {
 						fl.Flush()
 					}
-				} else {
-					mu.Unlock()
 				}
 			case <-done:
 				return
