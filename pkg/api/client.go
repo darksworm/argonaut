@@ -158,11 +158,11 @@ func (c *Client) buildURL(path string) string {
 	return c.baseURL + path
 }
 
-// Get performs a GET request with retry logic
+// Get performs a GET request with retry logic.
+// Callers are responsible for setting a timeout on ctx (e.g. via appcontext.WithAPITimeout
+// or WithMinAPITimeout). Do not add a timeout here — it would undercut WithMinAPITimeout
+// callers that need a longer deadline for slow operations like diffs and rollbacks.
 func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("GET %s", path), func(attempt int) error {
 		var opErr error
@@ -173,11 +173,9 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 	return result, err
 }
 
-// Post performs a POST request with retry logic
+// Post performs a POST request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("POST %s", path), func(attempt int) error {
 		var opErr error
@@ -188,11 +186,9 @@ func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byt
 	return result, err
 }
 
-// Put performs a PUT request with retry logic
+// Put performs a PUT request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("PUT %s", path), func(attempt int) error {
 		var opErr error
@@ -203,11 +199,9 @@ func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte
 	return result, err
 }
 
-// Delete performs a DELETE request with retry logic
+// Delete performs a DELETE request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("DELETE %s", path), func(attempt int) error {
 		var opErr error
