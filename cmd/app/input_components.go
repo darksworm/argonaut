@@ -411,10 +411,10 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			m.state.UI.SearchQuery = ""
 		}
 		return m, nil
-	case "up", "k":
+	case "up":
 		// Navigate results while search is active
 		return m.handleNavigationUp()
-	case "down", "j":
+	case "down":
 		// Navigate results while search is active
 		return m.handleNavigationDown()
 	case "esc":
