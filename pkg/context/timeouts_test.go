@@ -159,6 +159,60 @@ func TestTimeoutOperations(t *testing.T) {
 	}
 }
 
+func TestWithMinAPITimeout(t *testing.T) {
+	originalTimeouts := DefaultTimeouts
+	defer func() {
+		DefaultTimeouts = originalTimeouts
+	}()
+
+	tolerance := 100 * time.Millisecond
+
+	t.Run("min floor wins when config is shorter", func(t *testing.T) {
+		SetRequestTimeout(15 * time.Second)
+		ctx, cancel := WithMinAPITimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("Context should have a deadline")
+		}
+		got := time.Until(deadline)
+		if got < 45*time.Second-tolerance || got > 45*time.Second+tolerance {
+			t.Errorf("Expected ~45s deadline, got %v", got)
+		}
+	})
+
+	t.Run("config wins when longer than min", func(t *testing.T) {
+		SetRequestTimeout(120 * time.Second)
+		ctx, cancel := WithMinAPITimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("Context should have a deadline")
+		}
+		got := time.Until(deadline)
+		if got < 120*time.Second-tolerance || got > 120*time.Second+tolerance {
+			t.Errorf("Expected ~120s deadline, got %v", got)
+		}
+	})
+
+	t.Run("config equals min", func(t *testing.T) {
+		SetRequestTimeout(45 * time.Second)
+		ctx, cancel := WithMinAPITimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("Context should have a deadline")
+		}
+		got := time.Until(deadline)
+		if got < 45*time.Second-tolerance || got > 45*time.Second+tolerance {
+			t.Errorf("Expected ~45s deadline, got %v", got)
+		}
+	})
+}
+
 func TestBackwardCompatibility(t *testing.T) {
 	// Store original timeouts to restore after test
 	originalTimeouts := DefaultTimeouts

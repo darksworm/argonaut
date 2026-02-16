@@ -54,6 +54,10 @@ type TUITestFramework struct {
 
 	// extraConfig is additional TOML config appended to the test config file
 	extraConfig string
+
+	// requestTimeout overrides the default "2s" request_timeout for E2E tests.
+	// Set before calling StartApp/StartAppArgs.
+	requestTimeout string
 }
 
 func NewTUITest(t *testing.T) *TUITestFramework {
@@ -147,9 +151,13 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 	if tf.extraConfig != "" {
 		testConfig += tf.extraConfig + "\n"
 	}
+	reqTimeout := tf.requestTimeout
+	if reqTimeout == "" {
+		reqTimeout = "2s"
+	}
 	testConfig += `[http_timeouts]
 # Use lower timeout for E2E tests to speed them up
-request_timeout = "2s"
+request_timeout = "` + reqTimeout + `"
 
 [clipboard]
 # Mock clipboard for tests - writes to file instead of system clipboard
@@ -221,9 +229,13 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 	if tf.extraConfig != "" {
 		testConfig += tf.extraConfig + "\n"
 	}
+	reqTimeout := tf.requestTimeout
+	if reqTimeout == "" {
+		reqTimeout = "2s"
+	}
 	testConfig += `[http_timeouts]
 # Use lower timeout for E2E tests to speed them up
-request_timeout = "2s"
+request_timeout = "` + reqTimeout + `"
 
 [clipboard]
 # Mock clipboard for tests - writes to file instead of system clipboard
