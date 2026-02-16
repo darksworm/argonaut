@@ -277,12 +277,12 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 
 // request performs the actual HTTP request
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	// Capture actual timeout from context deadline for accurate error messages.
-	// Must be done before the request, since the deadline will have expired by
-	// the time we need it in error handlers.
+	// Retrieve the original timeout duration for accurate error messages.
+	// Uses the value stored by WithAPITimeout/WithMinAPITimeout at context
+	// creation time, avoiding time.Until(deadline) which drifts on retries.
 	var timeoutStr string
-	if deadline, ok := ctx.Deadline(); ok {
-		timeoutStr = time.Until(deadline).Round(time.Second).String()
+	if d, ok := appcontext.GetTimeoutDuration(ctx); ok {
+		timeoutStr = d.Round(time.Second).String()
 	} else {
 		timeoutStr = appcontext.DefaultTimeouts.API.String()
 	}

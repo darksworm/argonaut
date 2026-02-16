@@ -213,6 +213,48 @@ func TestWithMinAPITimeout(t *testing.T) {
 	})
 }
 
+func TestGetTimeoutDuration(t *testing.T) {
+	originalTimeouts := DefaultTimeouts
+	defer func() {
+		DefaultTimeouts = originalTimeouts
+	}()
+
+	t.Run("WithAPITimeout stores duration", func(t *testing.T) {
+		SetRequestTimeout(42 * time.Second)
+		ctx, cancel := WithAPITimeout(context.Background())
+		defer cancel()
+
+		d, ok := GetTimeoutDuration(ctx)
+		if !ok {
+			t.Fatal("Expected timeout duration in context")
+		}
+		if d != 42*time.Second {
+			t.Errorf("Expected 42s, got %v", d)
+		}
+	})
+
+	t.Run("WithMinAPITimeout stores effective duration", func(t *testing.T) {
+		SetRequestTimeout(15 * time.Second)
+		ctx, cancel := WithMinAPITimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		d, ok := GetTimeoutDuration(ctx)
+		if !ok {
+			t.Fatal("Expected timeout duration in context")
+		}
+		if d != 45*time.Second {
+			t.Errorf("Expected 45s (min floor), got %v", d)
+		}
+	})
+
+	t.Run("bare context returns false", func(t *testing.T) {
+		_, ok := GetTimeoutDuration(context.Background())
+		if ok {
+			t.Error("Expected no timeout duration on bare context")
+		}
+	})
+}
+
 func TestBackwardCompatibility(t *testing.T) {
 	// Store original timeouts to restore after test
 	originalTimeouts := DefaultTimeouts
