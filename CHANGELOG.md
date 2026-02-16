@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.14.1](https://github.com/darksworm/argonaut/compare/v2.14.0...v2.14.1) (2026-02-16)
+
+
+### Bug Fixes
+
+* allow "j" and "k" characters to be typed in search/filter input ([#216](https://github.com/darksworm/argonaut/issues/216)) ([3864c2e](https://github.com/darksworm/argonaut/commit/3864c2e55d060f056381bf71c5a81d182f0e8d05))
+* respect `request_timeout` config in all API call sites ([#218](https://github.com/darksworm/argonaut/issues/218)) ([5efc96d](https://github.com/darksworm/argonaut/commit/5efc96da009e4ff4584452f09ad85f20900dd7e2))
+
 ## [2.14.0](https://github.com/darksworm/argonaut/compare/v2.13.0...v2.14.0) (2026-02-13)
 
 
