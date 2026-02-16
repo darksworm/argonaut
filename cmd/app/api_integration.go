@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/neat"
@@ -35,8 +36,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
 
-		// Create context with timeout (shorter timeout for initial loading)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		// Create a new ArgoApiService with the current server
@@ -163,7 +163,7 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 		apiService := services.NewArgoApiService(m.state.Server)
 		v, err := apiService.GetAPIVersion(ctx, m.state.Server)
@@ -417,7 +417,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -514,7 +514,7 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -643,7 +643,7 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		argo := services.NewArgoApiService(m.state.Server)
@@ -751,13 +751,12 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 seconds max for sync operations
-		defer cancel()
-
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
 		for _, appName := range selectedApps {
+			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
+			cancel()
 			if err != nil {
 				// Convert to structured error and return via TUI error handling
 				if argErr, ok := err.(*apperrors.ArgonautError); ok {
@@ -796,7 +795,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		// Create delete service
@@ -848,7 +847,7 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 seconds max for sync operations
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
@@ -891,7 +890,7 @@ func (m *Model) refreshSingleApplication(appName string, appNamespace *string, h
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		appService := api.NewApplicationService(m.state.Server)
@@ -961,18 +960,17 @@ func (m *Model) refreshMultipleApplications(hard bool) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
 		appService := api.NewApplicationService(m.state.Server)
 
 		for _, appName := range selectedApps {
+			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			opts := &api.RefreshOptions{
 				Hard:         hard,
 				AppNamespace: appNamespaces[appName],
 			}
 
 			err := appService.RefreshApplication(ctx, appName, opts)
+			cancel()
 			if err != nil {
 				cblog.With("component", "api").Error("Refresh failed for app", "app", appName, "err", err)
 				// Continue with other apps
@@ -1037,7 +1035,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -1083,7 +1081,7 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -1110,7 +1108,7 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -1145,7 +1143,7 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
@@ -1225,10 +1223,6 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 	return func() tea.Msg {
 		cblog.With("component", "app-delete").Info("Starting sequential multi-delete", "count", len(selectedApps), "cascade", cascade, "policy", propagationPolicy)
 
-		// Reasonable timeout for sequential operations
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		// Create delete service
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
 
@@ -1248,6 +1242,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 				}
 			}
 
+			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			err := m.deleteApplicationHelper(ctx, deleteService, AppDeleteParams{
 				AppName:   appName,
 				Namespace: appNamespace,
@@ -1256,6 +1251,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 					PropagationPolicy: propagationPolicy,
 				},
 			})
+			cancel()
 			if err != nil {
 				cblog.With("component", "app-delete").Error("Failed to delete app", "app", appName, "err", err)
 				failedApps = append(failedApps, fmt.Sprintf("%s (%v)", appName, err))
@@ -1320,7 +1316,7 @@ func (m *Model) deleteSingleApplication(params AppDeleteParams) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // 10 seconds for delete operations
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		deleteService := appdelete.NewAppDeleteService(m.state.Server)
@@ -1368,9 +1364,6 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, op
 		cblog.With("component", "resource-delete").Info("Starting resource deletion",
 			"count", len(targets), "cascade", opts.Cascade, "policy", opts.PropagationPolicy, "orphan", orphan, "force", opts.Force)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
 		appService := api.NewApplicationService(m.state.Server)
 
 		var failedResources []string
@@ -1393,7 +1386,9 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, op
 				Force:        opts.Force,
 			}
 
+			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			err := appService.DeleteResource(ctx, req)
+			cancel()
 			if err != nil {
 				cblog.With("component", "resource-delete").Error("Failed to delete resource",
 					"kind", target.Kind, "name", target.Name, "err", err)
@@ -1488,9 +1483,6 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 		cblog.With("component", "resource-sync").Info("Starting resource sync",
 			"count", len(targets), "apps", len(appResources), "prune", prune, "force", force)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-
 		appService := api.NewApplicationService(m.state.Server)
 
 		var failedApps []string
@@ -1516,7 +1508,9 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 				AppNamespace: appNamespace,
 			}
 
+			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			err := appService.SyncApplication(ctx, appName, opts)
+			cancel()
 			if err != nil {
 				// Extract user-friendly message from the error chain
 				errMsg := extractUserFriendlyError(err)

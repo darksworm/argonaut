@@ -283,6 +283,16 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 
 // request performs the actual HTTP request
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	// Capture actual timeout from context deadline for accurate error messages.
+	// Must be done before the request, since the deadline will have expired by
+	// the time we need it in error handlers.
+	var timeoutStr string
+	if deadline, ok := ctx.Deadline(); ok {
+		timeoutStr = time.Until(deadline).Round(time.Second).String()
+	} else {
+		timeoutStr = appcontext.DefaultTimeouts.API.String()
+	}
+
 	url := c.buildURL(path)
 
 	var reqBody io.Reader
@@ -316,7 +326,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	cblog.With("component", "api", "op", "http").Debug("Making HTTP request",
 		"method", method,
 		"url", sanitizeURL(url),
-		"timeout", appcontext.DefaultTimeouts.API.String(),
+		"timeout", timeoutStr,
 	)
 
 	resp, err := c.httpClient.Do(req)
@@ -331,10 +341,10 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
-				fmt.Sprintf("Request timed out after %s - server did not respond in time", appcontext.DefaultTimeouts.API.String())).
+				fmt.Sprintf("Request timed out after %s - server did not respond in time", timeoutStr)).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
+				WithContext("timeout", timeoutStr).
 				WithUserAction("Check network connection and server status. For slow servers, increase request_timeout in config")
 		}
 
@@ -361,10 +371,10 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("NETWORK_TIMEOUT",
-				fmt.Sprintf("Network connection timed out after %s", appcontext.DefaultTimeouts.API.String())).
+				fmt.Sprintf("Network connection timed out after %s", timeoutStr)).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
+				WithContext("timeout", timeoutStr).
 				WithUserAction("Check network/firewall settings and TLS configuration. Increase request_timeout if needed")
 		}
 

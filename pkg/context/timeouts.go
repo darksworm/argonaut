@@ -125,6 +125,17 @@ func WithResourceTimeout(parent context.Context) (context.Context, context.Cance
 	return WithTimeout(parent, OpResource)
 }
 
+// WithMinAPITimeout creates an API timeout context that is at least minTimeout.
+// This is useful for inherently slow operations (diffs, rollbacks) that need a
+// guaranteed minimum even when the user has configured a shorter request_timeout.
+func WithMinAPITimeout(parent context.Context, minTimeout time.Duration) (context.Context, context.CancelFunc) {
+	timeout := DefaultTimeouts.API
+	if minTimeout > timeout {
+		timeout = minTimeout
+	}
+	return context.WithTimeout(parent, timeout)
+}
+
 // SetRequestTimeout updates all request-related timeouts to the specified duration.
 // This affects API, Auth, Sync, and Resource operations.
 // UI and Stream timeouts remain unchanged to maintain UI responsiveness and streaming functionality.
