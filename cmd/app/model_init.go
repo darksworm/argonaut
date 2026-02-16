@@ -13,6 +13,7 @@ import (
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -214,7 +215,7 @@ func (m *Model) validateAuthentication() tea.Cmd {
 
 		// Create API service to validate authentication
 		appService := api.NewApplicationService(m.state.Server)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		// Validate user info (similar to TypeScript getUserInfo call)

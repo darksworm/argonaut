@@ -158,11 +158,11 @@ func (c *Client) buildURL(path string) string {
 	return c.baseURL + path
 }
 
-// Get performs a GET request with retry logic
+// Get performs a GET request with retry logic.
+// Callers are responsible for setting a timeout on ctx (e.g. via appcontext.WithAPITimeout
+// or WithMinAPITimeout). Do not add a timeout here — it would undercut WithMinAPITimeout
+// callers that need a longer deadline for slow operations like diffs and rollbacks.
 func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("GET %s", path), func(attempt int) error {
 		var opErr error
@@ -173,11 +173,9 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 	return result, err
 }
 
-// Post performs a POST request with retry logic
+// Post performs a POST request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("POST %s", path), func(attempt int) error {
 		var opErr error
@@ -188,11 +186,9 @@ func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byt
 	return result, err
 }
 
-// Put performs a PUT request with retry logic
+// Put performs a PUT request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("PUT %s", path), func(attempt int) error {
 		var opErr error
@@ -203,11 +199,9 @@ func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte
 	return result, err
 }
 
-// Delete performs a DELETE request with retry logic
+// Delete performs a DELETE request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("DELETE %s", path), func(attempt int) error {
 		var opErr error
@@ -283,6 +277,16 @@ func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, erro
 
 // request performs the actual HTTP request
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	// Retrieve the original timeout duration for accurate error messages.
+	// Uses the value stored by WithAPITimeout/WithMinAPITimeout at context
+	// creation time, avoiding time.Until(deadline) which drifts on retries.
+	var timeoutStr string
+	if d, ok := appcontext.GetTimeoutDuration(ctx); ok {
+		timeoutStr = d.Round(time.Second).String()
+	} else {
+		timeoutStr = appcontext.DefaultTimeouts.API.String()
+	}
+
 	url := c.buildURL(path)
 
 	var reqBody io.Reader
@@ -316,7 +320,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	cblog.With("component", "api", "op", "http").Debug("Making HTTP request",
 		"method", method,
 		"url", sanitizeURL(url),
-		"timeout", appcontext.DefaultTimeouts.API.String(),
+		"timeout", timeoutStr,
 	)
 
 	resp, err := c.httpClient.Do(req)
@@ -331,10 +335,10 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
-				fmt.Sprintf("Request timed out after %s - server did not respond in time", appcontext.DefaultTimeouts.API.String())).
+				fmt.Sprintf("Request timed out after %s - server did not respond in time", timeoutStr)).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
+				WithContext("timeout", timeoutStr).
 				WithUserAction("Check network connection and server status. For slow servers, increase request_timeout in config")
 		}
 
@@ -361,10 +365,10 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 				"error", err.Error(),
 			)
 			return nil, apperrors.TimeoutError("NETWORK_TIMEOUT",
-				fmt.Sprintf("Network connection timed out after %s", appcontext.DefaultTimeouts.API.String())).
+				fmt.Sprintf("Network connection timed out after %s", timeoutStr)).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", appcontext.DefaultTimeouts.API.String()).
+				WithContext("timeout", timeoutStr).
 				WithUserAction("Check network/firewall settings and TLS configuration. Increase request_timeout if needed")
 		}
 

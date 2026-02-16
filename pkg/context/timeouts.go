@@ -42,6 +42,25 @@ const (
 	OpUI       OperationType = "ui"
 )
 
+// timeoutDurationKey is used to store the original timeout duration in the context
+// so error handlers can report the configured value (not the remaining time).
+type timeoutDurationKey struct{}
+
+// withTimeoutTagged creates a context with the given timeout and stores the original
+// duration as a context value for accurate error reporting.
+func withTimeoutTagged(parent context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	ctx = context.WithValue(ctx, timeoutDurationKey{}, timeout)
+	return ctx, cancel
+}
+
+// GetTimeoutDuration returns the original timeout duration stored in the context,
+// or (0, false) if none was set via this package's helpers.
+func GetTimeoutDuration(ctx context.Context) (time.Duration, bool) {
+	d, ok := ctx.Value(timeoutDurationKey{}).(time.Duration)
+	return d, ok
+}
+
 // WithTimeout creates a context with timeout based on operation type
 func WithTimeout(parent context.Context, opType OperationType) (context.Context, context.CancelFunc) {
 	timeout := getTimeoutForOperation(opType)
@@ -51,7 +70,7 @@ func WithTimeout(parent context.Context, opType OperationType) (context.Context,
 		ctx, cancel := context.WithCancel(parent)
 		return ctx, cancel
 	}
-	return context.WithTimeout(parent, timeout)
+	return withTimeoutTagged(parent, timeout)
 }
 
 // WithCancel creates a cancellable context
@@ -123,6 +142,17 @@ func WithSyncTimeout(parent context.Context) (context.Context, context.CancelFun
 // WithResourceTimeout creates a context specifically for resource operations
 func WithResourceTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return WithTimeout(parent, OpResource)
+}
+
+// WithMinAPITimeout creates an API timeout context that is at least minTimeout.
+// This is useful for inherently slow operations (diffs, rollbacks) that need a
+// guaranteed minimum even when the user has configured a shorter request_timeout.
+func WithMinAPITimeout(parent context.Context, minTimeout time.Duration) (context.Context, context.CancelFunc) {
+	timeout := DefaultTimeouts.API
+	if minTimeout > timeout {
+		timeout = minTimeout
+	}
+	return withTimeoutTagged(parent, timeout)
 }
 
 // SetRequestTimeout updates all request-related timeouts to the specified duration.
