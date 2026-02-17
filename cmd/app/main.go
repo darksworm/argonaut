@@ -267,6 +267,19 @@ func main() {
 	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
 	cblog.With("component", "app").Info("Loading Argo CD config…")
 
+	// Determine and store the effective ArgoCD config path
+	effectiveConfigPath := cfgPathFlag
+	if effectiveConfigPath == "" {
+		effectiveConfigPath = config.GetConfigPath()
+	}
+	m.argoConfigPath = effectiveConfigPath
+
+	// Read the CLI config to populate context names
+	if cliCfg, cfgErr := config.ReadCLIConfigFromPath(effectiveConfigPath); cfgErr == nil {
+		m.state.ContextNames = cliCfg.GetContextNames()
+		m.currentContextName = cliCfg.CurrentContext
+	}
+
 	// Port-forward manager (if used)
 	var pfManager *portforward.Manager
 

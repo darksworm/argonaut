@@ -28,11 +28,13 @@ import (
 func (m *Model) startLoadingApplications() tea.Cmd {
 	cblog.With("component", "api_integration").Info("startLoadingApplications called")
 	if m.state.Server == nil {
+		epoch := m.switchEpoch
 		return func() tea.Msg {
-			return model.AuthErrorMsg{Error: fmt.Errorf("no server configured")}
+			return model.AuthErrorMsg{Error: fmt.Errorf("no server configured"), SwitchEpoch: epoch}
 		}
 	}
 
+	epoch := m.switchEpoch // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
 
@@ -49,22 +51,23 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 			var argErr *apperrors.ArgonautError
 			if stdErrors.As(err, &argErr) {
 				if argErr.IsCategory(apperrors.ErrorAuth) || argErr.Code == "UNAUTHORIZED" || argErr.Code == "AUTHENTICATION_FAILED" || hasHTTPStatusCtx(argErr, 401, 403) {
-					return model.AuthErrorMsg{Error: argErr}
+					return model.AuthErrorMsg{Error: argErr, SwitchEpoch: epoch}
 				}
 				// Surface structured errors so error view can show details/context
-				return model.StructuredErrorMsg{Error: argErr}
+				return model.StructuredErrorMsg{Error: argErr, SwitchEpoch: epoch}
 			}
 			// Fallback string matching
 			if isAuthenticationError(err.Error()) {
-				return model.AuthErrorMsg{Error: err}
+				return model.AuthErrorMsg{Error: err, SwitchEpoch: epoch}
 			}
-			return model.ApiErrorMsg{Message: err.Error()}
+			return model.ApiErrorMsg{Message: err.Error(), SwitchEpoch: epoch}
 		}
 
 		// Successfully loaded applications
 		return model.AppsLoadedMsg{
 			Apps:            result.Apps,
 			ResourceVersion: result.ResourceVersion,
+			SwitchEpoch:     epoch,
 		}
 	}
 }
@@ -257,6 +260,7 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 	ch := m.watchChan        // capture at call time
 	gen := m.watchGeneration // capture at call time
 	done := m.watchDone      // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	return func() tea.Msg {
 		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
@@ -286,8 +290,9 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 		// AppsBatchUpdateMsg handler continues the watch consumer chain.
 		if result.immediate != nil {
 			return model.AppsBatchUpdateMsg{
-				Immediate:  result.immediate,
-				Generation: gen,
+				Immediate:   result.immediate,
+				Generation:  gen,
+				SwitchEpoch: epoch,
 			}
 		}
 
@@ -343,11 +348,12 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 			"generation", gen)
 
 		return model.AppsBatchUpdateMsg{
-			Updates:    updates,
-			Deletes:    deletes,
-			Operations: operations,
-			Immediate:  immediate,
-			Generation: gen,
+			Updates:     updates,
+			Deletes:     deletes,
+			Operations:  operations,
+			Immediate:   immediate,
+			Generation:  gen,
+			SwitchEpoch: epoch,
 		}
 	}
 }
