@@ -163,6 +163,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "",
 		},
 		{
+			Command:     "context",
+			Aliases:     []string{"context", "contexts", "argocd", "ctx"},
+			Description: "Switch or browse ArgoCD server contexts",
+			TakesArg:    true,
+			ArgType:     "argocd-context",
+		},
+		{
 			Command:     "refresh",
 			Aliases:     []string{"refresh", "ref"},
 			Description: "Refresh application (compare with git)",
@@ -327,6 +334,8 @@ func (e *AutocompleteEngine) getArgumentSuggestions(command, argPrefix string, s
 		suggestions = e.getThemeSuggestions(argPrefix)
 	case "sort":
 		suggestions = e.getSortSuggestions(argPrefix)
+	case "argocd-context":
+		suggestions = e.getArgocdContextSuggestions(argPrefix, state)
 	}
 
 	// Add command prefix to suggestions
@@ -485,6 +494,21 @@ func (e *AutocompleteEngine) getThemeSuggestions(prefix string) []string {
 	for _, themeName := range themeNames {
 		if strings.HasPrefix(strings.ToLower(themeName), strings.ToLower(prefix)) {
 			suggestions = append(suggestions, themeName)
+		}
+	}
+
+	sort.Strings(suggestions)
+	return suggestions
+}
+
+// getArgocdContextSuggestions returns ArgoCD context name suggestions
+func (e *AutocompleteEngine) getArgocdContextSuggestions(prefix string, state *model.AppState) []string {
+	var suggestions []string
+	prefix = strings.ToLower(prefix)
+
+	for _, name := range state.ContextNames {
+		if strings.HasPrefix(strings.ToLower(name), prefix) {
+			suggestions = append(suggestions, name)
 		}
 	}
 

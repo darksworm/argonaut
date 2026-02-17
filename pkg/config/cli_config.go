@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/darksworm/argonaut/pkg/model"
 	"gopkg.in/yaml.v3"
@@ -199,6 +200,104 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 		Insecure:        serverConfig.Insecure,
 		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
 	}, nil
+}
+
+// GetContextNames returns a sorted list of all context names
+func (c *ArgoCLIConfig) GetContextNames() []string {
+	names := make([]string, 0, len(c.Contexts))
+	for _, ctx := range c.Contexts {
+		names = append(names, ctx.Name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ToServerConfigForContext converts a named context to a Server model
+func (c *ArgoCLIConfig) ToServerConfigForContext(contextName string) (*model.Server, error) {
+	// Find context
+	var ctx *ArgoContext
+	for i := range c.Contexts {
+		if c.Contexts[i].Name == contextName {
+			ctx = &c.Contexts[i]
+			break
+		}
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("context %q not found in ArgoCD config", contextName)
+	}
+
+	if ctx.Server == "" {
+		return nil, fmt.Errorf("no server specified for context %q", contextName)
+	}
+
+	// Find server config
+	var serverConfig *ArgoServer
+	for i := range c.Servers {
+		if c.Servers[i].Server == ctx.Server {
+			serverConfig = &c.Servers[i]
+			break
+		}
+	}
+	if serverConfig == nil {
+		return nil, fmt.Errorf("server configuration not found for %s", ctx.Server)
+	}
+
+	// Find user token
+	if ctx.User == "" {
+		return nil, fmt.Errorf("no user specified for context %q", contextName)
+	}
+	var token string
+	for _, user := range c.Users {
+		if user.Name == ctx.User {
+			token = user.AuthToken
+			break
+		}
+	}
+	if token == "" {
+		return nil, fmt.Errorf("no auth token found for user %s in context %q", ctx.User, contextName)
+	}
+
+	baseURL := ensureHTTPS(serverConfig.Server, serverConfig.PlainText)
+
+	return &model.Server{
+		BaseURL:         baseURL,
+		Token:           token,
+		Insecure:        serverConfig.Insecure,
+		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
+	}, nil
+}
+
+// IsContextPortForward returns true if the named context uses port-forward mode
+func (c *ArgoCLIConfig) IsContextPortForward(contextName string) (bool, error) {
+	for _, ctx := range c.Contexts {
+		if ctx.Name == contextName {
+			return ctx.Server == "port-forward", nil
+		}
+	}
+	return false, fmt.Errorf("context %q not found in ArgoCD config", contextName)
+}
+
+// IsContextCore returns true if the named context's server is running in core mode
+func (c *ArgoCLIConfig) IsContextCore(contextName string) (bool, error) {
+	// Find context
+	var serverURL string
+	for _, ctx := range c.Contexts {
+		if ctx.Name == contextName {
+			serverURL = ctx.Server
+			break
+		}
+	}
+	if serverURL == "" {
+		return false, fmt.Errorf("context %q not found in ArgoCD config", contextName)
+	}
+
+	// Find server config
+	for _, server := range c.Servers {
+		if server.Server == serverURL {
+			return server.Core, nil
+		}
+	}
+	return false, fmt.Errorf("server configuration not found for %s", serverURL)
 }
 
 // ensureHTTPS ensures the URL has the correct protocol

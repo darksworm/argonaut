@@ -79,7 +79,9 @@ func (m *Model) renderCompactBanner() string {
 	total := max(0, m.state.Terminal.Cols-2)
 
 	host := "—"
-	if m.state.Server != nil {
+	if m.currentContextName != "" {
+		host = m.currentContextName
+	} else if m.state.Server != nil {
 		host = hostFromURL(m.state.Server.BaseURL)
 	}
 	cls := scopeToText(m.state.Selections.ScopeClusters)
@@ -181,7 +183,14 @@ func (m *Model) renderContextBlock(isNarrow bool) string {
 	projectScope := scopeToText(m.state.Selections.ScopeProjects)
 
 	var lines []string
-	lines = append(lines, fmt.Sprintf("%s %s", label.Render("Context:"), cyan.Render(serverHost)))
+	if m.currentContextName != "" {
+		lines = append(lines, fmt.Sprintf("%s %s", label.Render("Context:"), cyan.Render(m.currentContextName)))
+		if !isNarrow {
+			lines = append(lines, fmt.Sprintf("%s  %s", label.Render("Server:"), cyan.Render(serverHost)))
+		}
+	} else {
+		lines = append(lines, fmt.Sprintf("%s %s", label.Render("Context:"), cyan.Render(serverHost)))
+	}
 	if clusterScope != "—" {
 		lines = append(lines, fmt.Sprintf("%s %s", label.Render("Cluster:"), clusterScope))
 	}
