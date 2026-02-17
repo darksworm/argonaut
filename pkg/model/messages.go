@@ -159,6 +159,7 @@ type SetAPIVersionMsg struct {
 type AppsLoadedMsg struct {
 	Apps            []App
 	ResourceVersion string // For coordinating with watch stream
+	SwitchEpoch     int    // Context switch epoch for stale message gating
 }
 
 // AppUpdatedMsg is sent when an app is updated
@@ -176,11 +177,12 @@ type AppDeletedMsg struct {
 // to reduce render cycles during high-activity periods (e.g., cluster-wide sync).
 // Matches ArgoCD web UI's 500ms event batching strategy.
 type AppsBatchUpdateMsg struct {
-	Updates    []AppUpdatedMsg
-	Deletes    []string
-	Operations []AppBatchOperation // Ordered stream operations (preserves update/delete ordering)
-	Immediate  tea.Msg             // Non-batchable event encountered during batching (auth-error, api-error, etc.)
-	Generation int                 // Watch generation that produced this batch (for safe watch restarts)
+	Updates     []AppUpdatedMsg
+	Deletes     []string
+	Operations  []AppBatchOperation // Ordered stream operations (preserves update/delete ordering)
+	Immediate   tea.Msg             // Non-batchable event encountered during batching (auth-error, api-error, etc.)
+	Generation  int                 // Watch generation that produced this batch (for safe watch restarts)
+	SwitchEpoch int                 // Context switch epoch for stale message gating
 }
 
 // AppBatchOperationType identifies the operation kind in an ordered batch.
@@ -208,7 +210,8 @@ type AppDeleteRequestMsg struct {
 
 // AppDeleteSuccessMsg represents a successful application deletion
 type AppDeleteSuccessMsg struct {
-	AppName string
+	AppName     string
+	SwitchEpoch int // Context switch epoch for stale message gating
 }
 
 // AppDeleteErrorMsg represents an application deletion error
@@ -240,8 +243,9 @@ type ResourceDeleteErrorMsg struct {
 
 // ResourceSyncSuccessMsg represents successful resource sync
 type ResourceSyncSuccessMsg struct {
-	Count    int
-	AppNames []string // Names of apps whose resources were synced (for refresh)
+	Count       int
+	AppNames    []string // Names of apps whose resources were synced (for refresh)
+	SwitchEpoch int      // Context switch epoch for stale message gating
 }
 
 // ResourceSyncErrorMsg represents a resource sync error
@@ -251,23 +255,26 @@ type ResourceSyncErrorMsg struct {
 
 // AuthErrorMsg is sent when authentication is required
 type AuthErrorMsg struct {
-	Error error
+	Error       error
+	SwitchEpoch int // Context switch epoch for stale message gating
 }
 
 // ApiErrorMsg is sent when there's an API error - DEPRECATED: Use StructuredErrorMsg
 type ApiErrorMsg struct {
-	Message    string
-	StatusCode int    `json:"statusCode,omitempty"` // HTTP status code if available
-	ErrorCode  int    `json:"errorCode,omitempty"`  // API error code if available
-	Details    string `json:"details,omitempty"`    // Additional error details
+	Message     string
+	StatusCode  int    `json:"statusCode,omitempty"` // HTTP status code if available
+	ErrorCode   int    `json:"errorCode,omitempty"`  // API error code if available
+	Details     string `json:"details,omitempty"`    // Additional error details
+	SwitchEpoch int    // Context switch epoch for stale message gating
 }
 
 // StructuredErrorMsg represents a structured error message for the TUI
 type StructuredErrorMsg struct {
-	Error    *apperrors.ArgonautError `json:"error"`
-	Context  map[string]interface{}   `json:"context,omitempty"`
-	Retry    bool                     `json:"retry,omitempty"`
-	AutoHide bool                     `json:"autoHide,omitempty"`
+	Error       *apperrors.ArgonautError `json:"error"`
+	Context     map[string]interface{}   `json:"context,omitempty"`
+	Retry       bool                     `json:"retry,omitempty"`
+	AutoHide    bool                     `json:"autoHide,omitempty"`
+	SwitchEpoch int                      // Context switch epoch for stale message gating
 }
 
 // ErrorRecoveredMsg indicates that an error has been automatically recovered
@@ -363,14 +370,16 @@ type LoadingMsg struct {
 
 // SyncCompletedMsg indicates a single app sync has completed
 type SyncCompletedMsg struct {
-	AppName string
-	Success bool
+	AppName     string
+	Success     bool
+	SwitchEpoch int // Context switch epoch for stale message gating
 }
 
 // MultiSyncCompletedMsg indicates multiple app sync has completed
 type MultiSyncCompletedMsg struct {
-	AppCount int
-	Success  bool
+	AppCount    int
+	Success     bool
+	SwitchEpoch int // Context switch epoch for stale message gating
 }
 
 // MultiDeleteCompletedMsg indicates multiple app delete has completed
@@ -453,6 +462,7 @@ type ResourceTreeLoadedMsg struct {
 	Sync          string
 	TreeJSON      []byte
 	ResourcesJSON []byte // JSON encoded []api.ResourceStatus for sync status
+	SwitchEpoch   int    // Context switch epoch for stale message gating
 }
 
 // ResourceTreeStreamMsg represents a streamed resource tree update
@@ -493,4 +503,20 @@ type UpgradeCompletedMsg struct {
 type ChangelogLoadedMsg struct {
 	Content string
 	Error   error
+}
+
+// ContextSwitchResultMsg is the result of performContextSwitch
+type ContextSwitchResultMsg struct {
+	Server       *Server
+	ContextName  string
+	ContextNames []string
+	Error        error
+}
+
+// AuthValidationResultMsg is the result of validateAuthentication,
+// replacing SetModeMsg for auth validation to allow epoch gating
+// without globally gating SetModeMsg which is used by many flows.
+type AuthValidationResultMsg struct {
+	Mode        Mode
+	SwitchEpoch int
 }

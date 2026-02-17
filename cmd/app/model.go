@@ -127,6 +127,11 @@ type Model struct {
 
 	// Pending default_view scope to validate after apps load
 	pendingDefaultViewScope *defaultViewScope
+
+	// Context switching state
+	argoConfigPath     string // Path to ArgoCD CLI config (for re-reads on switch)
+	currentContextName string // Active ArgoCD context name
+	switchEpoch        int    // Incremented on each context switch; captured by async closures
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -283,19 +288,37 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Mode messages
 	case model.SetModeMsg:
 		oldMode := m.state.Mode
-		m.state.Mode = msg.Mode
 		cblog.With("component", "model").Info("SetModeMsg received",
 			"old_mode", oldMode,
 			"new_mode", msg.Mode)
-		// [MODE] Switching from %s to %s - removed printf to avoid TUI interference
+
+		// If the user is browsing the contexts picker, suppress loading-pipeline
+		// mode transitions (ModeLoading, ModeConnectionError, ModeAuthRequired)
+		// so the picker stays visible. Still trigger API loads in the background.
+		if m.state.Navigation.View == model.ViewContexts {
+			switch msg.Mode {
+			case model.ModeLoading:
+				if oldMode == model.ModeLoading {
+					return m, nil
+				}
+				m.state.Mode = model.ModeLoading
+				cblog.With("component", "model").Info("Triggering initial load (suppressed ModeLoading overlay for ViewContexts)")
+				return m, m.startLoadingApplications()
+			case model.ModeConnectionError, model.ModeAuthRequired, model.ModeError:
+				cblog.With("component", "model").Info("Suppressed mode change for ViewContexts",
+					"suppressed_mode", msg.Mode)
+				return m, nil
+			}
+		}
 
 		// Handle mode transitions
 		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
+			m.state.Mode = msg.Mode
 			cblog.With("component", "model").Info("Triggering initial load for ModeLoading")
-			// Start loading applications from API when transitioning to loading mode
-			// [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
 			return m, m.startLoadingApplications()
 		}
+
+		m.state.Mode = msg.Mode
 
 		// If entering diff mode with content available, show in external pager
 		if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
@@ -391,6 +414,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// API Event messages
 	case model.AppsLoadedMsg:
+		// Gate by switch epoch — discard messages from a previous context
+		if msg.SwitchEpoch != m.switchEpoch {
+			cblog.With("component", "model").Debug("AppsLoadedMsg: ignoring stale epoch",
+				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
+			return m, nil
+		}
 		cblog.With("component", "model").Info("AppsLoadedMsg received",
 			"apps_count", len(msg.Apps),
 			"watchChan_nil", m.watchChan == nil,
@@ -428,6 +457,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: targetMode} }
 
 	case model.AppsBatchUpdateMsg:
+		// Gate by switch epoch — discard entire batch from a previous context
+		if msg.SwitchEpoch != m.switchEpoch {
+			cblog.With("component", "model").Debug("AppsBatchUpdateMsg: ignoring stale epoch",
+				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
+			return m, nil
+		}
 		deletesApplied := 0
 		// Preferred path: apply ordered operations to preserve stream semantics.
 		if len(msg.Operations) > 0 {
@@ -493,6 +528,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ResourceTreeLoadedMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Populate tree view with loaded data (single or multi-app)
 		if m.treeView != nil && len(msg.TreeJSON) > 0 {
 			var tree api.ResourceTree
@@ -521,6 +560,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Old spinner TickMsg removed - now using bubbles spinner
 
 	case model.StructuredErrorMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle structured errors with proper error state management
 		if msg.Error != nil {
 			errorMsg := fmt.Sprintf("Error: %s", msg.Error.Message)
@@ -550,8 +593,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
 
-		// If we were in the loading mode when the structured error arrived, switch to error view
-		if msg.Error != nil {
+		// If we were in the loading mode when the structured error arrived, switch to error view.
+		// Don't override the mode if user is browsing contexts — let them pick a working one.
+		if msg.Error != nil && m.state.Navigation.View != model.ViewContexts {
 			if msg.Error.Category == apperrors.ErrorAuth {
 				m.state.Mode = model.ModeAuthRequired
 			} else if m.state.Mode == model.ModeLoading {
@@ -560,13 +604,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// If we have a structured error with high severity, switch to error mode
-		if msg.Error != nil && msg.Error.Severity == apperrors.SeverityHigh {
+		if msg.Error != nil && msg.Error.Severity == apperrors.SeverityHigh && m.state.Navigation.View != model.ViewContexts {
 			m.state.Mode = model.ModeError
 		}
 
 		return m, nil
 
 	case model.ApiErrorMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		m.cleanupAppWatcher()
 		// If we're already in auth-required mode, suppress generic API errors to avoid
 		// overriding the auth-required view with a generic error panel.
@@ -684,6 +732,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.AuthErrorMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		m.cleanupAppWatcher()
 		// Log error and store in model for display
 		m.statusService.Error(msg.Error.Error())
@@ -746,6 +798,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.restartWatchWithScope()
 
 	case model.SyncCompletedMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle single app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
@@ -799,6 +855,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.deleteApplication(msg)
 
 	case model.AppDeleteSuccessMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle successful application deletion
 		m.statusService.Set(fmt.Sprintf("Application %s deleted successfully", msg.AppName))
 
@@ -898,6 +958,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ResourceSyncSuccessMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle successful resource sync
 		m.statusService.Set(fmt.Sprintf("Successfully synced %d resource(s)", msg.Count))
 
@@ -944,6 +1008,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.MultiSyncCompletedMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle multiple app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
@@ -1252,6 +1320,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, msg.Revision)
 		}
 		return m, nil
+
+	case model.AuthValidationResultMsg:
+		// Gate by switch epoch — discard auth results from a previous context
+		if msg.SwitchEpoch != m.switchEpoch {
+			cblog.With("component", "model").Debug("AuthValidationResultMsg: ignoring stale epoch",
+				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
+			return m, nil
+		}
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
+
+	case model.ContextSwitchResultMsg:
+		return m.handleContextSwitchResult(msg)
 
 	case model.QuitMsg:
 		return m, tea.Quit
