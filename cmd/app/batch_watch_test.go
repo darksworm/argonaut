@@ -12,7 +12,7 @@ import (
 func TestClassifyWatchEvent_AppUpdated(t *testing.T) {
 	app := &model.App{Name: "test-app", Health: "Healthy", Sync: "Synced"}
 	ev := services.ArgoApiEvent{Type: "app-updated", App: app}
-	result := classifyWatchEvent(ev)
+	result := classifyWatchEvent(ev, 0)
 
 	if result.update == nil {
 		t.Fatal("expected update to be non-nil")
@@ -30,7 +30,7 @@ func TestClassifyWatchEvent_AppUpdated(t *testing.T) {
 
 func TestClassifyWatchEvent_AppDeleted(t *testing.T) {
 	ev := services.ArgoApiEvent{Type: "app-deleted", AppName: "removed-app"}
-	result := classifyWatchEvent(ev)
+	result := classifyWatchEvent(ev, 0)
 
 	if result.deleteName != "removed-app" {
 		t.Errorf("expected deleteName 'removed-app', got %q", result.deleteName)
@@ -45,7 +45,7 @@ func TestClassifyWatchEvent_AppDeleted(t *testing.T) {
 
 func TestClassifyWatchEvent_AuthError(t *testing.T) {
 	ev := services.ArgoApiEvent{Type: "auth-error", Error: fmt.Errorf("unauthorized")}
-	result := classifyWatchEvent(ev)
+	result := classifyWatchEvent(ev, 0)
 
 	if result.immediate == nil {
 		t.Fatal("expected immediate to be non-nil for auth-error")
@@ -60,7 +60,7 @@ func TestClassifyWatchEvent_AuthError(t *testing.T) {
 
 func TestClassifyWatchEvent_StatusChange(t *testing.T) {
 	ev := services.ArgoApiEvent{Type: "status-change", Status: "Connected"}
-	result := classifyWatchEvent(ev)
+	result := classifyWatchEvent(ev, 0)
 
 	if result.immediate == nil {
 		t.Fatal("expected immediate to be non-nil for status-change")
