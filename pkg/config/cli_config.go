@@ -281,14 +281,19 @@ func (c *ArgoCLIConfig) IsContextPortForward(contextName string) (bool, error) {
 func (c *ArgoCLIConfig) IsContextCore(contextName string) (bool, error) {
 	// Find context
 	var serverURL string
+	found := false
 	for _, ctx := range c.Contexts {
 		if ctx.Name == contextName {
 			serverURL = ctx.Server
+			found = true
 			break
 		}
 	}
-	if serverURL == "" {
+	if !found {
 		return false, fmt.Errorf("context %q not found in ArgoCD config", contextName)
+	}
+	if serverURL == "" {
+		return false, nil
 	}
 
 	// Find server config

@@ -298,7 +298,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.Navigation.View == model.ViewContexts {
 			switch msg.Mode {
 			case model.ModeLoading:
-				cblog.With("component", "model").Info("Triggering initial load (suppressed ModeLoading for ViewContexts)")
+				if oldMode == model.ModeLoading {
+					return m, nil
+				}
+				m.state.Mode = model.ModeLoading
+				cblog.With("component", "model").Info("Triggering initial load (suppressed ModeLoading overlay for ViewContexts)")
 				return m, m.startLoadingApplications()
 			case model.ModeConnectionError, model.ModeAuthRequired, model.ModeError:
 				cblog.With("component", "model").Info("Suppressed mode change for ViewContexts",
