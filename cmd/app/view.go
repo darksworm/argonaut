@@ -504,6 +504,10 @@ func (m *Model) getVisibleItems() []interface{} {
 		for _, app := range appsCopy {
 			base = append(base, app)
 		}
+	case model.ViewContexts:
+		for _, name := range m.state.ContextNames {
+			base = append(base, name)
+		}
 	default:
 		// No-op
 	}

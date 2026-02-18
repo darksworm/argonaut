@@ -270,6 +270,10 @@ func (m *Model) validateCommand(input string) bool {
 				return false
 			}
 			return true
+		case "context":
+			// Context names are validated at execution time (re-reads config from disk)
+			// so any non-empty arg is syntactically valid here
+			return true
 		}
 	}
 
@@ -1080,6 +1084,15 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Fetch and display changelog
 			m.state.Modals.ChangelogLoading = true
 			return m, m.fetchChangelog()
+		case "context", "contexts", "argocd", "ctx":
+			m.state.UI.TreeAppName = nil
+			m.treeLoading = false
+			m.state.Navigation.SelectedIdx = 0
+			if arg != "" {
+				return m, m.performContextSwitch(arg)
+			}
+			m = m.safeChangeView(model.ViewContexts)
+			return m, nil
 		default:
 			// Unknown: set status for feedback
 			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown command: " + raw} }

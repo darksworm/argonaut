@@ -14,6 +14,7 @@ const (
 	ViewApps            View = "apps"
 	ViewTree            View = "tree"
 	ViewApplicationSets View = "applicationsets"
+	ViewContexts        View = "contexts"
 )
 
 // Mode represents the current application mode

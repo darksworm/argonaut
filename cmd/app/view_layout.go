@@ -325,7 +325,7 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
-	if m.state.Mode == model.ModeLoading {
+	if m.state.Mode == model.ModeLoading && m.state.Navigation.View != model.ViewContexts {
 		modal := m.renderInitialLoadingModal()
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
@@ -346,7 +346,7 @@ func (m *Model) renderMainLayout() string {
 	// Check if we have no apps loaded (apps are the main data source)
 	hasNoData := len(m.state.Apps) == 0
 
-	if hasNoData && m.state.Mode == model.ModeNormal {
+	if hasNoData && m.state.Mode == model.ModeNormal && m.state.Navigation.View != model.ViewContexts {
 		modal := m.renderNoServerModal()
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
