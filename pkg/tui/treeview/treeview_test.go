@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/darksworm/argonaut/pkg/api"
+	model "github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
 )
 
@@ -447,6 +448,188 @@ func TestUpsertAppTree_DifferentApplicationNodePreserved(t *testing.T) {
 	}
 	if !strings.Contains(plain, "child-app") {
 		t.Errorf("expected child-app in output:\n%s", plain)
+	}
+}
+
+// TestSetSortHealth verifies that SetSort with SortFieldHealth re-orders siblings
+// so that Degraded nodes appear before Healthy ones when ascending.
+func TestSetSortHealth(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+
+	// Build tree: root → [healthy, degraded, progressing]
+	root := &treeNode{uid: "root", kind: "Application", name: "app", health: "Healthy"}
+	healthy := &treeNode{uid: "h1", kind: "Deployment", name: "healthy-dep", health: "Healthy", parent: root}
+	degraded := &treeNode{uid: "d1", kind: "Deployment", name: "degraded-dep", health: "Degraded", parent: root}
+	progressing := &treeNode{uid: "p1", kind: "Deployment", name: "progressing-dep", health: "Progressing", parent: root}
+	root.children = []*treeNode{healthy, degraded, progressing}
+
+	v.nodesByUID = map[string]*treeNode{"root": root, "h1": healthy, "d1": degraded, "p1": progressing}
+	v.roots = []*treeNode{root}
+	v.expanded = map[string]bool{"root": true}
+	v.rebuildOrder()
+
+	// Apply health asc sort: Degraded < Progressing < Healthy
+	v.SetSort(model.SortConfig{Field: model.SortFieldHealth, Direction: model.SortAsc})
+
+	output := v.Render()
+	plain := stripANSI(output)
+	lines := strings.Split(plain, "\n")
+
+	// Find lines for each resource
+	findLine := func(name string) int {
+		for i, l := range lines {
+			if strings.Contains(l, name) {
+				return i
+			}
+		}
+		return -1
+	}
+
+	degradedLine := findLine("degraded-dep")
+	progressingLine := findLine("progressing-dep")
+	healthyLine := findLine("healthy-dep")
+
+	if degradedLine < 0 || progressingLine < 0 || healthyLine < 0 {
+		t.Fatalf("expected all three resources in output:\n%s", plain)
+	}
+	if degradedLine >= progressingLine {
+		t.Errorf("expected Degraded (%d) before Progressing (%d):\n%s", degradedLine, progressingLine, plain)
+	}
+	if progressingLine >= healthyLine {
+		t.Errorf("expected Progressing (%d) before Healthy (%d):\n%s", progressingLine, healthyLine, plain)
+	}
+}
+
+// TestSetSortSync verifies that SetSort with SortFieldSync re-orders siblings
+// so that OutOfSync nodes appear before Synced ones when ascending.
+func TestSetSortSync(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+
+	root := &treeNode{uid: "root", kind: "Application", name: "app"}
+	synced := &treeNode{uid: "s1", kind: "Service", name: "synced-svc", status: "Synced", parent: root}
+	outofsync := &treeNode{uid: "o1", kind: "Service", name: "outofsync-svc", status: "OutOfSync", parent: root}
+	unknown := &treeNode{uid: "u1", kind: "Service", name: "unknown-svc", status: "Unknown", parent: root}
+	root.children = []*treeNode{synced, outofsync, unknown}
+
+	v.nodesByUID = map[string]*treeNode{"root": root, "s1": synced, "o1": outofsync, "u1": unknown}
+	v.roots = []*treeNode{root}
+	v.expanded = map[string]bool{"root": true}
+	v.rebuildOrder()
+
+	v.SetSort(model.SortConfig{Field: model.SortFieldSync, Direction: model.SortAsc})
+
+	output := v.Render()
+	plain := stripANSI(output)
+	lines := strings.Split(plain, "\n")
+
+	findLine := func(name string) int {
+		for i, l := range lines {
+			if strings.Contains(l, name) {
+				return i
+			}
+		}
+		return -1
+	}
+
+	outofsyncLine := findLine("outofsync-svc")
+	unknownLine := findLine("unknown-svc")
+	syncedLine := findLine("synced-svc")
+
+	if outofsyncLine < 0 || unknownLine < 0 || syncedLine < 0 {
+		t.Fatalf("expected all three resources in output:\n%s", plain)
+	}
+	if outofsyncLine >= unknownLine {
+		t.Errorf("expected OutOfSync (%d) before Unknown (%d):\n%s", outofsyncLine, unknownLine, plain)
+	}
+	if unknownLine >= syncedLine {
+		t.Errorf("expected Unknown (%d) before Synced (%d):\n%s", unknownLine, syncedLine, plain)
+	}
+}
+
+// TestSetSortHealthDesc verifies that SetSort with desc direction reverses the order.
+func TestSetSortHealthDesc(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+
+	root := &treeNode{uid: "root", kind: "Application", name: "app"}
+	healthy := &treeNode{uid: "h1", kind: "Deployment", name: "healthy-dep", health: "Healthy", parent: root}
+	degraded := &treeNode{uid: "d1", kind: "Deployment", name: "degraded-dep", health: "Degraded", parent: root}
+	root.children = []*treeNode{healthy, degraded}
+
+	v.nodesByUID = map[string]*treeNode{"root": root, "h1": healthy, "d1": degraded}
+	v.roots = []*treeNode{root}
+	v.expanded = map[string]bool{"root": true}
+	v.rebuildOrder()
+
+	// Desc: Healthy first, Degraded last
+	v.SetSort(model.SortConfig{Field: model.SortFieldHealth, Direction: model.SortDesc})
+
+	output := v.Render()
+	plain := stripANSI(output)
+	lines := strings.Split(plain, "\n")
+
+	findLine := func(name string) int {
+		for i, l := range lines {
+			if strings.Contains(l, name) {
+				return i
+			}
+		}
+		return -1
+	}
+
+	healthyLine := findLine("healthy-dep")
+	degradedLine := findLine("degraded-dep")
+
+	if healthyLine < 0 || degradedLine < 0 {
+		t.Fatalf("expected both resources in output:\n%s", plain)
+	}
+	if healthyLine >= degradedLine {
+		t.Errorf("expected Healthy (%d) before Degraded (%d) in desc order:\n%s", healthyLine, degradedLine, plain)
+	}
+}
+
+// TestSetSortNameRestoresDefault verifies that setting sort to name restores (kind, name) order.
+func TestSetSortNameRestoresDefault(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+
+	root := &treeNode{uid: "root", kind: "Application", name: "app"}
+	// Deliberately create nodes that, by health sort, would differ from name sort
+	a := &treeNode{uid: "a1", kind: "Deployment", name: "aaa", health: "Healthy", parent: root}
+	b := &treeNode{uid: "b1", kind: "Deployment", name: "bbb", health: "Degraded", parent: root}
+	root.children = []*treeNode{b, a} // start reversed
+
+	v.nodesByUID = map[string]*treeNode{"root": root, "a1": a, "b1": b}
+	v.roots = []*treeNode{root}
+	v.expanded = map[string]bool{"root": true}
+	v.rebuildOrder()
+
+	// Sort by name asc: should produce aaa before bbb regardless of health
+	v.SetSort(model.SortConfig{Field: model.SortFieldName, Direction: model.SortAsc})
+
+	output := v.Render()
+	plain := stripANSI(output)
+	lines := strings.Split(plain, "\n")
+
+	findLine := func(name string) int {
+		for i, l := range lines {
+			if strings.Contains(l, name) {
+				return i
+			}
+		}
+		return -1
+	}
+
+	aaaLine := findLine("aaa")
+	bbbLine := findLine("bbb")
+
+	if aaaLine < 0 || bbbLine < 0 {
+		t.Fatalf("expected both resources in output:\n%s", plain)
+	}
+	if aaaLine >= bbbLine {
+		t.Errorf("expected aaa (%d) before bbb (%d) after name sort:\n%s", aaaLine, bbbLine, plain)
 	}
 }
 

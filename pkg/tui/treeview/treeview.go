@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	model "github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
 )
 
@@ -54,6 +55,9 @@ type TreeView struct {
 
 	// Flash mode: when true, all rows are highlighted with success color (refresh feedback)
 	flashAll bool
+
+	// Sort configuration for ordering siblings in the tree
+	sortConfig *model.SortConfig
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -86,6 +90,74 @@ type treeNode struct {
 	health    string
 	parent    *treeNode
 	children  []*treeNode
+}
+
+// treeSyncStatusOrder defines semantic ordering for sync statuses (problems first when ascending)
+var treeSyncStatusOrder = map[string]int{"OutOfSync": 0, "Unknown": 1, "Synced": 2}
+
+// treeHealthStatusOrder defines semantic ordering for health statuses (problems first when ascending)
+var treeHealthStatusOrder = map[string]int{"Degraded": 0, "Missing": 1, "Progressing": 2, "Suspended": 3, "Unknown": 4, "Healthy": 5}
+
+// sortNodeChildren sorts a list of sibling nodes according to the current sortConfig.
+// When sortConfig is nil or field is name, uses the default (kind, name) order.
+func (v *TreeView) sortNodeChildren(list []*treeNode) {
+	if len(list) <= 1 {
+		return
+	}
+	if v.sortConfig == nil || v.sortConfig.Field == model.SortFieldName {
+		sort.Slice(list, func(i, j int) bool {
+			if list[i].kind == list[j].kind {
+				return list[i].name < list[j].name
+			}
+			return list[i].kind < list[j].kind
+		})
+		return
+	}
+
+	getOrder := func(n *treeNode) int {
+		switch v.sortConfig.Field {
+		case model.SortFieldHealth:
+			if o, ok := treeHealthStatusOrder[n.health]; ok {
+				return o
+			}
+			return 4 // default: Unknown
+		case model.SortFieldSync:
+			if o, ok := treeSyncStatusOrder[n.status]; ok {
+				return o
+			}
+			return 1 // default: Unknown
+		default:
+			return 0
+		}
+	}
+
+	asc := v.sortConfig.Direction == model.SortAsc
+	sort.SliceStable(list, func(i, j int) bool {
+		oi, oj := getOrder(list[i]), getOrder(list[j])
+		if oi != oj {
+			if asc {
+				return oi < oj
+			}
+			return oi > oj
+		}
+		// Tiebreak by (kind, name) for stability
+		if list[i].kind != list[j].kind {
+			return list[i].kind < list[j].kind
+		}
+		return list[i].name < list[j].name
+	})
+}
+
+// SetSort applies a sort configuration to the tree view, re-sorting all sibling groups.
+func (v *TreeView) SetSort(config model.SortConfig) {
+	v.sortConfig = &config
+	v.sortNodeChildren(v.roots)
+	for _, node := range v.nodesByUID {
+		if len(node.children) > 0 {
+			v.sortNodeChildren(node.children)
+		}
+	}
+	v.rebuildOrder()
 }
 
 // statusStyle returns a lipgloss style for the given status using theme colors
@@ -229,19 +301,11 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 	}
 	tempRoots = filtered
 
-	// Sort roots and children
-	sortNodes := func(list []*treeNode) {
-		sort.Slice(list, func(i, j int) bool {
-			if list[i].kind == list[j].kind {
-				return list[i].name < list[j].name
-			}
-			return list[i].kind < list[j].kind
-		})
-	}
-	sortNodes(tempRoots)
+	// Sort roots and children according to current sort config
+	v.sortNodeChildren(tempRoots)
 	for _, n := range nodesLocal {
 		if len(n.children) > 0 {
-			sortNodes(n.children)
+			v.sortNodeChildren(n.children)
 		}
 	}
 
@@ -289,6 +353,17 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 				}
 			}
 		}
+	}
+
+	// If sorting by sync status, re-sort to reflect updated values
+	if v.sortConfig != nil && v.sortConfig.Field == model.SortFieldSync {
+		v.sortNodeChildren(v.roots)
+		for _, node := range v.nodesByUID {
+			if len(node.children) > 0 {
+				v.sortNodeChildren(node.children)
+			}
+		}
+		v.rebuildOrder()
 	}
 }
 
