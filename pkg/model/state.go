@@ -8,11 +8,12 @@ import (
 
 // NavigationState holds navigation-related state
 type NavigationState struct {
-	View           View  `json:"view"`
-	SelectedIdx    int   `json:"selectedIdx"`
-	LastGPressed   int64 `json:"lastGPressed"`
-	LastEscPressed int64 `json:"lastEscPressed"`
-	LastZPressed   int64 `json:"lastZPressed"`
+	View           View    `json:"view"`
+	SelectedIdx    int     `json:"selectedIdx"`
+	LastGPressed   int64   `json:"lastGPressed"`
+	LastEscPressed int64   `json:"lastEscPressed"`
+	LastZPressed   int64   `json:"lastZPressed"`
+	TreeAppName    *string `json:"treeAppName,omitempty"`
 }
 
 // SelectionState holds selection-related state using map[string]bool for sets
@@ -229,6 +230,7 @@ func (s *AppState) SaveNavigationState() {
 		LastGPressed:   s.Navigation.LastGPressed,
 		LastEscPressed: s.Navigation.LastEscPressed,
 		LastZPressed:   s.Navigation.LastZPressed,
+		TreeAppName:    s.UI.TreeAppName,
 	}
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),

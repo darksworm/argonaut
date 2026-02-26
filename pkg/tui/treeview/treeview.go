@@ -848,6 +848,32 @@ func (v *TreeView) GetAppName() string {
 	return v.appName
 }
 
+// IsSelectedSyntheticRoot returns true if the currently selected node is a synthetic
+// Application root node (i.e., represents the app being viewed, not a child Application CR).
+func (v *TreeView) IsSelectedSyntheticRoot() bool {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return false
+	}
+	node := v.order[v.selIdx]
+	return node != nil && strings.HasSuffix(node.uid, "::__app_root__")
+}
+
+// SelectedNodeApp returns the app name that owns the currently selected node.
+// The app name is encoded as the prefix before "::" in the node UID.
+func (v *TreeView) SelectedNodeApp() string {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return v.appName
+	}
+	node := v.order[v.selIdx]
+	if node == nil {
+		return v.appName
+	}
+	if idx := strings.Index(node.uid, "::"); idx >= 0 {
+		return node.uid[:idx]
+	}
+	return v.appName
+}
+
 // ToggleSelection toggles selection for the current resource.
 // Application nodes and Missing resources cannot be selected.
 // Returns true if selection was toggled, false if the resource cannot be selected.

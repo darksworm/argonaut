@@ -433,3 +433,182 @@ func TestTreeViewFilterEscapeClearsFilter(t *testing.T) {
 		t.Fatal("did not return to main view - escape may not have closed search")
 	}
 }
+
+// TestAppOfApps_ChildAppEnter_NavigatesToChildApp verifies that pressing Enter on a
+// child Application node in an app-of-apps tree navigates to the child app's own tree view,
+// and that pressing Escape returns to the parent tree (not the apps list).
+func TestAppOfApps_ChildAppEnter_NavigatesToChildApp(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithAppOfApps()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	// Navigate to parent-app's tree view
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("resources parent-app")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Application [parent-app]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("parent-app tree view not loaded")
+	}
+
+	// Navigate to child Application node and press Enter
+	_ = tf.Send("j")
+	time.Sleep(200 * time.Millisecond)
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Application [child-app]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("did not navigate to child-app tree view after pressing Enter on child Application node")
+	}
+	if !tf.WaitForPlain("child-deploy", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("child-app's Deployment not visible in child app tree view")
+	}
+
+	// Escape should return to parent tree, not apps list
+	_ = tf.Escape()
+	if !tf.WaitForPlain("Application [parent-app]", 5*time.Second) {
+		snapshot := tf.SnapshotPlain()
+		if strings.Contains(snapshot, "cluster-a") {
+			t.Log(snapshot)
+			t.Fatal("Escape went back to apps list instead of parent-app tree view")
+		}
+		t.Log(snapshot)
+		t.Fatal("did not return to parent-app tree view after Escape")
+	}
+}
+
+// TestAppOfApps_EscapeFromChildApp_ReturnsToParentTree verifies that pressing Escape
+// while in a child app's tree view returns to the parent app's tree view (not the apps list).
+func TestAppOfApps_EscapeFromChildApp_ReturnsToParentTree(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithAppOfApps()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("resources parent-app")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Application [parent-app]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("parent-app tree not loaded")
+	}
+
+	_ = tf.Send("j")
+	time.Sleep(200 * time.Millisecond)
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Application [child-app]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("child-app tree not loaded")
+	}
+
+	_ = tf.Escape()
+
+	if !tf.WaitForPlain("Application [parent-app]", 5*time.Second) {
+		snapshot := tf.SnapshotPlain()
+		if strings.Contains(snapshot, "cluster-a") {
+			t.Log(snapshot)
+			t.Fatal("Escape went to apps list instead of parent-app tree")
+		}
+		t.Log(snapshot)
+		t.Fatal("did not return to parent-app tree after Escape")
+	}
+}
+
+// TestTreeView_EscapeFromRegularApp_ReturnsToAppsView verifies that pressing Escape
+// from a regular (non-child) tree view still returns to the apps list.
+func TestTreeView_EscapeFromRegularApp_ReturnsToAppsView(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithSyncedResources()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("resources demo")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Application [demo]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("demo tree not loaded")
+	}
+
+	_ = tf.Escape()
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("Escape did not return to apps view from a regular tree")
+	}
+}
