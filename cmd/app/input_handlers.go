@@ -384,10 +384,35 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 
 		switch curr {
 		case model.ViewTree:
-			// Return to apps view from tree/resources view
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
 			}
+			// If we drilled into this tree from a parent tree (app-of-apps), go back to that parent.
+			if m.state.SavedNavigation != nil &&
+				m.state.SavedNavigation.View == model.ViewTree &&
+				m.state.SavedNavigation.TreeAppName != nil {
+				parentAppName := *m.state.SavedNavigation.TreeAppName
+				m.state.SavedNavigation = nil
+				var parentApp *model.App
+				for i := range m.state.Apps {
+					if m.state.Apps[i].Name == parentAppName {
+						parentApp = &m.state.Apps[i]
+						break
+					}
+				}
+				if parentApp != nil {
+					m = m.cleanupTreeWatchers()
+					m.treeView = treeview.NewTreeView(0, 0)
+					m.treeView.ApplyTheme(currentPalette)
+					m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+					m.treeNav.Reset()
+					m.state.Navigation.View = model.ViewTree
+					m.state.UI.TreeAppName = &parentApp.Name
+					m.treeLoading = true
+					return m, tea.Batch(m.startLoadingResourceTree(*parentApp), m.startWatchingResourceTree(*parentApp), m.consumeTreeEvent())
+				}
+			}
+			// Return to apps view from tree/resources view
 			m = m.safeChangeView(model.ViewApps)
 			m.state.UI.TreeAppName = nil
 			m.state.Navigation.SelectedIdx = 0
@@ -1409,7 +1434,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 	if m.state.Navigation.View == model.ViewTree {
 		switch msg.String() {
-		case "q", "esc":
+		case "q":
 			// Clear filter and stop active tree watchers, return to list
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
@@ -1421,6 +1446,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				len(visibleItems),
 			)
 			return m, nil
+		case "esc":
+			// Delegate to handleEscape which handles app-of-apps back-navigation
+			return m.handleEscape()
 		case "/":
 			// Enter search mode for tree filtering
 			return m.handleEnterSearchMode()
@@ -1439,8 +1467,15 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "left", "h", "right", "l", "enter":
-			// Expand/collapse handled by tree view, then sync treeNav
 			if m.treeView != nil {
+				// Enter on a child Application node navigates to that app
+				if msg.String() == "enter" {
+					_, kind, _, childName, ok := m.treeView.SelectedResource()
+					if ok && kind == "Application" && !m.treeView.IsSelectedSyntheticRoot() {
+						return m.handleNavigateToChildApp(childName)
+					}
+				}
+				// Expand/collapse handled by tree view, then sync treeNav
 				updatedModel, _ := m.treeView.Update(msg)
 				m.treeView = updatedModel.(*treeview.TreeView)
 				// After expand/collapse, item count may change - sync treeNav
@@ -1634,6 +1669,33 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 
+// handleNavigateToChildApp navigates from the current tree view to a child application's tree view.
+// Used in app-of-apps pattern when Enter is pressed on a child Application node.
+func (m *Model) handleNavigateToChildApp(appName string) (tea.Model, tea.Cmd) {
+	var app *model.App
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name == appName {
+			app = &m.state.Apps[i]
+			break
+		}
+	}
+	if app == nil {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: fmt.Sprintf("Application %q not found", appName)}
+		}
+	}
+	m.state.SaveNavigationState()
+	m = m.cleanupTreeWatchers()
+	m.treeView = treeview.NewTreeView(0, 0)
+	m.treeView.ApplyTheme(currentPalette)
+	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+	m.treeNav.Reset()
+	m.state.Navigation.View = model.ViewTree
+	m.state.UI.TreeAppName = &app.Name
+	m.treeLoading = true
+	return m, tea.Batch(m.startLoadingResourceTree(*app), m.startWatchingResourceTree(*app), m.consumeTreeEvent())
+}
+
 // handleResourceDiff shows the diff for the currently selected resource in tree view
 func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 	if m.treeView == nil {
@@ -1645,14 +1707,35 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// For Application nodes, show the full app diff
+	// For Application nodes
 	if kind == "Application" {
-		// Show loading spinner
+		if m.treeView.IsSelectedSyntheticRoot() {
+			// This is the app we're currently viewing — show its full resource diff
+			if m.state.Diff == nil {
+				m.state.Diff = &model.DiffState{}
+			}
+			m.state.Diff.Loading = true
+			return m, m.startDiffSession(name)
+		}
+		// Child Application CR (app-of-apps): show diff of the Application CR itself
+		// as a resource within the parent app
+		parentApp := m.treeView.SelectedNodeApp()
+		if parentApp == "" {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Could not determine parent application name"}
+			}
+		}
 		if m.state.Diff == nil {
 			m.state.Diff = &model.DiffState{}
 		}
 		m.state.Diff.Loading = true
-		return m, m.startDiffSession(name)
+		return m, m.startResourceDiffSession(ResourceIdentifier{
+			AppName:   parentApp,
+			Group:     group,
+			Kind:      kind,
+			Namespace: namespace,
+			Name:      name,
+		})
 	}
 
 	// Get the app name for resource-level diff

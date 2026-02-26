@@ -535,3 +535,148 @@ func TestResourceDiff_ResourceNotInDiffList_ShowsNoDiff(t *testing.T) {
 		t.Fatal("no diff modal not shown for unmanaged resource")
 	}
 }
+
+// MockArgoServerWithAppOfApps creates a mock server simulating an app-of-apps setup.
+// parent-app manages child-app as an Application CR resource.
+// child-app's Application CR is OutOfSync (live vs desired configs differ).
+func MockArgoServerWithAppOfApps() (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"e2e"}`))
+	})
+	// Both parent-app and child-app are in the apps list
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(wrapListResponse(`[
+			{"metadata":{"name":"parent-app","namespace":"argocd"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}},
+			{"metadata":{"name":"child-app","namespace":"argocd"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}
+		]`, "1000")))
+	})
+	// parent-app resource tree: contains child-app as an Application CR node
+	mux.HandleFunc("/api/v1/applications/parent-app/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Application","name":"child-app","namespace":"argocd","version":"v1","group":"argoproj.io","uid":"child-1","status":"OutOfSync"}
+		]}`))
+	})
+	// parent-app managed-resources: child-app Application CR has a diff
+	mux.HandleFunc("/api/v1/applications/parent-app/managed-resources", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		childLive := `{"apiVersion":"argoproj.io/v1alpha1","kind":"Application","metadata":{"name":"child-app","namespace":"argocd"},"spec":{"source":{"repoURL":"https://github.com/org/repo","targetRevision":"main"}}}`
+		childDesired := `{"apiVersion":"argoproj.io/v1alpha1","kind":"Application","metadata":{"name":"child-app","namespace":"argocd"},"spec":{"source":{"repoURL":"https://github.com/org/repo","targetRevision":"v2.0.0"}}}`
+		_, _ = w.Write([]byte(`{"items":[` +
+			`{"kind":"Application","group":"argoproj.io","namespace":"argocd","name":"child-app","normalizedLiveState":` + jsonEscape(childLive) + `,"predictedLiveState":` + jsonEscape(childDesired) + `}` +
+			`]}`))
+	})
+	// child-app resource tree: contains a Deployment
+	mux.HandleFunc("/api/v1/applications/child-app/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"child-deploy","namespace":"default","version":"v1","group":"apps","uid":"cdep-1","status":"Synced"}
+		]}`))
+	})
+	// child-app managed-resources (synced, no diff needed for navigation test)
+	mux.HandleFunc("/api/v1/applications/child-app/managed-resources", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		deployState := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"child-deploy","namespace":"default"},"spec":{"replicas":1}}`
+		_, _ = w.Write([]byte(`{"items":[` +
+			`{"kind":"Deployment","namespace":"default","name":"child-deploy","group":"apps","normalizedLiveState":` + jsonEscape(deployState) + `,"predictedLiveState":` + jsonEscape(deployState) + `}` +
+			`]}`))
+	})
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"parent-app","namespace":"argocd"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`)))
+		_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"child-app","namespace":"argocd"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`)))
+		if fl != nil {
+			fl.Flush()
+		}
+	})
+	srv := httptest.NewServer(mux)
+	return srv, nil
+}
+
+// TestAppOfApps_ChildAppDiff_ShowsApplicationCRDiff verifies that pressing d on a
+// child Application node in an app-of-apps tree shows the Application CR diff
+// (not "No differences found" from the child's internal resources).
+func TestAppOfApps_ChildAppDiff_ShowsApplicationCRDiff(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithAppOfApps()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	mockLess, inputFile := createMockLess(t, tf.workspace)
+	binDir := filepath.Dir(mockLess)
+	origPath := os.Getenv("PATH")
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
+		"PATH="+binDir+":"+origPath,
+	); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	// Navigate to parent-app's tree view
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("resources parent-app")
+	_ = tf.Enter()
+
+	// Wait for tree to load with the child Application node
+	if !tf.WaitForPlain("Application [parent-app]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("parent-app tree view not loaded")
+	}
+
+	// Navigate to child Application node (press j once from root)
+	_ = tf.Send("j")
+	time.Sleep(200 * time.Millisecond)
+
+	// Press d to view diff of child Application CR
+	_ = tf.Send("d")
+
+	// Should open diff viewer with the Application CR targetRevision diff (not "No differences found")
+	if !tf.WaitForPlain("Mock less", 5*time.Second) {
+		snapshot := tf.SnapshotPlain()
+		if strings.Contains(snapshot, "No differences found") {
+			t.Log(snapshot)
+			t.Fatal("diff shows 'No differences found' — child app's internal resources were diffed instead of the Application CR")
+		}
+		t.Log(snapshot)
+		t.Fatal("mock less was not launched for Application CR diff")
+	}
+
+	// Wait for mock less to exit
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify diff content contains the targetRevision change
+	diffContent, err := os.ReadFile(inputFile)
+	if err != nil {
+		t.Fatalf("failed to read less input: %v", err)
+	}
+
+	diffStr := string(diffContent)
+	if !strings.Contains(diffStr, "targetRevision") {
+		t.Errorf("diff should contain 'targetRevision' change, got: %s", diffStr)
+	}
+}
