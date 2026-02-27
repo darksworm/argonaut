@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	model "github.com/darksworm/argonaut/pkg/model"
+	pkgsort "github.com/darksworm/argonaut/pkg/sort"
 	"github.com/darksworm/argonaut/pkg/theme"
 )
 
@@ -92,60 +93,20 @@ type treeNode struct {
 	children  []*treeNode
 }
 
-// treeSyncStatusOrder defines semantic ordering for sync statuses (problems first when ascending)
-var treeSyncStatusOrder = map[string]int{"OutOfSync": 0, "Unknown": 1, "Synced": 2}
+// NodeHealth, NodeSync, NodeKind, NodeName satisfy pkgsort.TreeNodeSortable.
+func (n *treeNode) NodeHealth() string { return n.health }
+func (n *treeNode) NodeSync() string   { return n.status }
+func (n *treeNode) NodeKind() string   { return n.kind }
+func (n *treeNode) NodeName() string   { return n.name }
 
-// treeHealthStatusOrder defines semantic ordering for health statuses (problems first when ascending)
-var treeHealthStatusOrder = map[string]int{"Degraded": 0, "Missing": 1, "Progressing": 2, "Suspended": 3, "Unknown": 4, "Healthy": 5}
-
-// sortNodeChildren sorts a list of sibling nodes according to the current sortConfig.
-// When sortConfig is nil or field is name, uses the default (kind, name) order.
+// sortNodeChildren sorts a sibling list using the current sort config via 	sort.SortTreeNodes.
+// A nil sortConfig resolves to the default (kind, name) ascending order.
 func (v *TreeView) sortNodeChildren(list []*treeNode) {
-	if len(list) <= 1 {
-		return
+	cfg := model.SortConfig{Field: model.SortFieldName, Direction: model.SortAsc}
+	if v.sortConfig != nil {
+		cfg = *v.sortConfig
 	}
-	if v.sortConfig == nil || v.sortConfig.Field == model.SortFieldName {
-		sort.Slice(list, func(i, j int) bool {
-			if list[i].kind == list[j].kind {
-				return list[i].name < list[j].name
-			}
-			return list[i].kind < list[j].kind
-		})
-		return
-	}
-
-	getOrder := func(n *treeNode) int {
-		switch v.sortConfig.Field {
-		case model.SortFieldHealth:
-			if o, ok := treeHealthStatusOrder[n.health]; ok {
-				return o
-			}
-			return 4 // default: Unknown
-		case model.SortFieldSync:
-			if o, ok := treeSyncStatusOrder[n.status]; ok {
-				return o
-			}
-			return 1 // default: Unknown
-		default:
-			return 0
-		}
-	}
-
-	asc := v.sortConfig.Direction == model.SortAsc
-	sort.SliceStable(list, func(i, j int) bool {
-		oi, oj := getOrder(list[i]), getOrder(list[j])
-		if oi != oj {
-			if asc {
-				return oi < oj
-			}
-			return oi > oj
-		}
-		// Tiebreak by (kind, name) for stability
-		if list[i].kind != list[j].kind {
-			return list[i].kind < list[j].kind
-		}
-		return list[i].name < list[j].name
-	})
+	pkgsort.SortTreeNodes(list, cfg)
 }
 
 // SetSort applies a sort configuration to the tree view, re-sorting all sibling groups.

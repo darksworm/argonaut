@@ -94,3 +94,48 @@ func getStatusOrder(orderMap map[string]int, status string, defaultVal int) int 
 	}
 	return defaultVal
 }
+
+// TreeNodeSortable is satisfied by types that expose health, sync, kind, and name
+// for semantic tree-sibling sorting, mirroring the fields used by SortApps.
+type TreeNodeSortable interface {
+	NodeHealth() string
+	NodeSync() string
+	NodeKind() string
+	NodeName() string
+}
+
+// SortTreeNodes sorts a sibling slice of tree nodes by config using the same
+// semantic health/sync ordering as SortApps. Tiebreaks always use (kind, name).
+// Uses insertion sort to match SortApps; efficient for small sibling lists.
+func SortTreeNodes[T TreeNodeSortable](nodes []T, config model.SortConfig) {
+	if len(nodes) <= 1 {
+		return
+	}
+	less := func(a, b T) bool {
+		var cmp int
+		switch config.Field {
+		case model.SortFieldHealth:
+			cmp = compareHealthStatus(a.NodeHealth(), b.NodeHealth())
+		case model.SortFieldSync:
+			cmp = compareSyncStatus(a.NodeSync(), b.NodeSync())
+		}
+		if cmp != 0 {
+			if config.Direction == model.SortDesc {
+				return cmp > 0
+			}
+			return cmp < 0
+		}
+		// Tiebreak by (kind, name) for stability
+		if a.NodeKind() != b.NodeKind() {
+			return a.NodeKind() < b.NodeKind()
+		}
+		return a.NodeName() < b.NodeName()
+	}
+	for i := 1; i < len(nodes); i++ {
+		j := i
+		for j > 0 && less(nodes[j], nodes[j-1]) {
+			nodes[j-1], nodes[j] = nodes[j], nodes[j-1]
+			j--
+		}
+	}
+}
