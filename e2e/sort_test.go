@@ -42,6 +42,15 @@ func MockArgoServerMultipleApps() (*httptest.Server, error) {
 			fl.Flush()
 		}
 	})
+	// Resource tree for app-charlie: Deployment (Degraded/OutOfSync), Service (Healthy/Synced), ConfigMap (Progressing/Unknown)
+	mux.HandleFunc("/api/v1/applications/app-charlie/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"broken-deploy","namespace":"default","version":"v1","group":"apps","uid":"dep-c","health":{"status":"Degraded"},"status":"OutOfSync"},
+			{"kind":"Service","name":"stable-svc","namespace":"default","version":"v1","uid":"svc-c","health":{"status":"Healthy"},"status":"Synced"},
+			{"kind":"ConfigMap","name":"mid-cfg","namespace":"default","version":"v1","uid":"cm-c","health":{"status":"Progressing"},"status":"Unknown"}
+		]}`))
+	})
 	srv := httptest.NewServer(mux)
 	return srv, nil
 }
@@ -252,5 +261,164 @@ func TestSortRequiresDirection(t *testing.T) {
 	if !strings.Contains(snapshot, "▲") {
 		t.Log(snapshot)
 		t.Fatal("expected ascending indicator to remain unchanged after cancelled incomplete command")
+	}
+}
+
+// linePosition returns the line index of the first line containing the substring,
+// or -1 if not found.
+func linePosition(snapshot, substr string) int {
+	for i, line := range strings.Split(snapshot, "\n") {
+		if strings.Contains(line, substr) {
+			return i
+		}
+	}
+	return -1
+}
+
+// TestSortInTreeView verifies that :sort health/sync commands have visual effect
+// on resources inside the resource tree view (ViewTree).
+func TestSortInTreeView(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerMultipleApps()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	// Wait for initial load
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Fatal("clusters not ready")
+	}
+
+	// Navigate to apps view
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("app-alpha", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("apps not loaded")
+	}
+
+	// Open the resource tree for app-charlie
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("resources app-charlie")
+	_ = tf.Enter()
+
+	// Wait for tree view to load
+	if !tf.WaitForPlain("Application [app-charlie]", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("tree view not loaded")
+	}
+	if !tf.WaitForPlain("broken-deploy", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("tree resources not visible")
+	}
+
+	// --- sort health asc: Degraded < Progressing < Healthy ---
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("sort health asc")
+	_ = tf.Enter()
+
+	time.Sleep(500 * time.Millisecond)
+	snapshot := tf.SnapshotPlain()
+
+	degradedPos := linePosition(snapshot, "broken-deploy")
+	progressingPos := linePosition(snapshot, "mid-cfg")
+	healthyPos := linePosition(snapshot, "stable-svc")
+
+	if degradedPos < 0 || progressingPos < 0 || healthyPos < 0 {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Fatal("expected all three resources in tree snapshot")
+	}
+	if degradedPos >= progressingPos {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Errorf("sort health asc: expected Degraded (line %d) before Progressing (line %d)", degradedPos, progressingPos)
+	}
+	if progressingPos >= healthyPos {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Errorf("sort health asc: expected Progressing (line %d) before Healthy (line %d)", progressingPos, healthyPos)
+	}
+
+	// --- sort sync asc: OutOfSync < Unknown < Synced ---
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("sort sync asc")
+	_ = tf.Enter()
+
+	time.Sleep(500 * time.Millisecond)
+	snapshot = tf.SnapshotPlain()
+
+	outOfSyncPos := linePosition(snapshot, "broken-deploy")  // OutOfSync
+	unknownPos := linePosition(snapshot, "mid-cfg")          // Unknown
+	syncedPos := linePosition(snapshot, "stable-svc")        // Synced
+
+	if outOfSyncPos < 0 || unknownPos < 0 || syncedPos < 0 {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Fatal("expected all three resources in tree snapshot")
+	}
+	if outOfSyncPos >= unknownPos {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Errorf("sort sync asc: expected OutOfSync (line %d) before Unknown (line %d)", outOfSyncPos, unknownPos)
+	}
+	if unknownPos >= syncedPos {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Errorf("sort sync asc: expected Unknown (line %d) before Synced (line %d)", unknownPos, syncedPos)
+	}
+
+	// --- sort health desc: Healthy < Progressing < Degraded ---
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("sort health desc")
+	_ = tf.Enter()
+
+	time.Sleep(500 * time.Millisecond)
+	snapshot = tf.SnapshotPlain()
+
+	healthyPos = linePosition(snapshot, "stable-svc")
+	progressingPos = linePosition(snapshot, "mid-cfg")
+	degradedPos = linePosition(snapshot, "broken-deploy")
+
+	if healthyPos < 0 || progressingPos < 0 || degradedPos < 0 {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Fatal("expected all three resources in tree snapshot")
+	}
+	if healthyPos >= progressingPos {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Errorf("sort health desc: expected Healthy (line %d) before Progressing (line %d)", healthyPos, progressingPos)
+	}
+	if progressingPos >= degradedPos {
+		t.Logf("snapshot:\n%s", snapshot)
+		t.Errorf("sort health desc: expected Progressing (line %d) before Degraded (line %d)", progressingPos, degradedPos)
+	}
+
+	// Exit tree view — confirm apps list is still functional
+	_ = tf.Send("q")
+	if !tf.WaitForPlain("app-alpha", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("did not return to apps view")
 	}
 }

@@ -507,6 +507,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.treeView.SetResourceStatuses(msg.AppName, resources)
 					}
 				}
+
+				// Apply current sort config to the newly loaded tree
+				m.treeView.SetSort(m.state.UI.Sort)
 			}
 			// Reset cursor for tree view
 			m.state.Navigation.SelectedIdx = 0

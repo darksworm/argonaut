@@ -93,3 +93,4 @@ logs/
 # E2E test failure snapshots (keep .gitkeep)
 e2e/test-snapshots/*.raw
 e2e/test-snapshots/*.txt
+e2e/test-snapshots/*.screen

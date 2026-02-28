@@ -1235,6 +1235,11 @@ func (m *Model) handleSortCommand(arg string) (*Model, tea.Cmd) {
 		Direction: model.SortDirection(direction),
 	}
 
+	// Propagate sort to tree view if active
+	if m.treeView != nil {
+		m.treeView.SetSort(m.state.UI.Sort)
+	}
+
 	// Persist to config
 	argonautConfig, err := config.LoadArgonautConfig()
 	if err != nil {

@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	model "github.com/darksworm/argonaut/pkg/model"
+	pkgsort "github.com/darksworm/argonaut/pkg/sort"
 	"github.com/darksworm/argonaut/pkg/theme"
 )
 
@@ -54,6 +56,9 @@ type TreeView struct {
 
 	// Flash mode: when true, all rows are highlighted with success color (refresh feedback)
 	flashAll bool
+
+	// Sort configuration for ordering siblings in the tree
+	sortConfig *model.SortConfig
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -86,6 +91,33 @@ type treeNode struct {
 	health    string
 	parent    *treeNode
 	children  []*treeNode
+}
+
+// SortKey satisfies pkgsort.Sortable.
+func (n *treeNode) SortKey() model.SortKey {
+	return model.SortKey{Health: n.health, Sync: n.status, Kind: n.kind, Name: n.name}
+}
+
+// sortNodeChildren sorts a sibling list using the current sort config via pkgsort.Sort.
+// A nil sortConfig resolves to the default (kind, name) ascending order.
+func (v *TreeView) sortNodeChildren(list []*treeNode) {
+	cfg := model.SortConfig{Field: model.SortFieldName, Direction: model.SortAsc}
+	if v.sortConfig != nil {
+		cfg = *v.sortConfig
+	}
+	pkgsort.Sort(list, cfg)
+}
+
+// SetSort applies a sort configuration to the tree view, re-sorting all sibling groups.
+func (v *TreeView) SetSort(config model.SortConfig) {
+	v.sortConfig = &config
+	v.sortNodeChildren(v.roots)
+	for _, node := range v.nodesByUID {
+		if len(node.children) > 0 {
+			v.sortNodeChildren(node.children)
+		}
+	}
+	v.rebuildOrder()
 }
 
 // statusStyle returns a lipgloss style for the given status using theme colors
@@ -229,19 +261,11 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 	}
 	tempRoots = filtered
 
-	// Sort roots and children
-	sortNodes := func(list []*treeNode) {
-		sort.Slice(list, func(i, j int) bool {
-			if list[i].kind == list[j].kind {
-				return list[i].name < list[j].name
-			}
-			return list[i].kind < list[j].kind
-		})
-	}
-	sortNodes(tempRoots)
+	// Sort roots and children according to current sort config
+	v.sortNodeChildren(tempRoots)
 	for _, n := range nodesLocal {
 		if len(n.children) > 0 {
-			sortNodes(n.children)
+			v.sortNodeChildren(n.children)
 		}
 	}
 
@@ -289,6 +313,17 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 				}
 			}
 		}
+	}
+
+	// If sorting by sync or health status, re-sort to reflect updated values
+	if v.sortConfig != nil && (v.sortConfig.Field == model.SortFieldSync || v.sortConfig.Field == model.SortFieldHealth)   {
+		v.sortNodeChildren(v.roots)
+		for _, node := range v.nodesByUID {
+			if len(node.children) > 0 {
+				v.sortNodeChildren(node.children)
+			}
+		}
+		v.rebuildOrder()
 	}
 }
 
