@@ -23,63 +23,30 @@ var healthStatusOrder = map[string]int{
 	"Healthy":     5,
 }
 
-// Sortable is satisfied by types that expose health, sync, kind, and name
-// for semantic tree-sibling sorting, mirroring the fields used by SortApps.
+// Sortable is satisfied by types that expose a SortKey for semantic ordering.
 type Sortable interface {
-	Health() string
-	Sync() string
-	Kind() string
-	Name() string
-}
-
-// appWrapper adapts model.App to the local Sortable interface without
-// colliding with struct field names.
-type appWrapper struct{ v model.App }
-
-func (a appWrapper) Health() string { return a.v.Health }
-func (a appWrapper) Sync() string   { return a.v.Sync }
-func (a appWrapper) Kind() string   { return "" }
-func (a appWrapper) Name() string   { return a.v.Name }
-
-// SortApps sorts apps according to the provided configuration using insertion sort.
-// Uses semantic ordering for sync/health statuses and falls back to name for stability.
-func SortApps(apps []model.App, config model.SortConfig) {
-	if len(apps) <= 1 {
-		return
-	}
-
-	gen := comparatorGeneric[appWrapper](config)
-	less := func(a, b model.App) bool {
-		return gen(appWrapper{a}, appWrapper{b})
-	}
-
-	// Insertion sort - efficient for small lists and maintains stability
-	for i := 1; i < len(apps); i++ {
-		j := i
-		for j > 0 && less(apps[j], apps[j-1]) {
-			apps[j-1], apps[j] = apps[j], apps[j-1]
-			j--
-		}
-	}
+	SortKey() model.SortKey
 }
 
 // comparatorGeneric provides a less function for any type implementing Sortable.
 // It applies semantic health/sync ordering and tiebreaks by kind then name.
 func comparatorGeneric[T Sortable](config model.SortConfig) func(a, b T) bool {
 	return func(a, b T) bool {
+		ak := a.SortKey()
+		bk := b.SortKey()
 		var cmp int
 		switch config.Field {
 		case model.SortFieldHealth:
-			cmp = compareHealthStatus(a.Health(), b.Health())
+			cmp = compareHealthStatus(ak.Health, bk.Health)
 		case model.SortFieldSync:
-			cmp = compareSyncStatus(a.Sync(), b.Sync())
+			cmp = compareSyncStatus(ak.Sync, bk.Sync)
 		default:
-			cmp = strings.Compare(strings.ToLower(a.Name()), strings.ToLower(b.Name()))
+			cmp = strings.Compare(strings.ToLower(ak.Name), strings.ToLower(bk.Name))
 		}
 
 		// If primary field is equal and not name, fall back to name for stability
 		if cmp == 0 && config.Field != model.SortFieldName {
-			cmp = strings.Compare(strings.ToLower(a.Name()), strings.ToLower(b.Name()))
+			cmp = strings.Compare(strings.ToLower(ak.Name), strings.ToLower(bk.Name))
 		}
 
 		if cmp != 0 {
@@ -90,9 +57,9 @@ func comparatorGeneric[T Sortable](config model.SortConfig) func(a, b T) bool {
 		}
 
 		// Tiebreak by (kind, name) case-insensitive
-		cmp = strings.Compare(strings.ToLower(a.Kind()), strings.ToLower(b.Kind()))
+		cmp = strings.Compare(strings.ToLower(ak.Kind), strings.ToLower(bk.Kind))
 		if cmp == 0 {
-			cmp = strings.Compare(strings.ToLower(a.Name()), strings.ToLower(b.Name()))
+			cmp = strings.Compare(strings.ToLower(ak.Name), strings.ToLower(bk.Name))
 		}
 
 		if config.Direction == model.SortDesc {

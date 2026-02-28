@@ -61,6 +61,11 @@ type App struct {
 	ApplicationSet *string    `json:"applicationSet,omitempty"`
 }
 
+// SortKey returns the values used for semantic ordering of apps.
+func (a App) SortKey() SortKey {
+	return SortKey{Health: a.Health, Sync: a.Sync, Name: a.Name}
+}
+
 // Server represents an ArgoCD server configuration
 type Server struct {
 	BaseURL         string `json:"baseUrl"`

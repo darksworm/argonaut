@@ -99,8 +99,8 @@ func HighlightLogLine(line string) string {
 				// Remove quotes from value if present
 				value = strings.Trim(value, `"`)
 
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(cyanBright).Render(key))   // cyan for field names
-				highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render("="))    // dim for equals
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(cyanBright).Render(key))    // cyan for field names
+				highlighted.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render("="))      // dim for equals
 				highlighted.WriteString(lipgloss.NewStyle().Foreground(whiteBright).Render(value)) // white for values
 			} else {
 				// Not a proper key=value, just render as is
@@ -251,7 +251,7 @@ var (
 				Background(cyanBright)
 	// Flash highlight for refresh feedback
 	refreshFlashStyle = lipgloss.NewStyle().
-			Background(syncedColor)
+				Background(syncedColor)
 
 	// Status bar style (matches MainLayout status line)
 	statusStyle = lipgloss.NewStyle().
@@ -500,7 +500,7 @@ func (m *Model) getVisibleItems() []interface{} {
 		}
 		appsCopy := make([]model.App, len(apps))
 		copy(appsCopy, apps)
-		sort.SortApps(appsCopy, m.state.UI.Sort)
+		sort.Sort(appsCopy, m.state.UI.Sort)
 		for _, app := range appsCopy {
 			base = append(base, app)
 		}
@@ -910,7 +910,7 @@ func (m *Model) renderErrorView() string {
 			causeStyle := lipgloss.NewStyle().Foreground(yellowBright)
 			errorContent += fmt.Sprintf("\nCause:\n%s\n", causeStyle.Render(err.Cause.Error()))
 		}
-		
+
 		// Additional context (if available) - but filter out redundant info
 		if err.Context != nil && len(err.Context) > 0 {
 			contextStyle := lipgloss.NewStyle().Foreground(unknownColor)

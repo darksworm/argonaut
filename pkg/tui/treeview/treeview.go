@@ -93,11 +93,10 @@ type treeNode struct {
 	children  []*treeNode
 }
 
-// Health, Sync, Kind, Name satisfy pkgsort.Sortable.
-func (n *treeNode) Health() string { return n.health }
-func (n *treeNode) Sync() string   { return n.status }
-func (n *treeNode) Kind() string   { return n.kind }
-func (n *treeNode) Name() string   { return n.name }
+// SortKey satisfies pkgsort.Sortable.
+func (n *treeNode) SortKey() model.SortKey {
+	return model.SortKey{Health: n.health, Sync: n.status, Kind: n.kind, Name: n.name}
+}
 
 // sortNodeChildren sorts a sibling list using the current sort config via pkgsort.Sort.
 // A nil sortConfig resolves to the default (kind, name) ascending order.
