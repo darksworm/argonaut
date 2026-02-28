@@ -315,7 +315,7 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 		}
 	}
 
-	// If sorting by sync status, re-sort to reflect updated values
+	// If sorting by sync or health status, re-sort to reflect updated values
 	if v.sortConfig != nil && (v.sortConfig.Field == model.SortFieldSync || v.sortConfig.Field == model.SortFieldHealth)   {
 		v.sortNodeChildren(v.roots)
 		for _, node := range v.nodesByUID {
