@@ -93,20 +93,20 @@ type treeNode struct {
 	children  []*treeNode
 }
 
-// NodeHealth, NodeSync, NodeKind, NodeName satisfy pkgsort.TreeNodeSortable.
-func (n *treeNode) NodeHealth() string { return n.health }
-func (n *treeNode) NodeSync() string   { return n.status }
-func (n *treeNode) NodeKind() string   { return n.kind }
-func (n *treeNode) NodeName() string   { return n.name }
+// Health, Sync, Kind, Name satisfy pkgsort.Sortable.
+func (n *treeNode) Health() string { return n.health }
+func (n *treeNode) Sync() string   { return n.status }
+func (n *treeNode) Kind() string   { return n.kind }
+func (n *treeNode) Name() string   { return n.name }
 
-// sortNodeChildren sorts a sibling list using the current sort config via 	sort.SortTreeNodes.
+// sortNodeChildren sorts a sibling list using the current sort config via pkgsort.Sort.
 // A nil sortConfig resolves to the default (kind, name) ascending order.
 func (v *TreeView) sortNodeChildren(list []*treeNode) {
 	cfg := model.SortConfig{Field: model.SortFieldName, Direction: model.SortAsc}
 	if v.sortConfig != nil {
 		cfg = *v.sortConfig
 	}
-	pkgsort.SortTreeNodes(list, cfg)
+	pkgsort.Sort(list, cfg)
 }
 
 // SetSort applies a sort configuration to the tree view, re-sorting all sibling groups.
