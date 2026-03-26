@@ -120,6 +120,16 @@ func (m *Model) handleToggleSelection() (tea.Model, tea.Cmd) {
 
 // handleDrillDown implements drill-down navigation (enter key)
 func (m *Model) handleDrillDown() (tea.Model, tea.Cmd) {
+	// In contexts view, enter triggers a context switch
+	if m.state.Navigation.View == model.ViewContexts {
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if len(visibleItems) > 0 && m.state.Navigation.SelectedIdx < len(visibleItems) {
+			ctxName := fmt.Sprintf("%v", visibleItems[m.state.Navigation.SelectedIdx])
+			return m, m.performContextSwitch(ctxName)
+		}
+		return m, nil
+	}
+
 	// In apps view, enter opens the resources/tree view for the selected app
 	if m.state.Navigation.View == model.ViewApps {
 		return m.handleOpenResourcesForSelection()
@@ -383,6 +393,9 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 		m.state.UI.Command = ""
 
 		switch curr {
+		case model.ViewContexts:
+			m = m.safeChangeView(model.ViewClusters)
+			m.state.Navigation.SelectedIdx = 0
 		case model.ViewTree:
 			// Return to apps view from tree/resources view
 			if m.treeView != nil {

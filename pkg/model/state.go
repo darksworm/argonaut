@@ -180,7 +180,8 @@ type AppState struct {
 	Server     *Server         `json:"server,omitempty"`
 	Apps       []App           `json:"apps"`
 	Index      *AppIndex       `json:"-"` // Pre-computed index, rebuilt on mutation
-	APIVersion string          `json:"apiVersion"`
+	APIVersion   string          `json:"apiVersion"`
+	ContextNames []string        `json:"contextNames,omitempty"`
 	// Note: AbortController equivalent will use context.Context in Go services
 	Diff     *DiffState     `json:"diff,omitempty"`
 	Rollback *RollbackState `json:"rollback,omitempty"`
