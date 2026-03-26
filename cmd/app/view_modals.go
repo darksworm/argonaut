@@ -37,6 +37,8 @@ func (m *Model) renderHelpModal() string {
 		mono(":cls"), "|", mono(":clusters"), " ", bullet(), " ", mono(":ns"), "|", mono(":namespaces"), " ", bullet(), " ", mono(":proj"), "|", mono(":projects"), " ", bullet(), " ", mono(":apps"),
 		"\n",
 		mono(":appsets"), "|", mono(":applicationsets"), " ", bullet(), " ", mono(":theme"), " ", bullet(), " ", mono(":logs"),
+		"\n",
+		mono(":context"), "|", mono(":contexts"), "|", mono(":ctx"), "|", mono(":argocd"), " [name] ",
 	}, "")
 
 	// COMMANDS
