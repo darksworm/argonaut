@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.15.0](https://github.com/darksworm/argonaut/compare/v2.14.1...v2.15.0) (2026-03-26)
+
+
+### Features
+
+* add context switching and context picker view ([dea635e](https://github.com/darksworm/argonaut/commit/dea635e33e0519a857cc714292e8ce9b8ba09ed8))
+
+
+### Bug Fixes
+
+* include SwitchEpoch in all async command messages to prevent stuck UI after context switch ([300b002](https://github.com/darksworm/argonaut/commit/300b00274e6f1d1542857bdd5452f522504abb63))
+
 ## [2.14.1](https://github.com/darksworm/argonaut/compare/v2.14.0...v2.14.1) (2026-02-16)
 
 
