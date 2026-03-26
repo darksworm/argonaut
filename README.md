@@ -176,7 +176,7 @@ argonaut
 <img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
 
 ### **And much more**  
-<img src="assets/argonaut_help.gif" alt="the :help command describes all commands"/>
+<img src="assets/argonaut_help.png" alt="the :help command describes all commands"/>
 
 ## Advanced Features
 
