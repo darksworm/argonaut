@@ -8,12 +8,13 @@ import (
 
 // NavigationState holds navigation-related state
 type NavigationState struct {
-	View           View    `json:"view"`
-	SelectedIdx    int     `json:"selectedIdx"`
-	LastGPressed   int64   `json:"lastGPressed"`
-	LastEscPressed int64   `json:"lastEscPressed"`
-	LastZPressed   int64   `json:"lastZPressed"`
-	TreeAppName    *string `json:"treeAppName,omitempty"`
+	View             View    `json:"view"`
+	SelectedIdx      int     `json:"selectedIdx"`
+	LastGPressed     int64   `json:"lastGPressed"`
+	LastEscPressed   int64   `json:"lastEscPressed"`
+	LastZPressed     int64   `json:"lastZPressed"`
+	TreeAppName      *string `json:"treeAppName,omitempty"`
+	TreeAppNamespace *string `json:"treeAppNamespace,omitempty"`
 }
 
 // SelectionState holds selection-related state using map[string]bool for sets
@@ -99,24 +100,25 @@ func (s *SelectionState) ToggleSelectedApp(app string) {
 
 // UIState holds UI-related state
 type UIState struct {
-	SearchQuery         string          `json:"searchQuery"`
-	ActiveFilter        string          `json:"activeFilter"`
-	Command             string          `json:"command"`
-	IsVersionOutdated   bool            `json:"isVersionOutdated"`
-	LatestVersion       *string         `json:"latestVersion,omitempty"`
-	UpdateInfo          *UpdateInfo     `json:"updateInfo,omitempty"`
-	CommandInputKey     int             `json:"commandInputKey"`
-	TreeAppName         *string         `json:"treeAppName,omitempty"`
-	ThemeSelectedIndex  int             `json:"themeSelectedIndex"`
-	ThemeScrollOffset   int             `json:"themeScrollOffset"`
-	ThemeOriginalName   string          `json:"themeOriginalName,omitempty"`
-	CommandInvalid      bool            `json:"commandInvalid"`
-	Sort                SortConfig      `json:"sort"`
-	ShowWhatsNew        bool            `json:"showWhatsNew"`
-	WhatsNewShownAt     *time.Time      `json:"whatsNewShownAt,omitempty"`
-	RefreshFlashApps    map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
-	RefreshFlashTree    bool            `json:"-"` // Flash tree view after refresh (transient)
-	SelectionCopied     bool            `json:"-"` // Show "Copied!" message briefly (transient)
+	SearchQuery        string          `json:"searchQuery"`
+	ActiveFilter       string          `json:"activeFilter"`
+	Command            string          `json:"command"`
+	IsVersionOutdated  bool            `json:"isVersionOutdated"`
+	LatestVersion      *string         `json:"latestVersion,omitempty"`
+	UpdateInfo         *UpdateInfo     `json:"updateInfo,omitempty"`
+	CommandInputKey    int             `json:"commandInputKey"`
+	TreeAppName        *string         `json:"treeAppName,omitempty"`
+	TreeAppNamespace   *string         `json:"treeAppNamespace,omitempty"`
+	ThemeSelectedIndex int             `json:"themeSelectedIndex"`
+	ThemeScrollOffset  int             `json:"themeScrollOffset"`
+	ThemeOriginalName  string          `json:"themeOriginalName,omitempty"`
+	CommandInvalid     bool            `json:"commandInvalid"`
+	Sort               SortConfig      `json:"sort"`
+	ShowWhatsNew       bool            `json:"showWhatsNew"`
+	WhatsNewShownAt    *time.Time      `json:"whatsNewShownAt,omitempty"`
+	RefreshFlashApps   map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
+	RefreshFlashTree   bool            `json:"-"` // Flash tree view after refresh (transient)
+	SelectionCopied    bool            `json:"-"` // Show "Copied!" message briefly (transient)
 }
 
 // ModalState holds modal-related state
@@ -137,13 +139,13 @@ type ModalState struct {
 	UpgradeLoading  bool    `json:"upgradeLoading"`
 	UpgradeError    *string `json:"upgradeError,omitempty"` // Error message for upgrade failures
 	// Delete confirmation modal state (for apps)
-	DeleteAppName          *string `json:"deleteAppName,omitempty"`
-	DeleteAppNamespace     *string `json:"deleteAppNamespace,omitempty"`
-	DeleteConfirmationKey  string  `json:"deleteConfirmationKey"` // Track what user has typed
-	DeleteLoading          bool    `json:"deleteLoading"`
-	DeleteError            *string `json:"deleteError,omitempty"`
-	DeleteCascade          bool    `json:"deleteCascade"`          // Default true
-	DeletePropagationPolicy string `json:"deletePropagationPolicy"` // Default "foreground"
+	DeleteAppName           *string `json:"deleteAppName,omitempty"`
+	DeleteAppNamespace      *string `json:"deleteAppNamespace,omitempty"`
+	DeleteConfirmationKey   string  `json:"deleteConfirmationKey"` // Track what user has typed
+	DeleteLoading           bool    `json:"deleteLoading"`
+	DeleteError             *string `json:"deleteError,omitempty"`
+	DeleteCascade           bool    `json:"deleteCascade"`           // Default true
+	DeletePropagationPolicy string  `json:"deletePropagationPolicy"` // Default "foreground"
 	// Resource delete confirmation modal state
 	ResourceDeleteAppName           *string                `json:"resourceDeleteAppName,omitempty"`
 	ResourceDeleteAppNamespace      *string                `json:"resourceDeleteAppNamespace,omitempty"`
@@ -225,12 +227,13 @@ type DiffState struct {
 // SaveNavigationState saves current navigation and selection state
 func (s *AppState) SaveNavigationState() {
 	s.SavedNavigation = &NavigationState{
-		View:           s.Navigation.View,
-		SelectedIdx:    s.Navigation.SelectedIdx,
-		LastGPressed:   s.Navigation.LastGPressed,
-		LastEscPressed: s.Navigation.LastEscPressed,
-		LastZPressed:   s.Navigation.LastZPressed,
-		TreeAppName:    s.UI.TreeAppName,
+		View:             s.Navigation.View,
+		SelectedIdx:      s.Navigation.SelectedIdx,
+		LastGPressed:     s.Navigation.LastGPressed,
+		LastEscPressed:   s.Navigation.LastEscPressed,
+		LastZPressed:     s.Navigation.LastZPressed,
+		TreeAppName:      s.UI.TreeAppName,
+		TreeAppNamespace: s.UI.TreeAppNamespace,
 	}
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),

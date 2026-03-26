@@ -392,14 +392,12 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 				m.state.SavedNavigation.View == model.ViewTree &&
 				m.state.SavedNavigation.TreeAppName != nil {
 				parentAppName := *m.state.SavedNavigation.TreeAppName
-				m.state.SavedNavigation = nil
-				var parentApp *model.App
-				for i := range m.state.Apps {
-					if m.state.Apps[i].Name == parentAppName {
-						parentApp = &m.state.Apps[i]
-						break
-					}
+				parentAppNamespace := ""
+				if m.state.SavedNavigation.TreeAppNamespace != nil {
+					parentAppNamespace = *m.state.SavedNavigation.TreeAppNamespace
 				}
+				m.state.SavedNavigation = nil
+				parentApp := m.findAppByNameAndNamespace(parentAppName, parentAppNamespace)
 				if parentApp != nil {
 					m = m.cleanupTreeWatchers()
 					m.treeView = treeview.NewTreeView(0, 0)
@@ -408,6 +406,7 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 					m.treeNav.Reset()
 					m.state.Navigation.View = model.ViewTree
 					m.state.UI.TreeAppName = &parentApp.Name
+					m.state.UI.TreeAppNamespace = parentApp.AppNamespace
 					m.treeLoading = true
 					return m, tea.Batch(m.startLoadingResourceTree(*parentApp), m.startWatchingResourceTree(*parentApp), m.consumeTreeEvent())
 				}
@@ -415,6 +414,7 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			// Return to apps view from tree/resources view
 			m = m.safeChangeView(model.ViewApps)
 			m.state.UI.TreeAppName = nil
+			m.state.UI.TreeAppNamespace = nil
 			m.state.Navigation.SelectedIdx = 0
 		case model.ViewApps:
 			// Check if scoped by ApplicationSet (separate hierarchy)
@@ -526,15 +526,14 @@ func (m *Model) applyThemePreview(themeName string) {
 
 // themePageSize returns the number of visible theme rows for page scrolling
 func (m *Model) themePageSize() int {
-	headerLines := 2      // title + blank line
-	borderLines := 4      // top + bottom border + padding
-	footerLines := 2      // potential warning message + blank line
-	statusLine := 1       // status line at bottom
+	headerLines := 2 // title + blank line
+	borderLines := 4 // top + bottom border + padding
+	footerLines := 2 // potential warning message + blank line
+	statusLine := 1  // status line at bottom
 	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
 	maxThemeLines := max(5, maxAvailableHeight)
 	return max(1, maxThemeLines-2) // Reserve 2 lines for scroll indicators
 }
-
 
 // handleHelpModeKeys handles input when in help mode
 func (m *Model) handleHelpModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -939,7 +938,7 @@ func (m *Model) handleResourceDelete() (tea.Model, tea.Cmd) {
 	m.state.Modals.ResourceDeleteConfirmationKey = ""
 	m.state.Modals.ResourceDeleteError = nil
 	m.state.Modals.ResourceDeleteLoading = false
-	m.state.Modals.ResourceDeleteCascade = true        // Default to cascade
+	m.state.Modals.ResourceDeleteCascade = true // Default to cascade
 	m.state.Modals.ResourceDeletePropagationPolicy = "foreground"
 	m.state.Modals.ResourceDeleteForce = false
 
@@ -1470,9 +1469,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.treeView != nil {
 				// Enter on a child Application node navigates to that app
 				if msg.String() == "enter" {
-					_, kind, _, childName, ok := m.treeView.SelectedResource()
+					_, kind, childNamespace, childName, ok := m.treeView.SelectedResource()
 					if ok && kind == "Application" && !m.treeView.IsSelectedSyntheticRoot() {
-						return m.handleNavigateToChildApp(childName)
+						return m.handleNavigateToChildApp(childName, childNamespace)
 					}
 				}
 				// Expand/collapse handled by tree view, then sync treeNav
@@ -1623,6 +1622,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		m.state.Navigation.View = model.ViewTree
 		// Clear single-app tracker
 		m.state.UI.TreeAppName = nil
+		m.state.UI.TreeAppNamespace = nil
 		m.treeLoading = true
 		var cmds []tea.Cmd
 		for _, name := range selected {
@@ -1663,28 +1663,28 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 	m.treeNav.Reset() // Reset scroll position
 	m.state.SaveNavigationState()
+	m.state.SavedNavigation.TreeAppNamespace = app.AppNamespace
 	m.state.Navigation.View = model.ViewTree
 	m.state.UI.TreeAppName = &app.Name
+	m.state.UI.TreeAppNamespace = app.AppNamespace
 	m.treeLoading = true
 	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
 
 // handleNavigateToChildApp navigates from the current tree view to a child application's tree view.
 // Used in app-of-apps pattern when Enter is pressed on a child Application node.
-func (m *Model) handleNavigateToChildApp(appName string) (tea.Model, tea.Cmd) {
-	var app *model.App
-	for i := range m.state.Apps {
-		if m.state.Apps[i].Name == appName {
-			app = &m.state.Apps[i]
-			break
-		}
-	}
+func (m *Model) handleNavigateToChildApp(appName string, appNamespace string) (tea.Model, tea.Cmd) {
+	app := m.findAppByNameAndNamespace(appName, appNamespace)
 	if app == nil {
 		return m, func() tea.Msg {
+			if appNamespace != "" {
+				return model.StatusChangeMsg{Status: fmt.Sprintf("Application %q in namespace %q not found", appName, appNamespace)}
+			}
 			return model.StatusChangeMsg{Status: fmt.Sprintf("Application %q not found", appName)}
 		}
 	}
 	m.state.SaveNavigationState()
+	m.state.SavedNavigation.TreeAppNamespace = m.currentTreeAppNamespace()
 	m = m.cleanupTreeWatchers()
 	m.treeView = treeview.NewTreeView(0, 0)
 	m.treeView.ApplyTheme(currentPalette)
@@ -1692,8 +1692,33 @@ func (m *Model) handleNavigateToChildApp(appName string) (tea.Model, tea.Cmd) {
 	m.treeNav.Reset()
 	m.state.Navigation.View = model.ViewTree
 	m.state.UI.TreeAppName = &app.Name
+	m.state.UI.TreeAppNamespace = app.AppNamespace
 	m.treeLoading = true
 	return m, tea.Batch(m.startLoadingResourceTree(*app), m.startWatchingResourceTree(*app), m.consumeTreeEvent())
+}
+
+func (m *Model) findAppByNameAndNamespace(name string, namespace string) *model.App {
+	var fallback *model.App
+	for i := range m.state.Apps {
+		app := &m.state.Apps[i]
+		if app.Name != name {
+			continue
+		}
+		if namespace == "" {
+			if fallback == nil {
+				fallback = app
+			}
+			continue
+		}
+		if app.AppNamespace != nil && *app.AppNamespace == namespace {
+			return app
+		}
+	}
+	return fallback
+}
+
+func (m *Model) currentTreeAppNamespace() *string {
+	return m.state.UI.TreeAppNamespace
 }
 
 // handleResourceDiff shows the diff for the currently selected resource in tree view

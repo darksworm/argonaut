@@ -765,8 +765,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
-				m.state.Navigation.View = model.ViewTree
-				m.state.UI.TreeAppName = &msg.AppName
 				// find app
 				var appObj model.App
 				found := false
@@ -780,6 +778,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if !found {
 					appObj = model.App{Name: msg.AppName}
 				}
+				m.state.Navigation.View = model.ViewTree
+				m.state.UI.TreeAppName = &msg.AppName
+				m.state.UI.TreeAppNamespace = appObj.AppNamespace
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -968,6 +969,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.Navigation.View = model.ViewTree
 					// Clear single-app tracker
 					m.state.UI.TreeAppName = nil
+					m.state.UI.TreeAppNamespace = nil
 					m.treeLoading = true
 					for _, n := range names {
 						var appObj *model.App
@@ -1154,8 +1156,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
-				m.state.Navigation.View = model.ViewTree
-				m.state.UI.TreeAppName = &msg.AppName
 				var appObj model.App
 				found := false
 				for _, a := range m.state.Apps {
@@ -1168,6 +1168,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if !found {
 					appObj = model.App{Name: msg.AppName}
 				}
+				m.state.Navigation.View = model.ViewTree
+				m.state.UI.TreeAppName = &msg.AppName
+				m.state.UI.TreeAppNamespace = appObj.AppNamespace
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
