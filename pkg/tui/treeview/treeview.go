@@ -416,6 +416,7 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 			}
 		}
 	}
+	v.rebuildMatches()
 
 	// If sorting by sync or health status, re-sort to reflect updated values
 	if v.sortConfig != nil && (v.sortConfig.Field == model.SortFieldSync || v.sortConfig.Field == model.SortFieldHealth) {
@@ -510,12 +511,6 @@ func (v *TreeView) Render() string {
 		return "(no resources)"
 	}
 	var b strings.Builder
-	parentMap := make(map[*treeNode]*treeNode)
-	for _, n := range v.nodesByUID {
-		for _, c := range n.children {
-			parentMap[c] = n
-		}
-	}
 	for i, n := range v.order {
 		if n.parent == nil && i > 0 {
 			b.WriteString("\n")
