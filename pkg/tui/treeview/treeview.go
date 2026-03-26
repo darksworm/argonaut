@@ -111,6 +111,10 @@ func (v *TreeView) sortNodeChildren(list []*treeNode) {
 // SetSort applies a sort configuration to the tree view, re-sorting all sibling groups.
 func (v *TreeView) SetSort(config model.SortConfig) {
 	v.sortConfig = &config
+	// Skip sorting if no nodes have been loaded into the tree view
+	if len(v.roots) == 0 {
+		return
+	}
 	v.sortNodeChildren(v.roots)
 	for _, node := range v.nodesByUID {
 		if len(node.children) > 0 {
@@ -316,14 +320,8 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 	}
 
 	// If sorting by sync or health status, re-sort to reflect updated values
-	if v.sortConfig != nil && (v.sortConfig.Field == model.SortFieldSync || v.sortConfig.Field == model.SortFieldHealth)   {
-		v.sortNodeChildren(v.roots)
-		for _, node := range v.nodesByUID {
-			if len(node.children) > 0 {
-				v.sortNodeChildren(node.children)
-			}
-		}
-		v.rebuildOrder()
+	if v.sortConfig != nil && (v.sortConfig.Field == model.SortFieldSync || v.sortConfig.Field == model.SortFieldHealth) {
+		v.SetSort(*v.sortConfig)
 	}
 }
 
@@ -408,164 +406,164 @@ func (v *TreeView) indexOf(n *treeNode) int {
 
 // Render returns the current string representation of the tree.
 func (v *TreeView) Render() string {
-    if len(v.order) == 0 {
-        return "(no resources)"
-    }
-    var b strings.Builder
-    parentMap := make(map[*treeNode]*treeNode)
-    for _, n := range v.nodesByUID {
-        for _, c := range n.children {
-            parentMap[c] = n
-        }
-    }
-    for i, n := range v.order {
-        if n.parent == nil && i > 0 {
-            b.WriteString("\n")
-        }
-        // Build ancestry stack
-        stack := make([]*treeNode, 0)
-        pp := n.parent
-        for pp != nil {
-            stack = append(stack, pp)
-            pp = pp.parent
-        }
-        // reverse stack
-        for l, r := 0, len(stack)-1; l < r; l, r = l+1, r-1 {
-            stack[l], stack[r] = stack[r], stack[l]
-        }
-        var prefixParts []string
-        for _, anc := range stack {
-            if anc.parent == nil {
-                continue
-            }
-            siblings := anc.parent.children
-            last := len(siblings) > 0 && siblings[len(siblings)-1] == anc
-            if last {
-                prefixParts = append(prefixParts, "    ")
-            } else {
-                prefixParts = append(prefixParts, "│   ")
-            }
-        }
-        conn := ""
-        if n.parent != nil {
-            siblings := n.parent.children
-            if len(siblings) > 0 && siblings[len(siblings)-1] == n {
-                conn = "└── "
-            } else {
-                conn = "├── "
-            }
-        }
-        prefix := strings.Join(prefixParts, "") + conn
-        disc := ""
-        if len(n.children) > 0 && !v.expanded[n.uid] {
-            disc = "▸ "
-        }
+	if len(v.order) == 0 {
+		return "(no resources)"
+	}
+	var b strings.Builder
+	parentMap := make(map[*treeNode]*treeNode)
+	for _, n := range v.nodesByUID {
+		for _, c := range n.children {
+			parentMap[c] = n
+		}
+	}
+	for i, n := range v.order {
+		if n.parent == nil && i > 0 {
+			b.WriteString("\n")
+		}
+		// Build ancestry stack
+		stack := make([]*treeNode, 0)
+		pp := n.parent
+		for pp != nil {
+			stack = append(stack, pp)
+			pp = pp.parent
+		}
+		// reverse stack
+		for l, r := 0, len(stack)-1; l < r; l, r = l+1, r-1 {
+			stack[l], stack[r] = stack[r], stack[l]
+		}
+		var prefixParts []string
+		for _, anc := range stack {
+			if anc.parent == nil {
+				continue
+			}
+			siblings := anc.parent.children
+			last := len(siblings) > 0 && siblings[len(siblings)-1] == anc
+			if last {
+				prefixParts = append(prefixParts, "    ")
+			} else {
+				prefixParts = append(prefixParts, "│   ")
+			}
+		}
+		conn := ""
+		if n.parent != nil {
+			siblings := n.parent.children
+			if len(siblings) > 0 && siblings[len(siblings)-1] == n {
+				conn = "└── "
+			} else {
+				conn = "├── "
+			}
+		}
+		prefix := strings.Join(prefixParts, "") + conn
+		disc := ""
+		if len(n.children) > 0 && !v.expanded[n.uid] {
+			disc = "▸ "
+		}
 
-        prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
-        label := v.renderLabel(n)
-        line := prefixStyled + label
-        if len(n.children) > 0 && !v.expanded[n.uid] {
-            hidden := countDescendants(n)
-            if hidden > 0 {
-                hint := lipgloss.NewStyle().Foreground(v.palette.Dim).Render(fmt.Sprintf(" (+%d)", hidden))
-                line += hint
-            }
-        }
-        isMatch := v.filterQuery != "" && v.isMatchIndex(i)
-        isSelected := v.selectedUIDs[n.uid]
-        isCursor := i == v.selIdx
+		prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
+		label := v.renderLabel(n)
+		line := prefixStyled + label
+		if len(n.children) > 0 && !v.expanded[n.uid] {
+			hidden := countDescendants(n)
+			if hidden > 0 {
+				hint := lipgloss.NewStyle().Foreground(v.palette.Dim).Render(fmt.Sprintf(" (+%d)", hidden))
+				line += hint
+			}
+		}
+		isMatch := v.filterQuery != "" && v.isMatchIndex(i)
+		isSelected := v.selectedUIDs[n.uid]
+		isCursor := i == v.selIdx
 
-        // Flash mode: all rows get success color background (refresh feedback)
-        if v.flashAll {
-            name := n.name
-            if n.namespace != "" {
-                name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-            }
-            flashBG := v.palette.Success
-            bgStyle := lipgloss.NewStyle().Background(flashBG)
-            ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(prefix + disc)
-            ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(n.kind)
-            ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(flashBG).Render("[" + name + "]")
-            st := v.renderStatusPartWithBG(n, flashBG)
-            sp := bgStyle.Render(" ")
-            line = ps + ks + sp + ns + sp + st
-            line = padRightWithBG(line, v.innerWidth(), flashBG)
-        } else if v.desaturateMode {
-        // In desaturate mode: only highlight selected items, with scoped highlighting
-        // In normal mode: highlight both cursor and selected items with full-line highlighting
-            // Desaturate mode: only selected items get highlighted, and only the resource text
-            if isSelected {
-                name := n.name
-                if n.namespace != "" {
-                    name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-                }
-                rowBG := v.palette.SelectedBG
-                bgStyle := lipgloss.NewStyle().Background(rowBG)
-                // Prefix rendered WITHOUT background (will be dimmed by desaturateANSI)
-                ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
-                // Only resource text (kind, name, status) gets background
-                ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
-                ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
-                st := v.renderStatusPartWithBG(n, rowBG)
-                sp := bgStyle.Render(" ")
-                line = ps + ks + sp + ns + sp + st
-                // NO padRightWithBG - don't extend highlight to full width
-            }
-            // else: cursor-only or regular line - keep default rendering (no special background)
-        } else {
-            // Normal mode: existing behavior (cursor and selection both get full-line highlighting)
-            if isCursor || isSelected {
-                name := n.name
-                if n.namespace != "" {
-                    name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-                }
-                // Determine background color based on state
-                var rowBG color.Color
-                if isCursor && isSelected {
-                    // Cursor on selected: distinct color to show both states
-                    rowBG = v.palette.CursorSelectedBG
-                } else if isMatch {
-                    // Search match (cursor or selected): use info color
-                    rowBG = v.palette.Info
-                } else {
-                    // Plain cursor or plain selected: use standard selection background
-                    rowBG = v.palette.SelectedBG
-                }
-                bgStyle := lipgloss.NewStyle().Background(rowBG)
-                ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(prefix + disc)
-                ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
-                ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
-                st := v.renderStatusPartWithBG(n, rowBG)
-                sp := bgStyle.Render(" ")
-                line = ps + ks + sp + ns + sp + st
-                line = padRightWithBG(line, v.innerWidth(), rowBG)
-            } else if isMatch {
-                // Non-selected, non-cursor match: highlight with warning background
-                name := n.name
-                if n.namespace != "" {
-                    name = fmt.Sprintf("%s/%s", n.namespace, n.name)
-                }
-                matchBG := v.palette.Warning
-                bgStyle := lipgloss.NewStyle().Background(matchBG)
-                ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(matchBG).Render(prefix + disc)
-                ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
-                ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
-                st := v.renderStatusPartWithBG(n, matchBG)
-                sp := bgStyle.Render(" ")
-                line = ps + ks + sp + ns + sp + st
-                line = padRightWithBG(line, v.innerWidth(), matchBG)
-            }
-        }
-        b.WriteString(line)
-        if i < len(v.order)-1 {
-            b.WriteString("\n")
-        }
-    }
-    return b.String()
+		// Flash mode: all rows get success color background (refresh feedback)
+		if v.flashAll {
+			name := n.name
+			if n.namespace != "" {
+				name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+			}
+			flashBG := v.palette.Success
+			bgStyle := lipgloss.NewStyle().Background(flashBG)
+			ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(prefix + disc)
+			ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(n.kind)
+			ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(flashBG).Render("[" + name + "]")
+			st := v.renderStatusPartWithBG(n, flashBG)
+			sp := bgStyle.Render(" ")
+			line = ps + ks + sp + ns + sp + st
+			line = padRightWithBG(line, v.innerWidth(), flashBG)
+		} else if v.desaturateMode {
+			// In desaturate mode: only highlight selected items, with scoped highlighting
+			// In normal mode: highlight both cursor and selected items with full-line highlighting
+			// Desaturate mode: only selected items get highlighted, and only the resource text
+			if isSelected {
+				name := n.name
+				if n.namespace != "" {
+					name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+				}
+				rowBG := v.palette.SelectedBG
+				bgStyle := lipgloss.NewStyle().Background(rowBG)
+				// Prefix rendered WITHOUT background (will be dimmed by desaturateANSI)
+				ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
+				// Only resource text (kind, name, status) gets background
+				ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
+				ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
+				st := v.renderStatusPartWithBG(n, rowBG)
+				sp := bgStyle.Render(" ")
+				line = ps + ks + sp + ns + sp + st
+				// NO padRightWithBG - don't extend highlight to full width
+			}
+			// else: cursor-only or regular line - keep default rendering (no special background)
+		} else {
+			// Normal mode: existing behavior (cursor and selection both get full-line highlighting)
+			if isCursor || isSelected {
+				name := n.name
+				if n.namespace != "" {
+					name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+				}
+				// Determine background color based on state
+				var rowBG color.Color
+				if isCursor && isSelected {
+					// Cursor on selected: distinct color to show both states
+					rowBG = v.palette.CursorSelectedBG
+				} else if isMatch {
+					// Search match (cursor or selected): use info color
+					rowBG = v.palette.Info
+				} else {
+					// Plain cursor or plain selected: use standard selection background
+					rowBG = v.palette.SelectedBG
+				}
+				bgStyle := lipgloss.NewStyle().Background(rowBG)
+				ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(prefix + disc)
+				ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
+				ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
+				st := v.renderStatusPartWithBG(n, rowBG)
+				sp := bgStyle.Render(" ")
+				line = ps + ks + sp + ns + sp + st
+				line = padRightWithBG(line, v.innerWidth(), rowBG)
+			} else if isMatch {
+				// Non-selected, non-cursor match: highlight with warning background
+				name := n.name
+				if n.namespace != "" {
+					name = fmt.Sprintf("%s/%s", n.namespace, n.name)
+				}
+				matchBG := v.palette.Warning
+				bgStyle := lipgloss.NewStyle().Background(matchBG)
+				ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(matchBG).Render(prefix + disc)
+				ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
+				ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
+				st := v.renderStatusPartWithBG(n, matchBG)
+				sp := bgStyle.Render(" ")
+				line = ps + ks + sp + ns + sp + st
+				line = padRightWithBG(line, v.innerWidth(), matchBG)
+			}
+		}
+		b.WriteString(line)
+		if i < len(v.order)-1 {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }
 
 func (v *TreeView) View() tea.View {
-    return tea.NewView(v.Render())
+	return tea.NewView(v.Render())
 }
 
 func (v *TreeView) renderLabel(n *treeNode) string {
