@@ -108,6 +108,97 @@ func (v *TreeView) sortNodeChildren(list []*treeNode) {
 	pkgsort.Sort(list, cfg)
 }
 
+type orderStateSnapshot struct {
+	selectedUID string
+	matchUIDs   []string
+	currentUID  string
+}
+
+// snapshotOrderState captures selection and search state by node UID so it can
+// survive a rebuild that changes row ordering.
+func (v *TreeView) snapshotOrderState() orderStateSnapshot {
+	snapshot := orderStateSnapshot{}
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		snapshot.selectedUID = v.order[v.selIdx].uid
+	} else if v.SelectedUID != "" {
+		if _, ok := v.nodesByUID[v.SelectedUID]; ok {
+			snapshot.selectedUID = v.SelectedUID
+		}
+	}
+	if len(v.matchIndices) > 0 {
+		snapshot.matchUIDs = make([]string, 0, len(v.matchIndices))
+		for _, idx := range v.matchIndices {
+			if idx >= 0 && idx < len(v.order) {
+				snapshot.matchUIDs = append(snapshot.matchUIDs, v.order[idx].uid)
+			}
+		}
+		if v.currentMatch >= 0 && v.currentMatch < len(snapshot.matchUIDs) {
+			snapshot.currentUID = snapshot.matchUIDs[v.currentMatch]
+		}
+	}
+	return snapshot
+}
+
+// restoreOrderState remaps preserved UIDs back onto the rebuilt row order,
+// restoring the selected row and active search matches if those nodes still exist.
+func (v *TreeView) restoreOrderState(snapshot orderStateSnapshot) {
+	uidToIndex := make(map[string]int, len(v.order))
+	for idx, node := range v.order {
+		uidToIndex[node.uid] = idx
+	}
+
+	if snapshot.selectedUID != "" {
+		if idx, ok := uidToIndex[snapshot.selectedUID]; ok {
+			v.selIdx = idx
+		}
+	}
+	if v.selIdx >= len(v.order) {
+		v.selIdx = max(0, len(v.order)-1)
+	}
+	if v.selIdx >= 0 && v.selIdx < len(v.order) {
+		v.SelectedUID = v.order[v.selIdx].uid
+	} else {
+		v.SelectedUID = ""
+	}
+
+	if len(snapshot.matchUIDs) == 0 {
+		v.matchIndices = nil
+		v.currentMatch = 0
+		return
+	}
+
+	matchIndices := make([]int, 0, len(snapshot.matchUIDs))
+	currentMatchIndex := -1
+	for _, uid := range snapshot.matchUIDs {
+		if idx, ok := uidToIndex[uid]; ok {
+			if uid == snapshot.currentUID {
+				currentMatchIndex = len(matchIndices)
+			}
+			matchIndices = append(matchIndices, idx)
+		}
+	}
+	v.matchIndices = matchIndices
+	if len(v.matchIndices) == 0 {
+		v.currentMatch = 0
+		return
+	}
+	v.currentMatch = 0
+	if currentMatchIndex >= 0 {
+		v.currentMatch = currentMatchIndex
+	}
+	if v.currentMatch >= len(v.matchIndices) {
+		v.currentMatch = len(v.matchIndices) - 1
+	}
+}
+
+// rebuildOrderPreservingState wraps rebuildOrder for callers that reorder nodes
+// but want selection and filter match state to follow the same nodes afterward.
+func (v *TreeView) rebuildOrderPreservingState() {
+	snapshot := v.snapshotOrderState()
+	v.rebuildOrder()
+	v.restoreOrderState(snapshot)
+}
+
 // SetSort applies a sort configuration to the tree view, re-sorting all sibling groups.
 func (v *TreeView) SetSort(config model.SortConfig) {
 	v.sortConfig = &config
@@ -121,7 +212,7 @@ func (v *TreeView) SetSort(config model.SortConfig) {
 			v.sortNodeChildren(node.children)
 		}
 	}
-	v.rebuildOrder()
+	v.rebuildOrderPreservingState()
 }
 
 // statusStyle returns a lipgloss style for the given status using theme colors
@@ -352,6 +443,8 @@ func (v *TreeView) rebuildOrder() {
 	}
 	if v.selIdx >= 0 && v.selIdx < len(v.order) {
 		v.SelectedUID = v.order[v.selIdx].uid
+	} else {
+		v.SelectedUID = ""
 	}
 }
 
