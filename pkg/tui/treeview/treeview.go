@@ -297,14 +297,18 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 	v.rebuildOrder()
 }
 
-// SetResourceStatuses updates sync status for nodes matching the given resources.
+// SetResourceStatuses updates sync and health status for nodes matching the given resources.
 // Resources are matched by (group, kind, namespace, name).
 func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceStatus) {
 	// Build lookup by (group, kind, namespace, name)
 	statusByKey := make(map[string]string)
+	healthByKey := make(map[string]string)
 	for _, r := range resources {
 		key := fmt.Sprintf("%s/%s/%s/%s", r.Group, r.Kind, r.Namespace, r.Name)
 		statusByKey[key] = r.Status
+		if r.Health != nil && r.Health.Status != nil {
+			healthByKey[key] = *r.Health.Status
+		}
 	}
 
 	// Update nodes for this app
@@ -314,6 +318,9 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 				lookupKey := fmt.Sprintf("%s/%s/%s/%s", node.group, node.kind, node.namespace, node.name)
 				if status, found := statusByKey[lookupKey]; found {
 					node.status = status
+				}
+				if health, found := healthByKey[lookupKey]; found {
+					node.health = health
 				}
 			}
 		}

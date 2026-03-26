@@ -17,13 +17,13 @@ import (
 // - Neither → empty string
 func TestRenderStatusPart(t *testing.T) {
 	tests := []struct {
-		name           string
-		health         string
-		sync           string
-		wantHealth     bool   // expect health value in output
-		wantSync       bool   // expect sync value in output
-		wantBoth       bool   // expect comma-separated format
-		wantEmpty      bool   // expect empty string
+		name       string
+		health     string
+		sync       string
+		wantHealth bool // expect health value in output
+		wantSync   bool // expect sync value in output
+		wantBoth   bool // expect comma-separated format
+		wantEmpty  bool // expect empty string
 	}{
 		{
 			name:       "health only",
@@ -267,12 +267,14 @@ func TestTreeViewRenderingOrder(t *testing.T) {
 }
 
 // TestSetResourceStatuses verifies that SetResourceStatuses correctly updates
-// node sync status by matching on (group, kind, namespace, name)
+// node sync and health status by matching on (group, kind, namespace, name)
 func TestSetResourceStatuses(t *testing.T) {
 	v := NewTreeView(100, 20)
 	v.ApplyTheme(theme.Default())
 
 	appName := "test-app"
+	degraded := "Degraded"
+	healthy := "Healthy"
 
 	// Create nodes with specific group/kind/namespace/name
 	deploy := &treeNode{
@@ -315,8 +317,8 @@ func TestSetResourceStatuses(t *testing.T) {
 
 	// Create resource statuses (simulating Application.status.resources)
 	resources := []api.ResourceStatus{
-		{Group: "apps", Kind: "Deployment", Name: "web", Namespace: "default", Status: "OutOfSync"},
-		{Group: "", Kind: "Service", Name: "web-svc", Namespace: "default", Status: "Synced"},
+		{Group: "apps", Kind: "Deployment", Name: "web", Namespace: "default", Status: "OutOfSync", Health: &api.ResourceHealth{Status: &degraded}},
+		{Group: "", Kind: "Service", Name: "web-svc", Namespace: "default", Status: "Synced", Health: &api.ResourceHealth{Status: &healthy}},
 		// Pod not included - it's not a managed resource
 	}
 
@@ -327,15 +329,24 @@ func TestSetResourceStatuses(t *testing.T) {
 	if deploy.status != "OutOfSync" {
 		t.Errorf("expected Deployment status 'OutOfSync', got %q", deploy.status)
 	}
+	if deploy.health != "Degraded" {
+		t.Errorf("expected Deployment health 'Degraded', got %q", deploy.health)
+	}
 
 	// Verify service got Synced
 	if svc.status != "Synced" {
 		t.Errorf("expected Service status 'Synced', got %q", svc.status)
 	}
+	if svc.health != "Healthy" {
+		t.Errorf("expected Service health 'Healthy', got %q", svc.health)
+	}
 
-	// Verify pod status unchanged (not a managed resource)
+	// Verify pod status/health unchanged (not a managed resource)
 	if pod.status != "" {
 		t.Errorf("expected Pod status to remain empty, got %q", pod.status)
+	}
+	if pod.health != "Running" {
+		t.Errorf("expected Pod health to remain 'Running', got %q", pod.health)
 	}
 }
 
