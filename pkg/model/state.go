@@ -123,7 +123,8 @@ type UIState struct {
 
 // ModalState holds modal-related state
 type ModalState struct {
-	ConfirmTarget    *string `json:"confirmTarget,omitempty"`
+	ConfirmTarget          *string `json:"confirmTarget,omitempty"`
+	ConfirmTargetNamespace *string `json:"confirmTargetNamespace,omitempty"`
 	ConfirmSyncPrune bool    `json:"confirmSyncPrune"`
 	ConfirmSyncWatch bool    `json:"confirmSyncWatch"`
 	// Which button is selected in confirm modal: 0 = Yes, 1 = Cancel

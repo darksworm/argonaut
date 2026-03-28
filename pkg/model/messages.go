@@ -363,8 +363,9 @@ type LoadingMsg struct {
 
 // SyncCompletedMsg indicates a single app sync has completed
 type SyncCompletedMsg struct {
-	AppName string
-	Success bool
+	AppName      string
+	AppNamespace *string
+	Success      bool
 }
 
 // MultiSyncCompletedMsg indicates multiple app sync has completed
@@ -420,9 +421,10 @@ type RollbackMetadataErrorMsg struct {
 
 // RollbackExecutedMsg is sent when rollback is executed
 type RollbackExecutedMsg struct {
-	AppName string
-	Success bool
-	Watch   bool // Whether to start watching after rollback
+	AppName      string
+	AppNamespace *string
+	Success      bool
+	Watch        bool // Whether to start watching after rollback
 }
 
 // RollbackNavigationMsg is sent to change rollback navigation

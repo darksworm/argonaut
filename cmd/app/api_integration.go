@@ -411,7 +411,7 @@ func stringSlicesEqual(a, b []string) bool {
 }
 
 // startDiffSession loads diffs and opens the diff pager
-func (m *Model) startDiffSession(appName string) tea.Cmd {
+func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -421,7 +421,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
 		}
@@ -518,7 +518,7 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, res.AppName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, res.AppName, res.AppNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
 		}
@@ -839,7 +839,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 }
 
 // syncSingleApplication syncs a specific application
-func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
+func (m *Model) syncSingleApplication(appName string, appNamespace *string, prune bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -877,7 +877,7 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 		}
 
 		cblog.With("component", "api").Info("Sync completed", "app", appName)
-		return model.SyncCompletedMsg{AppName: appName, Success: true}
+		return model.SyncCompletedMsg{AppName: appName, AppNamespace: appNamespace, Success: true}
 	}
 }
 
@@ -1129,15 +1129,16 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 		}
 
 		return model.RollbackExecutedMsg{
-			AppName: request.Name,
-			Success: true,
-			Watch:   watchAfter,
+			AppName:      request.Name,
+			AppNamespace: request.AppNamespace,
+			Success:      true,
+			Watch:        watchAfter,
 		}
 	}
 }
 
 // startRollbackDiffSession shows diff between current and selected revision
-func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cmd {
+func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, revision string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -1149,7 +1150,7 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Get diff between current and target revision
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error()}
 		}

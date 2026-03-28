@@ -754,6 +754,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state.Modals.ConfirmSyncWatch {
 				// Close confirm modal/loading state before switching views
 				m.state.Modals.ConfirmTarget = nil
+				m.state.Modals.ConfirmTargetNamespace = nil
 				m.state.Modals.ConfirmSyncLoading = false
 				if m.state.Mode == model.ModeConfirmSync {
 					m.state.Mode = model.ModeNormal
@@ -765,18 +766,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
-				// find app
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName {
-						appObj = a
-						found = true
-						break
-					}
+				// Use namespace from message to avoid ambiguity when multiple apps share a name
+				ns := ""
+				if msg.AppNamespace != nil {
+					ns = *msg.AppNamespace
 				}
-				if !found {
-					appObj = model.App{Name: msg.AppName}
+				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
+					appObj = *found
 				}
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
@@ -1156,17 +1153,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName {
-						appObj = a
-						found = true
-						break
-					}
+				// Use namespace from message to avoid ambiguity when multiple apps share a name
+				ns := ""
+				if msg.AppNamespace != nil {
+					ns = *msg.AppNamespace
 				}
-				if !found {
-					appObj = model.App{Name: msg.AppName}
+				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
+					appObj = *found
 				}
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
@@ -1252,7 +1246,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.RollbackShowDiffMsg:
 		// Handle rollback diff request
 		if m.state.Rollback != nil {
-			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, msg.Revision)
+			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, m.state.Rollback.AppNamespace, msg.Revision)
 		}
 		return m, nil
 

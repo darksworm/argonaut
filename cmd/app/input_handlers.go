@@ -281,6 +281,7 @@ func (m *Model) handleSyncModal() (tea.Model, tea.Cmd) {
 				"selectedIdx", selectedIdx,
 				"correctedIdx", selectedIdx != m.state.Navigation.SelectedIdx)
 			m.state.Modals.ConfirmTarget = &target
+			m.state.Modals.ConfirmTargetNamespace = app.AppNamespace
 		} else {
 			return m, func() tea.Msg {
 				return model.StatusChangeMsg{Status: "Selected item is not an application"}
@@ -290,6 +291,7 @@ func (m *Model) handleSyncModal() (tea.Model, tea.Cmd) {
 		// Multiple apps selected
 		target := "__MULTI__"
 		m.state.Modals.ConfirmTarget = &target
+		m.state.Modals.ConfirmTargetNamespace = nil
 	}
 
 	if m.state.Modals.ConfirmTarget != nil {
@@ -611,6 +613,7 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.ConfirmTarget = nil
+		m.state.Modals.ConfirmTargetNamespace = nil
 		return m, nil
 	case "left", "h":
 		if m.state.Modals.ConfirmSyncSelected > 0 {
@@ -627,12 +630,14 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Cancel
 			m.state.Mode = model.ModeNormal
 			m.state.Modals.ConfirmTarget = nil
+			m.state.Modals.ConfirmTargetNamespace = nil
 			return m, nil
 		}
 		fallthrough
 	case "y":
 		// Confirm sync - keep modal open and show loading overlay
 		target := m.state.Modals.ConfirmTarget
+		targetNamespace := m.state.Modals.ConfirmTargetNamespace
 		prune := m.state.Modals.ConfirmSyncPrune
 		m.state.Modals.ConfirmSyncLoading = true
 		m.state.Mode = model.ModeConfirmSync
@@ -644,7 +649,7 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if *target == "__MULTI__" {
 				return m, m.syncSelectedApplications(prune)
 			} else {
-				return m, m.syncSingleApplication(*target, prune)
+				return m, m.syncSingleApplication(*target, targetNamespace, prune)
 			}
 		}
 		return m, nil
@@ -1038,6 +1043,7 @@ func (m *Model) handleResourceSync() (tea.Model, tea.Cmd) {
 		appName := m.treeView.GetAppName()
 		if appName != "" {
 			m.state.Modals.ConfirmTarget = &appName
+			m.state.Modals.ConfirmTargetNamespace = m.state.UI.TreeAppNamespace
 			m.state.Modals.ConfirmSyncSelected = 0 // default to Yes
 			m.state.Mode = model.ModeConfirmSync
 			return m, nil
@@ -1740,7 +1746,7 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 				m.state.Diff = &model.DiffState{}
 			}
 			m.state.Diff.Loading = true
-			return m, m.startDiffSession(name)
+			return m, m.startDiffSession(name, m.state.UI.TreeAppNamespace)
 		}
 		// Child Application CR (app-of-apps): show diff of the Application CR itself
 		// as a resource within the parent app
@@ -1755,11 +1761,12 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 		}
 		m.state.Diff.Loading = true
 		return m, m.startResourceDiffSession(ResourceIdentifier{
-			AppName:   parentApp,
-			Group:     group,
-			Kind:      kind,
-			Namespace: namespace,
-			Name:      name,
+			AppName:      parentApp,
+			AppNamespace: m.state.UI.TreeAppNamespace,
+			Group:        group,
+			Kind:         kind,
+			Namespace:    namespace,
+			Name:         name,
 		})
 	}
 
@@ -1781,11 +1788,12 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 	m.state.Diff.Loading = true
 
 	return m, m.startResourceDiffSession(ResourceIdentifier{
-		AppName:   appName,
-		Group:     group,
-		Kind:      kind,
-		Namespace: namespace,
-		Name:      name,
+		AppName:      appName,
+		AppNamespace: m.state.UI.TreeAppNamespace,
+		Group:        group,
+		Kind:         kind,
+		Namespace:    namespace,
+		Name:         name,
 	})
 }
 
@@ -2031,9 +2039,13 @@ func (m *Model) handleOpenDiffForSelection() (tea.Model, tea.Cmd) {
 		"cursor_idx", m.state.Navigation.SelectedIdx)
 
 	var appName string
+	var appNamespace *string
 	if len(selected) == 1 {
-		// Use the single selected app
+		// Use the single selected app — look up namespace from app list
 		appName = selected[0]
+		if found := m.findAppByNameAndNamespace(appName, ""); found != nil {
+			appNamespace = found.AppNamespace
+		}
 		cblog.With("component", "diff").Debug("Using single selected app", "app", appName)
 	} else if len(selected) > 1 {
 		// Multiple apps selected - cannot show diff for multiple apps
@@ -2051,6 +2063,7 @@ func (m *Model) handleOpenDiffForSelection() (tea.Model, tea.Cmd) {
 			}
 		}
 		appName = app.Name
+		appNamespace = app.AppNamespace
 		cblog.With("component", "diff").Debug("Using cursor position", "app", appName, "idx", m.state.Navigation.SelectedIdx)
 	}
 
@@ -2059,5 +2072,5 @@ func (m *Model) handleOpenDiffForSelection() (tea.Model, tea.Cmd) {
 		m.state.Diff = &model.DiffState{}
 	}
 	m.state.Diff.Loading = true
-	return m, m.startDiffSession(appName)
+	return m, m.startDiffSession(appName, appNamespace)
 }

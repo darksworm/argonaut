@@ -889,6 +889,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "diff":
 			// :diff [app]
 			target := arg
+			var targetNamespace *string
 			if target == "" {
 				// In tree/resources view, use handleResourceDiff for the selected resource
 				if m.state.Navigation.View == model.ViewTree {
@@ -900,12 +901,18 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
 							target = app.Name
+							targetNamespace = app.AppNamespace
 						}
 					}
 				} else {
 					return m, func() tea.Msg {
 						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"}
 					}
+				}
+			} else {
+				// User typed an app name — look up namespace best-effort
+				if found := m.findAppByNameAndNamespace(target, ""); found != nil {
+					targetNamespace = found.AppNamespace
 				}
 			}
 			if target == "" {
@@ -916,7 +923,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				m.state.Diff = &model.DiffState{}
 			}
 			m.state.Diff.Loading = true
-			return m, m.startDiffSession(target)
+			return m, m.startDiffSession(target, targetNamespace)
 		case "cluster", "clusters", "cls":
 			// Exit deep views and clear lower-level scopes
 			m.state.UI.TreeAppName = nil

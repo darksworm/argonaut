@@ -33,7 +33,7 @@ type ArgoApiService interface {
 	SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error
 
 	// GetResourceDiffs gets resource diffs for an application
-	GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error)
+	GetResourceDiffs(ctx context.Context, server *model.Server, appName string, appNamespace *string) ([]ResourceDiff, error)
 
 	// GetAPIVersion fetches the ArgoCD API server version string
 	GetAPIVersion(ctx context.Context, server *model.Server) (string, error)
@@ -242,7 +242,7 @@ func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.
 }
 
 // GetResourceDiffs implements ArgoApiService.GetResourceDiffs
-func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model.Server, appName string) ([]ResourceDiff, error) {
+func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model.Server, appName string, appNamespace *string) ([]ResourceDiff, error) {
 	if server == nil {
 		return nil, apperrors.ConfigError("SERVER_MISSING",
 			"Server configuration is required").
@@ -259,11 +259,16 @@ func (s *ArgoApiServiceImpl) GetResourceDiffs(ctx context.Context, server *model
 		s.appService = api.NewApplicationService(server)
 	}
 
+	ns := ""
+	if appNamespace != nil {
+		ns = *appNamespace
+	}
+
 	// Use retry mechanism for API calls
 	var diffs []api.ManagedResourceDiff
 	err := retry.RetryAPIOperation(ctx, "GetManagedResourceDiffs", func(attempt int) error {
 		var opErr error
-		diffs, opErr = s.appService.GetManagedResourceDiffs(ctx, appName)
+		diffs, opErr = s.appService.GetManagedResourceDiffs(ctx, appName, ns)
 		return opErr
 	})
 	if err != nil {
