@@ -4,7 +4,11 @@ package main
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -233,5 +237,110 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 	call := rec.Calls[0]
 	if call.Name != "demo2" {
 		t.Fatalf("BUG CONFIRMED: expected sync for 'demo2', got %q - the wrong app was synced!", call.Name)
+	}
+}
+
+// TestSyncSingleApp_WithNamespace_PassesNamespaceToAPI verifies that when an app lives in a
+// non-default namespace, the sync POST request includes ?appNamespace= so Argo CD targets
+// the correct application.
+func TestSyncSingleApp_WithNamespace_PassesNamespaceToAPI(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	var mu sync.Mutex
+	var capturedReqURI string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"e2e"}`))
+	})
+	// Single app in namespace "team-b" (not the default "argocd")
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(wrapListResponse(`[
+			{"metadata":{"name":"my-app","namespace":"team-b"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}
+		]`, "1000")))
+	})
+	// Capture the sync request URI (path + query string)
+	mux.HandleFunc("/api/v1/applications/my-app/sync", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		mu.Lock()
+		capturedReqURI = r.URL.RequestURI()
+		mu.Unlock()
+		_, _ = io.ReadAll(r.Body)
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	// Navigate to apps
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("my-app", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("my-app not visible in apps view")
+	}
+
+	// Trigger sync for my-app
+	_ = tf.Send("s")
+
+	if !tf.WaitForPlain("my-app", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("sync confirmation modal did not appear")
+	}
+
+	// Confirm sync
+	_ = tf.Send("\r")
+
+	// Wait for the sync call to be captured
+	if !waitUntil(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return capturedReqURI != ""
+	}, 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("no sync API call was made")
+	}
+
+	mu.Lock()
+	uri := capturedReqURI
+	mu.Unlock()
+
+	if !strings.Contains(uri, "appNamespace=team-b") {
+		t.Errorf("expected sync URL to contain 'appNamespace=team-b', got: %q", uri)
 	}
 }

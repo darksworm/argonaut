@@ -30,7 +30,7 @@ type ArgoApiService interface {
 	WatchApplicationsWithOptions(ctx context.Context, server *model.Server, opts *api.WatchOptions) (<-chan ArgoApiEvent, func(), error)
 
 	// SyncApplication syncs a specific application
-	SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error
+	SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, prune bool) error
 
 	// GetResourceDiffs gets resource diffs for an application
 	GetResourceDiffs(ctx context.Context, server *model.Server, appName string, appNamespace *string) ([]ResourceDiff, error)
@@ -192,7 +192,7 @@ func (s *ArgoApiServiceImpl) WatchApplicationsWithOptions(ctx context.Context, s
 }
 
 // SyncApplication implements ArgoApiService.SyncApplication
-func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error {
+func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, prune bool) error {
 	if server == nil {
 		return apperrors.ConfigError("SERVER_MISSING",
 			"Server configuration is required").
@@ -212,8 +212,13 @@ func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.
 	ctx, cancel := appcontext.WithSyncTimeout(ctx)
 	defer cancel()
 
+	ns := ""
+	if appNamespace != nil {
+		ns = *appNamespace
+	}
 	opts := &api.SyncOptions{
-		Prune: prune,
+		Prune:        prune,
+		AppNamespace: ns,
 	}
 
 	// Use retry mechanism for sync operations

@@ -755,7 +755,8 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 
 		for _, appName := range selectedApps {
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
-			err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
+			// Multi-app sync doesn't track per-app namespaces; pass nil (uses Argo CD default)
+			err := apiService.SyncApplication(ctx, m.state.Server, appName, nil, prune)
 			cancel()
 			if err != nil {
 				// Convert to structured error and return via TUI error handling
@@ -853,7 +854,7 @@ func (m *Model) syncSingleApplication(appName string, appNamespace *string, prun
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
 		cblog.With("component", "api").Info("Starting sync", "app", appName)
-		err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
+		err := apiService.SyncApplication(ctx, m.state.Server, appName, appNamespace, prune)
 		if err != nil {
 			cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
 			// Convert to structured error and return via TUI error handling
