@@ -756,6 +756,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 		case "rollback":
 			target := arg
+			var targetNamespace *string
 			if target == "" {
 				// Only try to get current selection if we're in the apps view
 				if m.state.Navigation.View == model.ViewApps {
@@ -763,6 +764,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
 							target = app.Name
+							targetNamespace = app.AppNamespace
 						}
 					}
 				} else {
@@ -782,13 +784,14 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 
 			// Initialize rollback state with loading
 			m.state.Rollback = &model.RollbackState{
-				AppName: target,
-				Loading: true,
-				Mode:    "list",
+				AppName:      target,
+				AppNamespace: targetNamespace,
+				Loading:      true,
+				Mode:         "list",
 			}
 
 			// Start loading rollback history using the same function as R key
-			return m, m.startRollbackSession(target)
+			return m, m.startRollbackSession(target, targetNamespace)
 		case "resources", "res", "r":
 			target := arg
 

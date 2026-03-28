@@ -240,6 +240,143 @@ func TestSyncLastAppShowsCorrectConfirmation(t *testing.T) {
 	}
 }
 
+// TestRollback_WithAppNamespace_PassesNamespaceToAPI verifies that when an app lives in a
+// non-default namespace, the rollback POST request includes ?appNamespace= so Argo CD targets
+// the correct application.
+func TestRollback_WithAppNamespace_PassesNamespaceToAPI(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	var mu sync.Mutex
+	var capturedRollbackURI string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"e2e"}`))
+	})
+	// App list: single app in namespace "team-b"
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(wrapListResponse(`[
+			{"metadata":{"name":"my-app","namespace":"team-b"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}
+		]`, "1000")))
+	})
+	// Single-app GET (used by startRollbackSession): return app with one history entry
+	mux.HandleFunc("/api/v1/applications/my-app", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"metadata":{"name":"my-app","namespace":"team-b"},
+			"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},
+			"status":{
+				"sync":{"status":"Synced","revision":"abcdef1234567890"},
+				"health":{"status":"Healthy"},
+				"history":[{"id":1,"revision":"abcdef1234567890","deployedAt":"2024-01-15T10:00:00Z"}]
+			}
+		}`))
+	})
+	// Revision metadata (loaded async — just return a valid response)
+	mux.HandleFunc("/api/v1/applications/my-app/revisions/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"author":"Test User","date":"2024-01-15T10:00:00Z","message":"Test commit"}`))
+	})
+	// Capture rollback POST request URI
+	mux.HandleFunc("/api/v1/applications/my-app/rollback", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		mu.Lock()
+		capturedRollbackURI = r.URL.RequestURI()
+		mu.Unlock()
+		_, _ = io.ReadAll(r.Body)
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	// Navigate to apps view
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("my-app", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("my-app not visible in apps view")
+	}
+
+	// Open rollback modal
+	_ = tf.Send("R")
+
+	// Wait for history to load (the history view renders "Deployment History:")
+	if !tf.WaitForPlain("Deployment History", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("rollback history modal did not appear")
+	}
+
+	// Select the first (only) history entry → switches to confirm mode
+	_ = tf.Send("\r")
+
+	// Wait for confirm mode (shows "Application:")
+	if !tf.WaitForPlain("Application:", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("rollback confirmation modal did not appear")
+	}
+
+	// Confirm rollback (ConfirmSelected=0 = "Yes" by default)
+	_ = tf.Send("\r")
+
+	// Wait for the rollback API call
+	if !waitUntil(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return capturedRollbackURI != ""
+	}, 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("no rollback API call was made")
+	}
+
+	mu.Lock()
+	uri := capturedRollbackURI
+	mu.Unlock()
+
+	if !strings.Contains(uri, "appNamespace=team-b") {
+		t.Errorf("expected rollback URL to contain 'appNamespace=team-b', got: %q", uri)
+	}
+}
+
 // TestSyncSingleApp_WithNamespace_PassesNamespaceToAPI verifies that when an app lives in a
 // non-default namespace, the sync POST request includes ?appNamespace= so Argo CD targets
 // the correct application.

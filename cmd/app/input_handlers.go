@@ -310,6 +310,7 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 	}
 
 	var appName string
+	var appNamespace *string
 
 	// Check if we have a single app selected
 	if len(m.state.Selections.SelectedApps) == 1 {
@@ -324,6 +325,7 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 		if len(visibleItems) > 0 && m.state.Navigation.SelectedIdx < len(visibleItems) {
 			if app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App); ok {
 				appName = app.Name
+				appNamespace = app.AppNamespace
 			}
 		}
 	} else {
@@ -343,16 +345,17 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 
 	// Initialize rollback state with loading
 	m.state.Rollback = &model.RollbackState{
-		AppName: appName,
-		Loading: true,
-		Mode:    "list",
+		AppName:      appName,
+		AppNamespace: appNamespace,
+		Loading:      true,
+		Mode:         "list",
 	}
 
 	// Log rollback start
 	cblog.With("component", "rollback").Info("Starting rollback session", "app", appName)
 
 	// Start loading rollback history
-	return m, m.startRollbackSession(appName)
+	return m, m.startRollbackSession(appName, appNamespace)
 }
 
 // handleEscape handles escape key (clear filters, exit modes)

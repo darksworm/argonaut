@@ -403,6 +403,7 @@ type ClearRefreshFlashMsg struct{}
 // RollbackHistoryLoadedMsg is sent when rollback history is loaded
 type RollbackHistoryLoadedMsg struct {
 	AppName         string
+	AppNamespace    *string
 	Rows            []RollbackRow
 	CurrentRevision string
 }

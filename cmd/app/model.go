@@ -1097,6 +1097,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Initialize rollback state with deployment history
 		m.state.Rollback = &model.RollbackState{
 			AppName:         msg.AppName,
+			AppNamespace:    msg.AppNamespace,
 			Rows:            msg.Rows,
 			CurrentRevision: msg.CurrentRevision,
 			SelectedIdx:     0,
@@ -1111,7 +1112,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmds []tea.Cmd
 		preload := min(10, len(msg.Rows))
 		for i := 0; i < preload; i++ {
-			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
+			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision, msg.AppNamespace))
 		}
 
 		return m, tea.Batch(cmds...)
@@ -1182,7 +1183,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Load metadata for newly selected row if not loaded
 					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
 					if row.Author == nil && row.MetaError == nil {
-						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
+						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace)
 					}
 				}
 			case "down":
@@ -1192,7 +1193,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
 					var cmds []tea.Cmd
 					if row.Author == nil && row.MetaError == nil {
-						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision))
+						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace))
 					}
 					// Opportunistically preload the next two rows' metadata to reduce "loading" gaps
 					for j := 1; j <= 2; j++ {
@@ -1200,7 +1201,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if idx < len(m.state.Rollback.Rows) {
 							r := m.state.Rollback.Rows[idx]
 							if r.Author == nil && r.MetaError == nil {
-								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision))
+								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision, m.state.Rollback.AppNamespace))
 							}
 						}
 					}

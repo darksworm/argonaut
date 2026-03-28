@@ -1030,7 +1030,7 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 }
 
 // startRollbackSession loads deployment history for rollback
-func (m *Model) startRollbackSession(appName string) tea.Cmd {
+func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -1042,7 +1042,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Get application with history
-		app, err := apiService.GetApplication(ctx, m.state.Server, appName, nil)
+		app, err := apiService.GetApplication(ctx, m.state.Server, appName, appNamespace)
 		if err != nil {
 			errMsg := err.Error()
 			cblog.With("component", "rollback").Error("Rollback session failed", "app", appName, "err", err)
@@ -1069,6 +1069,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 
 		return model.RollbackHistoryLoadedMsg{
 			AppName:         appName,
+			AppNamespace:    appNamespace,
 			Rows:            rows,
 			CurrentRevision: currentRevision,
 		}
@@ -1076,7 +1077,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 }
 
 // loadRevisionMetadata loads git metadata for a specific rollback row
-func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string) tea.Cmd {
+func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string, appNamespace *string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -1087,7 +1088,7 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		metadata, err := apiService.GetRevisionMetadata(ctx, m.state.Server, appName, revision, nil)
+		metadata, err := apiService.GetRevisionMetadata(ctx, m.state.Server, appName, revision, appNamespace)
 		if err != nil {
 			return model.RollbackMetadataErrorMsg{
 				RowIndex: rowIndex,
