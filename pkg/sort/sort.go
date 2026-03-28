@@ -29,7 +29,9 @@ type Sortable interface {
 }
 
 // comparatorGeneric provides a less function for any type implementing Sortable.
-// It applies semantic health/sync ordering and tiebreaks by kind then name.
+// For health/sync fields: primary ordering is semantic, first tiebreak is name,
+// final tiebreak (when names are equal) is kind then name.
+// For name field: primary ordering is name, tiebreak is kind.
 func comparatorGeneric[T Sortable](config model.SortConfig) func(a, b T) bool {
 	return func(a, b T) bool {
 		ak := a.SortKey()
@@ -102,9 +104,9 @@ func getStatusOrder(orderMap map[string]int, status string, defaultVal int) int 
 	return defaultVal
 }
 
-// Sort sorts any slice whose element type implements Sortable using the same
-// semantic health/sync ordering as SortApps. Tiebreaks always use (kind, name).
-// Uses insertion sort; efficient for small sibling lists.
+// Sort sorts any slice whose element type implements Sortable using semantic
+// health/sync ordering. For status fields, tiebreaks by name then kind;
+// for name sort, tiebreaks by kind. Uses insertion sort; efficient for small lists.
 func Sort[T Sortable](items []T, config model.SortConfig) {
 	if len(items) <= 1 {
 		return
