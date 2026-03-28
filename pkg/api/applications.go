@@ -265,11 +265,14 @@ func (s *ApplicationService) ListApplicationsWithMeta(ctx context.Context) (*Lis
 }
 
 // GetManagedResourceDiffs fetches managed resource diffs for an application
-func (s *ApplicationService) GetManagedResourceDiffs(ctx context.Context, appName string) ([]ManagedResourceDiff, error) {
+func (s *ApplicationService) GetManagedResourceDiffs(ctx context.Context, appName string, appNamespace string) ([]ManagedResourceDiff, error) {
 	if appName == "" {
 		return nil, fmt.Errorf("application name is required")
 	}
 	path := fmt.Sprintf("/api/v1/applications/%s/managed-resources", url.PathEscape(appName))
+	if appNamespace != "" {
+		path += "?appNamespace=" + url.QueryEscape(appNamespace)
+	}
 	data, err := s.client.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get managed resources: %w", err)

@@ -978,11 +978,18 @@ func TestK9s_KeyboardInputForwarded(t *testing.T) {
 	// Send keystrokes that should be forwarded to k9s
 	_ = tf.Send("hello")
 
-	// Wait for mock k9s to exit (2s timeout + buffer)
-	time.Sleep(3 * time.Second)
+	// Wait for mock k9s to write the input file (read -n 5 returns as soon as all 5 chars arrive)
+	var input string
+	inputDeadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(inputDeadline) {
+		input = readMockK9sInput(t, inputFile)
+		if input != "" {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	// Verify the keystrokes were received by k9s
-	input := readMockK9sInput(t, inputFile)
 	if input != "hello" {
 		t.Errorf("expected k9s to receive 'hello', got: %q", input)
 	}

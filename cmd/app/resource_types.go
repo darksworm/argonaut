@@ -2,11 +2,12 @@ package main
 
 // ResourceIdentifier contains the parameters to identify a Kubernetes resource
 type ResourceIdentifier struct {
-	AppName   string // ArgoCD application name
-	Group     string // Kubernetes API group (e.g., "apps", "")
-	Kind      string // Kubernetes resource kind (e.g., "Deployment")
-	Namespace string // Resource namespace
-	Name      string // Resource name
+	AppName      string  // ArgoCD application name
+	AppNamespace *string // ArgoCD application namespace (nil = default)
+	Group        string  // Kubernetes API group (e.g., "apps", "")
+	Kind         string  // Kubernetes resource kind (e.g., "Deployment")
+	Namespace    string  // Resource namespace
+	Name         string  // Resource name
 }
 
 // TLSConfig contains TLS certificate configuration

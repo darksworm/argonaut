@@ -419,7 +419,7 @@ func stringSlicesEqual(a, b []string) bool {
 }
 
 // startDiffSession loads diffs and opens the diff pager
-func (m *Model) startDiffSession(appName string) tea.Cmd {
+func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
 	epoch := m.switchEpoch // capture at call time
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -430,7 +430,7 @@ func (m *Model) startDiffSession(appName string) tea.Cmd {
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
 		}
@@ -528,7 +528,7 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 		defer cancel()
 
 		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, res.AppName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, res.AppName, res.AppNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
 		}
@@ -768,7 +768,8 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 
 		for _, appName := range selectedApps {
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
-			err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
+			// Multi-app sync doesn't track per-app namespaces; pass nil (uses Argo CD default)
+			err := apiService.SyncApplication(ctx, m.state.Server, appName, nil, prune)
 			cancel()
 			if err != nil {
 				// Convert to structured error and return via TUI error handling
@@ -855,7 +856,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 }
 
 // syncSingleApplication syncs a specific application
-func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
+func (m *Model) syncSingleApplication(appName string, appNamespace *string, prune bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -870,7 +871,7 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 		apiService := services.NewEnhancedArgoApiService(m.state.Server)
 
 		cblog.With("component", "api").Info("Starting sync", "app", appName)
-		err := apiService.SyncApplication(ctx, m.state.Server, appName, prune)
+		err := apiService.SyncApplication(ctx, m.state.Server, appName, appNamespace, prune)
 		if err != nil {
 			cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
 			// Convert to structured error and return via TUI error handling
@@ -896,7 +897,7 @@ func (m *Model) syncSingleApplication(appName string, prune bool) tea.Cmd {
 		}
 
 		cblog.With("component", "api").Info("Sync completed", "app", appName)
-		return model.SyncCompletedMsg{AppName: appName, Success: true, SwitchEpoch: epoch}
+		return model.SyncCompletedMsg{AppName: appName, AppNamespace: appNamespace, Success: true, SwitchEpoch: epoch}
 	}
 }
 
@@ -1051,7 +1052,7 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 }
 
 // startRollbackSession loads deployment history for rollback
-func (m *Model) startRollbackSession(appName string) tea.Cmd {
+func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.Cmd {
 	epoch := m.switchEpoch // capture at call time
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -1064,7 +1065,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Get application with history
-		app, err := apiService.GetApplication(ctx, m.state.Server, appName, nil)
+		app, err := apiService.GetApplication(ctx, m.state.Server, appName, appNamespace)
 		if err != nil {
 			errMsg := err.Error()
 			cblog.With("component", "rollback").Error("Rollback session failed", "app", appName, "err", err)
@@ -1091,6 +1092,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 
 		return model.RollbackHistoryLoadedMsg{
 			AppName:         appName,
+			AppNamespace:    appNamespace,
 			Rows:            rows,
 			CurrentRevision: currentRevision,
 		}
@@ -1098,7 +1100,7 @@ func (m *Model) startRollbackSession(appName string) tea.Cmd {
 }
 
 // loadRevisionMetadata loads git metadata for a specific rollback row
-func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string) tea.Cmd {
+func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string, appNamespace *string) tea.Cmd {
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -1109,7 +1111,7 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 
 		apiService := services.NewArgoApiService(m.state.Server)
 
-		metadata, err := apiService.GetRevisionMetadata(ctx, m.state.Server, appName, revision, nil)
+		metadata, err := apiService.GetRevisionMetadata(ctx, m.state.Server, appName, revision, appNamespace)
 		if err != nil {
 			return model.RollbackMetadataErrorMsg{
 				RowIndex: rowIndex,
@@ -1153,15 +1155,16 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 		}
 
 		return model.RollbackExecutedMsg{
-			AppName: request.Name,
-			Success: true,
-			Watch:   watchAfter,
+			AppName:      request.Name,
+			AppNamespace: request.AppNamespace,
+			Success:      true,
+			Watch:        watchAfter,
 		}
 	}
 }
 
 // startRollbackDiffSession shows diff between current and selected revision
-func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cmd {
+func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, revision string) tea.Cmd {
 	epoch := m.switchEpoch // capture at call time
 	return func() tea.Msg {
 		if m.state.Server == nil {
@@ -1174,7 +1177,7 @@ func (m *Model) startRollbackDiffSession(appName string, revision string) tea.Cm
 		apiService := services.NewArgoApiService(m.state.Server)
 
 		// Get diff between current and target revision
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName)
+		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
 		}
