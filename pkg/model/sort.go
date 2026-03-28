@@ -68,3 +68,11 @@ func (d SortDirection) Indicator() string {
 	}
 	return "▲"
 }
+
+// SortKey holds the values used for semantic ordering.
+type SortKey struct {
+	Health string
+	Sync   string
+	Kind   string
+	Name   string
+}
