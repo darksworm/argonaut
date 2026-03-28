@@ -7,6 +7,7 @@
  │                                                                                                │ 
  │ VIEWS        :cls|:clusters • :ns|:namespaces • :proj|:projects • :apps                        │ 
  │              :appsets|:applicationsets • :theme • :logs                                        │ 
+ │              :context|:contexts|:ctx|:argocd [name]                                            │ 
  │                                                                                                │ 
  │ APPS VIEW     s  sync •  R  rollback •  r  resources •  d  diff •  K  open in k9s •  Ctrl+D    │ 
  │ delete                                                                                         │ 
@@ -20,7 +21,6 @@
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

@@ -373,3 +373,216 @@ func TestIsPortForwardMode(t *testing.T) {
 		})
 	}
 }
+
+func TestGetContextNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *ArgoCLIConfig
+		expected []string
+	}{
+		{
+			name:     "Empty config",
+			config:   &ArgoCLIConfig{},
+			expected: []string{},
+		},
+		{
+			name: "Single context",
+			config: &ArgoCLIConfig{
+				Contexts: []ArgoContext{
+					{Name: "production", Server: "https://prod.example.com", User: "admin"},
+				},
+			},
+			expected: []string{"production"},
+		},
+		{
+			name: "Multiple contexts sorted",
+			config: &ArgoCLIConfig{
+				Contexts: []ArgoContext{
+					{Name: "staging", Server: "https://staging.example.com", User: "admin"},
+					{Name: "production", Server: "https://prod.example.com", User: "admin"},
+					{Name: "dev", Server: "https://dev.example.com", User: "admin"},
+				},
+			},
+			expected: []string{"dev", "production", "staging"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetContextNames()
+			if len(result) != len(tt.expected) {
+				t.Fatalf("GetContextNames() returned %d items, want %d", len(result), len(tt.expected))
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("GetContextNames()[%d] = %q, want %q", i, result[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestToServerConfigForContext(t *testing.T) {
+	multiContextConfig := &ArgoCLIConfig{
+		CurrentContext: "production",
+		Contexts: []ArgoContext{
+			{Name: "production", Server: "prod.example.com", User: "prod-admin"},
+			{Name: "staging", Server: "staging.example.com", User: "staging-admin"},
+		},
+		Servers: []ArgoServer{
+			{Server: "prod.example.com", Insecure: false},
+			{Server: "staging.example.com", Insecure: true, GrpcWebRootPath: "argocd"},
+		},
+		Users: []ArgoUser{
+			{Name: "prod-admin", AuthToken: "prod-token"},
+			{Name: "staging-admin", AuthToken: "staging-token"},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		config      *ArgoCLIConfig
+		contextName string
+		wantBaseURL string
+		wantToken   string
+		wantErr     bool
+	}{
+		{
+			name:        "Resolve production context",
+			config:      multiContextConfig,
+			contextName: "production",
+			wantBaseURL: "https://prod.example.com",
+			wantToken:   "prod-token",
+		},
+		{
+			name:        "Resolve staging context",
+			config:      multiContextConfig,
+			contextName: "staging",
+			wantBaseURL: "https://staging.example.com",
+			wantToken:   "staging-token",
+		},
+		{
+			name:        "Unknown context",
+			config:      multiContextConfig,
+			contextName: "nonexistent",
+			wantErr:     true,
+		},
+		{
+			name: "Context with missing user token",
+			config: &ArgoCLIConfig{
+				Contexts: []ArgoContext{
+					{Name: "notoken", Server: "example.com", User: "nouser"},
+				},
+				Servers: []ArgoServer{
+					{Server: "example.com"},
+				},
+				Users: []ArgoUser{
+					{Name: "nouser", AuthToken: ""},
+				},
+			},
+			contextName: "notoken",
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, err := tt.config.ToServerConfigForContext(tt.contextName)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if server.BaseURL != tt.wantBaseURL {
+				t.Errorf("BaseURL = %q, want %q", server.BaseURL, tt.wantBaseURL)
+			}
+			if server.Token != tt.wantToken {
+				t.Errorf("Token = %q, want %q", server.Token, tt.wantToken)
+			}
+		})
+	}
+}
+
+func TestIsContextPortForward(t *testing.T) {
+	config := &ArgoCLIConfig{
+		Contexts: []ArgoContext{
+			{Name: "pf-context", Server: "port-forward", User: "admin"},
+			{Name: "normal-context", Server: "https://argocd.example.com", User: "admin"},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		contextName string
+		expected    bool
+		wantErr     bool
+	}{
+		{"Port-forward context", "pf-context", true, false},
+		{"Normal context", "normal-context", false, false},
+		{"Unknown context", "nonexistent", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := config.IsContextPortForward(tt.contextName)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("IsContextPortForward(%q) = %v, want %v", tt.contextName, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsContextCore(t *testing.T) {
+	config := &ArgoCLIConfig{
+		Contexts: []ArgoContext{
+			{Name: "core-context", Server: "kubernetes", User: "admin"},
+			{Name: "normal-context", Server: "https://argocd.example.com", User: "admin"},
+		},
+		Servers: []ArgoServer{
+			{Server: "kubernetes", Core: true},
+			{Server: "https://argocd.example.com", Core: false},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		contextName string
+		expected    bool
+		wantErr     bool
+	}{
+		{"Core context", "core-context", true, false},
+		{"Normal context", "normal-context", false, false},
+		{"Unknown context", "nonexistent", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := config.IsContextCore(tt.contextName)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("IsContextCore(%q) = %v, want %v", tt.contextName, result, tt.expected)
+			}
+		})
+	}
+}

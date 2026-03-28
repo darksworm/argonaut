@@ -203,14 +203,15 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) validateAuthentication() tea.Cmd {
+	epoch := m.switchEpoch // capture at call time
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			// Check if we're already in core detected mode (set during config loading)
 			if m.state.Mode == model.ModeCoreDetected {
-				return model.SetModeMsg{Mode: model.ModeCoreDetected}
+				return model.AuthValidationResultMsg{Mode: model.ModeCoreDetected, SwitchEpoch: epoch}
 			}
 			cblog.With("component", "auth").Info("No server configured - showing auth required")
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+			return model.AuthValidationResultMsg{Mode: model.ModeAuthRequired, SwitchEpoch: epoch}
 		}
 
 		// Create API service to validate authentication
@@ -232,14 +233,14 @@ func (m *Model) validateAuthentication() tea.Cmd {
 				strings.Contains(errStr, "tls:") ||
 				strings.Contains(errStr, "x509:") ||
 				strings.Contains(errStr, "certificate") {
-				return model.SetModeMsg{Mode: model.ModeConnectionError}
+				return model.AuthValidationResultMsg{Mode: model.ModeConnectionError, SwitchEpoch: epoch}
 			}
 
 			// Otherwise, it's likely an authentication issue
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+			return model.AuthValidationResultMsg{Mode: model.ModeAuthRequired, SwitchEpoch: epoch}
 		}
 
 		cblog.With("component", "auth").Info("Authentication validated successfully")
-		return model.SetModeMsg{Mode: model.ModeLoading}
+		return model.AuthValidationResultMsg{Mode: model.ModeLoading, SwitchEpoch: epoch}
 	}
 }
