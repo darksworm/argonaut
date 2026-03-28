@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -32,7 +32,7 @@
             mainProgram = "argonaut";
           };
           src = ./.;
-          vendorHash = "sha256-xln/WmZbi0+rHqMMHRgt0ar/EaBDNscCsd/NckJZnMw=";
+          vendorHash = "sha256-4AmciHL4CGtEwDAs7eAtjfWlzjoCLXAN2HEatev8gZg=";
           proxyVendor = true;
           subPackages = [ "cmd/app" ];
           ldflags = [
@@ -61,7 +61,7 @@
             self.packages.${system}.default
             argocd
             delta
-            go_1_24
+            go_1_25
             gopls
             gotools
             golangci-lint
