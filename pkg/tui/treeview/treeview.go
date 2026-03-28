@@ -99,7 +99,7 @@ func (n *treeNode) SortKey() model.SortKey {
 }
 
 // sortNodeChildren sorts a sibling list using the current sort config via pkgsort.Sort.
-// A nil sortConfig resolves to the default (kind, name) ascending order.
+// A nil sortConfig resolves to the default: name ascending, with kind as tiebreak.
 func (v *TreeView) sortNodeChildren(list []*treeNode) {
 	cfg := model.SortConfig{Field: model.SortFieldName, Direction: model.SortAsc}
 	if v.sortConfig != nil {
@@ -418,9 +418,13 @@ func (v *TreeView) SetResourceStatuses(appName string, resources []api.ResourceS
 	}
 	v.rebuildMatches()
 
-	// If sorting by sync or health status, re-sort to reflect updated values
+	// If sorting by sync or health status, re-sort to reflect updated values.
+	// Skip if this app has no nodes in the tree view (e.g. SSE event for a
+	// sibling app in an app-of-apps setup that isn't displayed here).
 	if v.sortConfig != nil && (v.sortConfig.Field == model.SortFieldSync || v.sortConfig.Field == model.SortFieldHealth) {
-		v.SetSort(*v.sortConfig)
+		if _, ok := v.nodesByApp[appName]; ok {
+			v.SetSort(*v.sortConfig)
+		}
 	}
 }
 
