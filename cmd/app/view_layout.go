@@ -161,9 +161,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// k9s context selection overlay
 	if m.state.Mode == model.ModeK9sContextSelect {
@@ -172,9 +170,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Rollback loading overlay (history load or executing rollback)
 	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && m.state.Rollback.Loading {
@@ -184,9 +180,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Tree loading overlay when entering resources view
 	if m.state.Navigation.View == model.ViewTree && m.treeLoading {
@@ -197,9 +191,7 @@ func (m *Model) renderMainLayout() string {
 			X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
 			Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
 			Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, spinnerLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, spinnerLayer)
 	}
 	// Confirm Sync modal (confirmation or loading state)
 	if m.state.Mode == model.ModeConfirmSync || m.state.Modals.ConfirmSyncLoading {
@@ -214,9 +206,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Changelog loading modal
 	if m.state.Modals.ChangelogLoading {
@@ -226,9 +216,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Upgrade modal (confirmation, loading, success, or error state)
 	if m.state.Mode == model.ModeUpgrade || m.state.Mode == model.ModeUpgradeError || m.state.Mode == model.ModeUpgradeSuccess {
@@ -247,9 +235,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// No diff modal (overlaid on existing content)
 	if m.state.Mode == model.ModeNoDiff {
@@ -259,9 +245,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// K9s error modal
 	if m.state.Mode == model.ModeK9sError {
@@ -271,9 +255,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Default view warning modal
 	if m.state.Mode == model.ModeDefaultViewWarning {
@@ -283,9 +265,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// App Delete modal (confirmation or loading state)
 	if m.state.Mode == model.ModeConfirmAppDelete {
@@ -300,9 +280,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Resource Delete modal (confirmation or loading state)
 	if m.state.Mode == model.ModeConfirmResourceDelete {
@@ -317,9 +295,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Resource Sync modal (confirmation or loading state)
 	if m.state.Mode == model.ModeConfirmResourceSync {
@@ -334,9 +310,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	if m.state.Mode == model.ModeLoading && m.state.Navigation.View != model.ViewContexts {
 		modal := m.renderInitialLoadingModal()
@@ -348,14 +322,10 @@ func (m *Model) renderMainLayout() string {
 			badge := m.renderSmallBadge(true, m.state.Terminal.Cols >= 72)
 			badgeLayer := lipgloss.NewLayer(badge).X(1).Y(1).Z(1)
 			modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(2)
-			canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-			canvas.Compose(lipgloss.NewCompositor(baseLayer, badgeLayer, modalLayer))
-			return canvas.Render()
+			return m.composeOverlay(baseLayer, badgeLayer, modalLayer)
 		}
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	// Show loading modal when we have no data loaded yet (initial startup or server not running)
 	// Check if we have no apps loaded (apps are the main data source)
@@ -368,9 +338,7 @@ func (m *Model) renderMainLayout() string {
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
 		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, modalLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, modalLayer)
 	}
 	if m.state.Diff != nil && m.state.Diff.Loading {
 		spinner := m.renderDiffLoadingSpinner()
@@ -380,9 +348,16 @@ func (m *Model) renderMainLayout() string {
 			X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
 			Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
 			Z(1)
-		canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
-		canvas.Compose(lipgloss.NewCompositor(baseLayer, spinnerLayer))
-		return canvas.Render()
+		return m.composeOverlay(baseLayer, spinnerLayer)
 	}
 	return baseView
+}
+
+// composeOverlay composites the given layers onto a full-screen canvas and
+// returns the rendered string. Layers are drawn in the order provided; use
+// .Z() on individual layers to control their stacking order.
+func (m *Model) composeOverlay(layers ...*lipgloss.Layer) string {
+	canvas := lipgloss.NewCanvas(m.state.Terminal.Cols, m.state.Terminal.Rows)
+	canvas.Compose(lipgloss.NewCompositor(layers...))
+	return canvas.Render()
 }
