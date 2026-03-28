@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -44,8 +46,32 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		CheckIntervalMin: 60, // Check every hour
 	})
 
+	state := model.NewAppState()
+
+	// Apply default view from config
+	var pendingDefaultViewScope *defaultViewScope
+	if view, scopeType, scopeValue, errMsg := cfg.ParseDefaultView(); errMsg != "" {
+		// Malformed default_view — store warning to show after app loads
+		state.Modals.DefaultViewWarning = &errMsg
+	} else if view != "" {
+		state.Navigation.View = model.View(view)
+		if scopeType != "" && scopeValue != "" {
+			switch scopeType {
+			case "cluster":
+				state.Selections.ScopeClusters = model.StringSetFromSlice([]string{scopeValue})
+			case "namespace":
+				state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{scopeValue})
+			case "project":
+				state.Selections.ScopeProjects = model.StringSetFromSlice([]string{scopeValue})
+			case "appset":
+				state.Selections.ScopeApplicationSets = model.StringSetFromSlice([]string{scopeValue})
+			}
+			pendingDefaultViewScope = &defaultViewScope{scopeType: scopeType, scopeValue: scopeValue}
+		}
+	}
+
 	return &Model{
-		state:              model.NewAppState(),
+		state:              state,
 		argoService:        services.NewArgoApiService(nil),
 		navigationService:  services.NewNavigationService(),
 		statusService:      services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
@@ -67,8 +93,77 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		listNav:            listnav.New(),
 		treeNav:            listnav.New(),
 		themeNav:           listnav.New(),
-		rollbackNav:        listnav.New(),
-		selection:          selection.New(),
+		rollbackNav:            listnav.New(),
+		selection:              selection.New(),
+		pendingDefaultViewScope: pendingDefaultViewScope,
+	}
+}
+
+// defaultViewScope holds pending scope validation info from default_view config.
+// Validated after apps are loaded to check if the scoped entity actually exists.
+type defaultViewScope struct {
+	scopeType  string // "cluster", "namespace", "project", or "appset"
+	scopeValue string
+}
+
+// validateDefaultViewScope checks if the scoped entity from default_view exists
+// in the loaded app data. If not, sets a warning and resets navigation to defaults.
+func (m *Model) validateDefaultViewScope() {
+	if m.pendingDefaultViewScope == nil {
+		return
+	}
+
+	if m.state.Index == nil {
+		return // Index not yet built; keep pendingDefaultViewScope for next call
+	}
+
+	scope := m.pendingDefaultViewScope
+	m.pendingDefaultViewScope = nil
+
+	var exists bool
+	var label string
+	switch scope.scopeType {
+	case "cluster":
+		label = "Cluster"
+		for _, c := range m.state.Index.Clusters {
+			if c == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	case "namespace":
+		label = "Namespace"
+		for _, n := range m.state.Index.Namespaces {
+			if n == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	case "project":
+		label = "Project"
+		for _, p := range m.state.Index.Projects {
+			if p == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	case "appset":
+		label = "ApplicationSet"
+		for _, a := range m.state.Index.ApplicationSets {
+			if a == scope.scopeValue {
+				exists = true
+				break
+			}
+		}
+	}
+
+	if !exists {
+		warning := fmt.Sprintf("%s %q from default_view not found.\nFalling back to default view.", label, scope.scopeValue)
+		m.state.Modals.DefaultViewWarning = &warning
+		// Reset to default navigation
+		m.state.Navigation.View = model.ViewClusters
+		m.state.Navigation.SelectedIdx = 0
+		m.state.Selections = *model.NewSelectionState()
 	}
 }
 
@@ -108,19 +203,20 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) validateAuthentication() tea.Cmd {
+	epoch := m.switchEpoch // capture at call time
 	return func() tea.Msg {
 		if m.state.Server == nil {
 			// Check if we're already in core detected mode (set during config loading)
 			if m.state.Mode == model.ModeCoreDetected {
-				return model.SetModeMsg{Mode: model.ModeCoreDetected}
+				return model.AuthValidationResultMsg{Mode: model.ModeCoreDetected, SwitchEpoch: epoch}
 			}
 			cblog.With("component", "auth").Info("No server configured - showing auth required")
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+			return model.AuthValidationResultMsg{Mode: model.ModeAuthRequired, SwitchEpoch: epoch}
 		}
 
 		// Create API service to validate authentication
 		appService := api.NewApplicationService(m.state.Server)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		// Validate user info (similar to TypeScript getUserInfo call)
@@ -133,15 +229,18 @@ func (m *Model) validateAuthentication() tea.Cmd {
 				strings.Contains(errStr, "no such host") ||
 				strings.Contains(errStr, "network is unreachable") ||
 				strings.Contains(errStr, "timeout") ||
-				strings.Contains(errStr, "dial tcp") {
-				return model.SetModeMsg{Mode: model.ModeConnectionError}
+				strings.Contains(errStr, "dial tcp") ||
+				strings.Contains(errStr, "tls:") ||
+				strings.Contains(errStr, "x509:") ||
+				strings.Contains(errStr, "certificate") {
+				return model.AuthValidationResultMsg{Mode: model.ModeConnectionError, SwitchEpoch: epoch}
 			}
 
 			// Otherwise, it's likely an authentication issue
-			return model.SetModeMsg{Mode: model.ModeAuthRequired}
+			return model.AuthValidationResultMsg{Mode: model.ModeAuthRequired, SwitchEpoch: epoch}
 		}
 
 		cblog.With("component", "auth").Info("Authentication validated successfully")
-		return model.SetModeMsg{Mode: model.ModeLoading}
+		return model.AuthValidationResultMsg{Mode: model.ModeLoading, SwitchEpoch: epoch}
 	}
 }

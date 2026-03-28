@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/config"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/portforward"
 	"github.com/darksworm/argonaut/pkg/services"
@@ -216,6 +217,11 @@ func main() {
 	palette := theme.FromConfig(argonautConfig)
 	applyTheme(palette)
 
+	// Apply HTTP timeout configuration
+	requestTimeout := argonautConfig.GetRequestTimeout()
+	appcontext.SetRequestTimeout(requestTimeout)
+	cblog.With("component", "app").Debug("Applied request timeout", "timeout", requestTimeout.String())
+
 	// Create the initial model
 	m := NewModel(argonautConfig)
 
@@ -260,6 +266,19 @@ func main() {
 
 	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
 	cblog.With("component", "app").Info("Loading Argo CD config…")
+
+	// Determine and store the effective ArgoCD config path
+	effectiveConfigPath := cfgPathFlag
+	if effectiveConfigPath == "" {
+		effectiveConfigPath = config.GetConfigPath()
+	}
+	m.argoConfigPath = effectiveConfigPath
+
+	// Read the CLI config to populate context names
+	if cliCfg, cfgErr := config.ReadCLIConfigFromPath(effectiveConfigPath); cfgErr == nil {
+		m.state.ContextNames = cliCfg.GetContextNames()
+		m.currentContextName = cliCfg.CurrentContext
+	}
 
 	// Port-forward manager (if used)
 	var pfManager *portforward.Manager
@@ -388,7 +407,7 @@ func setupLogging() {
 	}
 	cblog.SetDefault(logger)
 
-	cblog.With("component", "app").Info("Argo CD Apps started", "logFile", f.Name())
+	cblog.With("component", "app").Info("Argo CD Apps started", "version", appVersion, "logFile", f.Name())
 }
 
 // loadArgoConfig loads ArgoCD CLI configuration (matches TypeScript app-orchestrator.ts)

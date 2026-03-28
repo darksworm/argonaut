@@ -2,11 +2,16 @@ package services
 
 import (
 	"archive/tar"
+	"bufio"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -145,6 +150,14 @@ func (u *UpdateServiceImpl) CheckForUpdates(currentVersion string) (*model.Updat
 		updateInfo.DownloadURL = downloadURL
 		if downloadURL != "" {
 			logger.Debug("Found download URL", "url", downloadURL)
+			checksumURL, checksumSHA256, checksumErr := u.fetchAssetChecksum(&release, downloadURL)
+			if checksumErr != nil {
+				logger.Warn("Failed to load release checksum", "err", checksumErr)
+			} else if checksumSHA256 != "" {
+				updateInfo.ChecksumURL = checksumURL
+				updateInfo.ChecksumSHA256 = checksumSHA256
+				logger.Debug("Loaded release checksum", "checksum_url", checksumURL)
+			}
 		} else {
 			logger.Warn("No download URL found for platform", "os", runtime.GOOS, "arch", runtime.GOARCH)
 		}
@@ -180,15 +193,15 @@ func (u *UpdateServiceImpl) DetectInstallMethod() model.InstallMethod {
 
 	// Check for Homebrew installation (macOS/Linux)
 	if strings.Contains(execPath, "/opt/homebrew/") ||
-	   strings.Contains(execPath, "/usr/local/Cellar/") ||
-	   strings.Contains(execPath, "/home/linuxbrew/") {
+		strings.Contains(execPath, "/usr/local/Cellar/") ||
+		strings.Contains(execPath, "/home/linuxbrew/") {
 		logger.Debug("Detected Homebrew installation")
 		return model.InstallMethodBrew
 	}
 
 	// Check for AUR installation (Arch Linux)
 	if strings.Contains(execPath, "/usr/bin/") &&
-	   runtime.GOOS == "linux" {
+		runtime.GOOS == "linux" {
 		// Additional check for pacman database
 		if _, err := os.Stat("/var/lib/pacman/local"); err == nil {
 			// Check if argonaut is in pacman database
@@ -206,8 +219,14 @@ func (u *UpdateServiceImpl) DetectInstallMethod() model.InstallMethod {
 
 // DownloadAndReplace implements UpdateService.DownloadAndReplace
 func (u *UpdateServiceImpl) DownloadAndReplace(updateInfo *model.UpdateInfo) error {
+	if updateInfo == nil {
+		return fmt.Errorf("update info is required")
+	}
 	if updateInfo.DownloadURL == "" {
 		return fmt.Errorf("no download URL available")
+	}
+	if updateInfo.ChecksumSHA256 == "" {
+		return fmt.Errorf("refusing update without SHA-256 checksum metadata")
 	}
 
 	logger := cblog.With("component", "update")
@@ -227,6 +246,14 @@ func (u *UpdateServiceImpl) DownloadAndReplace(updateInfo *model.UpdateInfo) err
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
+	downloadData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read update payload: %w", err)
+	}
+	if err := verifySHA256(downloadData, updateInfo.ChecksumSHA256); err != nil {
+		return fmt.Errorf("checksum verification failed: %w", err)
+	}
+
 	// Get current executable path
 	execPath, err := os.Executable()
 	if err != nil {
@@ -238,10 +265,10 @@ func (u *UpdateServiceImpl) DownloadAndReplace(updateInfo *model.UpdateInfo) err
 
 	if isArchive {
 		// Handle archive extraction
-		return u.downloadAndExtractArchive(resp.Body, execPath, updateInfo.DownloadURL)
+		return u.downloadAndExtractArchive(bytes.NewReader(downloadData), execPath, updateInfo.DownloadURL)
 	} else {
 		// Handle direct binary download (legacy path)
-		return u.downloadDirectBinary(resp.Body, execPath)
+		return u.downloadDirectBinary(bytes.NewReader(downloadData), execPath)
 	}
 }
 
@@ -499,8 +526,10 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 			return fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		// Create the full path
-		destPath := filepath.Join(destDir, header.Name)
+		destPath, err := secureExtractPath(destDir, header.Name)
+		if err != nil {
+			return err
+		}
 
 		// Ensure the destination directory exists
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
@@ -508,9 +537,9 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 		}
 
 		switch header.Typeflag {
-		case tar.TypeReg:
+		case tar.TypeReg, tar.TypeRegA:
 			// Regular file
-			file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, os.FileMode(header.Mode))
+			file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
 				return fmt.Errorf("failed to create file %s: %w", destPath, err)
 			}
@@ -525,10 +554,147 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 			if err := os.MkdirAll(destPath, os.FileMode(header.Mode)); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
 			}
+		case tar.TypeSymlink, tar.TypeLink:
+			return fmt.Errorf("unsupported archive entry type for %s", header.Name)
+		default:
+			return fmt.Errorf("unsupported tar entry type %q for %s (size=%d)", header.Typeflag, header.Name, header.Size)
 		}
 	}
 
 	return nil
+}
+
+func verifySHA256(data []byte, expected string) error {
+	expected = strings.ToLower(strings.TrimSpace(expected))
+	if expected == "" {
+		return fmt.Errorf("missing expected checksum")
+	}
+	sum := sha256.Sum256(data)
+	actual := hex.EncodeToString(sum[:])
+	if actual != expected {
+		return fmt.Errorf("expected %s, got %s", expected, actual)
+	}
+	return nil
+}
+
+func secureExtractPath(destDir, entryName string) (string, error) {
+	clean := filepath.Clean(entryName)
+	if clean == "." || clean == "" {
+		return "", fmt.Errorf("invalid archive entry: %q", entryName)
+	}
+	if filepath.IsAbs(clean) {
+		return "", fmt.Errorf("archive entry uses absolute path: %q", entryName)
+	}
+
+	destPath := filepath.Join(destDir, clean)
+	rel, err := filepath.Rel(destDir, destPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to validate archive path %q: %w", entryName, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("archive entry escapes destination: %q", entryName)
+	}
+	return destPath, nil
+}
+
+func (u *UpdateServiceImpl) fetchAssetChecksum(release *GitHubRelease, downloadURL string) (string, string, error) {
+	checksumURL := findChecksumAssetURL(release)
+	if checksumURL == "" {
+		return "", "", fmt.Errorf("no checksum asset found in release")
+	}
+	assetName, err := assetNameFromURL(downloadURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	req, err := http.NewRequest("GET", checksumURL, nil)
+	if err != nil {
+		return checksumURL, "", fmt.Errorf("failed to create checksum request: %w", err)
+	}
+	req.Header.Set("User-Agent", "argonaut-update-checker")
+	resp, err := u.httpClient.Do(req)
+	if err != nil {
+		return checksumURL, "", fmt.Errorf("failed to fetch checksum asset: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return checksumURL, "", fmt.Errorf("checksum asset download failed with status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return checksumURL, "", fmt.Errorf("failed to read checksum asset: %w", err)
+	}
+	sum := parseChecksumForAsset(string(body), assetName)
+	if sum == "" {
+		return checksumURL, "", fmt.Errorf("checksum for asset %q not found", assetName)
+	}
+	return checksumURL, sum, nil
+}
+
+func findChecksumAssetURL(release *GitHubRelease) string {
+	for _, asset := range release.Assets {
+		name := strings.ToLower(asset.Name)
+		if strings.Contains(name, "sha256") || strings.Contains(name, "checksums") {
+			return asset.BrowserDownloadURL
+		}
+	}
+	return ""
+}
+
+func assetNameFromURL(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse download URL: %w", err)
+	}
+	name := filepath.Base(u.Path)
+	if name == "." || name == "/" || name == "" {
+		return "", fmt.Errorf("could not infer asset name from download URL")
+	}
+	return name, nil
+}
+
+func parseChecksumForAsset(contents, assetName string) string {
+	scanner := bufio.NewScanner(strings.NewReader(contents))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			candidate := strings.TrimPrefix(parts[1], "*")
+			if candidate == assetName && isHexSHA256(parts[0]) {
+				return strings.ToLower(parts[0])
+			}
+		}
+
+		if strings.HasPrefix(line, "SHA256(") {
+			// Format: SHA256(filename)= <hash>
+			closeIdx := strings.Index(line, ")=")
+			if closeIdx > len("SHA256(") {
+				name := strings.TrimSpace(line[len("SHA256("):closeIdx])
+				hash := strings.TrimSpace(line[closeIdx+2:])
+				if name == assetName && isHexSHA256(hash) {
+					return strings.ToLower(hash)
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func isHexSHA256(v string) bool {
+	if len(v) != 64 {
+		return false
+	}
+	for _, c := range v {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // findBinaryInDir recursively searches for a binary file with the given name

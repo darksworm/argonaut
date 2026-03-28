@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -14,13 +16,15 @@ const DefaultThemeName = "tokyo-night"
 
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
-	Appearance      AppearanceConfig  `toml:"appearance"`
-	Sort            SortConfig        `toml:"sort,omitempty"`
-	K9s             K9sConfig         `toml:"k9s,omitempty"`
-	Diff            DiffConfig        `toml:"diff,omitempty"`
-	PortForward     PortForwardConfig `toml:"port_forward,omitempty"`
-	Clipboard       ClipboardConfig   `toml:"clipboard,omitempty"`
-	LastSeenVersion string            `toml:"last_seen_version,omitempty"`
+	Appearance      AppearanceConfig   `toml:"appearance"`
+	Sort            SortConfig         `toml:"sort,omitempty"`
+	K9s             K9sConfig          `toml:"k9s,omitempty"`
+	Diff            DiffConfig         `toml:"diff,omitempty"`
+	PortForward     PortForwardConfig  `toml:"port_forward,omitempty"`
+	Clipboard       ClipboardConfig    `toml:"clipboard,omitempty"`
+	HTTPTimeouts    HTTPTimeoutConfig  `toml:"http_timeouts,omitempty"`
+	DefaultView     string             `toml:"default_view,omitempty"`
+	LastSeenVersion string             `toml:"last_seen_version,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
@@ -60,6 +64,16 @@ type ClipboardConfig struct {
 	// PasteCommand is the command to paste text from clipboard.
 	// Text is read from stdout. Examples: "pbpaste", "xclip -selection clipboard -o", "wl-paste"
 	PasteCommand string `toml:"paste_command,omitempty"`
+}
+
+// HTTPTimeoutConfig holds HTTP request timeout settings.
+// This configuration is essential for large deployments where API operations
+// may take longer due to the volume of data being processed.
+type HTTPTimeoutConfig struct {
+	// RequestTimeout is the timeout for HTTP requests (e.g., "30s", "1m", "90s")
+	// Default is "10s". Increase for large deployments with thousands of applications.
+	// Zero or negative values are ignored and default timeout is used.
+	RequestTimeout string `toml:"request_timeout,omitempty"`
 }
 
 
@@ -223,4 +237,99 @@ func (c *ArgonautConfig) GetClipboardCopyCommand() string {
 // GetClipboardPasteCommand returns the configured clipboard paste command, or empty for auto-detect
 func (c *ArgonautConfig) GetClipboardPasteCommand() string {
 	return c.Clipboard.PasteCommand
+}
+
+// GetRequestTimeoutString returns the raw string value of the request timeout configuration.
+// If no timeout is configured, returns the default value of "10s".
+// This method returns the raw string without validation.
+func (c *ArgonautConfig) GetRequestTimeoutString() string {
+	if c.HTTPTimeouts.RequestTimeout != "" {
+		return c.HTTPTimeouts.RequestTimeout
+	}
+	return "10s"
+}
+
+// ParseDefaultView parses the default_view config value into a view, scope type, and scope value.
+// Returns zero values if the input is empty. Returns an error message if the input is invalid.
+// The view is returned as a string matching model.View constants (e.g. "apps", "clusters").
+// When an argument is provided, drill-down logic applies:
+//   - cluster+arg → namespaces view scoped to cluster
+//   - namespace+arg → projects view scoped to namespace
+//   - project+arg → apps view scoped to project
+//   - appset+arg → apps view scoped to appset
+//   - app+arg → apps view (no scope)
+func (c *ArgonautConfig) ParseDefaultView() (view string, scopeType string, scopeValue string, errMsg string) {
+	input := strings.TrimSpace(c.DefaultView)
+	if input == "" {
+		return "", "", "", ""
+	}
+
+	// Split on whitespace: command + optional arg
+	parts := strings.Fields(input)
+	cmd := parts[0]
+	var arg string
+	if len(parts) > 1 {
+		arg = parts[1]
+	}
+
+	// Alias lookup: maps all aliases to a canonical command name
+	type viewDef struct {
+		view      string // view to show (without arg)
+		drillView string // view to show when arg is provided
+		scopeType string // scope type when arg is provided
+	}
+
+	aliases := map[string]viewDef{
+		"app":             {view: "apps"},
+		"apps":            {view: "apps"},
+		"application":     {view: "apps"},
+		"applications":    {view: "apps"},
+		"cluster":         {view: "clusters", drillView: "namespaces", scopeType: "cluster"},
+		"clusters":        {view: "clusters", drillView: "namespaces", scopeType: "cluster"},
+		"cls":             {view: "clusters", drillView: "namespaces", scopeType: "cluster"},
+		"namespace":       {view: "namespaces", drillView: "projects", scopeType: "namespace"},
+		"namespaces":      {view: "namespaces", drillView: "projects", scopeType: "namespace"},
+		"ns":              {view: "namespaces", drillView: "projects", scopeType: "namespace"},
+		"project":         {view: "projects", drillView: "apps", scopeType: "project"},
+		"projects":        {view: "projects", drillView: "apps", scopeType: "project"},
+		"proj":            {view: "projects", drillView: "apps", scopeType: "project"},
+		"appset":          {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"appsets":         {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"applicationset":  {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"applicationsets": {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+		"as":              {view: "applicationsets", drillView: "apps", scopeType: "appset"},
+	}
+
+	def, ok := aliases[cmd]
+	if !ok {
+		return "", "", "", fmt.Sprintf("Malformed default_view in config: %q\nValid options: apps, clusters, ns, proj, appset\nExample: default_view = \"cluster production\"", input)
+	}
+
+	if arg == "" || def.drillView == "" {
+		return def.view, "", "", ""
+	}
+
+	return def.drillView, def.scopeType, arg, ""
+}
+
+// GetRequestTimeout returns the parsed duration for request timeout, defaulting to 10s
+// Validates that the timeout is positive and returns default if invalid
+func (c *ArgonautConfig) GetRequestTimeout() time.Duration {
+	if c.HTTPTimeouts.RequestTimeout == "" {
+		return 10 * time.Second
+	}
+	
+	duration, err := time.ParseDuration(c.HTTPTimeouts.RequestTimeout)
+	if err != nil {
+		// If parsing fails, return default
+		return 10 * time.Second
+	}
+	
+	// Validate that timeout is positive
+	if duration <= 0 {
+		// Log warning and return default for zero or negative durations
+		return 10 * time.Second
+	}
+	
+	return duration
 }

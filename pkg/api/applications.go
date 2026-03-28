@@ -1,10 +1,11 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -91,10 +92,31 @@ type WatchEventResult struct {
 	Result ApplicationWatchEvent `json:"result"`
 }
 
-// ListApplicationsResponse represents the response from listing applications
-type ListApplicationsResponse struct {
-	Items []ArgoApplication `json:"items"`
+// ListApplicationsResult wraps the list result with metadata for watch coordination
+type ListApplicationsResult struct {
+	Apps            []model.App
+	ResourceVersion string
 }
+
+// AppListFields contains the fields needed for the app list view.
+// Uses items.spec (whole spec) because ArgoCD's field selection does not
+// reliably support sub-field paths like items.spec.destination.
+// This matches the approach used by ArgoCD's own web UI.
+var AppListFields = []string{
+	"metadata.resourceVersion",
+	"items.metadata.name",
+	"items.metadata.namespace",
+	"items.metadata.ownerReferences",
+	"items.spec",
+	"items.status.sync.status",
+	"items.status.health",
+	"items.status.operationState.finishedAt",
+	"items.status.operationState.startedAt",
+}
+
+// AppWatchFields is intentionally empty — the stream endpoint does not support
+// field selection. Only resourceVersion is passed to avoid the initial full dump.
+var AppWatchFields []string
 
 // DeploymentHistory represents a deployment history entry from ArgoCD API
 type DeploymentHistory struct {
@@ -149,18 +171,39 @@ func NewApplicationService(server *model.Server) *ApplicationService {
 
 // ListApplications retrieves all applications from ArgoCD
 func (s *ApplicationService) ListApplications(ctx context.Context) ([]model.App, error) {
-	data, err := s.client.Get(ctx, "/api/v1/applications")
+	result, err := s.ListApplicationsWithMeta(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.Apps, nil
+}
+
+// ListApplicationsWithMeta retrieves all applications with metadata (resourceVersion)
+// for coordinating with watch streams
+func (s *ApplicationService) ListApplicationsWithMeta(ctx context.Context) (*ListApplicationsResult, error) {
+	// Build URL with field selection
+	endpoint := "/api/v1/applications"
+	if len(AppListFields) > 0 {
+		endpoint += "?fields=" + url.QueryEscape(strings.Join(AppListFields, ","))
+	}
+
+	data, err := s.client.Get(ctx, endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list applications: %w", err)
 	}
 
-	// First, try to parse as { items: [...] }
+	// First, try to parse as { metadata: { resourceVersion: "..." }, items: [...] }
 	var withItems struct {
+		Metadata struct {
+			ResourceVersion string `json:"resourceVersion"`
+		} `json:"metadata"`
 		Items []json.RawMessage `json:"items"`
 	}
 	if err := json.Unmarshal(data, &withItems); err != nil {
 		return nil, fmt.Errorf("failed to parse applications response: %w", err)
 	}
+
+	resourceVersion := withItems.Metadata.ResourceVersion
 
 	var rawItems []json.RawMessage
 	if len(withItems.Items) > 0 {
@@ -215,15 +258,21 @@ func (s *ApplicationService) ListApplications(ctx context.Context) ([]model.App,
 		apps = append(apps, app)
 	}
 
-	return apps, nil
+	return &ListApplicationsResult{
+		Apps:            apps,
+		ResourceVersion: resourceVersion,
+	}, nil
 }
 
 // GetManagedResourceDiffs fetches managed resource diffs for an application
-func (s *ApplicationService) GetManagedResourceDiffs(ctx context.Context, appName string) ([]ManagedResourceDiff, error) {
+func (s *ApplicationService) GetManagedResourceDiffs(ctx context.Context, appName string, appNamespace string) ([]ManagedResourceDiff, error) {
 	if appName == "" {
 		return nil, fmt.Errorf("application name is required")
 	}
 	path := fmt.Sprintf("/api/v1/applications/%s/managed-resources", url.PathEscape(appName))
+	if appNamespace != "" {
+		path += "?appNamespace=" + url.QueryEscape(appNamespace)
+	}
 	data, err := s.client.Get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get managed resources: %w", err)
@@ -280,69 +329,128 @@ func (s *ApplicationService) SyncApplication(ctx context.Context, appName string
 	return nil
 }
 
+// WatchOptions configures the watch stream
+type WatchOptions struct {
+	ResourceVersion string   // Start watching from this version (avoids initial full dump)
+	Fields          []string // Field selection for watch events
+	Projects        []string // Filter by project names
+}
+
 // WatchApplications starts watching for application changes
 func (s *ApplicationService) WatchApplications(ctx context.Context, eventChan chan<- ApplicationWatchEvent) error {
-	cblog.With("component", "api").Info("WatchApplications: attempting to establish stream", "endpoint", "/api/v1/stream/applications")
-	stream, err := s.client.Stream(ctx, "/api/v1/stream/applications")
+	return s.WatchApplicationsWithOptions(ctx, eventChan, nil)
+}
+
+// WatchApplicationsWithOptions starts watching with configurable options
+func (s *ApplicationService) WatchApplicationsWithOptions(ctx context.Context, eventChan chan<- ApplicationWatchEvent, opts *WatchOptions) error {
+	// Build the stream URL with query parameters
+	endpoint := "/api/v1/stream/applications"
+	params := url.Values{}
+
+	if opts != nil {
+		if opts.ResourceVersion != "" {
+			params.Set("resourceVersion", opts.ResourceVersion)
+		}
+		if len(opts.Fields) > 0 {
+			params.Set("fields", strings.Join(opts.Fields, ","))
+		}
+		for _, p := range opts.Projects {
+			params.Add("projects", p)
+		}
+	}
+
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
+	}
+
+	cblog.With("component", "api").Info("WatchApplications: attempting to establish stream", "endpoint", endpoint)
+	streamResp, err := s.client.Stream(ctx, endpoint)
 	if err != nil {
 		cblog.With("component", "api").Error("WatchApplications: failed to establish stream", "error", err)
 		return fmt.Errorf("failed to start watch stream: %w", err)
 	}
 	cblog.With("component", "api").Info("WatchApplications: stream established successfully")
-	defer stream.Close()
+	
+	// Create AccumulatingSSEReader for reliable event processing
+	sseConfig := DefaultSSEConfig()
+	sseReader := NewAccumulatingSSEReader(streamResp.Body, sseConfig)
+	defer sseReader.Close()
 
-	scanner := bufio.NewScanner(stream)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	cblog.With("component", "api").Info("WatchApplications: configured AccumulatingSSEReader", 
+		"initialBuffer", sseConfig.InitialBuffer, 
+		"maxBuffer", sseConfig.MaxBuffer,
+		"maxAccumulated", sseConfig.MaxAccumulated)
+	
 	cblog.With("component", "api").Info("WatchApplications: starting to read from stream")
-	for scanner.Scan() {
+	
+	for {
 		if ctx.Err() != nil {
 			cblog.With("component", "api").Debug("WatchApplications: context cancelled")
 			return ctx.Err()
 		}
 
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		// Read next SSE event
+		eventData, err := sseReader.ReadEvent()
+		if err != nil {
+			if err == io.EOF {
+				// Stream ended normally
+				cblog.With("component", "api").Debug("WatchApplications: stream ended normally")
+				return nil
+			}
+			
+			// Check for event too large error
+			if errors.Is(err, ErrEventTooLarge) {
+				metrics := sseReader.Metrics()
+				cblog.With("component", "api").Error("WatchApplications: SSE event too large",
+					"maxEventSize", metrics.MaxEventSize,
+					"bufferResizes", metrics.BufferResizes,
+					"error", err)
+				return fmt.Errorf("SSE event exceeds maximum size: %w", err)
+			}
+			
+			return fmt.Errorf("error reading SSE event: %w", err)
+		}
+		
+		if len(eventData) == 0 {
 			continue
 		}
+		
+		// Process SSE event lines
+		lines := strings.Split(string(eventData), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || line == ":" {
+				// Skip empty lines and keep-alive messages
+				continue
+			}
 
-		// SSE format: lines with just ":" are keep-alive messages
-		if line == ":" {
-			continue // Keep-alive message
-		}
+			cblog.With("component", "api").Debug("WatchApplications: processing line from event", "line", line)
 
-		cblog.With("component", "api").Debug("WatchApplications: received line from stream", "line", line)
+			// Handle Server-Sent Events format (lines starting with "data: ")
+			if strings.HasPrefix(line, "data: ") {
+				dataLine := strings.TrimPrefix(line, "data: ")
+				
+				var eventResult WatchEventResult
+				if err := json.Unmarshal([]byte(dataLine), &eventResult); err != nil {
+					cblog.With("component", "api").Warn("WatchApplications: failed to unmarshal event", "error", err, "line", dataLine)
+					// Skip malformed lines
+					continue
+				}
+				cblog.With("component", "api").Debug("WatchApplications: parsed event", "type", eventResult.Result.Type, "app", eventResult.Result.Application.Metadata.Name)
 
-		// Handle Server-Sent Events format (lines starting with "data: ")
-		if strings.HasPrefix(line, "data: ") {
-			line = strings.TrimPrefix(line, "data: ")
-		} else {
-			// Skip non-data lines
-			cblog.With("component", "api").Debug("WatchApplications: skipping non-data line", "line", line)
-			continue
-		}
-
-		var eventResult WatchEventResult
-		if err := json.Unmarshal([]byte(line), &eventResult); err != nil {
-			cblog.With("component", "api").Warn("WatchApplications: failed to unmarshal event", "error", err, "line", line)
-			// Skip malformed lines
-			continue
-		}
-		cblog.With("component", "api").Debug("WatchApplications: parsed event", "type", eventResult.Result.Type, "app", eventResult.Result.Application.Metadata.Name)
-
-		select {
-		case eventChan <- eventResult.Result:
-			cblog.With("component", "api").Debug("WatchApplications: sent event to channel")
-		case <-ctx.Done():
-			cblog.With("component", "api").Debug("WatchApplications: context cancelled during send")
-			return ctx.Err()
+				select {
+				case eventChan <- eventResult.Result:
+					cblog.With("component", "api").Debug("WatchApplications: sent event to channel")
+				case <-ctx.Done():
+					cblog.With("component", "api").Debug("WatchApplications: context cancelled during send")
+					return ctx.Err()
+				}
+			} else if !strings.HasPrefix(line, ":") {
+				// Skip comment lines (starting with ":" ) but log unexpected lines
+				cblog.With("component", "api").Debug("WatchApplications: skipping non-data line", "line", line)
+			}
 		}
 	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("stream scanning error: %w", err)
-	}
-
-	return nil
 }
 
 // SyncOptions represents options for syncing an application
@@ -559,63 +667,94 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 		path += "?appNamespace=" + url.QueryEscape(appNamespace)
 	}
 	cblog.With("component", "api").Debug("Starting resource tree watch", "app", appName, "path", path)
-	stream, err := s.client.Stream(ctx, path)
+	streamResp, err := s.client.Stream(ctx, path)
 	if err != nil {
 		cblog.With("component", "api").Error("Failed to start resource tree watch", "err", err, "app", appName)
 		return fmt.Errorf("failed to start resource tree watch: %w", err)
 	}
-	defer stream.Close()
+	
+	// Create AccumulatingSSEReader for reliable event processing
+	sseConfig := DefaultSSEConfig()
+	sseReader := NewAccumulatingSSEReader(streamResp.Body, sseConfig)
+	defer sseReader.Close()
 	cblog.With("component", "api").Debug("Resource tree stream established", "app", appName)
 
-	scanner := bufio.NewScanner(stream)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	cblog.With("component", "api").Debug("WatchResourceTree: configured AccumulatingSSEReader",
+		"app", appName,
+		"initialBuffer", sseConfig.InitialBuffer,
+		"maxBuffer", sseConfig.MaxBuffer,
+		"maxAccumulated", sseConfig.MaxAccumulated)
+	
 	eventCount := 0
-	for scanner.Scan() {
+	
+	for {
 		if ctx.Err() != nil {
 			cblog.With("component", "api").Debug("Context cancelled, stopping tree watch", "app", appName)
 			return ctx.Err()
 		}
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		
+		// Read next SSE event
+		eventData, err := sseReader.ReadEvent()
+		if err != nil {
+			if err == io.EOF {
+				// Stream ended normally
+				cblog.With("component", "api").Debug("WatchResourceTree: stream ended normally", "app", appName)
+				return nil
+			}
+			
+			// Check for event too large error
+			if errors.Is(err, ErrEventTooLarge) {
+				metrics := sseReader.Metrics()
+				cblog.With("component", "api").Error("WatchResourceTree: SSE event too large",
+					"app", appName,
+					"maxEventSize", metrics.MaxEventSize,
+					"bufferResizes", metrics.BufferResizes,
+					"error", err)
+				return fmt.Errorf("resource tree SSE event exceeds maximum size: %w", err)
+			}
+			
+			return fmt.Errorf("error reading SSE event: %w", err)
+		}
+		
+		if len(eventData) == 0 {
 			continue
 		}
+		
+		// Process SSE event lines
+		lines := strings.Split(string(eventData), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || line == ":" {
+				// Skip empty lines and keep-alive messages
+				continue
+			}
 
-		// SSE format: lines starting with "data: " contain the JSON payload
-		// Lines with just ":" are keep-alive messages
-		if line == ":" {
-			continue // Keep-alive message
-		}
+			// SSE format: lines starting with "data: " contain the JSON payload
+			if !strings.HasPrefix(line, "data: ") {
+				cblog.With("component", "api").Debug("Skipping non-data SSE line", "line", line)
+				continue
+			}
 
-		if !strings.HasPrefix(line, "data: ") {
-			cblog.With("component", "api").Debug("Skipping non-data SSE line", "line", line)
-			continue
-		}
+			// Strip the "data: " prefix to get the JSON
+			jsonData := strings.TrimPrefix(line, "data: ")
+			cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "data", jsonData)
 
-		// Strip the "data: " prefix to get the JSON
-		jsonData := strings.TrimPrefix(line, "data: ")
-		cblog.With("component", "api").Debug("Received tree stream event", "app", appName, "data", jsonData)
-
-		var res ResourceTreeStreamResult
-		if err := json.Unmarshal([]byte(jsonData), &res); err != nil {
-			cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "data", jsonData)
-			continue
-		}
-		eventCount++
-		cblog.With("component", "api").Debug("Sending tree update", "app", appName, "event", eventCount)
-		select {
-		case out <- res.Result:
-			cblog.With("component", "api").Debug("Tree update sent", "app", appName, "event", eventCount)
-		case <-ctx.Done():
-			cblog.With("component", "api").Debug("Context done while sending, stopping", "app", appName)
-			return ctx.Err()
+			var res ResourceTreeStreamResult
+			if err := json.Unmarshal([]byte(jsonData), &res); err != nil {
+				cblog.With("component", "api").Warn("Failed to parse tree stream event", "err", err, "data", jsonData)
+				continue
+			}
+			eventCount++
+			cblog.With("component", "api").Debug("Sending tree update", "app", appName, "event", eventCount)
+			select {
+			case out <- res.Result:
+				cblog.With("component", "api").Debug("Tree update sent", "app", appName, "event", eventCount)
+			case <-ctx.Done():
+				cblog.With("component", "api").Debug("Context done while sending, stopping", "app", appName)
+				return ctx.Err()
+			}
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		cblog.With("component", "api").Error("Stream scanning error", "err", err, "app", appName)
-		return fmt.Errorf("stream scanning error: %w", err)
-	}
-	cblog.With("component", "api").Info("Tree watch stream ended", "app", appName, "events", eventCount)
-	return nil
 }
 
 // GetUserInfo validates user authentication by checking session info
@@ -865,4 +1004,124 @@ func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model
 	}
 
 	return rows
+}
+
+// RunResourceAction executes a resource action via ArgoCD's resource actions API v2
+// This is used for actions like promote, abort, pause, etc. on Argo Rollouts
+func (s *ApplicationService) RunResourceAction(ctx context.Context, req ResourceActionRequest) error {
+	if req.AppName == "" {
+		return fmt.Errorf("application name is required")
+	}
+	if req.ResourceName == "" {
+		return fmt.Errorf("resource name is required")
+	}
+	if req.Kind == "" {
+		return fmt.Errorf("resource kind is required")
+	}
+	if req.Action == "" {
+		return fmt.Errorf("action is required")
+	}
+
+	// Build the endpoint path for v2 resource actions API
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/resource/actions/v2", url.PathEscape(req.AppName))
+
+	// Build the request body (v2 API uses JSON body instead of query params)
+	body := map[string]interface{}{
+		"name":         req.AppName,
+		"resourceName": req.ResourceName,
+		"kind":         req.Kind,
+		"action":       req.Action,
+	}
+
+	if req.Namespace != "" {
+		body["namespace"] = req.Namespace
+	}
+	if req.Group != "" {
+		body["group"] = req.Group
+	}
+	if req.Version != "" {
+		body["version"] = req.Version
+	}
+	if req.AppNamespace != nil && *req.AppNamespace != "" {
+		body["appNamespace"] = *req.AppNamespace
+	}
+
+	_, err := s.client.Post(ctx, endpoint, body)
+	if err != nil {
+		return fmt.Errorf("failed to run action %s on %s/%s: %w", req.Action, req.Kind, req.ResourceName, err)
+	}
+
+	return nil
+}
+
+// ListResourceActions retrieves available actions for a specific resource
+func (s *ApplicationService) ListResourceActions(ctx context.Context, params ListResourceActionsParams) ([]string, error) {
+	if params.AppName == "" {
+		return nil, fmt.Errorf("application name is required")
+	}
+	if params.ResourceName == "" {
+		return nil, fmt.Errorf("resource name is required")
+	}
+	if params.Kind == "" {
+		return nil, fmt.Errorf("resource kind is required")
+	}
+
+	// Build the endpoint path
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/resource/actions", url.PathEscape(params.AppName))
+
+	// Build query parameters
+	queryParams := url.Values{}
+	queryParams.Set("resourceName", params.ResourceName)
+	queryParams.Set("kind", params.Kind)
+	if params.Namespace != "" {
+		queryParams.Set("namespace", params.Namespace)
+	}
+	if params.Group != "" {
+		queryParams.Set("group", params.Group)
+	}
+	if params.Version != "" {
+		queryParams.Set("version", params.Version)
+	}
+	if params.AppNamespace != nil && *params.AppNamespace != "" {
+		queryParams.Set("appNamespace", *params.AppNamespace)
+	}
+
+	endpoint += "?" + queryParams.Encode()
+
+	resp, err := s.client.Get(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list actions for %s/%s: %w", params.Kind, params.ResourceName, err)
+	}
+
+	// Parse the response - ArgoCD returns { "actions": [...] }
+	var result struct {
+		Actions []struct {
+			Name     string `json:"name"`
+			Disabled bool   `json:"disabled"`
+		} `json:"actions"`
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse actions response: %w", err)
+	}
+
+	// Extract enabled action names
+	var actions []string
+	for _, action := range result.Actions {
+		if !action.Disabled {
+			actions = append(actions, action.Name)
+		}
+	}
+
+	return actions, nil
+}
+
+// ListResourceActionsParams contains parameters for listing resource actions
+type ListResourceActionsParams struct {
+	AppName      string
+	AppNamespace *string
+	ResourceName string
+	Namespace    string
+	Kind         string
+	Group        string
+	Version      string
 }

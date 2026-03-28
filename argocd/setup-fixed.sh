@@ -29,7 +29,8 @@ else
 fi
 
 # Always apply to ensure latest version
-kubectl -n argocd apply -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# Use --server-side to avoid the 262KB annotation limit on large CRDs (applicationsets.argoproj.io)
+kubectl -n argocd apply --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
 # 3) Wait for ArgoCD to be ready
 echo "Waiting for ArgoCD to be ready..."
@@ -64,6 +65,10 @@ fi
 echo "Creating applications..."
 kubectl apply -f "$SCRIPT_DIR/apps-working.yaml"
 
+# 9) Apply the app-of-apps configuration
+echo "Creating app-of-apps..."
+kubectl apply -f "$SCRIPT_DIR/app-of-apps.yaml"
+
 echo ""
 echo "✅ Setup complete!"
 echo ""
@@ -76,6 +81,7 @@ argocd app list --output name
 echo ""
 echo "To sync all apps: argocd app sync --all"
 echo "To sync one app: argocd app sync test-dev"
+echo "To sync app-of-apps and its children: argocd app sync app-of-apps --async && argocd app wait app-of-apps --health"
 echo "To list apps: argocd app list"
 echo ""
 echo "To cleanup everything: k3d cluster delete argocd-demo"

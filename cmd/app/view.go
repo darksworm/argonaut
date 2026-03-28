@@ -10,7 +10,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/sort"
 )
@@ -271,11 +270,6 @@ const (
 // View implements tea.Model.View - 1:1 mapping from React App.tsx
 func (m *Model) View() tea.View {
 	m.renderCount++
-	cblog.With("component", "view").Debug("View() called",
-		"render_count", m.renderCount,
-		"mode", m.state.Mode,
-		"view", m.state.Navigation.View,
-		"apps_count", len(m.state.Apps))
 
 	var content string
 	// Don't show plain "Starting..." - let renderMainLayout handle the loading modal
@@ -456,171 +450,69 @@ func padRight(s string, width int) string {
 }
 
 func (m *Model) getVisibleItems() []interface{} {
-	// Derive unique groups and filtered apps from current state, mirroring TS useVisibleItems
-	// 1) Gather filtered apps through selected scopes
-	apps := m.state.Apps
-	cblog.With("component", "view").Debug("getVisibleItems called",
-		"total_apps", len(apps),
-		"first_app", func() string {
-			if len(apps) > 0 {
-				return fmt.Sprintf("%s (health=%s, sync=%s)", apps[0].Name, apps[0].Health, apps[0].Sync)
-			}
-			return "no apps"
-		}())
-
-	// Filter by clusters scope
-	if len(m.state.Selections.ScopeClusters) > 0 {
-		filtered := make([]model.App, 0, len(apps))
-		for _, a := range apps {
-			var cl string
-			if a.ClusterLabel != nil {
-				cl = *a.ClusterLabel
-			}
-			if model.HasInStringSet(m.state.Selections.ScopeClusters, cl) {
-				filtered = append(filtered, a)
-			}
-		}
-		apps = filtered
+	idx := m.state.Index
+	// Defensive: build index lazily if apps exist but index hasn't been built
+	if idx == nil && len(m.state.Apps) > 0 {
+		idx = model.BuildAppIndex(m.state.Apps)
+		m.state.Index = idx
 	}
 
-	// Compute all namespaces after cluster filtering
-	// and optionally filter by namespace scope
-	if len(m.state.Selections.ScopeNamespaces) > 0 {
-		filtered := make([]model.App, 0, len(apps))
-		for _, a := range apps {
-			var ns string
-			if a.Namespace != nil {
-				ns = *a.Namespace
-			}
-			if model.HasInStringSet(m.state.Selections.ScopeNamespaces, ns) {
-				filtered = append(filtered, a)
-			}
-		}
-		apps = filtered
-	}
-
-	// Filter by project scope
-	if len(m.state.Selections.ScopeProjects) > 0 {
-		filtered := make([]model.App, 0, len(apps))
-		for _, a := range apps {
-			var prj string
-			if a.Project != nil {
-				prj = *a.Project
-			}
-			if model.HasInStringSet(m.state.Selections.ScopeProjects, prj) {
-				filtered = append(filtered, a)
-			}
-		}
-		apps = filtered
-	}
-
-	// Filter by ApplicationSet scope
-	if len(m.state.Selections.ScopeApplicationSets) > 0 {
-		filtered := make([]model.App, 0, len(apps))
-		for _, a := range apps {
-			if a.ApplicationSet != nil && model.HasInStringSet(m.state.Selections.ScopeApplicationSets, *a.ApplicationSet) {
-				filtered = append(filtered, a)
-			}
-		}
-		apps = filtered
-	}
-
-	// 2) Build base list depending on current view
+	// 1) Build base list depending on current view, using pre-computed index
 	var base []interface{}
 	switch m.state.Navigation.View {
 	case model.ViewClusters:
-		// Unique cluster labels from all apps
-		clusters := make([]string, 0)
-		seen := map[string]bool{}
-		for _, a := range m.state.Apps { // all apps (unscoped) define cluster list
-			var cl string
-			if a.ClusterLabel != nil {
-				cl = *a.ClusterLabel
+		// Pre-computed sorted unique clusters from ALL apps
+		if idx != nil {
+			for _, c := range idx.Clusters {
+				base = append(base, c)
 			}
-			if cl == "" {
-				continue
-			}
-			if !seen[cl] {
-				seen[cl] = true
-				clusters = append(clusters, cl)
-			}
-		}
-		sortStrings(clusters)
-		for _, c := range clusters {
-			base = append(base, c)
 		}
 	case model.ViewNamespaces:
-		// Unique namespaces from apps filtered by clusters scope
-		nss := make([]string, 0)
-		seen := map[string]bool{}
-		for _, a := range apps {
-			var ns string
-			if a.Namespace != nil {
-				ns = *a.Namespace
+		// Unique namespaces from apps filtered by cluster scope
+		if idx != nil {
+			nss := idx.ScopedNamespaces(m.state.Apps, m.state.Selections.ScopeClusters)
+			for _, ns := range nss {
+				base = append(base, ns)
 			}
-			if ns == "" {
-				continue
-			}
-			if !seen[ns] {
-				seen[ns] = true
-				nss = append(nss, ns)
-			}
-		}
-		sortStrings(nss)
-		for _, ns := range nss {
-			base = append(base, ns)
 		}
 	case model.ViewProjects:
 		// Unique projects from apps filtered by cluster+namespace scopes
-		projs := make([]string, 0)
-		seen := map[string]bool{}
-		for _, a := range apps {
-			var pj string
-			if a.Project != nil {
-				pj = *a.Project
+		if idx != nil {
+			projs := idx.ScopedProjects(m.state.Apps, m.state.Selections.ScopeClusters, m.state.Selections.ScopeNamespaces)
+			for _, pj := range projs {
+				base = append(base, pj)
 			}
-			if pj == "" {
-				continue
-			}
-			if !seen[pj] {
-				seen[pj] = true
-				projs = append(projs, pj)
-			}
-		}
-		sortStrings(projs)
-		for _, pj := range projs {
-			base = append(base, pj)
 		}
 	case model.ViewApplicationSets:
-		// Unique ApplicationSet names from all apps
-		appsets := make([]string, 0)
-		seen := map[string]bool{}
-		for _, a := range m.state.Apps {
-			if a.ApplicationSet == nil || *a.ApplicationSet == "" {
-				continue
+		// Pre-computed sorted unique ApplicationSets from ALL apps
+		if idx != nil {
+			for _, as := range idx.ApplicationSets {
+				base = append(base, as)
 			}
-			if !seen[*a.ApplicationSet] {
-				seen[*a.ApplicationSet] = true
-				appsets = append(appsets, *a.ApplicationSet)
-			}
-		}
-		sortStrings(appsets)
-		for _, as := range appsets {
-			base = append(base, as)
 		}
 	case model.ViewApps:
-		// Ensure consistent, stable ordering without mutating state
+		// Get scoped apps using index-based filtering, then sort
+		var apps []model.App
+		if idx != nil {
+			apps = idx.ScopedApps(m.state.Apps, &m.state.Selections)
+		} else {
+			apps = m.state.Apps
+		}
 		appsCopy := make([]model.App, len(apps))
 		copy(appsCopy, apps)
 		sort.SortApps(appsCopy, m.state.UI.Sort)
 		for _, app := range appsCopy {
 			base = append(base, app)
 		}
+	case model.ViewContexts:
+		for _, name := range m.state.ContextNames {
+			base = append(base, name)
+		}
 	default:
 		// No-op
 	}
 
-	// 3) Apply text filter or search
+	// 2) Apply text filter or search
 	filter := m.state.UI.ActiveFilter
 	if m.state.Mode == model.ModeSearch {
 		filter = m.state.UI.SearchQuery
@@ -1017,12 +909,28 @@ func (m *Model) renderErrorView() string {
 			errorContent += fmt.Sprintf("\nSuggestion:\n%s\n", actionStyle.Render(err.UserAction))
 		}
 
-		// Additional context (if available)
+		// Show underlying cause if present (for wrapped errors)
+		if err.Cause != nil {
+			causeStyle := lipgloss.NewStyle().Foreground(yellowBright)
+			errorContent += fmt.Sprintf("\nCause:\n%s\n", causeStyle.Render(err.Cause.Error()))
+		}
+		
+		// Additional context (if available) - but filter out redundant info
 		if err.Context != nil && len(err.Context) > 0 {
 			contextStyle := lipgloss.NewStyle().Foreground(unknownColor)
 			errorContent += "\nContext:\n"
 			for key, value := range err.Context {
-				errorContent += fmt.Sprintf("  %s: %s\n", contextStyle.Render(key), contextStyle.Render(fmt.Sprintf("%v", value)))
+				// Skip timeout in context if it's already in the message
+				if key == "timeout" && strings.Contains(err.Message, fmt.Sprintf("%v", value)) {
+					continue
+				}
+				// Special handling for status codes
+				if key == "statusCode" {
+					codeStyle := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+					errorContent += fmt.Sprintf("  HTTP Status: %s\n", codeStyle.Render(fmt.Sprintf("%v", value)))
+				} else if key != "url" && key != "method" { // Skip URL and method as they're often verbose
+					errorContent += fmt.Sprintf("  %s: %s\n", contextStyle.Render(key), contextStyle.Render(fmt.Sprintf("%v", value)))
+				}
 			}
 		}
 

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -21,11 +22,12 @@ import (
 
 // Client represents an HTTP client for ArgoCD API
 type Client struct {
-	baseURL         string
-	token           string
-	httpClient      *http.Client
-	insecure        bool
-	grpcWebRootPath string
+	baseURL          string
+	token            string
+	httpClient       *http.Client
+	streamHTTPClient *http.Client // Separate client for SSE streams (no ResponseHeaderTimeout)
+	insecure         bool
+	grpcWebRootPath  string
 }
 
 var customHTTPClient *http.Client
@@ -66,15 +68,15 @@ func NewClient(server *model.Server) *Client {
 			}
 		}
 	} else {
-		// Create HTTP transport with fast connection timeouts
+		// Create HTTP transport with reasonable timeouts for problematic TLS
 		transport := &http.Transport{
 			// Connection establishment timeout - should be very fast
 			DialContext: (&net.Dialer{
-				Timeout:   2 * time.Second,
+				Timeout:   5 * time.Second,
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
-			TLSHandshakeTimeout:   3 * time.Second,
-			ResponseHeaderTimeout: 5 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second, // Increased for slow certificate validation
+			ResponseHeaderTimeout: 10 * time.Second, // Increased to match TLS timeout
 			// Keep connections alive for efficiency
 			IdleConnTimeout:     30 * time.Second,
 			MaxIdleConns:        10,
@@ -95,13 +97,55 @@ func NewClient(server *model.Server) *Client {
 		}
 	}
 
-	return &Client{
-		baseURL:         server.BaseURL,
-		token:           server.Token,
-		httpClient:      httpClient,
-		insecure:        server.Insecure,
-		grpcWebRootPath: server.GrpcWebRootPath,
+	// Create a separate HTTP client for SSE streams.
+	// Streams must not have ResponseHeaderTimeout because the server may
+	// not send headers until the first event (which could be minutes away
+	// when using resourceVersion).
+	streamTransport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		// No ResponseHeaderTimeout for streams
+		IdleConnTimeout:     30 * time.Second,
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 2,
 	}
+	if server.Insecure {
+		streamTransport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	// If we cloned a custom transport for regular requests, also apply its TLS config to stream
+	if customHTTPClient != nil {
+		if transport, ok := httpClient.Transport.(*http.Transport); ok {
+			streamTransport = transport.Clone()
+			// Remove ResponseHeaderTimeout for streams
+			streamTransport.ResponseHeaderTimeout = 0
+		}
+	}
+	streamHTTPClient := &http.Client{
+		Transport: streamTransport,
+	}
+
+	return &Client{
+		baseURL:          server.BaseURL,
+		token:            server.Token,
+		httpClient:       httpClient,
+		streamHTTPClient: streamHTTPClient,
+		insecure:         server.Insecure,
+		grpcWebRootPath:  server.GrpcWebRootPath,
+	}
+}
+
+// sanitizeURL removes any embedded credentials from a URL for safe logging
+func sanitizeURL(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.User != nil {
+		u.User = nil
+		return u.String()
+	}
+	return rawURL
 }
 
 // buildURL constructs the full URL including the gRPC-web root path if configured
@@ -114,11 +158,11 @@ func (c *Client) buildURL(path string) string {
 	return c.baseURL + path
 }
 
-// Get performs a GET request with retry logic
+// Get performs a GET request with retry logic.
+// Callers are responsible for setting a timeout on ctx (e.g. via appcontext.WithAPITimeout
+// or WithMinAPITimeout). Do not add a timeout here — it would undercut WithMinAPITimeout
+// callers that need a longer deadline for slow operations like diffs and rollbacks.
 func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("GET %s", path), func(attempt int) error {
 		var opErr error
@@ -129,11 +173,9 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 	return result, err
 }
 
-// Post performs a POST request with retry logic
+// Post performs a POST request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("POST %s", path), func(attempt int) error {
 		var opErr error
@@ -144,11 +186,9 @@ func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byt
 	return result, err
 }
 
-// Put performs a PUT request with retry logic
+// Put performs a PUT request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("PUT %s", path), func(attempt int) error {
 		var opErr error
@@ -159,11 +199,9 @@ func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte
 	return result, err
 }
 
-// Delete performs a DELETE request with retry logic
+// Delete performs a DELETE request with retry logic.
+// See Get for timeout responsibility.
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
-	ctx, cancel := appcontext.WithAPITimeout(ctx)
-	defer cancel()
-
 	var result []byte
 	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("DELETE %s", path), func(attempt int) error {
 		var opErr error
@@ -175,7 +213,8 @@ func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
 }
 
 // Stream performs a streaming GET request for Server-Sent Events
-func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error) {
+// Returns both the stream body and response headers for potential future use
+func (c *Client) Stream(ctx context.Context, path string) (*StreamResponse, error) {
 	// No timeout for streams - managed by caller context
 	url := c.buildURL(path)
 
@@ -192,15 +231,30 @@ func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error)
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 
-	resp, err := c.httpClient.Do(req)
+	// Log the stream request for debugging
+	cblog.With("component", "api", "op", "stream").Debug("Making stream request",
+		"method", "GET",
+		"url", sanitizeURL(url),
+		"type", "SSE",
+	)
+
+	// Use the stream-specific HTTP client (no ResponseHeaderTimeout)
+	resp, err := c.streamHTTPClient.Do(req)
 	if err != nil {
 		// Check for timeout
 		if timeoutErr := appcontext.HandleTimeout(ctx, appcontext.OpStream); timeoutErr != nil {
 			return nil, timeoutErr.WithContext("url", url)
 		}
 
+		// Log the actual error at warn level so users can see what went wrong
+		cblog.With("component", "api", "op", "http").Warn("HTTP request failed",
+			"method", "GET",
+			"url", sanitizeURL(url),
+			"error", err.Error(),
+		)
+
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "STREAM_REQUEST_FAILED",
-			"Stream request failed").
+			fmt.Sprintf("Stream request failed: %v", err)).
 			WithContext("url", url).
 			AsRecoverable().
 			WithUserAction("Check your network connection and ArgoCD server status")
@@ -215,11 +269,24 @@ func (c *Client) Stream(ctx context.Context, path string) (io.ReadCloser, error)
 			WithContext("path", path)
 	}
 
-	return resp.Body, nil
+	return &StreamResponse{
+		Body:    resp.Body,
+		Headers: resp.Header,
+	}, nil
 }
 
 // request performs the actual HTTP request
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	// Retrieve the original timeout duration for accurate error messages.
+	// Uses the value stored by WithAPITimeout/WithMinAPITimeout at context
+	// creation time, avoiding time.Until(deadline) which drifts on retries.
+	var timeoutStr string
+	if d, ok := appcontext.GetTimeoutDuration(ctx); ok {
+		timeoutStr = d.Round(time.Second).String()
+	} else {
+		timeoutStr = appcontext.DefaultTimeouts.API.String()
+	}
+
 	url := c.buildURL(path)
 
 	var reqBody io.Reader
@@ -249,19 +316,39 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
+	// Log the request for debugging
+	cblog.With("component", "api", "op", "http").Debug("Making HTTP request",
+		"method", method,
+		"url", sanitizeURL(url),
+		"timeout", timeoutStr,
+	)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		// Check for timeout first - context errors have priority
 		if ctx.Err() == context.DeadlineExceeded {
+			// Log the timeout at warn level for visibility
+			cblog.With("component", "api", "op", "http").Warn("Request timed out",
+				"method", method,
+				"url", sanitizeURL(url),
+				"timeout", "context deadline exceeded",
+				"error", err.Error(),
+			)
 			return nil, apperrors.TimeoutError("REQUEST_TIMEOUT",
-				"Request timed out - server may be unreachable").
+				fmt.Sprintf("Request timed out after %s - server did not respond in time", timeoutStr)).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithContext("timeout", "5s").
-				WithUserAction("Check your connection to ArgoCD server and try again")
+				WithContext("timeout", timeoutStr).
+				WithUserAction("Check network connection and server status. For slow servers, increase request_timeout in config")
 		}
 
 		if ctx.Err() == context.Canceled {
+			// Log the cancellation for debugging
+			cblog.With("component", "api", "op", "http").Warn("Request was canceled",
+				"method", method,
+				"url", sanitizeURL(url),
+				"error", err.Error(),
+			)
 			return nil, apperrors.New(apperrors.ErrorInternal, "REQUEST_CANCELLED",
 				"Request was cancelled").
 				WithContext("method", method).
@@ -270,15 +357,31 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 
 		// Check if it's a network timeout from the transport layer
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// Log network timeout for visibility
+			cblog.With("component", "api", "op", "http").Warn("Network timeout",
+				"method", method,
+				"url", sanitizeURL(url),
+				"timeout", "network/transport layer",
+				"error", err.Error(),
+			)
 			return nil, apperrors.TimeoutError("NETWORK_TIMEOUT",
-				"Network connection timed out").
+				fmt.Sprintf("Network connection timed out after %s", timeoutStr)).
 				WithContext("method", method).
 				WithContext("url", url).
-				WithUserAction("Server may be unreachable - check your connection")
+				WithContext("timeout", timeoutStr).
+				WithUserAction("Check network/firewall settings and TLS configuration. Increase request_timeout if needed")
 		}
 
+		// Log the actual error at warn level so users can see what went wrong
+		// This will show TLS certificate errors, connection refused, etc.
+		cblog.With("component", "api", "op", "http").Warn("HTTP request failed",
+			"method", method,
+			"url", sanitizeURL(url),
+			"error", err.Error(),
+		)
+
 		return nil, apperrors.Wrap(err, apperrors.ErrorNetwork, "HTTP_REQUEST_FAILED",
-			"HTTP request failed").
+			fmt.Sprintf("HTTP request failed: %v", err)).
 			WithContext("method", method).
 			WithContext("url", url).
 			AsRecoverable().
@@ -299,7 +402,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 		// Log request/response metadata at error level
 		cblog.With("component", "api", "op", "http").Error("http error",
 			"method", method,
-			"url", url,
+			"url", sanitizeURL(url),
 			"status", resp.StatusCode,
 			"len", len(respBody),
 		)

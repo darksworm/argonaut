@@ -433,3 +433,218 @@ func TestPortForwardConfigGetters(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPTimeoutConfigGetters(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         *ArgonautConfig
+		expectTimeout  string
+		expectDuration string
+	}{
+		{
+			name:           "empty config returns default 10s",
+			config:         &ArgonautConfig{},
+			expectTimeout:  "10s",
+			expectDuration: "10s",
+		},
+		{
+			name: "custom timeout 30s",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "30s",
+				},
+			},
+			expectTimeout:  "30s",
+			expectDuration: "30s",
+		},
+		{
+			name: "custom timeout 1m",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "1m",
+				},
+			},
+			expectTimeout:  "1m",
+			expectDuration: "1m0s",
+		},
+		{
+			name: "custom timeout 90s",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "90s",
+				},
+			},
+			expectTimeout:  "90s",
+			expectDuration: "1m30s",
+		},
+		{
+			name: "invalid timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "invalid",
+				},
+			},
+			expectTimeout:  "invalid", // Raw value is returned
+			expectDuration: "10s",     // But parsed duration is default
+		},
+		{
+			name: "zero timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "0s",
+				},
+			},
+			expectTimeout:  "0s",  // Raw value is returned
+			expectDuration: "10s", // But parsed duration is default
+		},
+		{
+			name: "negative timeout returns default",
+			config: &ArgonautConfig{
+				HTTPTimeouts: HTTPTimeoutConfig{
+					RequestTimeout: "-5s",
+				},
+			},
+			expectTimeout:  "-5s", // Raw value is returned
+			expectDuration: "10s", // But parsed duration is default
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test raw string getter
+			if got := tt.config.GetRequestTimeoutString(); got != tt.expectTimeout {
+				t.Errorf("GetRequestTimeoutString() = %q, want %q", got, tt.expectTimeout)
+			}
+
+			// Test parsed duration getter
+			gotDuration := tt.config.GetRequestTimeout()
+			if gotDuration.String() != tt.expectDuration {
+				t.Errorf("GetRequestTimeout() = %q, want %q", gotDuration.String(), tt.expectDuration)
+			}
+		})
+	}
+}
+
+func TestParseDefaultView(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantView   string
+		wantScope  string
+		wantValue  string
+		wantErr    bool
+	}{
+		// Empty / zero
+		{name: "empty string", input: "", wantView: "", wantScope: "", wantValue: ""},
+
+		// All view aliases without arguments
+		{name: "apps", input: "apps", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "app", input: "app", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "application", input: "application", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "applications", input: "applications", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "clusters", input: "clusters", wantView: "clusters", wantScope: "", wantValue: ""},
+		{name: "cluster", input: "cluster", wantView: "clusters", wantScope: "", wantValue: ""},
+		{name: "cls", input: "cls", wantView: "clusters", wantScope: "", wantValue: ""},
+		{name: "namespaces", input: "namespaces", wantView: "namespaces", wantScope: "", wantValue: ""},
+		{name: "namespace", input: "namespace", wantView: "namespaces", wantScope: "", wantValue: ""},
+		{name: "ns", input: "ns", wantView: "namespaces", wantScope: "", wantValue: ""},
+		{name: "projects", input: "projects", wantView: "projects", wantScope: "", wantValue: ""},
+		{name: "project", input: "project", wantView: "projects", wantScope: "", wantValue: ""},
+		{name: "proj", input: "proj", wantView: "projects", wantScope: "", wantValue: ""},
+		{name: "appsets", input: "appsets", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "appset", input: "appset", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "applicationsets", input: "applicationsets", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "applicationset", input: "applicationset", wantView: "applicationsets", wantScope: "", wantValue: ""},
+		{name: "as", input: "as", wantView: "applicationsets", wantScope: "", wantValue: ""},
+
+		// View + scope argument drill-down
+		{name: "cluster with arg", input: "cluster production", wantView: "namespaces", wantScope: "cluster", wantValue: "production"},
+		{name: "cls with arg", input: "cls production", wantView: "namespaces", wantScope: "cluster", wantValue: "production"},
+		{name: "ns with arg", input: "ns my-namespace", wantView: "projects", wantScope: "namespace", wantValue: "my-namespace"},
+		{name: "namespace with arg", input: "namespace my-namespace", wantView: "projects", wantScope: "namespace", wantValue: "my-namespace"},
+		{name: "project with arg", input: "project myproj", wantView: "apps", wantScope: "project", wantValue: "myproj"},
+		{name: "proj with arg", input: "proj myproj", wantView: "apps", wantScope: "project", wantValue: "myproj"},
+		{name: "appset with arg", input: "appset myset", wantView: "apps", wantScope: "appset", wantValue: "myset"},
+		{name: "as with arg", input: "as myset", wantView: "apps", wantScope: "appset", wantValue: "myset"},
+		{name: "apps with arg (no scope)", input: "apps myapp", wantView: "apps", wantScope: "", wantValue: ""},
+
+		// Invalid inputs — should return error
+		{name: "invalid tree", input: "tree", wantView: "", wantScope: "", wantValue: "", wantErr: true},
+		{name: "invalid unknown", input: "unknown", wantView: "", wantScope: "", wantValue: "", wantErr: true},
+		{name: "invalid sync", input: "sync", wantView: "", wantScope: "", wantValue: "", wantErr: true},
+
+		// Whitespace handling
+		{name: "leading/trailing whitespace", input: "  apps  ", wantView: "apps", wantScope: "", wantValue: ""},
+		{name: "extra whitespace between", input: "ns   my-namespace", wantView: "projects", wantScope: "namespace", wantValue: "my-namespace"},
+		{name: "only whitespace", input: "   ", wantView: "", wantScope: "", wantValue: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ArgonautConfig{DefaultView: tt.input}
+			view, scopeType, scopeValue, errMsg := cfg.ParseDefaultView()
+			if view != tt.wantView {
+				t.Errorf("view = %q, want %q", view, tt.wantView)
+			}
+			if scopeType != tt.wantScope {
+				t.Errorf("scopeType = %q, want %q", scopeType, tt.wantScope)
+			}
+			if scopeValue != tt.wantValue {
+				t.Errorf("scopeValue = %q, want %q", scopeValue, tt.wantValue)
+			}
+			if tt.wantErr && errMsg == "" {
+				t.Error("expected error message, got empty")
+			}
+			if !tt.wantErr && errMsg != "" {
+				t.Errorf("unexpected error message: %q", errMsg)
+			}
+		})
+	}
+}
+
+func TestSaveAndLoadHTTPTimeoutConfig(t *testing.T) {
+	// Create a temporary directory
+	tempDir := t.TempDir()
+
+	// Override config path
+	originalConfig := os.Getenv("ARGONAUT_CONFIG")
+	defer os.Setenv("ARGONAUT_CONFIG", originalConfig)
+
+	configPath := filepath.Join(tempDir, "test_timeout_config.toml")
+	os.Setenv("ARGONAUT_CONFIG", configPath)
+
+	// Create test config with HTTPTimeouts
+	testConfig := &ArgonautConfig{
+		Appearance: AppearanceConfig{
+			Theme: "dracula",
+		},
+		HTTPTimeouts: HTTPTimeoutConfig{
+			RequestTimeout: "45s",
+		},
+	}
+
+	// Save config
+	err := SaveArgonautConfig(testConfig)
+	if err != nil {
+		t.Fatalf("SaveArgonautConfig() failed: %v", err)
+	}
+
+	// Load config back
+	loadedConfig, err := LoadArgonautConfig()
+	if err != nil {
+		t.Fatalf("LoadArgonautConfig() failed: %v", err)
+	}
+
+	// Verify HTTPTimeouts config
+	if loadedConfig.GetRequestTimeoutString() != "45s" {
+		t.Errorf("RequestTimeout mismatch: expected %q, got %q",
+			"45s", loadedConfig.GetRequestTimeoutString())
+	}
+
+	// Verify parsed duration
+	expectedDuration := "45s"
+	if loadedConfig.GetRequestTimeout().String() != expectedDuration {
+		t.Errorf("Parsed timeout mismatch: expected %q, got %q",
+			expectedDuration, loadedConfig.GetRequestTimeout().String())
+	}
+}

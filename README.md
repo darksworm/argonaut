@@ -175,6 +175,9 @@ argonaut
 ### **Enjoy colorful themes**  
 <img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
 
+### **And much more**  
+<img src="assets/argonaut_help.png" alt="the :help command describes all commands"/>
+
 ## Advanced Features
 
 ### Client certificate authentication
@@ -244,6 +247,12 @@ context = ""              # Override Kubernetes context for k9s
 [diff]
 viewer = ""               # Interactive diff viewer (e.g., "code --diff {left} {right}", "meld {left} {right}")
 formatter = ""            # Diff formatter command (e.g., "delta --side-by-side")
+
+[http_timeouts]
+request_timeout = "10s"   # Timeout for HTTP requests (increase for large deployments)
+
+# Start in apps view instead of clusters (supports :command syntax)
+default_view = "apps"
 ```
 
 ### Configuration Options
@@ -312,6 +321,58 @@ formatter = "delta --side-by-side --line-numbers"
 ```
 
 If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+
+#### `[http_timeouts]`
+
+Settings for HTTP request timeouts. Useful for large deployments with thousands of applications where API responses take longer.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `request_timeout` | Timeout for all HTTP requests to ArgoCD API. Use Go duration format (e.g., "30s", "1m", "90s") | `"10s"` |
+
+**Examples:**
+
+```toml
+[http_timeouts]
+# For large deployments with thousands of applications
+request_timeout = "60s"
+
+# For very large deployments
+request_timeout = "2m"
+```
+
+> **Note:** If you're experiencing timeout errors when listing applications or resources, increase this value. The timeout applies to all API operations including listing applications, getting resources, and sync operations.
+
+#### `default_view`
+
+Configure which view Argonaut starts in. Uses the same syntax as `:commands`, with an optional scope argument to drill down into a specific cluster, namespace, project, or application set.
+
+| Value | Startup view |
+|-------|-------------|
+| `"apps"` | Applications list |
+| `"clusters"` | Clusters list (default) |
+| `"ns"` | Namespaces list |
+| `"proj"` | Projects list |
+| `"appsets"` | ApplicationSets list |
+| `"cluster production"` | Namespaces scoped to cluster "production" |
+| `"ns my-namespace"` | Projects scoped to namespace "my-namespace" |
+| `"project myproj"` | Apps scoped to project "myproj" |
+| `"appset myset"` | Apps scoped to ApplicationSet "myset" |
+
+All view aliases from `:commands` are supported (e.g., `app`/`apps`/`applications`, `cls`/`cluster`/`clusters`, `ns`/`namespace`/`namespaces`, etc.).
+
+**Examples:**
+
+```toml
+# Start in apps view
+default_view = "apps"
+
+# Start scoped to a cluster (shows its namespaces)
+default_view = "cluster production"
+
+# Start scoped to a namespace (shows its projects)
+default_view = "ns my-namespace"
+```
 
 #### `[port_forward]`
 

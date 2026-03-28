@@ -185,6 +185,7 @@ var k9sResourceMap = map[string]string{
 	"RoleBinding":           "rolebinding",
 	"ClusterRole":           "clusterrole",
 	"ClusterRoleBinding":    "clusterrolebinding",
+	"Application":           "applications.argoproj.io",
 }
 
 // k9sDoneMsg signals that k9s has exited

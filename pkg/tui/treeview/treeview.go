@@ -211,6 +211,24 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 			tempRoots = append(tempRoots, node)
 		}
 	}
+
+	// Filter out Application nodes that would duplicate the synthetic root.
+	// ArgoCD's resource tree stream sometimes includes the Application CR itself.
+	// Promote any children of the filtered node to roots.
+	filtered := make([]*treeNode, 0, len(tempRoots))
+	for _, node := range tempRoots {
+		if node.kind == "Application" && node.name == appName {
+			for _, child := range node.children {
+				child.parent = nil
+				filtered = append(filtered, child)
+			}
+			delete(v.nodesByUID, node.uid)
+			continue
+		}
+		filtered = append(filtered, node)
+	}
+	tempRoots = filtered
+
 	// Sort roots and children
 	sortNodes := func(list []*treeNode) {
 		sort.Slice(list, func(i, j int) bool {
@@ -827,6 +845,32 @@ func (v *TreeView) SelectedResource() (group, kind, namespace, name string, ok b
 
 // GetAppName returns the name of the application being displayed.
 func (v *TreeView) GetAppName() string {
+	return v.appName
+}
+
+// IsSelectedSyntheticRoot returns true if the currently selected node is a synthetic
+// Application root node (i.e., represents the app being viewed, not a child Application CR).
+func (v *TreeView) IsSelectedSyntheticRoot() bool {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return false
+	}
+	node := v.order[v.selIdx]
+	return node != nil && strings.HasSuffix(node.uid, "::__app_root__")
+}
+
+// SelectedNodeApp returns the app name that owns the currently selected node.
+// The app name is encoded as the prefix before "::" in the node UID.
+func (v *TreeView) SelectedNodeApp() string {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return v.appName
+	}
+	node := v.order[v.selIdx]
+	if node == nil {
+		return v.appName
+	}
+	if idx := strings.Index(node.uid, "::"); idx >= 0 {
+		return node.uid[:idx]
+	}
 	return v.appName
 }
 

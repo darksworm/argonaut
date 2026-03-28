@@ -387,6 +387,69 @@ func TestSetResourceStatuses_DifferentApp(t *testing.T) {
 	}
 }
 
+// TestUpsertAppTree_DuplicateApplicationNodeFiltered verifies that when
+// ArgoCD's resource tree includes the Application CR itself as a node,
+// it is filtered out to avoid a doubled "Application" line.
+func TestUpsertAppTree_DuplicateApplicationNodeFiltered(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Healthy", "Synced")
+
+	tree := &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "app-uid", Group: "argoproj.io", Version: "v1alpha1", Kind: "Application", Name: "my-app"},
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", ParentRefs: []api.ResourceRef{{UID: "app-uid"}}},
+		},
+	}
+
+	v.UpsertAppTree("my-app", tree)
+	output := v.Render()
+	plain := stripANSI(output)
+
+	// Count occurrences of "Application" — should be exactly 1 (the synthetic root)
+	count := strings.Count(plain, "Application")
+	if count != 1 {
+		t.Errorf("expected exactly 1 Application line, got %d:\n%s", count, plain)
+	}
+
+	// The Deployment child should still be present
+	if !strings.Contains(plain, "Deployment") {
+		t.Errorf("expected Deployment in output:\n%s", plain)
+	}
+}
+
+// TestUpsertAppTree_DifferentApplicationNodePreserved verifies that Application
+// nodes with a different name (e.g. app-of-apps children) are preserved.
+func TestUpsertAppTree_DifferentApplicationNodePreserved(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("parent-app", "Healthy", "Synced")
+
+	tree := &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "child-app-uid", Group: "argoproj.io", Version: "v1alpha1", Kind: "Application", Name: "child-app"},
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+		},
+	}
+
+	v.UpsertAppTree("parent-app", tree)
+	output := v.Render()
+	plain := stripANSI(output)
+
+	// Should have 2 Application lines: the synthetic root "parent-app" + the child "child-app"
+	count := strings.Count(plain, "Application")
+	if count != 2 {
+		t.Errorf("expected 2 Application lines (parent + child), got %d:\n%s", count, plain)
+	}
+
+	if !strings.Contains(plain, "parent-app") {
+		t.Errorf("expected parent-app in output:\n%s", plain)
+	}
+	if !strings.Contains(plain, "child-app") {
+		t.Errorf("expected child-app in output:\n%s", plain)
+	}
+}
+
 // stripANSI removes ANSI escape codes from a string for easier testing
 func stripANSI(s string) string {
 	var result strings.Builder

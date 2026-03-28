@@ -20,7 +20,7 @@ func MockArgoServerWithAppSets() (*httptest.Server, error) {
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// Return apps with ownerReferences linking them to ApplicationSets
-		_, _ = w.Write([]byte(`{"items":[
+		_, _ = w.Write([]byte(wrapListResponse(`[
 			{
 				"metadata":{
 					"name":"app-from-appset-1",
@@ -53,16 +53,17 @@ func MockArgoServerWithAppSets() (*httptest.Server, error) {
 				"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},
 				"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}
 			}
-		]}`))
+		]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		// Send a heartbeat to keep the stream open
-		_, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-from-appset-1","namespace":"argocd","ownerReferences":[{"kind":"ApplicationSet","name":"nerdy-demo"}]},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}` + "\n"))
+		w.Header().Set("Content-Type", "text/event-stream")
+		if shouldSendEvent(r, "default") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-from-appset-1","namespace":"argocd","ownerReferences":[{"kind":"ApplicationSet","name":"nerdy-demo"}]},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
+		}
 		if fl != nil {
 			fl.Flush()
 		}

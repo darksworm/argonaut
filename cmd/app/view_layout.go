@@ -266,6 +266,17 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
+	// Default view warning modal
+	if m.state.Mode == model.ModeDefaultViewWarning {
+		modal := m.renderDefaultViewWarningModal()
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+		return canvas.Render()
+	}
 	// App Delete modal (confirmation or loading state)
 	if m.state.Mode == model.ModeConfirmAppDelete {
 		modal := ""
@@ -314,7 +325,7 @@ func (m *Model) renderMainLayout() string {
 		canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
 		return canvas.Render()
 	}
-	if m.state.Mode == model.ModeLoading {
+	if m.state.Mode == model.ModeLoading && m.state.Navigation.View != model.ViewContexts {
 		modal := m.renderInitialLoadingModal()
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
@@ -335,7 +346,7 @@ func (m *Model) renderMainLayout() string {
 	// Check if we have no apps loaded (apps are the main data source)
 	hasNoData := len(m.state.Apps) == 0
 
-	if hasNoData && m.state.Mode == model.ModeNormal {
+	if hasNoData && m.state.Mode == model.ModeNormal && m.state.Navigation.View != model.ViewContexts {
 		modal := m.renderNoServerModal()
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)

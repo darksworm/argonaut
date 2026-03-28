@@ -52,7 +52,8 @@ func TestPortForward_HappyPath(t *testing.T) {
 
 	// Should see cluster from mock server (proves tunnel worked)
 	// The app initially shows clusters view with "cluster-a" from our mock server
-	if !tf.WaitForPlain("cluster-a", 10*time.Second) {
+	// With 2s request timeout, connection should be faster
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected to see 'cluster-a' after port-forward established")
 	}
@@ -122,10 +123,15 @@ func TestPortForward_NoPodFound(t *testing.T) {
 	}
 
 	// Wait for error output - the app should exit with error
-	// Give it time to fail
-	time.Sleep(3 * time.Second)
-
-	snapshot := tf.SnapshotPlain()
+	var snapshot string
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot = tf.SnapshotPlain()
+		if strings.Contains(snapshot, "Troubleshooting") || strings.Contains(snapshot, "no ready pods") {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 
 	// Should have troubleshooting tips or error about no pods
 	if !strings.Contains(snapshot, "Troubleshooting") && !strings.Contains(snapshot, "no ready pods") {
@@ -177,13 +183,26 @@ func TestPortForward_Reconnection(t *testing.T) {
 		t.Fatal("expected to see 'cluster-a' initially")
 	}
 
-	// Wait for reconnection to happen (kubectl exits after 3s, then reconnect attempt)
-	// The reconnect delay is 2 seconds, plus time for re-establishing
-	time.Sleep(8 * time.Second)
+	// Wait for reconnection: kubectl exits after PFExitAfter=3s, then ~2s reconnect delay.
+	// Poll until we see a second port-forward call or the deadline passes.
+	var args []string
+	reconnectDeadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(reconnectDeadline) {
+		args = readMockKubectlArgs(t, argsFile)
+		count := 0
+		for _, arg := range args {
+			if strings.Contains(arg, "port-forward") {
+				count++
+			}
+		}
+		if count >= 2 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// After reconnection, the app should still be functional
 	// Check that port-forward was called multiple times (initial + reconnection)
-	args := readMockKubectlArgs(t, argsFile)
 
 	portForwardCount := 0
 	for _, arg := range args {

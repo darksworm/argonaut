@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
@@ -49,6 +50,30 @@ type Model struct {
 
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
+	// Closed when the current app watch forwarder stops.
+	watchDone chan struct{}
+	// Cleanup callback for active applications watcher
+	appWatchCleanup func()
+
+	// Watch cleanup function for stopping the current watch stream
+	watchCleanup func()
+
+	// Watch generation counter — incremented on each watch restart to prevent
+	// stale batch handlers from spawning duplicate consumers
+	watchGeneration int
+
+	// Current project scope the watch stream is filtered by (nil = unfiltered).
+	// Compared with SelectionState.ScopeProjects to detect when a restart is needed.
+	watchScopeProjects []string
+
+	// Debounce version counter for scope changes (prevents thrashing during rapid navigation)
+	scopeVersion int
+
+	// Monotonic sequence for start-watch attempts; guards against late/stale starts.
+	watchStartSequence int
+
+	// Resource version from last list call (for watch coordination)
+	lastResourceVersion string
 
 	// bubbles spinner for loading
 	spinner spinner.Model
@@ -99,6 +124,14 @@ type Model struct {
 
 	// Last rendered content (plain text, for selection extraction)
 	lastRenderedLines []string
+
+	// Pending default_view scope to validate after apps load
+	pendingDefaultViewScope *defaultViewScope
+
+	// Context switching state
+	argoConfigPath     string // Path to ArgoCD CLI config (for re-reads on switch)
+	currentContextName string // Active ArgoCD context name
+	switchEpoch        int    // Incremented on each context switch; captured by async closures
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -227,7 +260,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.ClearAllSelectionsMsg:
 		m.state.Selections = *model.NewSelectionState()
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
 
 	// UI messages
 	case model.SetSearchQueryMsg:
@@ -254,19 +288,37 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Mode messages
 	case model.SetModeMsg:
 		oldMode := m.state.Mode
-		m.state.Mode = msg.Mode
 		cblog.With("component", "model").Info("SetModeMsg received",
 			"old_mode", oldMode,
 			"new_mode", msg.Mode)
-		// [MODE] Switching from %s to %s - removed printf to avoid TUI interference
+
+		// If the user is browsing the contexts picker, suppress loading-pipeline
+		// mode transitions (ModeLoading, ModeConnectionError, ModeAuthRequired)
+		// so the picker stays visible. Still trigger API loads in the background.
+		if m.state.Navigation.View == model.ViewContexts {
+			switch msg.Mode {
+			case model.ModeLoading:
+				if oldMode == model.ModeLoading {
+					return m, nil
+				}
+				m.state.Mode = model.ModeLoading
+				cblog.With("component", "model").Info("Triggering initial load (suppressed ModeLoading overlay for ViewContexts)")
+				return m, m.startLoadingApplications()
+			case model.ModeConnectionError, model.ModeAuthRequired, model.ModeError:
+				cblog.With("component", "model").Info("Suppressed mode change for ViewContexts",
+					"suppressed_mode", msg.Mode)
+				return m, nil
+			}
+		}
 
 		// Handle mode transitions
 		if msg.Mode == model.ModeLoading && oldMode != model.ModeLoading {
+			m.state.Mode = msg.Mode
 			cblog.With("component", "model").Info("Triggering initial load for ModeLoading")
-			// Start loading applications from API when transitioning to loading mode
-			// [MODE] Triggering API load for loading mode - removed printf to avoid TUI interference
 			return m, m.startLoadingApplications()
 		}
+
+		m.state.Mode = msg.Mode
 
 		// If entering diff mode with content available, show in external pager
 		if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
@@ -280,44 +332,115 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Data messages
 	case model.SetAppsMsg:
 		m.state.Apps = msg.Apps
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 		return m, nil
 
 	case model.SetServerMsg:
+		m.cleanupAppWatcher()
 		m.state.Server = msg.Server
 		// Also fetch API version and start watching
 		return m, tea.Batch(m.startWatchingApplications(), m.fetchAPIVersion())
 
 	case watchStartedMsg:
-		// Set up the watch channel with proper forwarding
-		m.watchChan = make(chan services.ArgoApiEvent, 100)
-		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding")
+		// Ignore stale/late watch start completions and stop their streams.
+		if msg.startSequenceNum != m.watchStartSequence {
+			cblog.With("component", "watch").Debug("watchStartedMsg: ignoring stale start",
+				"msg_start_seq", msg.startSequenceNum,
+				"current_start_seq", m.watchStartSequence)
+			if msg.cleanup != nil {
+				msg.cleanup()
+			}
+			return m, nil
+		}
+
+		// New stream is confirmed; clean up the previous watch (forwarding goroutine + upstream).
+		m.cleanupAppWatcher()
+
+		// Activate generation/scope for the new stream.
+		m.watchGeneration = msg.generation
+		m.watchScopeProjects = append([]string(nil), msg.scopeProjects...)
+
+		// Store cleanup function for scoped watch restarts (Phase 4)
+		m.watchCleanup = msg.cleanup
+
+		// Set up the watch channel with proper forwarding.
+		outCh := make(chan services.ArgoApiEvent, 100)
+		done := make(chan struct{})
+		m.watchChan = outCh
+		m.watchDone = done
+		stopForwarding := make(chan struct{})
+		var stopOnce sync.Once
+		upstreamCleanup := msg.cleanup
+		m.appWatchCleanup = func() {
+			stopOnce.Do(func() {
+				close(stopForwarding)
+			})
+			if upstreamCleanup != nil {
+				upstreamCleanup()
+			}
+		}
+
+		cblog.With("component", "watch").Debug("watchStartedMsg: setting up watch channel forwarding",
+			"generation", m.watchGeneration)
 		go func() {
+			defer close(done)
 			cblog.With("component", "watch").Debug("watchStartedMsg: goroutine started")
 			eventCount := 0
-			for ev := range msg.eventChan {
-				eventCount++
-				cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
-					"event_number", eventCount,
-					"type", ev.Type)
-				m.watchChan <- ev
+			for {
+				select {
+				case <-stopForwarding:
+					cblog.With("component", "watch").Debug("watchStartedMsg: stop signal received")
+					return
+				case ev, ok := <-msg.eventChan:
+					if !ok {
+						cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed")
+						return
+					}
+					eventCount++
+					cblog.With("component", "watch").Debug("watchStartedMsg: forwarding event",
+						"event_number", eventCount,
+						"type", ev.Type)
+					select {
+					case outCh <- ev:
+					case <-stopForwarding:
+						cblog.With("component", "watch").Debug("watchStartedMsg: stop while forwarding event")
+						return
+					}
+				}
 			}
-			cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed, closing watchChan")
-			close(m.watchChan)
 		}()
-		// Start consuming events
-		return m, tea.Batch(
-			m.consumeWatchEvent(),
-		)
+		// Start consuming events (batched)
+		return m, m.consumeWatchEvents()
 
 	// API Event messages
 	case model.AppsLoadedMsg:
+		// Gate by switch epoch — discard messages from a previous context
+		if msg.SwitchEpoch != m.switchEpoch {
+			cblog.With("component", "model").Debug("AppsLoadedMsg: ignoring stale epoch",
+				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
+			return m, nil
+		}
 		cblog.With("component", "model").Info("AppsLoadedMsg received",
 			"apps_count", len(msg.Apps),
-			"watchChan_nil", m.watchChan == nil)
+			"watchChan_nil", m.watchChan == nil,
+			"resourceVersion", msg.ResourceVersion)
 		m.state.Apps = msg.Apps
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
+		// Store resource version for watch coordination
+		if msg.ResourceVersion != "" {
+			m.lastResourceVersion = msg.ResourceVersion
+		}
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
-		// m.ui.UpdateListItems(m.state)
+
+		// Validate pending default_view scope against loaded data
+		m.validateDefaultViewScope()
+
+		// Determine which mode to transition to
+		targetMode := model.ModeNormal
+		if m.state.Modals.DefaultViewWarning != nil {
+			targetMode = model.ModeDefaultViewWarning
+		}
 
 		// Only start watching if we haven't already started
 		// (watchChan is set when watch starts)
@@ -325,65 +448,73 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cblog.With("component", "model").Info("Starting watch as watchChan is nil")
 			// Start watching for app updates after initial load
 			return m, tea.Batch(
-				func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
+				func() tea.Msg { return model.SetModeMsg{Mode: targetMode} },
 				m.startWatchingApplications(),
 			)
 		}
-		// If watch is already running, just switch to normal mode and keep consuming
-		return m, tea.Batch(
-			func() tea.Msg { return model.SetModeMsg{Mode: model.ModeNormal} },
-			m.consumeWatchEvent(),
-		)
+		// Watch is already running — the batch handler maintains the chain.
+		// Do NOT call consumeWatchEvents() here to avoid duplicate consumers.
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: targetMode} }
 
-	case model.AppUpdatedMsg:
-		// upsert app
-		updated := msg.App
-		cblog.With("component", "watch").Debug("AppUpdatedMsg received",
-			"app", updated.Name,
-			"health", updated.Health,
-			"sync", updated.Sync)
-		found := false
-		for i, a := range m.state.Apps {
-			if a.Name == updated.Name {
-				m.state.Apps[i] = updated
-				found = true
-				break
+	case model.AppsBatchUpdateMsg:
+		// Gate by switch epoch — discard entire batch from a previous context
+		if msg.SwitchEpoch != m.switchEpoch {
+			cblog.With("component", "model").Debug("AppsBatchUpdateMsg: ignoring stale epoch",
+				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
+			return m, nil
+		}
+		deletesApplied := 0
+		// Preferred path: apply ordered operations to preserve stream semantics.
+		if len(msg.Operations) > 0 {
+			for _, op := range msg.Operations {
+				switch op.Type {
+				case model.AppBatchOperationUpdate:
+					if op.Update != nil {
+						m.applyBatchAppUpdate(*op.Update)
+					}
+				case model.AppBatchOperationDelete:
+					if op.Delete != "" && m.applyBatchAppDelete(op.Delete) {
+						deletesApplied++
+					}
+				}
+			}
+		} else {
+			// Backward-compatible fallback for older/non-ordered producers.
+			for _, upd := range msg.Updates {
+				m.applyBatchAppUpdate(upd)
+			}
+			for _, name := range msg.Deletes {
+				if m.applyBatchAppDelete(name) {
+					deletesApplied++
+				}
 			}
 		}
-		if !found {
-			m.state.Apps = append(m.state.Apps, updated)
-		}
-
-		// Update tree view sync statuses if we're viewing the tree and have resource data
-		if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(msg.ResourcesJSON) > 0 {
-			var resources []api.ResourceStatus
-			if json.Unmarshal(msg.ResourcesJSON, &resources) == nil {
-				m.treeView.SetResourceStatuses(updated.Name, resources)
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
+		// Adjust selection bounds after deletes
+		if deletesApplied > 0 {
+			visibleItems := m.getVisibleItemsForCurrentView()
+			if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
+				m.state.Navigation.SelectedIdx = len(visibleItems) - 1
 			}
 		}
-
-		cblog.With("component", "watch").Debug("Apps list updated",
+		cblog.With("component", "watch").Debug("AppsBatchUpdateMsg processed",
+			"updates", len(msg.Updates),
+			"deletes", len(msg.Deletes),
 			"total_apps", len(m.state.Apps),
-			"updated_app", updated.Name)
-		return m, m.consumeWatchEvent()
-
-	case model.AppDeletedMsg:
-		name := msg.AppName
-		// Remove app while preserving order
-		for i, a := range m.state.Apps {
-			if a.Name == name {
-				// Remove the app at index i by combining slices before and after
-				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-				break
-			}
+			"batch_gen", msg.Generation,
+			"current_gen", m.watchGeneration)
+		// Continue watching + re-dispatch immediate event if present.
+		// Only continue the watch chain if this batch is from the current generation;
+		// stale batches from a pre-restart watch must not spawn duplicate consumers.
+		var cmds []tea.Cmd
+		if msg.Generation == m.watchGeneration {
+			cmds = append(cmds, m.consumeWatchEvents())
 		}
-		// Keep selection at the same index position
-		// Only adjust if selection is now beyond the list bounds
-		visibleItems := m.getVisibleItemsForCurrentView()
-		if m.state.Navigation.SelectedIdx >= len(visibleItems) && len(visibleItems) > 0 {
-			m.state.Navigation.SelectedIdx = len(visibleItems) - 1
+		if msg.Immediate != nil {
+			imm := msg.Immediate
+			cmds = append(cmds, func() tea.Msg { return imm })
 		}
-		return m, m.consumeWatchEvent()
+		return m, tea.Batch(cmds...)
 
 	case model.StatusChangeMsg:
 		// Now safe to log since we're using file logging
@@ -394,9 +525,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Diff.Loading = false
 		}
 
-		return m, m.consumeWatchEvent()
+		return m, nil
 
 	case model.ResourceTreeLoadedMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Populate tree view with loaded data (single or multi-app)
 		if m.treeView != nil && len(msg.TreeJSON) > 0 {
 			var tree api.ResourceTree
@@ -418,14 +553,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
-		// Continue consuming watch events to receive app updates (for sync status)
-		return m, m.consumeWatchEvent()
+		return m, nil
 
 		// removed: resources list loader
 
 		// Old spinner TickMsg removed - now using bubbles spinner
 
 	case model.StructuredErrorMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle structured errors with proper error state management
 		if msg.Error != nil {
 			errorMsg := fmt.Sprintf("Error: %s", msg.Error.Message)
@@ -455,8 +593,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Turn off initial loading modal if it was active
 		m.state.Modals.InitialLoading = false
 
-		// If we were in the loading mode when the structured error arrived, switch to error view
-		if msg.Error != nil {
+		// If we were in the loading mode when the structured error arrived, switch to error view.
+		// Don't override the mode if user is browsing contexts — let them pick a working one.
+		if msg.Error != nil && m.state.Navigation.View != model.ViewContexts {
 			if msg.Error.Category == apperrors.ErrorAuth {
 				m.state.Mode = model.ModeAuthRequired
 			} else if m.state.Mode == model.ModeLoading {
@@ -465,13 +604,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// If we have a structured error with high severity, switch to error mode
-		if msg.Error != nil && msg.Error.Severity == apperrors.SeverityHigh {
+		if msg.Error != nil && msg.Error.Severity == apperrors.SeverityHigh && m.state.Navigation.View != model.ViewContexts {
 			m.state.Mode = model.ModeError
 		}
 
 		return m, nil
 
 	case model.ApiErrorMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		m.cleanupAppWatcher()
 		// If we're already in auth-required mode, suppress generic API errors to avoid
 		// overriding the auth-required view with a generic error panel.
 		if m.state.Mode == model.ModeAuthRequired {
@@ -588,6 +732,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.AuthErrorMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		m.cleanupAppWatcher()
 		// Log error and store in model for display
 		m.statusService.Error(msg.Error.Error())
 		m.err = msg.Error
@@ -637,10 +786,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.Navigation.SelectedIdx = 0
 			m.listNav.Reset()
 		}
-		// m.ui.UpdateListItems(m.state)
-		return m, nil
+		// Phase 4: Check if project scope changed → restart watch with project filter
+		return m, m.maybeRestartWatchForScope()
+
+	// Phase 4: Scoped streaming — debounced watch restart on project scope change
+	case watchScopeDebounceMsg:
+		if msg.version != m.scopeVersion {
+			// Stale debounce tick (scope changed again since this was scheduled)
+			return m, nil
+		}
+		return m, m.restartWatchWithScope()
 
 	case model.SyncCompletedMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle single app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %s", msg.AppName))
@@ -649,6 +810,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state.Modals.ConfirmSyncWatch {
 				// Close confirm modal/loading state before switching views
 				m.state.Modals.ConfirmTarget = nil
+				m.state.Modals.ConfirmTargetNamespace = nil
 				m.state.Modals.ConfirmSyncLoading = false
 				if m.state.Mode == model.ModeConfirmSync {
 					m.state.Mode = model.ModeNormal
@@ -660,21 +822,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
+				// Use namespace from message to avoid ambiguity when multiple apps share a name
+				ns := ""
+				if msg.AppNamespace != nil {
+					ns = *msg.AppNamespace
+				}
+				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
+					appObj = *found
+				}
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
-				// find app
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName {
-						appObj = a
-						found = true
-						break
-					}
-				}
-				if !found {
-					appObj = model.App{Name: msg.AppName}
-				}
+				m.state.UI.TreeAppNamespace = appObj.AppNamespace
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -694,17 +853,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.deleteApplication(msg)
 
 	case model.AppDeleteSuccessMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle successful application deletion
 		m.statusService.Set(fmt.Sprintf("Application %s deleted successfully", msg.AppName))
 
-		// Remove app from local state while preserving order
-		for i, app := range m.state.Apps {
-			if app.Name == msg.AppName {
-				// Remove the app at index i by combining slices before and after
+		// Remove app from local state using index for O(1) lookup
+		if idx := m.state.Index; idx != nil {
+			if i, ok := idx.NameToIndex[msg.AppName]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == msg.AppName {
 				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-				break
+			} else {
+				// Index stale — fall through to linear scan
+				for i, app := range m.state.Apps {
+					if app.Name == msg.AppName {
+						m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+						break
+					}
+				}
+			}
+		} else {
+			for i, app := range m.state.Apps {
+				if app.Name == msg.AppName {
+					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+					break
+				}
 			}
 		}
+		m.state.Index = model.BuildAppIndex(m.state.Apps)
 
 		// Clear modal state and return to normal mode
 		m.state.Mode = model.ModeNormal
@@ -779,6 +956,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ResourceSyncSuccessMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle successful resource sync
 		m.statusService.Set(fmt.Sprintf("Successfully synced %d resource(s)", msg.Count))
 
@@ -825,6 +1006,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.MultiSyncCompletedMsg:
+		// Gate by switch epoch
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		// Handle multiple app sync completion
 		if msg.Success {
 			m.statusService.Set(fmt.Sprintf("Sync initiated for %d app(s)", msg.AppCount))
@@ -849,6 +1034,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.Navigation.View = model.ViewTree
 					// Clear single-app tracker
 					m.state.UI.TreeAppName = nil
+					m.state.UI.TreeAppNamespace = nil
 					m.treeLoading = true
 					for _, n := range names {
 						var appObj *model.App
@@ -979,6 +1165,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Initialize rollback state with deployment history
 		m.state.Rollback = &model.RollbackState{
 			AppName:         msg.AppName,
+			AppNamespace:    msg.AppNamespace,
 			Rows:            msg.Rows,
 			CurrentRevision: msg.CurrentRevision,
 			SelectedIdx:     0,
@@ -993,7 +1180,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmds []tea.Cmd
 		preload := min(10, len(msg.Rows))
 		for i := 0; i < preload; i++ {
-			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
+			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision, msg.AppNamespace))
 		}
 
 		return m, tea.Batch(cmds...)
@@ -1035,20 +1222,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
+				// Use namespace from message to avoid ambiguity when multiple apps share a name
+				ns := ""
+				if msg.AppNamespace != nil {
+					ns = *msg.AppNamespace
+				}
+				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
+					appObj = *found
+				}
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName {
-						appObj = a
-						found = true
-						break
-					}
-				}
-				if !found {
-					appObj = model.App{Name: msg.AppName}
-				}
+				m.state.UI.TreeAppNamespace = appObj.AppNamespace
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -1066,7 +1251,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Load metadata for newly selected row if not loaded
 					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
 					if row.Author == nil && row.MetaError == nil {
-						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
+						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace)
 					}
 				}
 			case "down":
@@ -1076,7 +1261,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
 					var cmds []tea.Cmd
 					if row.Author == nil && row.MetaError == nil {
-						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision))
+						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace))
 					}
 					// Opportunistically preload the next two rows' metadata to reduce "loading" gaps
 					for j := 1; j <= 2; j++ {
@@ -1084,7 +1269,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if idx < len(m.state.Rollback.Rows) {
 							r := m.state.Rollback.Rows[idx]
 							if r.Author == nil && r.MetaError == nil {
-								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision))
+								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision, m.state.Rollback.AppNamespace))
 							}
 						}
 					}
@@ -1130,9 +1315,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.RollbackShowDiffMsg:
 		// Handle rollback diff request
 		if m.state.Rollback != nil {
-			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, msg.Revision)
+			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, m.state.Rollback.AppNamespace, msg.Revision)
 		}
 		return m, nil
+
+	case model.AuthValidationResultMsg:
+		// Gate by switch epoch — discard auth results from a previous context
+		if msg.SwitchEpoch != m.switchEpoch {
+			cblog.With("component", "model").Debug("AuthValidationResultMsg: ignoring stale epoch",
+				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
+			return m, nil
+		}
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
+
+	case model.ContextSwitchResultMsg:
+		return m.handleContextSwitchResult(msg)
 
 	case model.QuitMsg:
 		return m, tea.Quit
@@ -1213,4 +1410,53 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
+	found := false
+	if idx := m.state.Index; idx != nil {
+		if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == upd.App.Name {
+			m.state.Apps[i] = upd.App
+			found = true
+		}
+	}
+	if !found {
+		// Fallback to linear scan (index may be stale during in-batch mutations)
+		for i, a := range m.state.Apps {
+			if a.Name == upd.App.Name {
+				m.state.Apps[i] = upd.App
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		m.state.Apps = append(m.state.Apps, upd.App)
+	}
+	// Update tree view sync statuses
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
+		var resources []api.ResourceStatus
+		if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+			m.treeView.SetResourceStatuses(upd.App.Name, resources)
+		}
+	}
+}
+
+func (m *Model) applyBatchAppDelete(name string) bool {
+	if name == "" {
+		return false
+	}
+	if idx := m.state.Index; idx != nil {
+		if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {
+			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			return true
+		}
+	}
+	for i, a := range m.state.Apps {
+		if a.Name == name {
+			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

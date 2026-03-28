@@ -11,12 +11,14 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"unicode/utf8"
 	"time"
 	"unsafe"
 
 	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/creack/pty"
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -98,8 +100,6 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 			cblog.With("component", "k9s").Error("Failed to start k9s PTY", "err", err)
 			return k9sDoneMsg{Err: err}
 		}
-		defer ptmx.Close()
-
 		// Shared state for current terminal size
 		var sizeMu sync.Mutex
 		currentRows := rows
@@ -141,23 +141,50 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 		fmt.Print("\x1b[2J\x1b[H")
 		drawStatusBarBottom(rows, cols, params)
 
-		// Set up input forwarding from stdin to PTY with cancellation
-		// Note: On Unix terminals, blocking reads on stdin cannot be interrupted
-		// without closing the file descriptor. We close ptmx to unblock writes,
-		// but the goroutine may remain blocked on stdin read until the next keystroke.
+		// Set up input forwarding from stdin to the PTY using
+		// unix.Select with a cancellation pipe. This lets us unblock
+		// the goroutine deterministically after k9s exits without
+		// modifying fd flags (SetNonblock corrupts the shared file
+		// description) or relying on Go's poller (SetReadDeadline
+		// doesn't work on dup'd terminal fds on macOS).
+		cancelR, cancelW, err := os.Pipe()
+		if err != nil {
+			cblog.With("component", "k9s").Error("Failed to create cancel pipe", "err", err)
+			ptmx.Close()
+			return k9sDoneMsg{Err: fmt.Errorf("failed to create cancel pipe: %w", err)}
+		}
+
 		stdinDone := make(chan struct{})
 		go func() {
 			defer close(stdinDone)
+			defer cancelR.Close()
+			stdinFd := int(os.Stdin.Fd())
+			cancelFd := int(cancelR.Fd())
 			buf := make([]byte, 1024)
 			for {
-				n, err := os.Stdin.Read(buf)
+				rfds := &unix.FdSet{}
+				rfds.Set(stdinFd)
+				rfds.Set(cancelFd)
+				maxFd := stdinFd
+				if cancelFd > maxFd {
+					maxFd = cancelFd
+				}
+				_, err := unix.Select(maxFd+1, rfds, nil, nil, nil)
 				if err != nil {
+					if err == syscall.EINTR {
+						continue
+					}
 					return
 				}
-				if n > 0 {
-					_, err = ptmx.Write(buf[:n])
-					if err != nil {
-						// ptmx closed, exit goroutine
+				if rfds.IsSet(cancelFd) {
+					return
+				}
+				if rfds.IsSet(stdinFd) {
+					n, err := syscall.Read(stdinFd, buf)
+					if err != nil || n <= 0 {
+						return
+					}
+					if _, err := ptmx.Write(buf[:n]); err != nil {
 						return
 					}
 				}
@@ -172,17 +199,11 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 			cblog.With("component", "k9s").Debug("k9s exited", "err", err)
 		}
 
-		// Close ptmx to unblock the stdin forwarding goroutine's write
+		// Close the cancel pipe to unblock the goroutine's select(),
+		// then wait for it to exit deterministically.
 		ptmx.Close()
-
-		// Wait briefly for stdin goroutine to exit (it will exit on next write attempt)
-		// Don't block forever - stdin read may be blocked waiting for user input
-		select {
-		case <-stdinDone:
-		case <-time.After(100 * time.Millisecond):
-			// Goroutine is blocked on stdin read - this is expected behavior
-			// It will exit when the user presses a key or the program terminates
-		}
+		cancelW.Close()
+		<-stdinDone
 
 		return k9sDoneMsg{Err: nil}
 	}
@@ -275,23 +296,10 @@ func buildStatusBarSequence(rows, cols int, params K9sResourceParams) []byte {
 
 	// Build status bar content
 	left := " Argonaut » k9s"
-	if params.Kind != "" {
-		left += fmt.Sprintf(" (%s", params.Kind)
-		if params.Namespace != "" {
-			left += "/" + params.Namespace
-		}
-		if params.Name != "" {
-			left += ": " + params.Name
-		}
-		left += ")"
-	}
-	if params.Context != "" {
-		left += " [" + params.Context + "]"
-	}
 	right := ":q to return "
 
-	// Calculate padding
-	padding := cols - len(left) - len(right)
+	// Calculate padding using rune count (» is multi-byte UTF-8)
+	padding := cols - utf8.RuneCountInString(left) - utf8.RuneCountInString(right)
 	if padding < 1 {
 		padding = 1
 	}

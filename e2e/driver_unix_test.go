@@ -51,6 +51,13 @@ type TUITestFramework struct {
 	vt     vt10x.Terminal
 	vtRows int
 	vtCols int
+
+	// extraConfig is additional TOML config appended to the test config file
+	extraConfig string
+
+	// requestTimeout overrides the default "2s" request_timeout for E2E tests.
+	// Set before calling StartApp/StartAppArgs.
+	requestTimeout string
 }
 
 func NewTUITest(t *testing.T) *TUITestFramework {
@@ -128,6 +135,38 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 	if tf.workspace != "" {
 		tf.cmd.Dir = tf.workspace
 	}
+	// Create low timeout config for all E2E tests to make them faster
+	configDir := filepath.Join(tf.workspace, ".config", "argonaut")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	
+	// Create a mock clipboard file for all tests (even if they don't use it)
+	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
+	
+	// Create test config with both timeout and clipboard settings.
+	// Extra config is prepended so top-level keys appear before TOML sections.
+	testConfig := ""
+	if tf.extraConfig != "" {
+		testConfig += tf.extraConfig + "\n"
+	}
+	reqTimeout := tf.requestTimeout
+	if reqTimeout == "" {
+		reqTimeout = "2s"
+	}
+	testConfig += `[http_timeouts]
+# Use lower timeout for E2E tests to speed them up
+request_timeout = "` + reqTimeout + `"
+
+[clipboard]
+# Mock clipboard for tests - writes to file instead of system clipboard
+copy_command = "tee ` + clipboardFile + `"`
+
+	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
+		return err
+	}
+
 	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"LC_ALL=C",
@@ -135,7 +174,7 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 		"HOME="+tf.workspace,
 		"ARGONAUT_E2E=1",
 		// Force isolated Argonaut config - clear any inherited config paths
-		"ARGONAUT_CONFIG="+filepath.Join(tf.workspace, ".config", "argonaut", "config.toml"),
+		"ARGONAUT_CONFIG="+configPath,
 		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
 	)
 	env = append(env, extraEnv...)
@@ -174,6 +213,38 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 	if tf.workspace != "" {
 		tf.cmd.Dir = tf.workspace
 	}
+	// Create low timeout config for all E2E tests to make them faster
+	configDir := filepath.Join(tf.workspace, ".config", "argonaut")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	
+	// Create a mock clipboard file for all tests (even if they don't use it)
+	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
+	
+	// Create test config with both timeout and clipboard settings.
+	// Extra config is prepended so top-level keys appear before TOML sections.
+	testConfig := ""
+	if tf.extraConfig != "" {
+		testConfig += tf.extraConfig + "\n"
+	}
+	reqTimeout := tf.requestTimeout
+	if reqTimeout == "" {
+		reqTimeout = "2s"
+	}
+	testConfig += `[http_timeouts]
+# Use lower timeout for E2E tests to speed them up
+request_timeout = "` + reqTimeout + `"
+
+[clipboard]
+# Mock clipboard for tests - writes to file instead of system clipboard
+copy_command = "tee ` + clipboardFile + `"`
+
+	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
+		return err
+	}
+
 	env := append(os.Environ(),
 		"TERM=xterm-256color",
 		"LC_ALL=C",
@@ -181,7 +252,7 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 		"HOME="+tf.workspace,
 		"ARGONAUT_E2E=1",
 		// Force isolated Argonaut config - clear any inherited config paths
-		"ARGONAUT_CONFIG="+filepath.Join(tf.workspace, ".config", "argonaut", "config.toml"),
+		"ARGONAUT_CONFIG="+configPath,
 		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
 	)
 	env = append(env, extraEnv...)
@@ -429,7 +500,7 @@ func MockArgoServer() (*httptest.Server, error) {
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
 		// return one simple app with cluster and project metadata
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -441,15 +512,12 @@ func MockArgoServer() (*httptest.Server, error) {
 	// apps watch stream: send a single apps-loaded style event not required; ListApplications already populates
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		lines := []string{
-			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
+		w.Header().Set("Content-Type", "text/event-stream")
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
 		}
-		for _, ln := range lines {
-			_, _ = w.Write([]byte(ln + "\n"))
-			if fl != nil {
-				fl.Flush()
-			}
+		if fl != nil {
+			fl.Flush()
 		}
 	})
 	// Handle delete operations
@@ -473,7 +541,7 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
 		// Initial app with OutOfSync status
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -485,15 +553,11 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 	// Streaming endpoint that sends multiple updates
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/event-stream")
 
 		// Send initial state in SSE format
-		lines := []string{
-			`data: {"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`,
-		}
-
-		for _, ln := range lines {
-			_, _ = w.Write([]byte(ln + "\n"))
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`)))
 			if fl != nil {
 				fl.Flush()
 			}
@@ -503,12 +567,8 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 		time.Sleep(1500 * time.Millisecond)
 
 		// Send sync status update in SSE format
-		updateLines := []string{
-			`data: {"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
-		}
-
-		for _, ln := range updateLines {
-			_, _ = w.Write([]byte(ln + "\n"))
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
 			if fl != nil {
 				fl.Flush()
 			}
@@ -545,7 +605,7 @@ func MockArgoServerAuth(validToken string) (*httptest.Server, error) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
@@ -555,8 +615,8 @@ func MockArgoServerAuth(validToken string) (*httptest.Server, error) {
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo"}}}}\n`))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo"}}}}`)))
 		if fl != nil {
 			fl.Flush()
 		}
@@ -599,16 +659,7 @@ func WriteArgoConfigWithToken(path, baseURL, token string) error {
 	return os.WriteFile(path, y.Bytes(), 0o644)
 }
 
-// WriteArgonautConfigWithClipboard writes an Argonaut config with custom clipboard command.
-// The clipboardFile is where the clipboard content will be written (for testing).
-func WriteArgonautConfigWithClipboard(workspace, clipboardFile string) error {
-	argonautCfgDir := filepath.Join(workspace, ".config", "argonaut")
-	configPath := filepath.Join(argonautCfgDir, "config.toml")
-	var cfg bytes.Buffer
-	cfg.WriteString("[clipboard]\n")
-	cfg.WriteString("copy_command = \"tee " + clipboardFile + "\"\n")
-	return os.WriteFile(configPath, cfg.Bytes(), 0o644)
-}
+// Removed WriteArgonautConfigWithClipboard - clipboard config is now set automatically by StartAppArgs
 
 // MockArgoServerForbidden returns 403 Forbidden for applications (simulating RBAC/forbidden)
 func MockArgoServerForbidden() (*httptest.Server, error) {
@@ -654,7 +705,7 @@ func MockArgoServerStreamUnauthorized() (*httptest.Server, error) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		// Simulate expired token on stream
@@ -721,10 +772,10 @@ func MockArgoServerSync(validToken string) (*httptest.Server, *SyncRecorder, err
 		}
 		w.Header().Set("Content-Type", "application/json")
 		// Two apps for multi-select scenario
-		_, _ = w.Write([]byte(`{"items":[
+		_, _ = w.Write([]byte(wrapListResponse(`[
             {"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}},
             {"metadata":{"name":"demo2","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}
-        ]}`))
+        ]`, "1000")))
 	})
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
 		if !requireAuth(w, r) {
@@ -795,7 +846,7 @@ func MockArgoServerHTTPS(certFile, keyFile string) (*httptest.Server, error) {
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
 		// return one simple app with cluster and project metadata
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -807,15 +858,10 @@ func MockArgoServerHTTPS(certFile, keyFile string) (*httptest.Server, error) {
 	// apps watch stream
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		lines := []string{
-			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
-		}
-		for _, ln := range lines {
-			_, _ = w.Write([]byte(ln + "\n"))
-			if fl != nil {
-				fl.Flush()
-			}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
+		if fl != nil {
+			fl.Flush()
 		}
 	})
 
@@ -861,7 +907,7 @@ func MockArgoServerHTTPSWithClientAuth(certFile, keyFile, caFile string) (*httpt
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
 		// return one simple app with cluster and project metadata
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -873,15 +919,10 @@ func MockArgoServerHTTPSWithClientAuth(certFile, keyFile, caFile string) (*httpt
 	// apps watch stream
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		lines := []string{
-			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
-		}
-		for _, ln := range lines {
-			_, _ = w.Write([]byte(ln + "\n"))
-			if fl != nil {
-				fl.Flush()
-			}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
+		if fl != nil {
+			fl.Flush()
 		}
 	})
 
@@ -1120,7 +1161,7 @@ func MockArgoServerWithResources() (*httptest.Server, error) {
 	})
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"items":[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
@@ -1136,15 +1177,48 @@ func MockArgoServerWithResources() (*httptest.Server, error) {
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		lines := []string{
-			`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`,
+		w.Header().Set("Content-Type", "text/event-stream")
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
 		}
-		for _, ln := range lines {
-			_, _ = w.Write([]byte(ln + "\n"))
-			if fl != nil {
-				fl.Flush()
-			}
+		if fl != nil {
+			fl.Flush()
+		}
+	})
+	srv := httptest.NewServer(mux)
+	return srv, nil
+}
+
+// MockArgoServerWithInCluster is like MockArgoServerWithResources but uses
+// "in-cluster" as the destination name, simulating ArgoCD managing apps on
+// the same cluster it runs on.
+func MockArgoServerWithInCluster() (*httptest.Server, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"in-cluster","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
+	})
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"e2e"}`))
+	})
+	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"nodes":[
+			{"kind":"Deployment","name":"demo-deploy","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"Synced"},
+			{"kind":"Service","name":"demo-svc","namespace":"default","version":"v1","group":"","uid":"svc-1","status":"Synced"}
+		]}`))
+	})
+	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
+		fl, _ := w.(http.Flusher)
+		w.Header().Set("Content-Type", "text/event-stream")
+		if shouldSendEvent(r, "demo") {
+			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"in-cluster","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
+		}
+		if fl != nil {
+			fl.Flush()
 		}
 	})
 	srv := httptest.NewServer(mux)
@@ -1281,4 +1355,31 @@ func extractPortFromURL(url string) int {
 	portStr := parts[len(parts)-1]
 	port, _ := strconv.Atoi(portStr)
 	return port
+}
+
+// wrapListResponse wraps items JSON with metadata containing resourceVersion.
+// Real ArgoCD returns {"metadata":{"resourceVersion":"..."},"items":[...]}.
+func wrapListResponse(items string, rv string) string {
+	return fmt.Sprintf(`{"metadata":{"resourceVersion":"%s"},"items":%s}`, rv, items)
+}
+
+// sseEvent formats a JSON payload as a proper SSE data line (matching real ArgoCD format).
+// Real ArgoCD sends "data: {json}\n\n" for each event.
+func sseEvent(jsonPayload string) string {
+	return "data: " + jsonPayload + "\n\n"
+}
+
+// shouldSendEvent checks if an event's project matches the ?projects= filter.
+// Returns true if no filter is set or if the project matches one of the filter values.
+func shouldSendEvent(r *http.Request, appProject string) bool {
+	projects := r.URL.Query()["projects"]
+	if len(projects) == 0 {
+		return true
+	}
+	for _, p := range projects {
+		if p == appProject {
+			return true
+		}
+	}
+	return false
 }

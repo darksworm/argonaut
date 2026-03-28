@@ -29,7 +29,7 @@ func MockArgoServerManyApps(numApps int) (*httptest.Server, error) {
 				name,
 			))
 		}
-		_, _ = w.Write([]byte(`{"items":[` + strings.Join(items, ",") + `]}`))
+		_, _ = w.Write([]byte(wrapListResponse(`[`+strings.Join(items, ",")+`]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"e2e"}`))
@@ -44,9 +44,8 @@ func MockArgoServerManyApps(numApps int) (*httptest.Server, error) {
 	})
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
-		w.Header().Set("Content-Type", "application/json")
-		// Send initial data for the first app
-		_, _ = w.Write([]byte(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-01","namespace":"argocd"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}` + "\n"))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"app-01","namespace":"argocd"},"spec":{"project":"default","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
 		if fl != nil {
 			fl.Flush()
 		}

@@ -270,6 +270,10 @@ func (m *Model) validateCommand(input string) bool {
 				return false
 			}
 			return true
+		case "context":
+			// Context names are validated at execution time (re-reads config from disk)
+			// so any non-empty arg is syntactically valid here
+			return true
 		}
 	}
 
@@ -411,10 +415,10 @@ func (m *Model) handleEnhancedSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			m.state.UI.SearchQuery = ""
 		}
 		return m, nil
-	case "up", "k":
+	case "up":
 		// Navigate results while search is active
 		return m.handleNavigationUp()
-	case "down", "j":
+	case "down":
 		// Navigate results while search is active
 		return m.handleNavigationDown()
 	case "esc":
@@ -756,6 +760,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 		case "rollback":
 			target := arg
+			var targetNamespace *string
 			if target == "" {
 				// Only try to get current selection if we're in the apps view
 				if m.state.Navigation.View == model.ViewApps {
@@ -763,6 +768,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
 							target = app.Name
+							targetNamespace = app.AppNamespace
 						}
 					}
 				} else {
@@ -782,13 +788,14 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 
 			// Initialize rollback state with loading
 			m.state.Rollback = &model.RollbackState{
-				AppName: target,
-				Loading: true,
-				Mode:    "list",
+				AppName:      target,
+				AppNamespace: targetNamespace,
+				Loading:      true,
+				Mode:         "list",
 			}
 
 			// Start loading rollback history using the same function as R key
-			return m, m.startRollbackSession(target)
+			return m, m.startRollbackSession(target, targetNamespace)
 		case "resources", "res", "r":
 			target := arg
 
@@ -813,6 +820,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
 					m.state.UI.TreeAppName = nil
+					m.state.UI.TreeAppNamespace = nil
 					m.treeLoading = true
 					var cmds []tea.Cmd
 					for _, n := range names {
@@ -831,8 +839,6 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 						cmds = append(cmds, m.startWatchingResourceTree(*appObj))
 					}
 					cmds = append(cmds, m.consumeTreeEvent())
-					// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-					cmds = append(cmds, m.consumeWatchEvent())
 					return m, tea.Batch(cmds...)
 				} else if len(names) == 1 {
 					// Single app selected via checkbox
@@ -877,9 +883,9 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.cleanupTreeWatchers()
 			m.state.Navigation.View = model.ViewTree
 			m.state.UI.TreeAppName = &target
+			m.state.UI.TreeAppNamespace = selectedApp.AppNamespace
 			m.treeLoading = true
-			// Include consumeWatchEvent to continue receiving app updates (for resource sync status)
-			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent(), m.consumeWatchEvent())
+			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
 		case "all":
 			m.state.Selections = *model.NewSelectionState()
 			m.state.UI.SearchQuery = ""
@@ -890,6 +896,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		case "diff":
 			// :diff [app]
 			target := arg
+			var targetNamespace *string
 			if target == "" {
 				// In tree/resources view, use handleResourceDiff for the selected resource
 				if m.state.Navigation.View == model.ViewTree {
@@ -901,12 +908,18 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
 							target = app.Name
+							targetNamespace = app.AppNamespace
 						}
 					}
 				} else {
 					return m, func() tea.Msg {
 						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for diff"}
 					}
+				}
+			} else {
+				// User typed an app name — look up namespace best-effort
+				if found := m.findAppByNameAndNamespace(target, ""); found != nil {
+					targetNamespace = found.AppNamespace
 				}
 			}
 			if target == "" {
@@ -917,10 +930,11 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				m.state.Diff = &model.DiffState{}
 			}
 			m.state.Diff.Loading = true
-			return m, m.startDiffSession(target)
+			return m, m.startDiffSession(target, targetNamespace)
 		case "cluster", "clusters", "cls":
 			// Exit deep views and clear lower-level scopes
 			m.state.UI.TreeAppName = nil
+			m.state.UI.TreeAppNamespace = nil
 			m.treeLoading = false
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
@@ -955,6 +969,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, nil
 		case "namespace", "namespaces", "ns":
 			m.state.UI.TreeAppName = nil
+			m.state.UI.TreeAppNamespace = nil
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewNamespaces)
@@ -986,6 +1001,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, nil
 		case "project", "projects", "proj":
 			m.state.UI.TreeAppName = nil
+			m.state.UI.TreeAppNamespace = nil
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewProjects)
@@ -1035,6 +1051,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, nil
 		case "appset", "appsets", "applicationset", "applicationsets", "as":
 			m.state.UI.TreeAppName = nil
+			m.state.UI.TreeAppNamespace = nil
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0
 			m.state.Selections.SelectedApps = model.NewStringSet()
@@ -1083,6 +1100,15 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Fetch and display changelog
 			m.state.Modals.ChangelogLoading = true
 			return m, m.fetchChangelog()
+		case "context", "contexts", "argocd", "ctx":
+			m.state.UI.TreeAppName = nil
+			m.treeLoading = false
+			m.state.Navigation.SelectedIdx = 0
+			if arg != "" {
+				return m, m.performContextSwitch(arg)
+			}
+			m = m.safeChangeView(model.ViewContexts)
+			return m, nil
 		default:
 			// Unknown: set status for feedback
 			return m, func() tea.Msg { return model.StatusChangeMsg{Status: "Unknown command: " + raw} }

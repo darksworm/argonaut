@@ -99,9 +99,9 @@ func TestK9s_NotFound_ShowsErrorModal(t *testing.T) {
 	}
 }
 
-// TestK9s_NoResourceSelected_ShowsStatus verifies that pressing K on Application
-// node (not a real Kubernetes resource) shows a status message.
-func TestK9s_NoResourceSelected_ShowsStatus(t *testing.T) {
+// TestK9s_OpenApplicationCR verifies that pressing K on the Application root node
+// in tree view opens k9s for the ArgoCD Application CR with context picker.
+func TestK9s_OpenApplicationCR(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -120,9 +120,11 @@ func TestK9s_NoResourceSelected_ShowsStatus(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	// Create mock k9s (we shouldn't need it, but set it up anyway)
 	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
-	kubeconfigPath := setupSingleContextKubeconfig(t, tf.workspace, "cluster-a")
+	kubeconfigPath := setupMultipleContextsKubeconfigNoCurrent(t, tf.workspace, []string{
+		"mgmt-cluster",
+		"workload-cluster",
+	})
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"ARGONAUT_K9S_COMMAND="+mockK9s,
@@ -149,27 +151,142 @@ func TestK9s_NoResourceSelected_ShowsStatus(t *testing.T) {
 	}
 
 	// Stay on Application root node (don't navigate down)
-	// The cursor should be at position 1/5 (Application node)
-	// Verify we're on Application node
 	snapshot := tf.SnapshotPlain()
 	if !strings.Contains(snapshot, "Ready • 1/5") {
 		t.Log(snapshot)
 		t.Fatal("expected cursor at position 1 (Application node)")
 	}
 
-	// Press K on Application node
+	// Press K on Application node - should show context picker (always for Application CRs)
 	_ = tf.Send("K")
+
+	if !tf.WaitForPlain("Select Kubernetes Context", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context picker should appear for Application CR")
+	}
+
+	// Select first context
+	_ = tf.Enter()
+
+	// Wait for mock k9s to be launched
+	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("mock k9s was not launched")
+	}
+
 	time.Sleep(500 * time.Millisecond)
 
-	// Should show status message about selecting a Kubernetes resource (it's transient)
-	// Or k9s should NOT have been launched (verify via args file)
-	snapshot = tf.SnapshotPlain()
-	// The status message may have already faded, but k9s should not have been called
-
-	// Verify k9s was NOT invoked
+	// Verify k9s was called with Application CR arguments
 	args := readMockK9sArgs(t, argsFile)
-	if args != "" {
-		t.Fatalf("k9s should not have been invoked, but got args: %s", args)
+	if args == "" {
+		t.Fatal("k9s was not invoked")
+	}
+
+	// Should use the full CRD name for Application
+	if !strings.Contains(args, "-c applications.argoproj.io /demo") {
+		t.Errorf("expected args to contain '-c applications.argoproj.io /demo', got: %s", args)
+	}
+
+	// Should use the ArgoCD namespace (from metadata.namespace)
+	if !strings.Contains(args, "-n argocd") {
+		t.Errorf("expected args to contain '-n argocd', got: %s", args)
+	}
+
+	// Should have context from the picker
+	if !strings.Contains(args, "--context mgmt-cluster") {
+		t.Errorf("expected args to contain '--context mgmt-cluster', got: %s", args)
+	}
+}
+
+// TestK9s_OpenApplicationFromAppsList verifies that pressing K in the app list view
+// opens k9s for the ArgoCD Application CR with context picker.
+func TestK9s_OpenApplicationFromAppsList(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithResources()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
+	kubeconfigPath := setupMultipleContextsKubeconfigNoCurrent(t, tf.workspace, []string{
+		"mgmt-cluster",
+		"workload-cluster",
+	})
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
+		"ARGONAUT_K9S_COMMAND="+mockK9s,
+		"KUBECONFIG="+kubeconfigPath,
+	); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	// Navigate to apps view via command
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("demo", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("apps not visible")
+	}
+
+	// Press K on the app in the list view - should show context picker
+	_ = tf.Send("K")
+
+	if !tf.WaitForPlain("Select Kubernetes Context", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context picker should appear for Application CR from app list")
+	}
+
+	// Select first context
+	_ = tf.Enter()
+
+	// Wait for mock k9s to be launched
+	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("mock k9s was not launched")
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify k9s was called with Application CR arguments
+	args := readMockK9sArgs(t, argsFile)
+	if args == "" {
+		t.Fatal("k9s was not invoked")
+	}
+
+	// Should use the full CRD name for Application
+	if !strings.Contains(args, "-c applications.argoproj.io /demo") {
+		t.Errorf("expected args to contain '-c applications.argoproj.io /demo', got: %s", args)
+	}
+
+	// Should use the ArgoCD namespace
+	if !strings.Contains(args, "-n argocd") {
+		t.Errorf("expected args to contain '-n argocd', got: %s", args)
+	}
+
+	// Should have context from the picker
+	if !strings.Contains(args, "--context mgmt-cluster") {
+		t.Errorf("expected args to contain '--context mgmt-cluster', got: %s", args)
 	}
 }
 
@@ -707,6 +824,95 @@ func TestK9s_ContextPicker_NavigateWithJK(t *testing.T) {
 	}
 }
 
+// TestK9s_InCluster_ShowsContextPicker verifies that when an app uses "in-cluster"
+// as destination, the context picker is always shown instead of auto-detecting.
+// Also verifies the current kubeconfig context is pre-selected.
+func TestK9s_InCluster_ShowsContextPicker(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithInCluster()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	mockK9s, argsFile := createMockK9s(t, tf.workspace, 0)
+	// Set up kubeconfig with current-context=staging-cluster
+	// The old code would blindly use staging-cluster; the fix shows a picker instead
+	kubeconfigPath := setupMultipleContextsKubeconfigWithCurrent(t, tf.workspace,
+		[]string{"dev-cluster", "staging-cluster", "prod-cluster"}, "staging-cluster")
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
+		"ARGONAUT_K9S_COMMAND="+mockK9s,
+		"KUBECONFIG="+kubeconfigPath,
+	); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("in-cluster", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("clusters not visible")
+	}
+
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatalf("open command: %v", err)
+	}
+	_ = tf.Send("resources demo")
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Deployment", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("tree view not loaded")
+	}
+
+	// Navigate to Deployment
+	_ = tf.Send("j")
+	time.Sleep(200 * time.Millisecond)
+
+	// Press K - should show context picker (not auto-detect)
+	_ = tf.Send("K")
+
+	if !tf.WaitForPlain("Select Kubernetes Context", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("context picker should appear for in-cluster apps")
+	}
+
+	// All contexts should be visible
+	snapshot := tf.SnapshotPlain()
+	for _, ctx := range []string{"dev-cluster", "staging-cluster", "prod-cluster"} {
+		if !strings.Contains(snapshot, ctx) {
+			t.Errorf("context %q not visible in picker", ctx)
+		}
+	}
+
+	// Current context (staging-cluster) should be pre-selected.
+	// Just press Enter to confirm the pre-selected context.
+	_ = tf.Enter()
+
+	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("mock k9s was not launched")
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify k9s was called with staging-cluster (the pre-selected current context)
+	args := readMockK9sArgs(t, argsFile)
+	if !strings.Contains(args, "--context staging-cluster") {
+		t.Errorf("expected pre-selected context 'staging-cluster', got args: %s", args)
+	}
+}
+
 // ---- Keyboard Input Tests ----
 
 // TestK9s_KeyboardInputForwarded verifies that keyboard input from the user
@@ -772,11 +978,18 @@ func TestK9s_KeyboardInputForwarded(t *testing.T) {
 	// Send keystrokes that should be forwarded to k9s
 	_ = tf.Send("hello")
 
-	// Wait for mock k9s to exit (2s timeout + buffer)
-	time.Sleep(3 * time.Second)
+	// Wait for mock k9s to write the input file (read -n 5 returns as soon as all 5 chars arrive)
+	var input string
+	inputDeadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(inputDeadline) {
+		input = readMockK9sInput(t, inputFile)
+		if input != "" {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	// Verify the keystrokes were received by k9s
-	input := readMockK9sInput(t, inputFile)
 	if input != "hello" {
 		t.Errorf("expected k9s to receive 'hello', got: %q", input)
 	}

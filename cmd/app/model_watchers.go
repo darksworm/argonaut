@@ -2,6 +2,15 @@ package main
 
 import "github.com/darksworm/argonaut/pkg/model"
 
+// cleanupAppWatcher stops the active applications watcher if present.
+func (m *Model) cleanupAppWatcher() *Model {
+	if m.appWatchCleanup != nil {
+		m.appWatchCleanup()
+		m.appWatchCleanup = nil
+	}
+	return m
+}
+
 // cleanupTreeWatchers stops all active tree watchers and clears the list.
 func (m *Model) cleanupTreeWatchers() *Model {
 	if len(m.treeWatchCleanups) > 0 {
