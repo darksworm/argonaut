@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 func (m *Model) renderBanner() string {
@@ -85,8 +86,7 @@ func (m *Model) renderCompactBanner() string {
 		host = hostFromURL(m.state.Server.BaseURL)
 	}
 	cls := scopeToText(m.state.Selections.ScopeClusters)
-	ns := scopeToText(m.state.Selections.ScopeNamespaces)
-	pr := scopeToText(m.state.Selections.ScopeProjects)
+	ns, pr := m.effectiveNamespaceProjectScope()
 
 	parts := []string{host, cls, ns, pr}
 	// Build breadcrumb tokens with dim separators
@@ -179,8 +179,7 @@ func (m *Model) renderContextBlock(isNarrow bool) string {
 
 	serverHost := hostFromURL(m.state.Server.BaseURL)
 	clusterScope := scopeToText(m.state.Selections.ScopeClusters)
-	namespaceScope := scopeToText(m.state.Selections.ScopeNamespaces)
-	projectScope := scopeToText(m.state.Selections.ScopeProjects)
+	namespaceScope, projectScope := m.effectiveNamespaceProjectScope()
 
 	var lines []string
 	if m.currentContextName != "" {
@@ -232,6 +231,39 @@ func scopeToText(set map[string]bool) string {
 	}
 	sortStrings(vals)
 	return strings.Join(vals, ",")
+}
+
+func (m *Model) effectiveNamespaceProjectScope() (string, string) {
+	namespaceScope := scopeToText(m.state.Selections.ScopeNamespaces)
+	projectScope := scopeToText(m.state.Selections.ScopeProjects)
+
+	if m.state.Navigation.View != model.ViewTree || m.state.UI.TreeAppName == nil {
+		return namespaceScope, projectScope
+	}
+
+	if namespaceScope != "—" && projectScope != "—" {
+		return namespaceScope, projectScope
+	}
+
+	appName := strings.TrimSpace(*m.state.UI.TreeAppName)
+	if appName == "" {
+		return namespaceScope, projectScope
+	}
+
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name != appName {
+			continue
+		}
+		if namespaceScope == "—" && m.state.Apps[i].Namespace != nil && strings.TrimSpace(*m.state.Apps[i].Namespace) != "" {
+			namespaceScope = *m.state.Apps[i].Namespace
+		}
+		if projectScope == "—" && m.state.Apps[i].Project != nil && strings.TrimSpace(*m.state.Apps[i].Project) != "" {
+			projectScope = *m.state.Apps[i].Project
+		}
+		break
+	}
+
+	return namespaceScope, projectScope
 }
 
 func hostFromURL(s string) string {
