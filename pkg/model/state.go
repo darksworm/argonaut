@@ -188,8 +188,8 @@ type AppState struct {
 	// Note: AbortController equivalent will use context.Context in Go services
 	Diff     *DiffState     `json:"diff,omitempty"`
 	Rollback *RollbackState `json:"rollback,omitempty"`
-	// Store previous navigation state for restoration
-	SavedNavigation *NavigationState `json:"savedNavigation,omitempty"`
+	// Store previous navigation state as a stack for app-of-apps drill-down
+	SavedNavigation []NavigationState `json:"savedNavigation,omitempty"`
 	SavedSelections *SelectionState  `json:"savedSelections,omitempty"`
 	// Store current error information for error screen display
 	CurrentError *ApiError   `json:"currentError,omitempty"` // DEPRECATED: Use ErrorState
@@ -225,9 +225,10 @@ type DiffState struct {
 	Loading     bool     `json:"loading"`
 }
 
-// SaveNavigationState saves current navigation and selection state
+// SaveNavigationState pushes the current navigation state onto the saved stack.
+// Used before navigating into a child view so Escape can pop back.
 func (s *AppState) SaveNavigationState() {
-	s.SavedNavigation = &NavigationState{
+	s.SavedNavigation = append(s.SavedNavigation, NavigationState{
 		View:             s.Navigation.View,
 		SelectedIdx:      s.Navigation.SelectedIdx,
 		LastGPressed:     s.Navigation.LastGPressed,
@@ -235,7 +236,7 @@ func (s *AppState) SaveNavigationState() {
 		LastZPressed:     s.Navigation.LastZPressed,
 		TreeAppName:      s.UI.TreeAppName,
 		TreeAppNamespace: s.UI.TreeAppNamespace,
-	}
+	})
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),
 		ScopeNamespaces:      copyStringSet(s.Selections.ScopeNamespaces),
@@ -245,16 +246,16 @@ func (s *AppState) SaveNavigationState() {
 	}
 }
 
-// RestoreNavigationState restores previously saved navigation state
+// RestoreNavigationState pops the top navigation state from the stack and restores it.
 func (s *AppState) RestoreNavigationState() {
-	if s.SavedNavigation != nil {
-		s.Navigation.View = s.SavedNavigation.View
-		s.Navigation.SelectedIdx = s.SavedNavigation.SelectedIdx
-		s.Navigation.LastGPressed = s.SavedNavigation.LastGPressed
-		s.Navigation.LastEscPressed = s.SavedNavigation.LastEscPressed
-		s.Navigation.LastZPressed = s.SavedNavigation.LastZPressed
-		// Clear the saved state after restoration
-		s.SavedNavigation = nil
+	if len(s.SavedNavigation) > 0 {
+		top := s.SavedNavigation[len(s.SavedNavigation)-1]
+		s.Navigation.View = top.View
+		s.Navigation.SelectedIdx = top.SelectedIdx
+		s.Navigation.LastGPressed = top.LastGPressed
+		s.Navigation.LastEscPressed = top.LastEscPressed
+		s.Navigation.LastZPressed = top.LastZPressed
+		s.SavedNavigation = s.SavedNavigation[:len(s.SavedNavigation)-1]
 	}
 }
 
@@ -314,7 +315,7 @@ func NewAppState() *AppState {
 		Server:          nil,
 		Apps:            []App{},
 		APIVersion:      "",
-		SavedNavigation: nil,
+		SavedNavigation: nil, // nil slice is valid zero value
 		SavedSelections: nil,
 	}
 }

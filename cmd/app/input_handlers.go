@@ -389,28 +389,29 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
 			}
-			// If we drilled into this tree from a parent tree (app-of-apps), go back to that parent.
-			if m.state.SavedNavigation != nil &&
-				m.state.SavedNavigation.View == model.ViewTree &&
-				m.state.SavedNavigation.TreeAppName != nil {
-				parentAppName := *m.state.SavedNavigation.TreeAppName
-				parentAppNamespace := ""
-				if m.state.SavedNavigation.TreeAppNamespace != nil {
-					parentAppNamespace = *m.state.SavedNavigation.TreeAppNamespace
-				}
-				m.state.SavedNavigation = nil
-				parentApp := m.findAppByNameAndNamespace(parentAppName, parentAppNamespace)
-				if parentApp != nil {
-					m = m.cleanupTreeWatchers()
-					m.treeView = treeview.NewTreeView(0, 0)
-					m.treeView.ApplyTheme(currentPalette)
-					m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
-					m.treeNav.Reset()
-					m.state.Navigation.View = model.ViewTree
-					m.state.UI.TreeAppName = &parentApp.Name
-					m.state.UI.TreeAppNamespace = parentApp.AppNamespace
-					m.treeLoading = true
-					return m, tea.Batch(m.startLoadingResourceTree(*parentApp), m.startWatchingResourceTree(*parentApp), m.consumeTreeEvent())
+			// If we drilled into this tree from a parent tree (app-of-apps), pop the stack and go back.
+			if n := len(m.state.SavedNavigation); n > 0 {
+				top := m.state.SavedNavigation[n-1]
+				if top.View == model.ViewTree && top.TreeAppName != nil {
+					m.state.SavedNavigation = m.state.SavedNavigation[:n-1]
+					parentAppName := *top.TreeAppName
+					parentAppNamespace := ""
+					if top.TreeAppNamespace != nil {
+						parentAppNamespace = *top.TreeAppNamespace
+					}
+					parentApp := m.findAppByNameAndNamespace(parentAppName, parentAppNamespace)
+					if parentApp != nil {
+						m = m.cleanupTreeWatchers()
+						m.treeView = treeview.NewTreeView(0, 0)
+						m.treeView.ApplyTheme(currentPalette)
+						m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+						m.treeNav.Reset()
+						m.state.Navigation.View = model.ViewTree
+						m.state.UI.TreeAppName = &parentApp.Name
+						m.state.UI.TreeAppNamespace = parentApp.AppNamespace
+						m.treeLoading = true
+						return m, tea.Batch(m.startLoadingResourceTree(*parentApp), m.startWatchingResourceTree(*parentApp), m.consumeTreeEvent())
+					}
 				}
 			}
 			// Return to apps view from tree/resources view
@@ -1440,10 +1441,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View == model.ViewTree {
 		switch msg.String() {
 		case "q":
-			// Clear filter and stop active tree watchers, return to list
+			// Clear filter, drop any app-of-apps back stack, and return to apps list
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
 			}
+			m.state.SavedNavigation = nil
 			m = m.safeChangeView(model.ViewApps)
 			visibleItems := m.getVisibleItemsForCurrentView()
 			m.state.Navigation.SelectedIdx = m.navigationService.ValidateBounds(
@@ -1669,7 +1671,6 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 	m.treeNav.Reset() // Reset scroll position
 	m.state.SaveNavigationState()
-	m.state.SavedNavigation.TreeAppNamespace = app.AppNamespace
 	m.state.Navigation.View = model.ViewTree
 	m.state.UI.TreeAppName = &app.Name
 	m.state.UI.TreeAppNamespace = app.AppNamespace
@@ -1690,7 +1691,6 @@ func (m *Model) handleNavigateToChildApp(appName string, appNamespace string) (t
 		}
 	}
 	m.state.SaveNavigationState()
-	m.state.SavedNavigation.TreeAppNamespace = m.currentTreeAppNamespace()
 	m = m.cleanupTreeWatchers()
 	m.treeView = treeview.NewTreeView(0, 0)
 	m.treeView.ApplyTheme(currentPalette)
