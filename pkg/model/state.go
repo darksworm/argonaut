@@ -8,11 +8,13 @@ import (
 
 // NavigationState holds navigation-related state
 type NavigationState struct {
-	View           View  `json:"view"`
-	SelectedIdx    int   `json:"selectedIdx"`
-	LastGPressed   int64 `json:"lastGPressed"`
-	LastEscPressed int64 `json:"lastEscPressed"`
-	LastZPressed   int64 `json:"lastZPressed"`
+	View             View    `json:"view"`
+	SelectedIdx      int     `json:"selectedIdx"`
+	LastGPressed     int64   `json:"lastGPressed"`
+	LastEscPressed   int64   `json:"lastEscPressed"`
+	LastZPressed     int64   `json:"lastZPressed"`
+	TreeAppName      *string `json:"treeAppName,omitempty"`
+	TreeAppNamespace *string `json:"treeAppNamespace,omitempty"`
 }
 
 // SelectionState holds selection-related state using map[string]bool for sets
@@ -98,29 +100,31 @@ func (s *SelectionState) ToggleSelectedApp(app string) {
 
 // UIState holds UI-related state
 type UIState struct {
-	SearchQuery         string          `json:"searchQuery"`
-	ActiveFilter        string          `json:"activeFilter"`
-	Command             string          `json:"command"`
-	IsVersionOutdated   bool            `json:"isVersionOutdated"`
-	LatestVersion       *string         `json:"latestVersion,omitempty"`
-	UpdateInfo          *UpdateInfo     `json:"updateInfo,omitempty"`
-	CommandInputKey     int             `json:"commandInputKey"`
-	TreeAppName         *string         `json:"treeAppName,omitempty"`
-	ThemeSelectedIndex  int             `json:"themeSelectedIndex"`
-	ThemeScrollOffset   int             `json:"themeScrollOffset"`
-	ThemeOriginalName   string          `json:"themeOriginalName,omitempty"`
-	CommandInvalid      bool            `json:"commandInvalid"`
-	Sort                SortConfig      `json:"sort"`
-	ShowWhatsNew        bool            `json:"showWhatsNew"`
-	WhatsNewShownAt     *time.Time      `json:"whatsNewShownAt,omitempty"`
-	RefreshFlashApps    map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
-	RefreshFlashTree    bool            `json:"-"` // Flash tree view after refresh (transient)
-	SelectionCopied     bool            `json:"-"` // Show "Copied!" message briefly (transient)
+	SearchQuery        string          `json:"searchQuery"`
+	ActiveFilter       string          `json:"activeFilter"`
+	Command            string          `json:"command"`
+	IsVersionOutdated  bool            `json:"isVersionOutdated"`
+	LatestVersion      *string         `json:"latestVersion,omitempty"`
+	UpdateInfo         *UpdateInfo     `json:"updateInfo,omitempty"`
+	CommandInputKey    int             `json:"commandInputKey"`
+	TreeAppName        *string         `json:"treeAppName,omitempty"`
+	TreeAppNamespace   *string         `json:"treeAppNamespace,omitempty"`
+	ThemeSelectedIndex int             `json:"themeSelectedIndex"`
+	ThemeScrollOffset  int             `json:"themeScrollOffset"`
+	ThemeOriginalName  string          `json:"themeOriginalName,omitempty"`
+	CommandInvalid     bool            `json:"commandInvalid"`
+	Sort               SortConfig      `json:"sort"`
+	ShowWhatsNew       bool            `json:"showWhatsNew"`
+	WhatsNewShownAt    *time.Time      `json:"whatsNewShownAt,omitempty"`
+	RefreshFlashApps   map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
+	RefreshFlashTree   bool            `json:"-"` // Flash tree view after refresh (transient)
+	SelectionCopied    bool            `json:"-"` // Show "Copied!" message briefly (transient)
 }
 
 // ModalState holds modal-related state
 type ModalState struct {
-	ConfirmTarget    *string `json:"confirmTarget,omitempty"`
+	ConfirmTarget          *string `json:"confirmTarget,omitempty"`
+	ConfirmTargetNamespace *string `json:"confirmTargetNamespace,omitempty"`
 	ConfirmSyncPrune bool    `json:"confirmSyncPrune"`
 	ConfirmSyncWatch bool    `json:"confirmSyncWatch"`
 	// Which button is selected in confirm modal: 0 = Yes, 1 = Cancel
@@ -136,13 +140,13 @@ type ModalState struct {
 	UpgradeLoading  bool    `json:"upgradeLoading"`
 	UpgradeError    *string `json:"upgradeError,omitempty"` // Error message for upgrade failures
 	// Delete confirmation modal state (for apps)
-	DeleteAppName          *string `json:"deleteAppName,omitempty"`
-	DeleteAppNamespace     *string `json:"deleteAppNamespace,omitempty"`
-	DeleteConfirmationKey  string  `json:"deleteConfirmationKey"` // Track what user has typed
-	DeleteLoading          bool    `json:"deleteLoading"`
-	DeleteError            *string `json:"deleteError,omitempty"`
-	DeleteCascade          bool    `json:"deleteCascade"`          // Default true
-	DeletePropagationPolicy string `json:"deletePropagationPolicy"` // Default "foreground"
+	DeleteAppName           *string `json:"deleteAppName,omitempty"`
+	DeleteAppNamespace      *string `json:"deleteAppNamespace,omitempty"`
+	DeleteConfirmationKey   string  `json:"deleteConfirmationKey"` // Track what user has typed
+	DeleteLoading           bool    `json:"deleteLoading"`
+	DeleteError             *string `json:"deleteError,omitempty"`
+	DeleteCascade           bool    `json:"deleteCascade"`           // Default true
+	DeletePropagationPolicy string  `json:"deletePropagationPolicy"` // Default "foreground"
 	// Resource delete confirmation modal state
 	ResourceDeleteAppName           *string                `json:"resourceDeleteAppName,omitempty"`
 	ResourceDeleteAppNamespace      *string                `json:"resourceDeleteAppNamespace,omitempty"`
@@ -185,8 +189,8 @@ type AppState struct {
 	// Note: AbortController equivalent will use context.Context in Go services
 	Diff     *DiffState     `json:"diff,omitempty"`
 	Rollback *RollbackState `json:"rollback,omitempty"`
-	// Store previous navigation state for restoration
-	SavedNavigation *NavigationState `json:"savedNavigation,omitempty"`
+	// Store previous navigation state as a stack for app-of-apps drill-down
+	SavedNavigation []NavigationState `json:"savedNavigation,omitempty"`
 	SavedSelections *SelectionState  `json:"savedSelections,omitempty"`
 	// Store current error information for error screen display
 	CurrentError *ApiError   `json:"currentError,omitempty"` // DEPRECATED: Use ErrorState
@@ -222,15 +226,18 @@ type DiffState struct {
 	Loading     bool     `json:"loading"`
 }
 
-// SaveNavigationState saves current navigation and selection state
+// SaveNavigationState pushes the current navigation state onto the saved stack.
+// Used before navigating into a child view so Escape can pop back.
 func (s *AppState) SaveNavigationState() {
-	s.SavedNavigation = &NavigationState{
-		View:           s.Navigation.View,
-		SelectedIdx:    s.Navigation.SelectedIdx,
-		LastGPressed:   s.Navigation.LastGPressed,
-		LastEscPressed: s.Navigation.LastEscPressed,
-		LastZPressed:   s.Navigation.LastZPressed,
-	}
+	s.SavedNavigation = append(s.SavedNavigation, NavigationState{
+		View:             s.Navigation.View,
+		SelectedIdx:      s.Navigation.SelectedIdx,
+		LastGPressed:     s.Navigation.LastGPressed,
+		LastEscPressed:   s.Navigation.LastEscPressed,
+		LastZPressed:     s.Navigation.LastZPressed,
+		TreeAppName:      s.UI.TreeAppName,
+		TreeAppNamespace: s.UI.TreeAppNamespace,
+	})
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),
 		ScopeNamespaces:      copyStringSet(s.Selections.ScopeNamespaces),
@@ -240,16 +247,16 @@ func (s *AppState) SaveNavigationState() {
 	}
 }
 
-// RestoreNavigationState restores previously saved navigation state
+// RestoreNavigationState pops the top navigation state from the stack and restores it.
 func (s *AppState) RestoreNavigationState() {
-	if s.SavedNavigation != nil {
-		s.Navigation.View = s.SavedNavigation.View
-		s.Navigation.SelectedIdx = s.SavedNavigation.SelectedIdx
-		s.Navigation.LastGPressed = s.SavedNavigation.LastGPressed
-		s.Navigation.LastEscPressed = s.SavedNavigation.LastEscPressed
-		s.Navigation.LastZPressed = s.SavedNavigation.LastZPressed
-		// Clear the saved state after restoration
-		s.SavedNavigation = nil
+	if len(s.SavedNavigation) > 0 {
+		top := s.SavedNavigation[len(s.SavedNavigation)-1]
+		s.Navigation.View = top.View
+		s.Navigation.SelectedIdx = top.SelectedIdx
+		s.Navigation.LastGPressed = top.LastGPressed
+		s.Navigation.LastEscPressed = top.LastEscPressed
+		s.Navigation.LastZPressed = top.LastZPressed
+		s.SavedNavigation = s.SavedNavigation[:len(s.SavedNavigation)-1]
 	}
 }
 
@@ -309,7 +316,7 @@ func NewAppState() *AppState {
 		Server:          nil,
 		Apps:            []App{},
 		APIVersion:      "",
-		SavedNavigation: nil,
+		SavedNavigation: nil, // nil slice is valid zero value
 		SavedSelections: nil,
 	}
 }

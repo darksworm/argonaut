@@ -370,9 +370,10 @@ type LoadingMsg struct {
 
 // SyncCompletedMsg indicates a single app sync has completed
 type SyncCompletedMsg struct {
-	AppName     string
-	Success     bool
-	SwitchEpoch int // Context switch epoch for stale message gating
+	AppName      string
+	AppNamespace *string
+	Success      bool
+	SwitchEpoch  int // Context switch epoch for stale message gating
 }
 
 // MultiSyncCompletedMsg indicates multiple app sync has completed
@@ -411,6 +412,7 @@ type ClearRefreshFlashMsg struct{}
 // RollbackHistoryLoadedMsg is sent when rollback history is loaded
 type RollbackHistoryLoadedMsg struct {
 	AppName         string
+	AppNamespace    *string
 	Rows            []RollbackRow
 	CurrentRevision string
 }
@@ -429,9 +431,10 @@ type RollbackMetadataErrorMsg struct {
 
 // RollbackExecutedMsg is sent when rollback is executed
 type RollbackExecutedMsg struct {
-	AppName string
-	Success bool
-	Watch   bool // Whether to start watching after rollback
+	AppName      string
+	AppNamespace *string
+	Success      bool
+	Watch        bool // Whether to start watching after rollback
 }
 
 // RollbackNavigationMsg is sent to change rollback navigation
