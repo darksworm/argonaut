@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/darksworm/argonaut/compare/v2.15.0...v2.16.0) (2026-03-28)
+
+
+### Features
+
+* app-of-apps is now properly supported in the resource tree ([#223](https://github.com/darksworm/argonaut/issues/223)) ([d0b12fd](https://github.com/darksworm/argonaut/commit/d0b12fdefe1b845f9e9b4249e8bc1ce92b3fe98b))
+
 ## [2.15.0](https://github.com/darksworm/argonaut/compare/v2.14.1...v2.15.0) (2026-03-26)
 
 
