@@ -2,8 +2,8 @@
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application [multi-app] (Healthy, Synced)                                                      │ 
  │ ├── Deployment [staging/backend] (Healthy)                                                     │
- │ ├── Deployment [staging/frontend] (Healthy)                                                    │
- │ ├── Service [staging/                                                                          │
+ │ ├── Service [staging/backend-svc] (Healthy)                                                    │
+ │ ├── Deployment [stagi                                                                          │
  │ └── Service [staging/ ╭────────────────────────────────────────────────╮                       │ 
  │                       │                                                │                       │ 
  │                       │              Delete 3 resource(s)?             │                       │ 

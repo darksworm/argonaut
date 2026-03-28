@@ -1,9 +1,9 @@
  Context: argo.example.com                                                           Argonaut dev 
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application [my-app] (Healthy, Synced)                                                         │ 
- │ ├── ConfigMap [production/app-config] (Synced)                                                 │ 
  │ ├── Deployment [production/api-server] (Healthy)                                               │ 
- │ └── Service [producti                                                                          │ 
+ │ ├── Service [production/api-server] (Healthy)                                                  │ 
+ │ └── ConfigMap [produc                                                                          │ 
  │                       ╭────────────────────────────────────────────────╮                       │ 
  │                       │                                                │                       │ 
  │                       │     Delete Deployment/production/api-server?   │                       │ 
