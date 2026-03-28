@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -61,7 +61,7 @@
             self.packages.${system}.default
             argocd
             delta
-            go_1_24
+            go_1_25
             gopls
             gotools
             golangci-lint
