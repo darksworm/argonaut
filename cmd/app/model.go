@@ -813,6 +813,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state.Modals.ConfirmSyncWatch {
 				// Close confirm modal/loading state before switching views
 				m.state.Modals.ConfirmTarget = nil
+				m.state.Modals.ConfirmTargetNamespace = nil
 				m.state.Modals.ConfirmSyncLoading = false
 				if m.state.Mode == model.ModeConfirmSync {
 					m.state.Mode = model.ModeNormal
@@ -824,21 +825,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
+				// Use namespace from message to avoid ambiguity when multiple apps share a name
+				ns := ""
+				if msg.AppNamespace != nil {
+					ns = *msg.AppNamespace
+				}
+				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
+					appObj = *found
+				}
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
-				// find app
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName {
-						appObj = a
-						found = true
-						break
-					}
-				}
-				if !found {
-					appObj = model.App{Name: msg.AppName}
-				}
+				m.state.UI.TreeAppNamespace = appObj.AppNamespace
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -1039,6 +1037,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.Navigation.View = model.ViewTree
 					// Clear single-app tracker
 					m.state.UI.TreeAppName = nil
+					m.state.UI.TreeAppNamespace = nil
 					m.treeLoading = true
 					for _, n := range names {
 						var appObj *model.App
@@ -1169,6 +1168,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Initialize rollback state with deployment history
 		m.state.Rollback = &model.RollbackState{
 			AppName:         msg.AppName,
+			AppNamespace:    msg.AppNamespace,
 			Rows:            msg.Rows,
 			CurrentRevision: msg.CurrentRevision,
 			SelectedIdx:     0,
@@ -1183,7 +1183,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmds []tea.Cmd
 		preload := min(10, len(msg.Rows))
 		for i := 0; i < preload; i++ {
-			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision))
+			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision, msg.AppNamespace))
 		}
 
 		return m, tea.Batch(cmds...)
@@ -1225,20 +1225,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.treeView.ApplyTheme(currentPalette)
 				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 				m.treeNav.Reset() // Reset scroll position
+				// Use namespace from message to avoid ambiguity when multiple apps share a name
+				ns := ""
+				if msg.AppNamespace != nil {
+					ns = *msg.AppNamespace
+				}
+				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
+					appObj = *found
+				}
 				m.state.Navigation.View = model.ViewTree
 				m.state.UI.TreeAppName = &msg.AppName
-				var appObj model.App
-				found := false
-				for _, a := range m.state.Apps {
-					if a.Name == msg.AppName {
-						appObj = a
-						found = true
-						break
-					}
-				}
-				if !found {
-					appObj = model.App{Name: msg.AppName}
-				}
+				m.state.UI.TreeAppNamespace = appObj.AppNamespace
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -1256,7 +1254,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Load metadata for newly selected row if not loaded
 					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
 					if row.Author == nil && row.MetaError == nil {
-						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision)
+						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace)
 					}
 				}
 			case "down":
@@ -1266,7 +1264,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
 					var cmds []tea.Cmd
 					if row.Author == nil && row.MetaError == nil {
-						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision))
+						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace))
 					}
 					// Opportunistically preload the next two rows' metadata to reduce "loading" gaps
 					for j := 1; j <= 2; j++ {
@@ -1274,7 +1272,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if idx < len(m.state.Rollback.Rows) {
 							r := m.state.Rollback.Rows[idx]
 							if r.Author == nil && r.MetaError == nil {
-								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision))
+								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision, m.state.Rollback.AppNamespace))
 							}
 						}
 					}
@@ -1320,7 +1318,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case model.RollbackShowDiffMsg:
 		// Handle rollback diff request
 		if m.state.Rollback != nil {
-			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, msg.Revision)
+			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, m.state.Rollback.AppNamespace, msg.Revision)
 		}
 		return m, nil
 

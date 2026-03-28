@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+spec:
+  destination:
+    namespace: apps
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    # example of app-of-apps pattern, from the official Argo CD example apps repo
+    path: apps
+    repoURL: https://github.com/argoproj/argocd-example-apps
+    targetRevision: HEAD

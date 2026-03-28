@@ -40,7 +40,7 @@ func NewEnhancedArgoApiService(server *model.Server) *EnhancedArgoApiService {
 }
 
 // SyncApplication implements ArgoApiService.SyncApplication with degradation check
-func (s *EnhancedArgoApiService) SyncApplication(ctx context.Context, server *model.Server, appName string, prune bool) error {
+func (s *EnhancedArgoApiService) SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, prune bool) error {
 	if server == nil {
 		return apperrors.ConfigError("SERVER_MISSING",
 			"Server configuration is required").
@@ -65,8 +65,13 @@ func (s *EnhancedArgoApiService) SyncApplication(ctx context.Context, server *mo
 	ctx, cancel := appcontext.WithSyncTimeout(ctx)
 	defer cancel()
 
+	ns := ""
+	if appNamespace != nil {
+		ns = *appNamespace
+	}
 	opts := &api.SyncOptions{
-		Prune: prune,
+		Prune:        prune,
+		AppNamespace: ns,
 	}
 
 	// Use retry mechanism for sync operations

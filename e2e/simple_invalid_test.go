@@ -45,9 +45,6 @@ func TestSimpleInvalidCommand(t *testing.T) {
 	_ = tf.Send("invalidcmd")
 	_ = tf.Enter()
 
-	// Wait longer for the UI to process the invalid command
-	time.Sleep(2 * time.Second)
-
 	// Should show helpful message for invalid command
 	if !tf.WaitForPlain("unknown command", 5*time.Second) {
 		t.Errorf("Expected 'unknown command' message for invalid command")

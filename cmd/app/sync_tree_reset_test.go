@@ -196,6 +196,56 @@ func TestRollbackExecutedMsg_ResetsTreeView(t *testing.T) {
 	}
 }
 
+// TestSyncCompletedMsg_WithNamespace_OpensCorrectApp verifies that when two apps share
+// a name in different namespaces, SyncCompletedMsg.AppNamespace is used to open the
+// correct app's tree rather than whichever appears first in the list.
+func TestSyncCompletedMsg_WithNamespace_OpensCorrectApp(t *testing.T) {
+	m := buildSyncTestModel(100, 30)
+
+	nsArgocd := "argocd"
+	nsTeamA := "team-a"
+	m.state.Apps = []model.App{
+		{Name: "my-app", AppNamespace: &nsArgocd},
+		{Name: "my-app", AppNamespace: &nsTeamA},
+	}
+	m.state.Modals.ConfirmSyncWatch = true
+
+	msg := model.SyncCompletedMsg{AppName: "my-app", AppNamespace: &nsTeamA, Success: true}
+	newModel, _ := m.Update(msg)
+	m = newModel.(*Model)
+
+	if m.state.Navigation.View != model.ViewTree {
+		t.Fatalf("expected ViewTree, got %s", m.state.Navigation.View)
+	}
+	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != nsTeamA {
+		t.Errorf("expected TreeAppNamespace %q, got %v", nsTeamA, m.state.UI.TreeAppNamespace)
+	}
+}
+
+// TestRollbackExecutedMsg_WithNamespace_OpensCorrectApp verifies that the rollback
+// watch path also uses the namespace from the message to resolve the correct app.
+func TestRollbackExecutedMsg_WithNamespace_OpensCorrectApp(t *testing.T) {
+	m := buildSyncTestModel(100, 30)
+
+	nsArgocd := "argocd"
+	nsTeamA := "team-a"
+	m.state.Apps = []model.App{
+		{Name: "my-app", AppNamespace: &nsArgocd},
+		{Name: "my-app", AppNamespace: &nsTeamA},
+	}
+
+	msg := model.RollbackExecutedMsg{AppName: "my-app", AppNamespace: &nsTeamA, Success: true, Watch: true}
+	newModel, _ := m.Update(msg)
+	m = newModel.(*Model)
+
+	if m.state.Navigation.View != model.ViewTree {
+		t.Fatalf("expected ViewTree, got %s", m.state.Navigation.View)
+	}
+	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != nsTeamA {
+		t.Errorf("expected TreeAppNamespace %q, got %v", nsTeamA, m.state.UI.TreeAppNamespace)
+	}
+}
+
 // buildSyncTestModel creates a model suitable for sync tests
 func buildSyncTestModel(cols, rows int) *Model {
 	m := NewModel(nil)
