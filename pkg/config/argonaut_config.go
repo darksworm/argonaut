@@ -14,6 +14,15 @@ import (
 // Default theme constant - easy to change
 const DefaultThemeName = "tokyo-night"
 
+// AuthConfig holds authentication behaviour settings.
+type AuthConfig struct {
+	// AutoReauth enables automatic SSO re-authentication via `argocd login --sso`
+	// when a token is absent or expired. Disabled by default — only enable this
+	// if your ArgoCD server is configured for SSO; username/password setups must
+	// keep this false and run `argocd login` manually.
+	AutoReauth bool `toml:"auto_reauth,omitempty"`
+}
+
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
 	Appearance      AppearanceConfig   `toml:"appearance"`
@@ -23,6 +32,7 @@ type ArgonautConfig struct {
 	PortForward     PortForwardConfig  `toml:"port_forward,omitempty"`
 	Clipboard       ClipboardConfig    `toml:"clipboard,omitempty"`
 	HTTPTimeouts    HTTPTimeoutConfig  `toml:"http_timeouts,omitempty"`
+	Auth            AuthConfig         `toml:"auth,omitempty"`
 	DefaultView     string             `toml:"default_view,omitempty"`
 	LastSeenVersion string             `toml:"last_seen_version,omitempty"`
 }

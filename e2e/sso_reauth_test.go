@@ -142,8 +142,8 @@ func TestSSOReauthOnStartup(t *testing.T) {
 	binDir := t.TempDir()
 	writeFakeArgocd(t, binDir, freshToken, srv.URL)
 
-	// Start in apps view so "demo" is immediately visible after load
-	tf.extraConfig = `default_view = "apps"`
+	// Enable SSO auto-reauth and start in apps view so "demo" is visible after load
+	tf.extraConfig = "default_view = \"apps\"\n\n[auth]\nauto_reauth = true"
 
 	origPath := os.Getenv("PATH")
 	if err := tf.StartAppArgs(
@@ -254,8 +254,8 @@ func TestSSOReauthOnExpiredToken(t *testing.T) {
 	binDir := t.TempDir()
 	writeFakeArgocd(t, binDir, freshToken, srv.URL)
 
-	// Start in apps view so "demo" is immediately visible after load
-	tf.extraConfig = `default_view = "apps"`
+	// Enable SSO auto-reauth and start in apps view so "demo" is visible after load
+	tf.extraConfig = "default_view = \"apps\"\n\n[auth]\nauto_reauth = true"
 
 	origPath := os.Getenv("PATH")
 	if err := tf.StartAppArgs(
