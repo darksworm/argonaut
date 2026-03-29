@@ -71,10 +71,6 @@ func (m *Model) handleContextSwitchResult(msg model.ContextSwitchResultMsg) (tea
 	m.cleanupAppWatcher()
 	//    b. Stop tree watchers
 	_ = m.cleanupTreeWatchers()
-	//    c. Cancel HTTP SSE stream SECOND (after forwarder is stopped)
-	if m.watchCleanup != nil {
-		m.watchCleanup()
-	}
 
 	// 2. Create fresh model with same config (re-applies preferences)
 	newM := NewModel(m.config)

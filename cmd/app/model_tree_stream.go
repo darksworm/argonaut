@@ -18,16 +18,22 @@ func (m *Model) watchTreeDeliver(msg model.ResourceTreeStreamMsg) {
 
 // consumeTreeEvent reads a single tree stream event and returns it as a tea message
 func (m *Model) consumeTreeEvent() tea.Cmd {
+	ch := m.treeStream       // capture at call time
+	done := m.treeStreamDone // capture at call time
 	return func() tea.Msg {
-		if m.treeStream == nil {
+		if ch == nil {
 			return nil
 		}
-		ev, ok := <-m.treeStream
-		if !ok {
-			cblog.With("component", "ui").Debug("Tree stream channel closed")
+		select {
+		case ev, ok := <-ch:
+			if !ok {
+				cblog.With("component", "ui").Debug("Tree stream channel closed")
+				return nil
+			}
+			cblog.With("component", "ui").Debug("Consumed tree event", "app", ev.AppName)
+			return ev
+		case <-done:
 			return nil
 		}
-		cblog.With("component", "ui").Debug("Consumed tree event", "app", ev.AppName)
-		return ev
 	}
 }

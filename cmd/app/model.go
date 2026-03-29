@@ -92,7 +92,8 @@ type Model struct {
 	treeView *treeview.TreeView
 
 	// Tree watch internal channel delivery
-	treeStream chan model.ResourceTreeStreamMsg
+	treeStream     chan model.ResourceTreeStreamMsg
+	treeStreamDone chan struct{}
 
 	// Tree loading overlay state
 	treeLoading bool
@@ -319,6 +320,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.state.Mode = msg.Mode
+		// Clear diff loading whenever mode changes — the closure no longer does it.
+		if m.state.Diff != nil {
+			m.state.Diff.Loading = false
+		}
 
 		// If entering diff mode with content available, show in external pager
 		if msg.Mode == model.ModeDiff && m.state.Diff != nil && len(m.state.Diff.Content) > 0 && !m.state.Diff.Loading {
@@ -1278,7 +1283,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "top":
 				m.state.Rollback.SelectedIdx = 0
 			case "bottom":
-				m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+				if len(m.state.Rollback.Rows) > 0 {
+					m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
+				}
 			}
 		}
 		return m, nil
