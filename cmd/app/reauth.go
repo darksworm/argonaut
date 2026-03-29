@@ -25,8 +25,13 @@ func (m *Model) handleTriggerReauthMsg() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.state.Server == nil {
+		m.state.Mode = model.ModeAuthRequired
+		return m, nil
+	}
+
 	m.state.Mode = model.ModeReauthPending
-	m.state.Modals.InitialLoading = false
+	m.state.Modals.InitialLoading = false // dismiss initial loading spinner — ExecProcess takes over the terminal
 
 	params := auth.LoginParams{
 		ServerURL:       auth.StripProtocol(m.state.Server.BaseURL),

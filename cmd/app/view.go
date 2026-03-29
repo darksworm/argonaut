@@ -627,6 +627,14 @@ func (m *Model) renderAuthRequiredView() string {
 		contentSections = append(contentSections, statusStyle.Render("Current context: "+serverText))
 	}
 
+	if m.err != nil {
+		contentSections = append(contentSections, "")
+		contentSections = append(contentSections, lipgloss.NewStyle().
+			Foreground(outOfSyncColor).
+			Align(lipgloss.Center).
+			Render("Error: "+m.err.Error()))
+	}
+
 	// Join content sections
 	content := strings.Join(contentSections, "\n")
 

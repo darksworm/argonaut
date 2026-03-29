@@ -69,13 +69,16 @@ func TestTriggerReauthInfiniteLoopGuard(t *testing.T) {
 	m := NewModel(nil)
 	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: ""}
 	m.jwtAuthProvider = &fakeAuthProvider{cmd: exec.Command("true")}
-	m.reauthAttempts = 2 // already at limit (> 2 triggers fallback)
+	m.reauthAttempts = 2 // after increment (→3), this exceeds the > 2 limit, triggering fallback
 
 	result, _ := m.Update(model.TriggerReauthMsg{})
 	newM := result.(*Model)
 
 	if newM.state.Mode != model.ModeAuthRequired {
 		t.Errorf("expected ModeAuthRequired after loop guard, got %s", newM.state.Mode)
+	}
+	if newM.reauthAttempts != 0 {
+		t.Errorf("expected reauthAttempts reset to 0 after loop guard, got %d", newM.reauthAttempts)
 	}
 }
 
@@ -118,6 +121,9 @@ func TestReauthCompleteSuccess_UpdatesTokenAndResetsAttempts(t *testing.T) {
 	}
 	if newM.state.Server == nil || newM.state.Server.Token != freshToken {
 		t.Errorf("expected token %q, got %q", freshToken, newM.state.Server.Token)
+	}
+	if newM.switchEpoch != 2 {
+		t.Errorf("expected switchEpoch incremented to 2 after successful reauth, got %d", newM.switchEpoch)
 	}
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd (validateAuthentication) after successful reauth")
