@@ -533,5 +533,5 @@ type TriggerReauthMsg struct{}
 // Err is non-nil if the CLI exited with a non-zero status or was not found.
 type ReauthCompleteMsg struct {
 	Err         error
-	SwitchEpoch int // Gates against context switches that happened during reauth
+	SwitchEpoch int // Context switch epoch for stale message gating
 }
