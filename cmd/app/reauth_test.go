@@ -178,6 +178,60 @@ func TestValidateAuthentication_EmptyTokenEmitsTriggerReauth(t *testing.T) {
 	}
 }
 
+func TestAuthErrorMsg_EmitsTriggerReauthWhenServerSet(t *testing.T) {
+	m := NewModel(nil)
+	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: "tok"}
+	m.switchEpoch = 1
+	m.ready = true
+
+	result, cmd := m.Update(model.AuthErrorMsg{
+		Error:       fmt.Errorf("unauthenticated"),
+		SwitchEpoch: 1,
+	})
+	newM := result.(*Model)
+
+	// Mode should NOT immediately switch to ModeAuthRequired
+	if newM.state.Mode == model.ModeAuthRequired {
+		t.Error("expected mode NOT to be ModeAuthRequired immediately (should emit TriggerReauthMsg instead)")
+	}
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd from AuthErrorMsg")
+	}
+	msg := cmd()
+	if _, ok := msg.(model.TriggerReauthMsg); !ok {
+		t.Errorf("expected TriggerReauthMsg, got %T: %v", msg, msg)
+	}
+}
+
+func TestAuthErrorMsg_FallsBackToAuthRequiredWhenNoServer(t *testing.T) {
+	m := NewModel(nil)
+	m.state.Server = nil
+	m.switchEpoch = 1
+	m.ready = true
+
+	result, cmd := m.Update(model.AuthErrorMsg{
+		Error:       fmt.Errorf("unauthenticated"),
+		SwitchEpoch: 1,
+	})
+	newM := result.(*Model)
+
+	_ = newM
+	// Should emit a cmd that results in ModeAuthRequired (not TriggerReauthMsg)
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	// The result is SetModeMsg{Mode: ModeAuthRequired}
+	setMode, ok := msg.(model.SetModeMsg)
+	if !ok {
+		t.Errorf("expected SetModeMsg, got %T: %v", msg, msg)
+		return
+	}
+	if setMode.Mode != model.ModeAuthRequired {
+		t.Errorf("expected ModeAuthRequired, got %v", setMode.Mode)
+	}
+}
+
 func TestReauthViewMessage(t *testing.T) {
 	m := NewModel(nil)
 	m.state.Terminal.Rows = 24

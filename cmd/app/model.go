@@ -771,6 +771,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// If a server is configured, trigger automatic SSO re-auth.
+		// If not, fall back to manual auth required screen.
+		if m.state.Server != nil {
+			return m, func() tea.Msg { return model.TriggerReauthMsg{} }
+		}
 		return m, tea.Batch(func() tea.Msg { return model.SetModeMsg{Mode: model.ModeAuthRequired} })
 
 	// Navigation update messages
