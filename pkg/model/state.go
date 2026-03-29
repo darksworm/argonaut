@@ -6,15 +6,24 @@ import (
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 )
 
+// TreeAppInfo holds all relevant info about the app currently shown in the tree view.
+// It is set atomically via Model.setTreeApp when entering the tree, so callers
+// never have to remember to update individual fields.
+type TreeAppInfo struct {
+	Name          string  `json:"name"`
+	AppNamespace  *string `json:"appNamespace,omitempty"`  // ArgoCD Application CR namespace
+	DestNamespace *string `json:"destNamespace,omitempty"` // deployment target namespace
+	Project       *string `json:"project,omitempty"`
+}
+
 // NavigationState holds navigation-related state
 type NavigationState struct {
-	View             View    `json:"view"`
-	SelectedIdx      int     `json:"selectedIdx"`
-	LastGPressed     int64   `json:"lastGPressed"`
-	LastEscPressed   int64   `json:"lastEscPressed"`
-	LastZPressed     int64   `json:"lastZPressed"`
-	TreeAppName      *string `json:"treeAppName,omitempty"`
-	TreeAppNamespace *string `json:"treeAppNamespace,omitempty"`
+	View           View         `json:"view"`
+	SelectedIdx    int          `json:"selectedIdx"`
+	LastGPressed   int64        `json:"lastGPressed"`
+	LastEscPressed int64        `json:"lastEscPressed"`
+	LastZPressed   int64        `json:"lastZPressed"`
+	TreeApp        *TreeAppInfo `json:"treeApp,omitempty"`
 }
 
 // SelectionState holds selection-related state using map[string]bool for sets
@@ -107,8 +116,7 @@ type UIState struct {
 	LatestVersion      *string         `json:"latestVersion,omitempty"`
 	UpdateInfo         *UpdateInfo     `json:"updateInfo,omitempty"`
 	CommandInputKey    int             `json:"commandInputKey"`
-	TreeAppName        *string         `json:"treeAppName,omitempty"`
-	TreeAppNamespace   *string         `json:"treeAppNamespace,omitempty"`
+	TreeApp            *TreeAppInfo    `json:"treeApp,omitempty"`
 	ThemeSelectedIndex int             `json:"themeSelectedIndex"`
 	ThemeScrollOffset  int             `json:"themeScrollOffset"`
 	ThemeOriginalName  string          `json:"themeOriginalName,omitempty"`
@@ -235,8 +243,7 @@ func (s *AppState) SaveNavigationState() {
 		LastGPressed:     s.Navigation.LastGPressed,
 		LastEscPressed:   s.Navigation.LastEscPressed,
 		LastZPressed:     s.Navigation.LastZPressed,
-		TreeAppName:      s.UI.TreeAppName,
-		TreeAppNamespace: s.UI.TreeAppNamespace,
+		TreeApp: s.UI.TreeApp,
 	})
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),

@@ -835,8 +835,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					appObj = *found
 				}
 				m.state.Navigation.View = model.ViewTree
-				m.state.UI.TreeAppName = &msg.AppName
-				m.state.UI.TreeAppNamespace = appObj.AppNamespace
+				m.setTreeApp(appObj)
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -1036,8 +1035,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
 					// Clear single-app tracker
-					m.state.UI.TreeAppName = nil
-					m.state.UI.TreeAppNamespace = nil
+					m.clearTreeApp()
 					m.treeLoading = true
 					for _, n := range names {
 						var appObj *model.App
@@ -1235,8 +1233,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					appObj = *found
 				}
 				m.state.Navigation.View = model.ViewTree
-				m.state.UI.TreeAppName = &msg.AppName
-				m.state.UI.TreeAppNamespace = appObj.AppNamespace
+				m.setTreeApp(appObj)
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 			}
 		} else {
@@ -1443,6 +1440,24 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 			m.treeView.SetResourceStatuses(upd.App.Name, resources)
 		}
 	}
+}
+
+// setTreeApp atomically stores all relevant info about the app being shown in
+// the tree view. Always use this instead of assigning UI.TreeApp fields directly,
+// so that adding new fields only requires updating this one function.
+func (m *Model) setTreeApp(app model.App) {
+	m.state.UI.TreeApp = &model.TreeAppInfo{
+		Name:          app.Name,
+		AppNamespace:  app.AppNamespace,
+		DestNamespace: app.Namespace,
+		Project:       app.Project,
+	}
+}
+
+// clearTreeApp clears all tree-app state. Always use this instead of nil-ing
+// individual fields.
+func (m *Model) clearTreeApp() {
+	m.state.UI.TreeApp = nil
 }
 
 func (m *Model) applyBatchAppDelete(name string) bool {

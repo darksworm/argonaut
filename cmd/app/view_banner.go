@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 func (m *Model) renderBanner() string {
@@ -85,8 +86,7 @@ func (m *Model) renderCompactBanner() string {
 		host = hostFromURL(m.state.Server.BaseURL)
 	}
 	cls := scopeToText(m.state.Selections.ScopeClusters)
-	ns := scopeToText(m.state.Selections.ScopeNamespaces)
-	pr := scopeToText(m.state.Selections.ScopeProjects)
+	ns, pr := m.effectiveNamespaceProjectScope()
 
 	parts := []string{host, cls, ns, pr}
 	// Build breadcrumb tokens with dim separators
@@ -179,8 +179,7 @@ func (m *Model) renderContextBlock(isNarrow bool) string {
 
 	serverHost := hostFromURL(m.state.Server.BaseURL)
 	clusterScope := scopeToText(m.state.Selections.ScopeClusters)
-	namespaceScope := scopeToText(m.state.Selections.ScopeNamespaces)
-	projectScope := scopeToText(m.state.Selections.ScopeProjects)
+	namespaceScope, projectScope := m.effectiveNamespaceProjectScope()
 
 	var lines []string
 	if m.currentContextName != "" {
@@ -232,6 +231,22 @@ func scopeToText(set map[string]bool) string {
 	}
 	sortStrings(vals)
 	return strings.Join(vals, ",")
+}
+
+func (m *Model) effectiveNamespaceProjectScope() (string, string) {
+	ns := scopeToText(m.state.Selections.ScopeNamespaces)
+	pr := scopeToText(m.state.Selections.ScopeProjects)
+
+	if m.state.Navigation.View == model.ViewTree && m.state.UI.TreeApp != nil {
+		if ns == "—" && m.state.UI.TreeApp.DestNamespace != nil && strings.TrimSpace(*m.state.UI.TreeApp.DestNamespace) != "" {
+			ns = *m.state.UI.TreeApp.DestNamespace
+		}
+		if pr == "—" && m.state.UI.TreeApp.Project != nil && strings.TrimSpace(*m.state.UI.TreeApp.Project) != "" {
+			pr = *m.state.UI.TreeApp.Project
+		}
+	}
+
+	return ns, pr
 }
 
 func hostFromURL(s string) string {

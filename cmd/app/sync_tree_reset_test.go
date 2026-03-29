@@ -56,9 +56,9 @@ func TestSyncCompletedMsg_ResetsTreeView(t *testing.T) {
 		t.Errorf("Expected view to be ViewTree, got %s", m.state.Navigation.View)
 	}
 
-	// Verify TreeAppName is set to app B
-	if m.state.UI.TreeAppName == nil || *m.state.UI.TreeAppName != "app-b" {
-		t.Errorf("Expected TreeAppName to be 'app-b', got %v", m.state.UI.TreeAppName)
+	// Verify TreeApp is set to app B
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.Name != "app-b" {
+		t.Errorf("Expected TreeApp.Name to be 'app-b', got %v", m.state.UI.TreeApp)
 	}
 }
 
@@ -190,9 +190,9 @@ func TestRollbackExecutedMsg_ResetsTreeView(t *testing.T) {
 		t.Errorf("Expected view to be ViewTree, got %s", m.state.Navigation.View)
 	}
 
-	// Verify TreeAppName is set to app B
-	if m.state.UI.TreeAppName == nil || *m.state.UI.TreeAppName != "app-b" {
-		t.Errorf("Expected TreeAppName to be 'app-b', got %v", m.state.UI.TreeAppName)
+	// Verify TreeApp is set to app B
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.Name != "app-b" {
+		t.Errorf("Expected TreeApp.Name to be 'app-b', got %v", m.state.UI.TreeApp)
 	}
 }
 
@@ -217,8 +217,8 @@ func TestSyncCompletedMsg_WithNamespace_OpensCorrectApp(t *testing.T) {
 	if m.state.Navigation.View != model.ViewTree {
 		t.Fatalf("expected ViewTree, got %s", m.state.Navigation.View)
 	}
-	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != nsTeamA {
-		t.Errorf("expected TreeAppNamespace %q, got %v", nsTeamA, m.state.UI.TreeAppNamespace)
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.AppNamespace == nil || *m.state.UI.TreeApp.AppNamespace != nsTeamA {
+		t.Errorf("expected TreeApp.AppNamespace %q, got %v", nsTeamA, m.state.UI.TreeApp)
 	}
 }
 
@@ -241,8 +241,8 @@ func TestRollbackExecutedMsg_WithNamespace_OpensCorrectApp(t *testing.T) {
 	if m.state.Navigation.View != model.ViewTree {
 		t.Fatalf("expected ViewTree, got %s", m.state.Navigation.View)
 	}
-	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != nsTeamA {
-		t.Errorf("expected TreeAppNamespace %q, got %v", nsTeamA, m.state.UI.TreeAppNamespace)
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.AppNamespace == nil || *m.state.UI.TreeApp.AppNamespace != nsTeamA {
+		t.Errorf("expected TreeApp.AppNamespace %q, got %v", nsTeamA, m.state.UI.TreeApp)
 	}
 }
 

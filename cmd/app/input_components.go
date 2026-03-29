@@ -819,8 +819,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
-					m.state.UI.TreeAppName = nil
-					m.state.UI.TreeAppNamespace = nil
+					m.clearTreeApp()
 					m.treeLoading = true
 					var cmds []tea.Cmd
 					for _, n := range names {
@@ -882,8 +881,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			// Clean up any existing tree watchers before starting new one
 			m.cleanupTreeWatchers()
 			m.state.Navigation.View = model.ViewTree
-			m.state.UI.TreeAppName = &target
-			m.state.UI.TreeAppNamespace = selectedApp.AppNamespace
+			m.setTreeApp(*selectedApp)
 			m.treeLoading = true
 			return m, tea.Batch(m.startLoadingResourceTree(*selectedApp), m.startWatchingResourceTree(*selectedApp), m.consumeTreeEvent())
 		case "all":
@@ -933,8 +931,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, m.startDiffSession(target, targetNamespace)
 		case "cluster", "clusters", "cls":
 			// Exit deep views and clear lower-level scopes
-			m.state.UI.TreeAppName = nil
-			m.state.UI.TreeAppNamespace = nil
+			m.clearTreeApp()
 			m.treeLoading = false
 			m.state.Selections.SelectedApps = model.NewStringSet()
 			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
@@ -968,8 +965,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			return m, nil
 		case "namespace", "namespaces", "ns":
-			m.state.UI.TreeAppName = nil
-			m.state.UI.TreeAppNamespace = nil
+			m.clearTreeApp()
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewNamespaces)
@@ -1000,8 +996,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			return m, nil
 		case "project", "projects", "proj":
-			m.state.UI.TreeAppName = nil
-			m.state.UI.TreeAppNamespace = nil
+			m.clearTreeApp()
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0 // Reset navigation for view change
 			m = m.safeChangeView(model.ViewProjects)
@@ -1050,8 +1045,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			}
 			return m, nil
 		case "appset", "appsets", "applicationset", "applicationsets", "as":
-			m.state.UI.TreeAppName = nil
-			m.state.UI.TreeAppNamespace = nil
+			m.clearTreeApp()
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0
 			m.state.Selections.SelectedApps = model.NewStringSet()
@@ -1101,7 +1095,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.state.Modals.ChangelogLoading = true
 			return m, m.fetchChangelog()
 		case "context", "contexts", "argocd", "ctx":
-			m.state.UI.TreeAppName = nil
+			m.clearTreeApp()
 			m.treeLoading = false
 			m.state.Navigation.SelectedIdx = 0
 			if arg != "" {

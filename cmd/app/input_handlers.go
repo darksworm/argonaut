@@ -408,12 +408,12 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			// If we drilled into this tree from a parent tree (app-of-apps), pop the stack and go back.
 			if n := len(m.state.SavedNavigation); n > 0 {
 				top := m.state.SavedNavigation[n-1]
-				if top.View == model.ViewTree && top.TreeAppName != nil {
+				if top.View == model.ViewTree && top.TreeApp != nil {
 					m.state.SavedNavigation = m.state.SavedNavigation[:n-1]
-					parentAppName := *top.TreeAppName
+					parentAppName := top.TreeApp.Name
 					parentAppNamespace := ""
-					if top.TreeAppNamespace != nil {
-						parentAppNamespace = *top.TreeAppNamespace
+					if top.TreeApp.AppNamespace != nil {
+						parentAppNamespace = *top.TreeApp.AppNamespace
 					}
 					parentApp := m.findAppByNameAndNamespace(parentAppName, parentAppNamespace)
 					if parentApp != nil {
@@ -423,8 +423,7 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 						m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 						m.treeNav.Reset()
 						m.state.Navigation.View = model.ViewTree
-						m.state.UI.TreeAppName = &parentApp.Name
-						m.state.UI.TreeAppNamespace = parentApp.AppNamespace
+						m.setTreeApp(*parentApp)
 						m.treeLoading = true
 						return m, tea.Batch(m.startLoadingResourceTree(*parentApp), m.startWatchingResourceTree(*parentApp), m.consumeTreeEvent())
 					}
@@ -432,8 +431,7 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			}
 			// Return to apps view from tree/resources view
 			m = m.safeChangeView(model.ViewApps)
-			m.state.UI.TreeAppName = nil
-			m.state.UI.TreeAppNamespace = nil
+			m.clearTreeApp()
 			m.state.Navigation.SelectedIdx = 0
 		case model.ViewApps:
 			// Check if scoped by ApplicationSet (separate hierarchy)
@@ -1060,7 +1058,9 @@ func (m *Model) handleResourceSync() (tea.Model, tea.Cmd) {
 		appName := m.treeView.GetAppName()
 		if appName != "" {
 			m.state.Modals.ConfirmTarget = &appName
-			m.state.Modals.ConfirmTargetNamespace = m.state.UI.TreeAppNamespace
+			if m.state.UI.TreeApp != nil {
+				m.state.Modals.ConfirmTargetNamespace = m.state.UI.TreeApp.AppNamespace
+			}
 			m.state.Modals.ConfirmSyncSelected = 0 // default to Yes
 			m.state.Mode = model.ModeConfirmSync
 			return m, nil
@@ -1644,9 +1644,8 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		m.treeNav.Reset() // Reset scroll position
 		m.state.SaveNavigationState()
 		m.state.Navigation.View = model.ViewTree
-		// Clear single-app tracker
-		m.state.UI.TreeAppName = nil
-		m.state.UI.TreeAppNamespace = nil
+		// Clear single-app tracker (multi-app tree has no single owner)
+		m.clearTreeApp()
 		m.treeLoading = true
 		var cmds []tea.Cmd
 		for _, name := range selected {
@@ -1688,8 +1687,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	m.treeNav.Reset() // Reset scroll position
 	m.state.SaveNavigationState()
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = &app.Name
-	m.state.UI.TreeAppNamespace = app.AppNamespace
+	m.setTreeApp(app)
 	m.treeLoading = true
 	return m, tea.Batch(m.startLoadingResourceTree(app), m.startWatchingResourceTree(app), m.consumeTreeEvent())
 }
@@ -1713,8 +1711,7 @@ func (m *Model) handleNavigateToChildApp(appName string, appNamespace string) (t
 	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 	m.treeNav.Reset()
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = &app.Name
-	m.state.UI.TreeAppNamespace = app.AppNamespace
+	m.setTreeApp(*app)
 	m.treeLoading = true
 	return m, tea.Batch(m.startLoadingResourceTree(*app), m.startWatchingResourceTree(*app), m.consumeTreeEvent())
 }
@@ -1740,7 +1737,10 @@ func (m *Model) findAppByNameAndNamespace(name string, namespace string) *model.
 }
 
 func (m *Model) currentTreeAppNamespace() *string {
-	return m.state.UI.TreeAppNamespace
+	if m.state.UI.TreeApp == nil {
+		return nil
+	}
+	return m.state.UI.TreeApp.AppNamespace
 }
 
 // handleResourceDiff shows the diff for the currently selected resource in tree view
@@ -1762,7 +1762,7 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 				m.state.Diff = &model.DiffState{}
 			}
 			m.state.Diff.Loading = true
-			return m, m.startDiffSession(name, m.state.UI.TreeAppNamespace)
+			return m, m.startDiffSession(name, m.currentTreeAppNamespace())
 		}
 		// Child Application CR (app-of-apps): show diff of the Application CR itself
 		// as a resource within the parent app
@@ -1778,7 +1778,7 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 		m.state.Diff.Loading = true
 		return m, m.startResourceDiffSession(ResourceIdentifier{
 			AppName:      parentApp,
-			AppNamespace: m.state.UI.TreeAppNamespace,
+			AppNamespace: m.currentTreeAppNamespace(),
 			Group:        group,
 			Kind:         kind,
 			Namespace:    namespace,
@@ -1788,8 +1788,8 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 
 	// Get the app name for resource-level diff
 	appName := ""
-	if m.state.UI.TreeAppName != nil {
-		appName = *m.state.UI.TreeAppName
+	if m.state.UI.TreeApp != nil {
+		appName = m.state.UI.TreeApp.Name
 	} else if m.treeView != nil {
 		appName = m.treeView.GetAppName()
 	}
@@ -1803,9 +1803,13 @@ func (m *Model) handleResourceDiff() (*Model, tea.Cmd) {
 	}
 	m.state.Diff.Loading = true
 
+	var treeAppNS *string
+	if m.state.UI.TreeApp != nil {
+		treeAppNS = m.state.UI.TreeApp.AppNamespace
+	}
 	return m, m.startResourceDiffSession(ResourceIdentifier{
 		AppName:      appName,
-		AppNamespace: m.state.UI.TreeAppNamespace,
+		AppNamespace: treeAppNS,
 		Group:        group,
 		Kind:         kind,
 		Namespace:    namespace,
@@ -1837,9 +1841,9 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 	// Try to find the context from the current app's cluster info
 	var context string
 	var contextFound bool
-	if m.state.UI.TreeAppName != nil {
+	if m.state.UI.TreeApp != nil {
 		for i := range m.state.Apps {
-			if m.state.Apps[i].Name == *m.state.UI.TreeAppName {
+			if m.state.Apps[i].Name == m.state.UI.TreeApp.Name {
 				app := m.state.Apps[i]
 				if app.ClusterID != nil {
 					clusterID := *app.ClusterID
