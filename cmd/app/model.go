@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/auth"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
 	"github.com/darksworm/argonaut/pkg/config"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
@@ -132,6 +133,10 @@ type Model struct {
 	argoConfigPath     string // Path to ArgoCD CLI config (for re-reads on switch)
 	currentContextName string // Active ArgoCD context name
 	switchEpoch        int    // Incremented on each context switch; captured by async closures
+
+	// SSO re-authentication
+	jwtAuthProvider auth.JWTAuthProvider // injectable for tests
+	reauthAttempts  int                  // resets to 0 on successful reauth
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

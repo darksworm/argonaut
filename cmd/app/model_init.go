@@ -12,6 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/auth"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
 	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/config"
@@ -93,9 +94,10 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		listNav:            listnav.New(),
 		treeNav:            listnav.New(),
 		themeNav:           listnav.New(),
-		rollbackNav:            listnav.New(),
-		selection:              selection.New(),
+		rollbackNav:        listnav.New(),
+		selection:          selection.New(),
 		pendingDefaultViewScope: pendingDefaultViewScope,
+		jwtAuthProvider:    auth.ArgocdCLIAuthProvider{},
 	}
 }
 
