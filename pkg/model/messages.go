@@ -523,3 +523,15 @@ type AuthValidationResultMsg struct {
 	Mode        Mode
 	SwitchEpoch int
 }
+
+// TriggerReauthMsg is emitted when authentication fails or a token is absent,
+// signalling that the app should launch argocd login --sso.
+// Carries no payload — the model has all necessary state.
+type TriggerReauthMsg struct{}
+
+// ReauthCompleteMsg is sent by the tea.ExecProcess callback after argocd login exits.
+// Err is non-nil if the CLI exited with a non-zero status or was not found.
+type ReauthCompleteMsg struct {
+	Err         error
+	SwitchEpoch int // Gates against context switches that happened during reauth
+}
