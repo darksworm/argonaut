@@ -204,12 +204,13 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) validateAuthentication() tea.Cmd {
-	epoch := m.switchEpoch  // capture at call time
-	server := m.state.Server // capture at call time
+	epoch := m.switchEpoch           // capture at call time
+	server := m.state.Server         // capture at call time
+	currentMode := m.state.Mode      // capture at call time
 	return func() tea.Msg {
 		if server == nil {
 			// Check if we're already in core detected mode (set during config loading)
-			if m.state.Mode == model.ModeCoreDetected {
+			if currentMode == model.ModeCoreDetected {
 				return model.AuthValidationResultMsg{Mode: model.ModeCoreDetected, SwitchEpoch: epoch}
 			}
 			cblog.With("component", "auth").Info("No server configured - showing auth required")
