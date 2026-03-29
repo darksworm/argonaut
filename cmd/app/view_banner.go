@@ -234,36 +234,19 @@ func scopeToText(set map[string]bool) string {
 }
 
 func (m *Model) effectiveNamespaceProjectScope() (string, string) {
-	namespaceScope := scopeToText(m.state.Selections.ScopeNamespaces)
-	projectScope := scopeToText(m.state.Selections.ScopeProjects)
+	ns := scopeToText(m.state.Selections.ScopeNamespaces)
+	pr := scopeToText(m.state.Selections.ScopeProjects)
 
-	if m.state.Navigation.View != model.ViewTree || m.state.UI.TreeAppName == nil {
-		return namespaceScope, projectScope
-	}
-
-	if namespaceScope != "—" && projectScope != "—" {
-		return namespaceScope, projectScope
-	}
-
-	appName := strings.TrimSpace(*m.state.UI.TreeAppName)
-	if appName == "" {
-		return namespaceScope, projectScope
-	}
-
-	for i := range m.state.Apps {
-		if m.state.Apps[i].Name != appName {
-			continue
+	if m.state.Navigation.View == model.ViewTree && m.state.UI.TreeApp != nil {
+		if ns == "—" && m.state.UI.TreeApp.DestNamespace != nil && strings.TrimSpace(*m.state.UI.TreeApp.DestNamespace) != "" {
+			ns = *m.state.UI.TreeApp.DestNamespace
 		}
-		if namespaceScope == "—" && m.state.Apps[i].Namespace != nil && strings.TrimSpace(*m.state.Apps[i].Namespace) != "" {
-			namespaceScope = *m.state.Apps[i].Namespace
+		if pr == "—" && m.state.UI.TreeApp.Project != nil && strings.TrimSpace(*m.state.UI.TreeApp.Project) != "" {
+			pr = *m.state.UI.TreeApp.Project
 		}
-		if projectScope == "—" && m.state.Apps[i].Project != nil && strings.TrimSpace(*m.state.Apps[i].Project) != "" {
-			projectScope = *m.state.Apps[i].Project
-		}
-		break
 	}
 
-	return namespaceScope, projectScope
+	return ns, pr
 }
 
 func hostFromURL(s string) string {

@@ -21,19 +21,18 @@ func TestHandleNavigateToChildApp_UsesNamespaceDisambiguation(t *testing.T) {
 		{Name: "child", AppNamespace: &childNSB},
 	}
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = &m.state.Apps[0].Name
-	m.state.UI.TreeAppNamespace = m.state.Apps[0].AppNamespace
+	m.setTreeApp(m.state.Apps[0])
 	m.treeView = treeview.NewTreeView(0, 0)
 
 	_, _ = m.handleNavigateToChildApp("child", childNSB)
 
-	if m.state.UI.TreeAppName == nil || *m.state.UI.TreeAppName != "child" {
-		t.Fatalf("expected child app to be opened, got %v", m.state.UI.TreeAppName)
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.Name != "child" {
+		t.Fatalf("expected child app to be opened, got %v", m.state.UI.TreeApp)
 	}
-	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != childNSB {
-		t.Fatalf("expected child namespace %q, got %v", childNSB, m.state.UI.TreeAppNamespace)
+	if m.state.UI.TreeApp.AppNamespace == nil || *m.state.UI.TreeApp.AppNamespace != childNSB {
+		t.Fatalf("expected child namespace %q, got %v", childNSB, m.state.UI.TreeApp.AppNamespace)
 	}
-	if len(m.state.SavedNavigation) == 0 || m.state.SavedNavigation[0].TreeAppNamespace == nil || *m.state.SavedNavigation[0].TreeAppNamespace != parentNS {
+	if len(m.state.SavedNavigation) == 0 || m.state.SavedNavigation[0].TreeApp == nil || m.state.SavedNavigation[0].TreeApp.AppNamespace == nil || *m.state.SavedNavigation[0].TreeApp.AppNamespace != parentNS {
 		t.Fatalf("expected saved parent namespace %q, got %#v", parentNS, m.state.SavedNavigation)
 	}
 }
@@ -55,8 +54,7 @@ func TestHandleNavigateToChildApp_ThreeLevels_SupportsDeepNesting(t *testing.T) 
 
 	// Start in app-a's tree
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = &m.state.Apps[0].Name
-	m.state.UI.TreeAppNamespace = m.state.Apps[0].AppNamespace
+	m.setTreeApp(m.state.Apps[0])
 	m.treeView = treeview.NewTreeView(0, 0)
 
 	// Navigate from app-a to app-b
@@ -74,11 +72,11 @@ func TestHandleNavigateToChildApp_ThreeLevels_SupportsDeepNesting(t *testing.T) 
 	if m.state.Navigation.View != model.ViewTree {
 		t.Fatalf("first escape: expected ViewTree, got %s", m.state.Navigation.View)
 	}
-	if m.state.UI.TreeAppName == nil || *m.state.UI.TreeAppName != "app-b" {
-		t.Fatalf("first escape: expected app-b's tree, got %v", m.state.UI.TreeAppName)
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.Name != "app-b" {
+		t.Fatalf("first escape: expected app-b's tree, got %v", m.state.UI.TreeApp)
 	}
-	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != nsB {
-		t.Fatalf("first escape: expected namespace %q, got %v", nsB, m.state.UI.TreeAppNamespace)
+	if m.state.UI.TreeApp.AppNamespace == nil || *m.state.UI.TreeApp.AppNamespace != nsB {
+		t.Fatalf("first escape: expected namespace %q, got %v", nsB, m.state.UI.TreeApp.AppNamespace)
 	}
 
 	// Second Escape: B → A
@@ -88,11 +86,11 @@ func TestHandleNavigateToChildApp_ThreeLevels_SupportsDeepNesting(t *testing.T) 
 	if m.state.Navigation.View != model.ViewTree {
 		t.Fatalf("second escape: expected ViewTree (back to app-a), got %s", m.state.Navigation.View)
 	}
-	if m.state.UI.TreeAppName == nil || *m.state.UI.TreeAppName != "app-a" {
-		t.Fatalf("second escape: expected app-a's tree, got %v", m.state.UI.TreeAppName)
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.Name != "app-a" {
+		t.Fatalf("second escape: expected app-a's tree, got %v", m.state.UI.TreeApp)
 	}
-	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != nsA {
-		t.Fatalf("second escape: expected namespace %q, got %v", nsA, m.state.UI.TreeAppNamespace)
+	if m.state.UI.TreeApp.AppNamespace == nil || *m.state.UI.TreeApp.AppNamespace != nsA {
+		t.Fatalf("second escape: expected namespace %q, got %v", nsA, m.state.UI.TreeApp.AppNamespace)
 	}
 
 	// Third Escape: A → apps list
@@ -120,12 +118,10 @@ func TestHandleEscape_ReturnsToParentTreeUsingNamespace(t *testing.T) {
 		{Name: childName, AppNamespace: &childNS},
 	}
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = &childName
-	m.state.UI.TreeAppNamespace = &childNS
+	m.setTreeApp(model.App{Name: childName, AppNamespace: &childNS})
 	m.state.SavedNavigation = []model.NavigationState{{
-		View:             model.ViewTree,
-		TreeAppName:      &parentName,
-		TreeAppNamespace: &parentNSB,
+		View:    model.ViewTree,
+		TreeApp: &model.TreeAppInfo{Name: parentName, AppNamespace: &parentNSB},
 	}}
 	m.treeView = treeview.NewTreeView(0, 0)
 	m.treeView.SetAppMeta(childName, "Healthy", "Synced")
@@ -138,11 +134,11 @@ func TestHandleEscape_ReturnsToParentTreeUsingNamespace(t *testing.T) {
 	if m.state.Navigation.View != model.ViewTree {
 		t.Fatalf("expected to remain in tree view, got %s", m.state.Navigation.View)
 	}
-	if m.state.UI.TreeAppName == nil || *m.state.UI.TreeAppName != parentName {
-		t.Fatalf("expected parent app name %q, got %v", parentName, m.state.UI.TreeAppName)
+	if m.state.UI.TreeApp == nil || m.state.UI.TreeApp.Name != parentName {
+		t.Fatalf("expected parent app name %q, got %v", parentName, m.state.UI.TreeApp)
 	}
-	if m.state.UI.TreeAppNamespace == nil || *m.state.UI.TreeAppNamespace != parentNSB {
-		t.Fatalf("expected parent namespace %q, got %v", parentNSB, m.state.UI.TreeAppNamespace)
+	if m.state.UI.TreeApp.AppNamespace == nil || *m.state.UI.TreeApp.AppNamespace != parentNSB {
+		t.Fatalf("expected parent namespace %q, got %v", parentNSB, m.state.UI.TreeApp.AppNamespace)
 	}
 	if len(m.state.SavedNavigation) != 0 {
 		t.Fatalf("expected saved navigation to be cleared after restore, got %#v", m.state.SavedNavigation)

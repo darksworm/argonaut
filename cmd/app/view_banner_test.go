@@ -16,19 +16,18 @@ func TestRenderContextBlock_UsesTreeAppNamespaceProjectWhenScopeEmpty(t *testing
 	m.ready = true
 	m.state.Server = &model.Server{BaseURL: "https://argo.example.com"}
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = strp("app-a")
-	m.state.Apps = []model.App{{
-		Name:      "app-a",
-		Namespace: strp("payments"),
-		Project:   strp("billing"),
-	}}
+	m.state.UI.TreeApp = &model.TreeAppInfo{
+		Name:          "app-a",
+		DestNamespace: strp("payments"),
+		Project:       strp("billing"),
+	}
 
 	out := stripANSI(m.renderContextBlock(false))
 	if !strings.Contains(out, "Namespace: payments") {
-		t.Fatalf("expected Namespace fallback from selected app, got:\n%s", out)
+		t.Fatalf("expected Namespace from tree app info, got:\n%s", out)
 	}
 	if !strings.Contains(out, "Project: billing") {
-		t.Fatalf("expected Project fallback from selected app, got:\n%s", out)
+		t.Fatalf("expected Project from tree app info, got:\n%s", out)
 	}
 }
 
@@ -37,14 +36,13 @@ func TestRenderContextBlock_ScopeOverridesTreeAppFallback(t *testing.T) {
 	m.ready = true
 	m.state.Server = &model.Server{BaseURL: "https://argo.example.com"}
 	m.state.Navigation.View = model.ViewTree
-	m.state.UI.TreeAppName = strp("app-a")
+	m.state.UI.TreeApp = &model.TreeAppInfo{
+		Name:          "app-a",
+		DestNamespace: strp("payments"),
+		Project:       strp("billing"),
+	}
 	m.state.Selections.ScopeNamespaces = model.StringSetFromSlice([]string{"scoped-ns"})
 	m.state.Selections.ScopeProjects = model.StringSetFromSlice([]string{"scoped-proj"})
-	m.state.Apps = []model.App{{
-		Name:      "app-a",
-		Namespace: strp("payments"),
-		Project:   strp("billing"),
-	}}
 
 	out := stripANSI(m.renderContextBlock(false))
 	if !strings.Contains(out, "Namespace: scoped-ns") {
