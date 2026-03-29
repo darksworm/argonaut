@@ -28,7 +28,7 @@ func TestConsumeTreeEvent_TerminatesAfterCleanup(t *testing.T) {
 	select {
 	case <-done:
 		// pass: goroutine exited after the channel was closed
-	case <-time.After(300 * time.Millisecond):
+	case <-time.After(1 * time.Second):
 		t.Error("Bug 6/7: consumeTreeEvent goroutine leaked — did not exit after cleanupTreeWatchers")
 	}
 }

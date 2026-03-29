@@ -720,8 +720,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// No error, go back to normal mode
+		// No error, go back to normal mode and clear diff loading state.
+		// SetModeMsg is not used here so we clear Diff.Loading explicitly.
 		m.state.Mode = model.ModeNormal
+		if m.state.Diff != nil {
+			m.state.Diff.Loading = false
+		}
 		return m, nil
 
 	case k9sDoneMsg:
@@ -1245,6 +1249,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusService.Error(fmt.Sprintf("Rollback failed for %s", msg.AppName))
 		}
 		return m, nil
+
+	case rollbackDiffReadyMsg:
+		// Closure goroutine has finished computing the rollback diff; mutate state here
+		// (single-threaded Update) rather than from the goroutine to avoid data races.
+		m.state.Diff = &model.DiffState{
+			Title:   msg.title,
+			Content: msg.lines,
+			Offset:  0,
+			Loading: false,
+		}
+		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeDiff} }
 
 	case model.RollbackNavigationMsg:
 		// Handle rollback navigation

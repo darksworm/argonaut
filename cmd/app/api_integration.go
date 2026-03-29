@@ -671,7 +671,8 @@ func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
 	if m.state.Server == nil {
 		return nil
 	}
-	server := m.state.Server // capture at call time
+	server := m.state.Server       // capture at call time
+	done := m.treeStreamDone       // capture at call time
 	return func() tea.Msg {
 		ctx := context.Background()
 		apiService := services.NewArgoApiService(server)
@@ -687,16 +688,25 @@ func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
 		}
 		go func() {
 			eventCount := 0
-			for t := range ch {
-				if t == nil {
-					continue
+			for {
+				select {
+				case t, ok := <-ch:
+					if !ok {
+						cblog.With("component", "ui").Info("Tree watch channel closed", "app", app.Name, "events", eventCount)
+						return
+					}
+					if t == nil {
+						continue
+					}
+					eventCount++
+					cblog.With("component", "ui").Debug("Received tree event", "app", app.Name, "event", eventCount)
+					data, _ := json.Marshal(t)
+					m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
+				case <-done:
+					cblog.With("component", "ui").Info("Tree watch cancelled via done signal", "app", app.Name)
+					return
 				}
-				eventCount++
-				cblog.With("component", "ui").Debug("Received tree event", "app", app.Name, "event", eventCount)
-				data, _ := json.Marshal(t)
-				m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
 			}
-			cblog.With("component", "ui").Info("Tree watch channel closed", "app", app.Name, "events", eventCount)
 		}()
 		return treeWatchStartedMsg{cleanup: cleanup}
 	}
@@ -1210,14 +1220,17 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 		}
 
 		lines := strings.Split(cleaned, "\n")
-		m.state.Diff = &model.DiffState{
-			Title:   fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),
-			Content: lines,
-			Offset:  0,
-			Loading: false,
+		return rollbackDiffReadyMsg{
+			title: fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),
+			lines: lines,
 		}
-		return model.SetModeMsg{Mode: model.ModeDiff}
 	}
+}
+
+// rollbackDiffReadyMsg carries computed rollback diff data to Update for safe state mutation.
+type rollbackDiffReadyMsg struct {
+	title string
+	lines []string
 }
 
 // deleteSelectedApplications deletes the currently selected applications
