@@ -271,6 +271,14 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 
 		// Block on first event (also listen on done so we don't block forever
 		// when cleanupAppWatcher stops the forwarding goroutine).
+		//
+		// Priority select: always try to read from ch first. When the stream
+		// ends immediately (e.g. 401), the forwarding goroutine may drain
+		// eventChan and close done before this goroutine is scheduled. If both
+		// ch (buffered items) and done are ready simultaneously, a plain select
+		// randomly picks one — which can silently drop auth-error events. The
+		// non-blocking default case ensures buffered items are always drained
+		// before we honour the done signal.
 		var (
 			ev services.ArgoApiEvent
 			ok bool
@@ -281,9 +289,28 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 				cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
 				return nil
 			}
-		case <-done:
-			cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
-			return nil
+		default:
+			// ch not immediately ready; wait for either, but try ch one more
+			// time if done fires so we don't drop already-buffered events.
+			select {
+			case ev, ok = <-ch:
+				if !ok {
+					cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
+					return nil
+				}
+			case <-done:
+				// Forwarding goroutine exited; drain any items it already put in ch.
+				select {
+				case ev, ok = <-ch:
+					if !ok {
+						cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed after done")
+						return nil
+					}
+				default:
+					cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
+					return nil
+				}
+			}
 		}
 
 		result := classifyWatchEvent(ev, epoch)
