@@ -163,6 +163,21 @@ func TestReauthCompleteStaleEpoch_Discarded(t *testing.T) {
 	}
 }
 
+func TestValidateAuthentication_EmptyTokenEmitsTriggerReauth(t *testing.T) {
+	m := NewModel(nil)
+	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: ""}
+	m.switchEpoch = 1
+
+	cmd := m.validateAuthentication()
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd from validateAuthentication with empty token")
+	}
+	msg := cmd()
+	if _, ok := msg.(model.TriggerReauthMsg); !ok {
+		t.Errorf("expected TriggerReauthMsg from empty token, got %T: %v", msg, msg)
+	}
+}
+
 func TestReauthViewMessage(t *testing.T) {
 	m := NewModel(nil)
 	m.state.Terminal.Rows = 24

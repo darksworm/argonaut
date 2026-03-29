@@ -216,6 +216,12 @@ func (m *Model) validateAuthentication() tea.Cmd {
 			return model.AuthValidationResultMsg{Mode: model.ModeAuthRequired, SwitchEpoch: epoch}
 		}
 
+		// Empty token → trigger SSO re-auth instead of making an API call that will fail.
+		if m.state.Server.Token == "" {
+			cblog.With("component", "auth").Info("Empty token detected, triggering SSO re-auth")
+			return model.TriggerReauthMsg{}
+		}
+
 		// Create API service to validate authentication
 		appService := api.NewApplicationService(m.state.Server)
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
