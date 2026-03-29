@@ -170,9 +170,7 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 	// Find the user and their token
 	for _, user := range c.Users {
 		if user.Name == currentUser {
-			if user.AuthToken == "" {
-				return "", fmt.Errorf("no auth token found for user %s. Please run 'argocd login' to authenticate", currentUser)
-			}
+			// Allow empty token — validateAuthentication() will detect it and trigger SSO reauth.
 			return user.AuthToken, nil
 		}
 	}
