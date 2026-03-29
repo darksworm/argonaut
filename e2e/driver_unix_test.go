@@ -659,6 +659,22 @@ func WriteArgoConfigWithToken(path, baseURL, token string) error {
 	return os.WriteFile(path, y.Bytes(), 0o644)
 }
 
+// WriteArgoConfigWithTokenSSO writes a CLI config that looks like an SSO login:
+// includes a refresh-token alongside the auth-token, which is how argocd login
+// --sso writes the config. argonaut uses the presence of refresh-token to detect
+// SSO and enable automatic re-authentication.
+func WriteArgoConfigWithTokenSSO(path, baseURL, token string) error {
+	var y bytes.Buffer
+	y.WriteString("contexts:\n")
+	y.WriteString("  - name: default\n    server: " + baseURL + "\n    user: default-user\n")
+	y.WriteString("servers:\n")
+	y.WriteString("  - server: " + baseURL + "\n    insecure: true\n")
+	y.WriteString("users:\n")
+	y.WriteString("  - name: default-user\n    auth-token: " + token + "\n    refresh-token: sso-refresh-token\n")
+	y.WriteString("current-context: default\n")
+	return os.WriteFile(path, y.Bytes(), 0o644)
+}
+
 // Removed WriteArgonautConfigWithClipboard - clipboard config is now set automatically by StartAppArgs
 
 // MockArgoServerForbidden returns 403 Forbidden for applications (simulating RBAC/forbidden)

@@ -16,11 +16,13 @@ func (m *Model) handleTriggerReauthMsg() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Only attempt automatic SSO re-auth when explicitly enabled.
-	// Users on username/password auth must not have their terminal hijacked
-	// by an unexpected `argocd login --sso` invocation.
-	if !m.config.Auth.AutoReauth {
-		cblog.With("component", "reauth").Debug("SSO auto-reauth disabled — falling back to manual auth screen")
+	// Only attempt automatic re-auth when SSO is in use.  The presence of a
+	// refresh-token in the ArgoCD config is the reliable indicator — it is
+	// written by argocd login --sso but not by username/password login.
+	// Hijacking the terminal with an unexpected browser flow for non-SSO
+	// users would be confusing and wrong.
+	if m.state.Server == nil || !m.state.Server.SSO {
+		cblog.With("component", "reauth").Debug("SSO not detected — falling back to manual auth screen")
 		m.state.Mode = model.ModeAuthRequired
 		return m, nil
 	}
@@ -30,11 +32,6 @@ func (m *Model) handleTriggerReauthMsg() (tea.Model, tea.Cmd) {
 	if m.reauthAttempts > 2 {
 		m.reauthAttempts = 0
 		cblog.With("component", "reauth").Warn("Reauth attempt limit reached, falling back to manual login")
-		m.state.Mode = model.ModeAuthRequired
-		return m, nil
-	}
-
-	if m.state.Server == nil {
 		m.state.Mode = model.ModeAuthRequired
 		return m, nil
 	}

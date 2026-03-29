@@ -67,8 +67,7 @@ func TestTriggerReauthAlreadyPending_NoOp(t *testing.T) {
 
 func TestTriggerReauthInfiniteLoopGuard(t *testing.T) {
 	m := NewModel(nil)
-	m.config.Auth.AutoReauth = true
-	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: ""}
+	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: "", SSO: true}
 	m.jwtAuthProvider = &fakeAuthProvider{cmd: exec.Command("true")}
 	m.reauthAttempts = 2 // after increment (→3), this exceeds the > 2 limit, triggering fallback
 
@@ -85,8 +84,7 @@ func TestTriggerReauthInfiniteLoopGuard(t *testing.T) {
 
 func TestTriggerReauthSetsModePendingAndLaunchesExecProcess(t *testing.T) {
 	m := NewModel(nil)
-	m.config.Auth.AutoReauth = true
-	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: ""}
+	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: "", SSO: true}
 	m.jwtAuthProvider = &fakeAuthProvider{cmd: exec.Command("true")}
 
 	result, cmd := m.Update(model.TriggerReauthMsg{})
@@ -234,19 +232,19 @@ func TestAuthErrorMsg_FallsBackToAuthRequiredWhenNoServer(t *testing.T) {
 	}
 }
 
-func TestTriggerReauth_AutoReauthDisabled_FallsBackToAuthRequired(t *testing.T) {
+func TestTriggerReauth_NonSSO_FallsBackToAuthRequired(t *testing.T) {
 	m := NewModel(nil)
-	// config.Auth.AutoReauth defaults to false — no change needed
-	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: ""}
+	// SSO defaults to false — username/password user, no refresh-token in their config
+	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: "tok"}
 
 	result, cmd := m.Update(model.TriggerReauthMsg{})
 	newM := result.(*Model)
 
 	if newM.state.Mode != model.ModeAuthRequired {
-		t.Errorf("expected ModeAuthRequired when auto_reauth is disabled, got %s", newM.state.Mode)
+		t.Errorf("expected ModeAuthRequired for non-SSO server, got %s", newM.state.Mode)
 	}
 	if cmd != nil {
-		t.Error("expected nil cmd when auto_reauth is disabled")
+		t.Error("expected nil cmd for non-SSO server")
 	}
 }
 

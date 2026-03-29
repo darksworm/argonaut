@@ -54,9 +54,10 @@ exit 0
 	return scriptPath
 }
 
-// WriteArgoConfigNoToken writes an ArgoCD CLI config with an empty auth token.
-// Uses the full serverURL (e.g. "http://127.0.0.1:PORT") as the server key,
-// matching the format used by WriteArgoConfigWithToken.
+// WriteArgoConfigNoToken writes an ArgoCD CLI config with an empty auth token
+// but with a refresh-token, simulating a user whose SSO token has expired before
+// the first use. The refresh-token signals to argonaut that SSO is in use and
+// automatic re-authentication should be triggered.
 func WriteArgoConfigNoToken(path, serverURL string) error {
 	var y bytes.Buffer
 	y.WriteString("contexts:\n")
@@ -64,7 +65,7 @@ func WriteArgoConfigNoToken(path, serverURL string) error {
 	y.WriteString("servers:\n")
 	y.WriteString("  - server: " + serverURL + "\n    insecure: true\n")
 	y.WriteString("users:\n")
-	y.WriteString("  - name: default-user\n    auth-token: \"\"\n")
+	y.WriteString("  - name: default-user\n    auth-token: \"\"\n    refresh-token: sso-refresh-token\n")
 	y.WriteString("current-context: default\n")
 	return os.WriteFile(path, y.Bytes(), 0o644)
 }
@@ -142,8 +143,8 @@ func TestSSOReauthOnStartup(t *testing.T) {
 	binDir := t.TempDir()
 	writeFakeArgocd(t, binDir, freshToken, srv.URL)
 
-	// Enable SSO auto-reauth and start in apps view so "demo" is visible after load
-	tf.extraConfig = "default_view = \"apps\"\n\n[auth]\nauto_reauth = true"
+	// Start in apps view so "demo" is immediately visible after load
+	tf.extraConfig = `default_view = "apps"`
 
 	origPath := os.Getenv("PATH")
 	if err := tf.StartAppArgs(
@@ -247,15 +248,15 @@ func TestSSOReauthOnExpiredToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("setup workspace: %v", err)
 	}
-	if err := WriteArgoConfigWithToken(cfgPath, srv.URL, initialToken); err != nil {
+	if err := WriteArgoConfigWithTokenSSO(cfgPath, srv.URL, initialToken); err != nil {
 		t.Fatalf("write initial config: %v", err)
 	}
 
 	binDir := t.TempDir()
 	writeFakeArgocd(t, binDir, freshToken, srv.URL)
 
-	// Enable SSO auto-reauth and start in apps view so "demo" is visible after load
-	tf.extraConfig = "default_view = \"apps\"\n\n[auth]\nauto_reauth = true"
+	// Start in apps view so "demo" is immediately visible after load
+	tf.extraConfig = `default_view = "apps"`
 
 	origPath := os.Getenv("PATH")
 	if err := tf.StartAppArgs(

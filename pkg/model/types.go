@@ -77,6 +77,10 @@ type Server struct {
 	Insecure        bool   `json:"insecure,omitempty"`
 	GrpcWeb         bool   `json:"grpcWeb,omitempty"`
 	GrpcWebRootPath string `json:"grpcWebRootPath,omitempty"`
+	// SSO is true when the ArgoCD config contained a refresh-token for this
+	// user, indicating the session was established via SSO (OIDC). Used to
+	// gate automatic re-authentication via argocd login --sso.
+	SSO bool `json:"sso,omitempty"`
 }
 
 // TerminalState represents terminal dimensions

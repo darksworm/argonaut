@@ -29,8 +29,9 @@ type ArgoServer struct {
 
 // ArgoUser represents an ArgoCD user configuration
 type ArgoUser struct {
-	Name      string `yaml:"name"`
-	AuthToken string `yaml:"auth-token,omitempty"`
+	Name         string `yaml:"name"`
+	AuthToken    string `yaml:"auth-token,omitempty"`
+	RefreshToken string `yaml:"refresh-token,omitempty"`
 }
 
 // ArgoCLIConfig represents the complete ArgoCD CLI configuration
@@ -178,6 +179,32 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 	return "", fmt.Errorf("user %s not found in ArgoCD config", currentUser)
 }
 
+// currentUserHasRefreshToken returns true if the active context's user has a
+// refresh-token stored. ArgoCD writes a refresh-token after SSO (OIDC) login
+// but not after username/password login, making its presence a reliable SSO
+// indicator without needing a separate flag.
+func (c *ArgoCLIConfig) currentUserHasRefreshToken() bool {
+	if c.CurrentContext == "" {
+		return false
+	}
+	var currentUser string
+	for _, ctx := range c.Contexts {
+		if ctx.Name == c.CurrentContext {
+			currentUser = ctx.User
+			break
+		}
+	}
+	if currentUser == "" {
+		return false
+	}
+	for _, user := range c.Users {
+		if user.Name == currentUser {
+			return user.RefreshToken != ""
+		}
+	}
+	return false
+}
+
 // ToServerConfig converts the ArgoCD CLI config to our internal Server model
 func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 	serverConfig, err := c.GetCurrentServerConfig()
@@ -198,6 +225,7 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 		Insecure:        serverConfig.Insecure,
 		GrpcWeb:         serverConfig.GrpcWeb,
 		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
+		SSO:             c.currentUserHasRefreshToken(),
 	}, nil
 }
 
