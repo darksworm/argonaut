@@ -283,6 +283,8 @@ func (m *Model) View() tea.View {
 			content = m.renderMainLayout()
 		case model.ModeAuthRequired:
 			content = m.renderAuthRequiredView()
+		case model.ModeReauthPending:
+			content = m.renderReauthPendingView()
 		case model.ModeHelp:
 			content = m.renderHelpModal()
 		case model.ModeRollback:
@@ -561,6 +563,20 @@ func sortStrings(items []string) {
 			j--
 		}
 	}
+}
+
+func (m *Model) renderReauthPendingView() string {
+	msg := lipgloss.NewStyle().
+		Foreground(cyanBright).
+		Bold(true).
+		Render("Re-authenticating via SSO — check your browser.")
+	return lipgloss.Place(
+		m.state.Terminal.Cols,
+		m.state.Terminal.Rows,
+		lipgloss.Center,
+		lipgloss.Center,
+		msg,
+	)
 }
 
 func (m *Model) renderAuthRequiredView() string {

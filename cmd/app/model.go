@@ -1333,6 +1333,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
 
+	case model.TriggerReauthMsg:
+		return m.handleTriggerReauthMsg()
+
+	case model.ReauthCompleteMsg:
+		return m.handleReauthCompleteMsg(msg)
+
 	case model.ContextSwitchResultMsg:
 		return m.handleContextSwitchResult(msg)
 
