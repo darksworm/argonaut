@@ -12,7 +12,7 @@
 ### Bug Fixes
 
 * :r and k9s open the correct app when multiple apps share the same name ([#231](https://github.com/darksworm/argonaut/issues/231)) ([f6e9ddf](https://github.com/darksworm/argonaut/commit/f6e9ddf62b72a5ef9895cbfd83344b5950b535b2))
-* **header:** show ns and project when navigating from app view ([#230](https://github.com/darksworm/argonaut/issues/230)) ([f0577b5](https://github.com/darksworm/argonaut/commit/f0577b5336e88ed78f044c389117a8c0cc643836))
+* the resource tree header now shows the destination namespace and project of the app you're viewing ([#230](https://github.com/darksworm/argonaut/issues/230)) ([f0577b5](https://github.com/darksworm/argonaut/commit/f0577b5336e88ed78f044c389117a8c0cc643836))
 
 ## [2.15.0](https://github.com/darksworm/argonaut/compare/v2.14.1...v2.15.0) (2026-03-26)
 
