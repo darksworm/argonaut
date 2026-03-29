@@ -24,6 +24,13 @@ func (m *Model) consumeTreeEvent() tea.Cmd {
 		if ch == nil {
 			return nil
 		}
+		// Pre-check: when both ch and done are ready Go selects randomly.
+		// Drain done first so cleanup always wins over a pending event.
+		select {
+		case <-done:
+			return nil
+		default:
+		}
 		select {
 		case ev, ok := <-ch:
 			if !ok {
