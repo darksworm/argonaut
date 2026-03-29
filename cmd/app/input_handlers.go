@@ -1838,26 +1838,24 @@ func (m *Model) handleOpenK9s() (tea.Model, tea.Cmd) {
 		"namespace", namespace,
 		"name", name)
 
-	// Try to find the context from the current app's cluster info
+	// Try to find the context from the current app's cluster info.
+	// Use name + AppNamespace to disambiguate when multiple apps share the same name.
 	var context string
 	var contextFound bool
 	if m.state.UI.TreeApp != nil {
-		for i := range m.state.Apps {
-			if m.state.Apps[i].Name == m.state.UI.TreeApp.Name {
-				app := m.state.Apps[i]
-				if app.ClusterID != nil {
-					clusterID := *app.ClusterID
-					// Try to find matching context
-					ctx, err := m.findK9sContext(clusterID)
-					if err == nil {
-						context = ctx
-						contextFound = true
-					} else {
-						cblog.With("component", "k9s").Debug("Could not find context for cluster",
-							"clusterID", clusterID, "err", err)
-					}
-				}
-				break
+		treeAppNS := ""
+		if m.state.UI.TreeApp.AppNamespace != nil {
+			treeAppNS = *m.state.UI.TreeApp.AppNamespace
+		}
+		if app := m.findAppByNameAndNamespace(m.state.UI.TreeApp.Name, treeAppNS); app != nil && app.ClusterID != nil {
+			clusterID := *app.ClusterID
+			ctx, err := m.findK9sContext(clusterID)
+			if err == nil {
+				context = ctx
+				contextFound = true
+			} else {
+				cblog.With("component", "k9s").Debug("Could not find context for cluster",
+					"clusterID", clusterID, "err", err)
 			}
 		}
 	}

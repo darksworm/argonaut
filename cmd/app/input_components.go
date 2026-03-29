@@ -798,6 +798,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			return m, m.startRollbackSession(target, targetNamespace)
 		case "resources", "res", "r":
 			target := arg
+			var selectedApp *model.App
 
 			// If no explicit target provided, check for multiple selections first (like 'r' key does)
 			if target == "" {
@@ -849,6 +850,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 						if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 							if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
 								target = app.Name
+								selectedApp = &app // preserve full app; avoids name-only re-lookup below
 							}
 						}
 					} else {
@@ -868,11 +870,14 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
 			m.treeNav.Reset() // Reset scroll position
 			m.state.SaveNavigationState()
-			var selectedApp *model.App
-			for i := range m.state.Apps {
-				if m.state.Apps[i].Name == target {
-					selectedApp = &m.state.Apps[i]
-					break
+			// selectedApp may already be set by the cursor-position path above.
+			// Fall back to name-only lookup when target came from a text argument or checkbox.
+			if selectedApp == nil {
+				for i := range m.state.Apps {
+					if m.state.Apps[i].Name == target {
+						selectedApp = &m.state.Apps[i]
+						break
+					}
 				}
 			}
 			if selectedApp == nil {
