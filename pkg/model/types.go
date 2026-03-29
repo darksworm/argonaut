@@ -74,6 +74,7 @@ type Server struct {
 	Username        string `json:"username,omitempty"`
 	Password        string `json:"password,omitempty"`
 	Insecure        bool   `json:"insecure,omitempty"`
+	GrpcWeb         bool   `json:"grpcWeb,omitempty"`
 	GrpcWebRootPath string `json:"grpcWebRootPath,omitempty"`
 }
 

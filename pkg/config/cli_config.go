@@ -198,6 +198,7 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 		BaseURL:         baseURL,
 		Token:           token,
 		Insecure:        serverConfig.Insecure,
+		GrpcWeb:         serverConfig.GrpcWeb,
 		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
 	}, nil
 }
@@ -263,6 +264,7 @@ func (c *ArgoCLIConfig) ToServerConfigForContext(contextName string) (*model.Ser
 		BaseURL:         baseURL,
 		Token:           token,
 		Insecure:        serverConfig.Insecure,
+		GrpcWeb:         serverConfig.GrpcWeb,
 		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
 	}, nil
 }

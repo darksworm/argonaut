@@ -586,3 +586,34 @@ func TestIsContextCore(t *testing.T) {
 		})
 	}
 }
+
+func TestToServerConfig_GrpcWeb(t *testing.T) {
+	cfg := &ArgoCLIConfig{
+		Contexts:       []ArgoContext{{Name: "test", Server: "example.com", User: "alice"}},
+		Servers:        []ArgoServer{{Server: "example.com", GrpcWeb: true}},
+		Users:          []ArgoUser{{Name: "alice", AuthToken: "tok"}},
+		CurrentContext: "test",
+	}
+	server, err := cfg.ToServerConfig()
+	if err != nil {
+		t.Fatalf("ToServerConfig: %v", err)
+	}
+	if !server.GrpcWeb {
+		t.Error("expected GrpcWeb=true, got false")
+	}
+}
+
+func TestToServerConfigForContext_GrpcWeb(t *testing.T) {
+	cfg := &ArgoCLIConfig{
+		Contexts: []ArgoContext{{Name: "ctx", Server: "example.com", User: "alice"}},
+		Servers:  []ArgoServer{{Server: "example.com", GrpcWeb: true}},
+		Users:    []ArgoUser{{Name: "alice", AuthToken: "tok"}},
+	}
+	server, err := cfg.ToServerConfigForContext("ctx")
+	if err != nil {
+		t.Fatalf("ToServerConfigForContext: %v", err)
+	}
+	if !server.GrpcWeb {
+		t.Error("expected GrpcWeb=true, got false")
+	}
+}
