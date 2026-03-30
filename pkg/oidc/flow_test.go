@@ -40,6 +40,13 @@ func TestAuthCodeURL_ContainsPKCEAndState(t *testing.T) {
 
 func TestExchangeCode_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify PKCE code_verifier is sent
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse form: %v", err)
+		}
+		if r.FormValue("code_verifier") == "" {
+			t.Error("expected code_verifier in token request")
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token":  "access-tok",
@@ -53,12 +60,12 @@ func TestExchangeCode_Success(t *testing.T) {
 	endpoints := &oidc.Endpoints{AuthURL: srv.URL + "/auth", TokenURL: srv.URL + "/token"}
 	cfg := &oidc.OIDCConfig{ClientID: "c", Scopes: []string{"openid"}}
 
-	tokens, err := oidc.ExchangeCode(context.Background(), endpoints, cfg, "auth-code", "verifier", "http://localhost:8085/auth/callback", false)
+	tokens, err := oidc.ExchangeCode(context.Background(), endpoints, cfg, "auth-code", "myverifier", "http://localhost:8085/auth/callback", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tokens.IDToken != "id-tok" {
-		t.Errorf("IDToken: got %q", tokens.IDToken)
+	if tokens.AuthToken != "id-tok" {
+		t.Errorf("AuthToken: got %q", tokens.AuthToken)
 	}
 	if tokens.RefreshToken != "refresh-tok" {
 		t.Errorf("RefreshToken: got %q", tokens.RefreshToken)
@@ -83,13 +90,19 @@ func TestExchangeCode_FallsBackToAccessToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tokens.IDToken != "access-only" {
-		t.Errorf("expected fallback to access_token, got: %q", tokens.IDToken)
+	if tokens.AuthToken != "access-only" {
+		t.Errorf("expected fallback to access_token, got: %q", tokens.AuthToken)
 	}
 }
 
 func TestRefreshTokens_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse form: %v", err)
+		}
+		if r.FormValue("grant_type") != "refresh_token" {
+			t.Errorf("expected grant_type=refresh_token, got %q", r.FormValue("grant_type"))
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token":  "new-access",
@@ -107,7 +120,7 @@ func TestRefreshTokens_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tokens.IDToken != "new-id-tok" {
-		t.Errorf("IDToken: got %q", tokens.IDToken)
+	if tokens.AuthToken != "new-id-tok" {
+		t.Errorf("AuthToken: got %q", tokens.AuthToken)
 	}
 }

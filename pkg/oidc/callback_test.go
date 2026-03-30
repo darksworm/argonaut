@@ -1,6 +1,7 @@
 package oidc_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -9,7 +10,10 @@ import (
 )
 
 func TestStartCallbackServer_ReceivesCode(t *testing.T) {
-	redirectURI, resultCh, cleanup, err := oidc.StartCallbackServer(0) // port 0 = random
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	redirectURI, resultCh, cleanup, err := oidc.StartCallbackServer(ctx, 0) // port 0 = random
 	if err != nil {
 		t.Fatalf("start server: %v", err)
 	}
@@ -41,7 +45,10 @@ func TestStartCallbackServer_ReceivesCode(t *testing.T) {
 }
 
 func TestStartCallbackServer_ErrorCallback(t *testing.T) {
-	redirectURI, resultCh, cleanup, err := oidc.StartCallbackServer(0)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	redirectURI, resultCh, cleanup, err := oidc.StartCallbackServer(ctx, 0)
 	if err != nil {
 		t.Fatalf("start server: %v", err)
 	}
@@ -58,5 +65,27 @@ func TestStartCallbackServer_ErrorCallback(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("timeout waiting for callback")
+	}
+}
+
+func TestStartCallbackServer_ContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	_, resultCh, cleanup, err := oidc.StartCallbackServer(ctx, 0)
+	if err != nil {
+		t.Fatalf("start server: %v", err)
+	}
+	defer cleanup()
+
+	// Cancel the context — should deliver an error on the channel
+	cancel()
+
+	select {
+	case result := <-resultCh:
+		if result.Err == nil {
+			t.Fatal("expected error when context cancelled")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for cancellation result")
 	}
 }

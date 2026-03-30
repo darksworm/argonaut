@@ -16,9 +16,10 @@ type CallbackResult struct {
 
 // StartCallbackServer starts a local HTTP server that handles the OAuth2 callback.
 // Pass port=0 to pick a random available port.
+// The server shuts down when ctx is cancelled or a callback is received.
 // Returns the redirect URI (http://localhost:{port}/auth/callback), a channel
-// that receives one result, and a cleanup function to shut down the server.
-func StartCallbackServer(port int) (redirectURI string, resultCh <-chan CallbackResult, cleanup func(), err error) {
+// that receives one result, and a cleanup function to shut down the server early.
+func StartCallbackServer(ctx context.Context, port int) (redirectURI string, resultCh <-chan CallbackResult, cleanup func(), err error) {
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("starting callback server: %w", err)
@@ -35,19 +36,33 @@ func StartCallbackServer(port int) (redirectURI string, resultCh <-chan Callback
 		errParam := r.URL.Query().Get("error")
 		if errParam != "" {
 			desc := r.URL.Query().Get("error_description")
-			fmt.Fprintf(w, "Authentication failed: %s — %s. You may close this tab.", errParam, desc)
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprintf(w, "<p>Authentication failed: %s — %s. You may close this tab.</p>", errParam, desc)
 			ch <- CallbackResult{Err: fmt.Errorf("OIDC callback error: %s: %s", errParam, desc)}
 			return
 		}
 		code := r.URL.Query().Get("code")
 		state := r.URL.Query().Get("state")
-		fmt.Fprintf(w, "Authentication successful. You may close this tab.")
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, "<p>Authentication successful. You may close this tab.</p>")
 		ch <- CallbackResult{Code: code, State: state}
 	})
 
 	go srv.Serve(ln) //nolint:errcheck
 
-	return redirectURI, ch, func() {
+	// Watch for context cancellation and send an error on the channel.
+	go func() {
+		<-ctx.Done()
 		srv.Shutdown(context.Background()) //nolint:errcheck
-	}, nil
+		// Non-blocking send — if a result was already sent, this is a no-op.
+		select {
+		case ch <- CallbackResult{Err: ctx.Err()}:
+		default:
+		}
+	}()
+
+	shutdown := func() {
+		srv.Shutdown(context.Background()) //nolint:errcheck
+	}
+	return redirectURI, ch, shutdown, nil
 }

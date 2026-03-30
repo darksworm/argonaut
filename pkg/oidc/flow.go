@@ -9,7 +9,9 @@ import (
 
 // TokenSet holds the tokens returned from a successful OIDC exchange or refresh.
 type TokenSet struct {
-	IDToken      string // JWT id_token — used as ArgoCD auth-token
+	// AuthToken is the token used as ArgoCD's auth-token.
+	// It is the id_token when the OIDC provider issues one, otherwise the access_token.
+	AuthToken    string
 	AccessToken  string
 	RefreshToken string
 }
@@ -68,7 +70,7 @@ func tokenSetFromOAuth2(tok *oauth2.Token) *TokenSet {
 		authToken = tok.AccessToken
 	}
 	return &TokenSet{
-		IDToken:      authToken,
+		AuthToken:    authToken,
 		AccessToken:  tok.AccessToken,
 		RefreshToken: tok.RefreshToken,
 	}

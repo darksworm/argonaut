@@ -2,7 +2,6 @@ package oidc
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -70,15 +69,3 @@ func FetchOIDCConfig(ctx context.Context, serverURL string, insecure bool) (*OID
 	}, nil
 }
 
-// buildHTTPClient returns an http.Client. If insecure, TLS verification is skipped.
-// Otherwise uses http.DefaultClient (which inherits the globally-configured trust store).
-func buildHTTPClient(insecure bool) *http.Client {
-	if !insecure {
-		return http.DefaultClient
-	}
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		},
-	}
-}
