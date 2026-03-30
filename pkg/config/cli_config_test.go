@@ -592,6 +592,61 @@ func TestIsContextCore(t *testing.T) {
 	}
 }
 
+func TestGetArgonautSessionPath(t *testing.T) {
+	t.Run("ARGONAUT_SESSION_CONFIG env overrides all", func(t *testing.T) {
+		t.Setenv("ARGONAUT_SESSION_CONFIG", "/custom/path.yaml")
+		got := GetArgonautSessionPath()
+		if got != "/custom/path.yaml" {
+			t.Errorf("got %q, want /custom/path.yaml", got)
+		}
+	})
+
+	t.Run("XDG_CONFIG_HOME used when set", func(t *testing.T) {
+		t.Setenv("ARGONAUT_SESSION_CONFIG", "")
+		t.Setenv("XDG_CONFIG_HOME", "/xdg")
+		got := GetArgonautSessionPath()
+		want := "/xdg/argonaut/session.yaml"
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+}
+
+func TestWriteCLIConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sub", "session.yaml")
+	cfg := &ArgoCLIConfig{
+		CurrentContext: "test",
+		Contexts:       []ArgoContext{{Name: "test", Server: "example.com", User: "test-user"}},
+		Users:          []ArgoUser{{Name: "test-user", AuthToken: "tok", SSO: true, OIDCIssuer: "https://dex.example.com"}},
+	}
+	if err := WriteCLIConfig(path, cfg); err != nil {
+		t.Fatalf("WriteCLIConfig: %v", err)
+	}
+	// Verify the file exists and can be read back
+	got, err := ReadCLIConfigFromPath(path)
+	if err != nil {
+		t.Fatalf("ReadCLIConfigFromPath: %v", err)
+	}
+	if got.CurrentContext != "test" {
+		t.Errorf("CurrentContext: got %q", got.CurrentContext)
+	}
+	if len(got.Users) == 0 || !got.Users[0].SSO {
+		t.Error("expected SSO:true to round-trip through YAML")
+	}
+	if len(got.Users) == 0 || got.Users[0].OIDCIssuer != "https://dex.example.com" {
+		t.Error("expected OIDCIssuer to round-trip through YAML")
+	}
+	// Check file permissions
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("expected 0600 permissions, got %o", info.Mode().Perm())
+	}
+}
+
 func TestToServerConfig_GrpcWeb(t *testing.T) {
 	cfg := &ArgoCLIConfig{
 		Contexts:       []ArgoContext{{Name: "test", Server: "example.com", User: "alice"}},

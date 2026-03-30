@@ -267,10 +267,16 @@ func main() {
 	// Load Argo CD CLI configuration (matches TypeScript app-orchestrator.ts)
 	cblog.With("component", "app").Info("Loading Argo CD config…")
 
-	// Determine and store the effective ArgoCD config path
+	// Determine effective config path.
+	// Priority: -argocd-config flag > argonaut session file (if exists) > argocd default
 	effectiveConfigPath := cfgPathFlag
 	if effectiveConfigPath == "" {
-		effectiveConfigPath = config.GetConfigPath()
+		argonautSession := config.GetArgonautSessionPath()
+		if _, statErr := os.Stat(argonautSession); statErr == nil {
+			effectiveConfigPath = argonautSession
+		} else {
+			effectiveConfigPath = config.GetConfigPath()
+		}
 	}
 	m.argoConfigPath = effectiveConfigPath
 

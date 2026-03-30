@@ -361,6 +361,32 @@ func (c *ArgoCLIConfig) IsContextCore(contextName string) (bool, error) {
 	return false, fmt.Errorf("server configuration not found for %s", serverURL)
 }
 
+// GetArgonautSessionPath returns the path to argonaut's own session config.
+// Priority: ARGONAUT_SESSION_CONFIG env > XDG_CONFIG_HOME/argonaut/session.yaml > ~/.config/argonaut/session.yaml
+func GetArgonautSessionPath() string {
+	if p := os.Getenv("ARGONAUT_SESSION_CONFIG"); p != "" {
+		return p
+	}
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "argonaut", "session.yaml")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "argonaut", "session.yaml")
+}
+
+// WriteCLIConfig writes an ArgoCLIConfig to the given path, creating parent dirs as needed.
+// File is written with mode 0600 (owner read/write only).
+func WriteCLIConfig(path string, cfg *ArgoCLIConfig) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("failed to create config dir: %w", err)
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	return os.WriteFile(path, data, 0o600)
+}
+
 // ensureHTTPS ensures the URL has the correct protocol
 func ensureHTTPS(baseURL string, plainText bool) string {
 	if len(baseURL) == 0 {
