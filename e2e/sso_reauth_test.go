@@ -3,76 +3,44 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/darksworm/argonaut/pkg/config"
 )
 
-// writeFakeArgocd writes a shell script that acts as a fake `argocd` binary.
-// When invoked as `argocd login <server> --sso --config <path>`, it writes a
-// fresh token to the config file at <path>.
-// serverURL must be the full URL (e.g. "http://127.0.0.1:PORT") to match
-// the format used by WriteArgoConfigWithToken.
-func writeFakeArgocd(t *testing.T, dir, freshToken, serverURL string) string {
-	t.Helper()
-	scriptPath := filepath.Join(dir, "argocd")
-	script := fmt.Sprintf(`#!/bin/sh
-# Fake argocd for SSO reauth E2E tests.
-# Finds --config <path> in args, writes a fresh config with a known token.
-CONFIG_PATH=""
-prev=""
-for arg in "$@"; do
-    if [ "$prev" = "--config" ]; then CONFIG_PATH="$arg"; fi
-    prev="$arg"
-done
-if [ -n "$CONFIG_PATH" ]; then
-    cat > "$CONFIG_PATH" << 'ARGOYAML'
-contexts:
-  - name: default
-    server: %s
-    user: default-user
-servers:
-  - server: %s
-    insecure: true
-users:
-  - name: default-user
-    auth-token: %s
-current-context: default
-ARGOYAML
-fi
-exit 0
-`, serverURL, serverURL, freshToken)
-	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("writeFakeArgocd: %v", err)
-	}
-	return scriptPath
-}
+// oidcTokenDelay is added to /oauth2/token responses in the startup test
+// so the TUI has time to render "Re-authenticating via SSO" before reauth completes.
+const oidcTokenDelay = 300 * time.Millisecond
 
 // WriteArgoConfigNoToken writes an ArgoCD CLI config with an empty auth token
-// but with a refresh-token, simulating a user whose SSO token has expired before
-// the first use. The refresh-token signals to argonaut that SSO is in use and
-// automatic re-authentication should be triggered.
+// but with sso:true and a refresh-token, simulating a user whose SSO token has
+// expired before the first use. serverURL must include the scheme (e.g.
+// "http://127.0.0.1:PORT") so that ensureHTTPS in the config layer preserves
+// the http:// scheme for test servers.
 func WriteArgoConfigNoToken(path, serverURL string) error {
-	var y bytes.Buffer
-	y.WriteString("contexts:\n")
-	y.WriteString("  - name: default\n    server: " + serverURL + "\n    user: default-user\n")
-	y.WriteString("servers:\n")
-	y.WriteString("  - server: " + serverURL + "\n    insecure: true\n")
-	y.WriteString("users:\n")
-	y.WriteString("  - name: default-user\n    auth-token: \"\"\n    refresh-token: sso-refresh-token\n")
-	y.WriteString("current-context: default\n")
-	return os.WriteFile(path, y.Bytes(), 0o644)
+	cfg := &config.ArgoCLIConfig{
+		CurrentContext: "default",
+		Contexts:       []config.ArgoContext{{Name: "default", Server: serverURL, User: "default-user"}},
+		Servers:        []config.ArgoServer{{Server: serverURL, Insecure: true}},
+		Users: []config.ArgoUser{{
+			Name:         "default-user",
+			AuthToken:    "",
+			RefreshToken: "e2e-refresh-token",
+			SSO:          true,
+			OIDCIssuer:   serverURL,
+		}},
+	}
+	return config.WriteCLIConfig(path, cfg)
 }
 
 // TestSSOReauthOnStartup verifies the startup flow when no token is present:
 //  1. Config has an empty token → argonaut emits TriggerReauthMsg → shows "Re-authenticating via SSO"
-//  2. Fake argocd writes a fresh token to the config file
+//  2. NativeOIDCReauthProvider performs silent refresh via mock OIDC endpoints → gets fresh token
 //  3. Argonaut resumes, validates auth, and loads apps
 func TestSSOReauthOnStartup(t *testing.T) {
 	t.Parallel()
@@ -84,6 +52,41 @@ func TestSSOReauthOnStartup(t *testing.T) {
 	appsJSON := `[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`
 
 	mux := http.NewServeMux()
+
+	// srv is captured after creation; handlers reference it via closure.
+	var srv *httptest.Server
+
+	mux.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"oidcConfig": map[string]interface{}{
+				"issuer":          srv.URL,
+				"cliClientID":     "argo-cd-cli",
+				"requestedScopes": []string{"openid"},
+			},
+		})
+	})
+
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"issuer":                  srv.URL,
+			"authorization_endpoint": srv.URL + "/oauth2/authorize",
+			"token_endpoint":         srv.URL + "/oauth2/token",
+		})
+	})
+
+	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
+		// Brief delay so the TUI can render "Re-authenticating via SSO" before reauth completes.
+		time.Sleep(oidcTokenDelay)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id_token":      freshToken,
+			"access_token":  freshToken,
+			"refresh_token": "new-refresh-token",
+			"token_type":    "Bearer",
+		})
+	})
 
 	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
 		tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -126,7 +129,7 @@ func TestSSOReauthOnStartup(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	})
 
-	srv := httptest.NewServer(mux)
+	srv = httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
 	cfgPath, err := tf.SetupWorkspace()
@@ -134,22 +137,17 @@ func TestSSOReauthOnStartup(t *testing.T) {
 		t.Fatalf("setup workspace: %v", err)
 	}
 
-	// Write config with empty token → triggers reauth on startup
+	// Write config with empty token → triggers reauth on startup.
+	// OIDCIssuer points at srv.URL so the provider can discover OIDC endpoints.
 	if err := WriteArgoConfigNoToken(cfgPath, srv.URL); err != nil {
 		t.Fatalf("write no-token config: %v", err)
 	}
 
-	// Create fake argocd in a temp bin dir; it will write the fresh token on invocation
-	binDir := t.TempDir()
-	writeFakeArgocd(t, binDir, freshToken, srv.URL)
-
 	// Start in apps view so "demo" is immediately visible after load
 	tf.extraConfig = `default_view = "apps"`
 
-	origPath := os.Getenv("PATH")
 	if err := tf.StartAppArgs(
 		[]string{"-argocd-config=" + cfgPath},
-		"PATH="+binDir+":"+origPath,
 	); err != nil {
 		t.Fatalf("start app: %v", err)
 	}
@@ -160,7 +158,7 @@ func TestSSOReauthOnStartup(t *testing.T) {
 		t.Fatal("expected 'Re-authenticating via SSO' message during startup reauth")
 	}
 
-	// Step 2+3: after fake argocd exits with fresh token, app loads and shows apps
+	// Step 2+3: after silent refresh obtains fresh token, app loads and shows apps
 	if !tf.WaitForPlain("demo", 10*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected app 'demo' to appear after successful startup reauth")
@@ -173,7 +171,8 @@ func TestSSOReauthOnStartup(t *testing.T) {
 //  1. App starts with a valid token, list endpoint serves apps, stream setup returns 401
 //     (simulating a token that is valid for REST but expired for streaming — triggers AuthErrorMsg)
 //  2. Argonaut emits TriggerReauthMsg → shows "Re-authenticating via SSO"
-//  3. Fake argocd writes a fresh token; argonaut reloads apps via validateAuthentication
+//  3. NativeOIDCReauthProvider performs silent refresh via mock OIDC endpoints
+//  4. Argonaut reloads apps via validateAuthentication
 //
 // Design note: there is no automatic watch reconnect in argonaut — when the stream
 // setup (startWatchingApplications) returns 401, that is the point at which AuthErrorMsg
@@ -190,6 +189,38 @@ func TestSSOReauthOnExpiredToken(t *testing.T) {
 	appsJSON := `[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`
 
 	mux := http.NewServeMux()
+
+	var srv *httptest.Server
+
+	mux.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"oidcConfig": map[string]interface{}{
+				"issuer":          srv.URL,
+				"cliClientID":     "argo-cd-cli",
+				"requestedScopes": []string{"openid"},
+			},
+		})
+	})
+
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"issuer":                  srv.URL,
+			"authorization_endpoint": srv.URL + "/oauth2/authorize",
+			"token_endpoint":         srv.URL + "/oauth2/token",
+		})
+	})
+
+	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id_token":      freshToken,
+			"access_token":  freshToken,
+			"refresh_token": "new-refresh-token",
+			"token_type":    "Bearer",
+		})
+	})
 
 	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) {
 		tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -241,27 +272,23 @@ func TestSSOReauthOnExpiredToken(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	})
 
-	srv := httptest.NewServer(mux)
+	srv = httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
 	cfgPath, err := tf.SetupWorkspace()
 	if err != nil {
 		t.Fatalf("setup workspace: %v", err)
 	}
-	if err := WriteArgoConfigWithTokenSSO(cfgPath, srv.URL, initialToken); err != nil {
+	// issuerURL == srv.URL: mock OIDC endpoints live on the same server
+	if err := WriteArgoConfigWithTokenSSO(cfgPath, srv.URL, initialToken, srv.URL); err != nil {
 		t.Fatalf("write initial config: %v", err)
 	}
-
-	binDir := t.TempDir()
-	writeFakeArgocd(t, binDir, freshToken, srv.URL)
 
 	// Start in apps view so "demo" is immediately visible after load
 	tf.extraConfig = `default_view = "apps"`
 
-	origPath := os.Getenv("PATH")
 	if err := tf.StartAppArgs(
 		[]string{"-argocd-config=" + cfgPath},
-		"PATH="+binDir+":"+origPath,
 	); err != nil {
 		t.Fatalf("start app: %v", err)
 	}
@@ -273,7 +300,7 @@ func TestSSOReauthOnExpiredToken(t *testing.T) {
 		t.Fatal("expected 'Re-authenticating via SSO' after stream setup 401")
 	}
 
-	// Step 3: after fake argocd writes fresh token, apps reload
+	// Step 3+4: silent refresh obtains fresh token → apps reload
 	if !tf.WaitForPlain("demo", 12*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected 'demo' app to reload after reauth")

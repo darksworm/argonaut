@@ -24,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/creack/pty"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/hinshun/vt10x"
 )
 
@@ -660,19 +661,24 @@ func WriteArgoConfigWithToken(path, baseURL, token string) error {
 }
 
 // WriteArgoConfigWithTokenSSO writes a CLI config that looks like an SSO login:
-// includes a refresh-token alongside the auth-token, which is how argocd login
-// --sso writes the config. argonaut uses the presence of refresh-token to detect
-// SSO and enable automatic re-authentication.
-func WriteArgoConfigWithTokenSSO(path, baseURL, token string) error {
-	var y bytes.Buffer
-	y.WriteString("contexts:\n")
-	y.WriteString("  - name: default\n    server: " + baseURL + "\n    user: default-user\n")
-	y.WriteString("servers:\n")
-	y.WriteString("  - server: " + baseURL + "\n    insecure: true\n")
-	y.WriteString("users:\n")
-	y.WriteString("  - name: default-user\n    auth-token: " + token + "\n    refresh-token: sso-refresh-token\n")
-	y.WriteString("current-context: default\n")
-	return os.WriteFile(path, y.Bytes(), 0o644)
+// includes sso:true, a refresh-token, and an oidc-issuer pointing at issuerURL.
+// issuerURL is typically the same as baseURL (mock OIDC endpoints on the test server).
+// baseURL must include the scheme (e.g. "http://127.0.0.1:PORT") so that ensureHTTPS
+// in the config layer preserves the http:// scheme for test servers.
+func WriteArgoConfigWithTokenSSO(path, baseURL, token, issuerURL string) error {
+	cfg := &config.ArgoCLIConfig{
+		CurrentContext: "default",
+		Contexts:       []config.ArgoContext{{Name: "default", Server: baseURL, User: "default-user"}},
+		Servers:        []config.ArgoServer{{Server: baseURL, Insecure: true}},
+		Users: []config.ArgoUser{{
+			Name:         "default-user",
+			AuthToken:    token,
+			RefreshToken: "e2e-refresh-token",
+			SSO:          true,
+			OIDCIssuer:   issuerURL,
+		}},
+	}
+	return config.WriteCLIConfig(path, cfg)
 }
 
 // Removed WriteArgonautConfigWithClipboard - clipboard config is now set automatically by StartAppArgs
