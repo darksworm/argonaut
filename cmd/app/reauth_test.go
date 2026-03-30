@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,13 +13,14 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
-// fakeAuthProvider is a test double for auth.JWTAuthProvider.
-type fakeAuthProvider struct {
-	cmd *exec.Cmd
+// fakeReauthProvider is a test double for auth.ReauthProvider.
+// It writes a token to configPath so handleReauthCompleteMsg can re-read it.
+type fakeReauthProvider struct {
+	err error
 }
 
-func (f *fakeAuthProvider) LoginCmd(_ auth.LoginParams) *exec.Cmd {
-	return f.cmd
+func (f *fakeReauthProvider) Reauth(_ context.Context, _ *model.Server, _ string, _ string) (string, error) {
+	return "", f.err
 }
 
 // writeTestArgoConfig writes a minimal ArgoCD CLI config with the given server URL and token.
@@ -68,7 +69,7 @@ func TestTriggerReauthAlreadyPending_NoOp(t *testing.T) {
 func TestTriggerReauthInfiniteLoopGuard(t *testing.T) {
 	m := NewModel(nil)
 	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: "", SSO: true}
-	m.jwtAuthProvider = &fakeAuthProvider{cmd: exec.Command("true")}
+	m.reauthProvider = &fakeReauthProvider{}
 	m.reauthAttempts = 2 // after increment (→3), this exceeds the > 2 limit, triggering fallback
 
 	result, _ := m.Update(model.TriggerReauthMsg{})
@@ -82,10 +83,10 @@ func TestTriggerReauthInfiniteLoopGuard(t *testing.T) {
 	}
 }
 
-func TestTriggerReauthSetsModePendingAndLaunchesExecProcess(t *testing.T) {
+func TestTriggerReauthSetsModePendingAndLaunchesBgCmd(t *testing.T) {
 	m := NewModel(nil)
 	m.state.Server = &model.Server{BaseURL: "https://argocd.example.com", Token: "", SSO: true}
-	m.jwtAuthProvider = &fakeAuthProvider{cmd: exec.Command("true")}
+	m.reauthProvider = &fakeReauthProvider{}
 
 	result, cmd := m.Update(model.TriggerReauthMsg{})
 	newM := result.(*Model)
@@ -97,7 +98,7 @@ func TestTriggerReauthSetsModePendingAndLaunchesExecProcess(t *testing.T) {
 		t.Errorf("expected reauthAttempts=1, got %d", newM.reauthAttempts)
 	}
 	if cmd == nil {
-		t.Error("expected non-nil cmd (ExecProcess) from TriggerReauthMsg")
+		t.Error("expected non-nil cmd (background goroutine) from TriggerReauthMsg")
 	}
 }
 

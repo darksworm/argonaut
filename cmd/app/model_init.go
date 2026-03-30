@@ -97,7 +97,7 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		rollbackNav:        listnav.New(),
 		selection:          selection.New(),
 		pendingDefaultViewScope: pendingDefaultViewScope,
-		jwtAuthProvider:    auth.ArgocdCLIAuthProvider{},
+		reauthProvider: &auth.NativeOIDCReauthProvider{},
 	}
 }
 

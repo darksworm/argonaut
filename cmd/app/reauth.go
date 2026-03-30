@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
+	"time"
+
 	tea "charm.land/bubbletea/v2"
 	cblog "github.com/charmbracelet/log"
-	"github.com/darksworm/argonaut/pkg/auth"
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 )
@@ -37,22 +39,19 @@ func (m *Model) handleTriggerReauthMsg() (tea.Model, tea.Cmd) {
 	}
 
 	m.state.Mode = model.ModeReauthPending
-	m.state.Modals.InitialLoading = false // dismiss initial loading spinner — ExecProcess takes over the terminal
-
-	params := auth.LoginParams{
-		ServerURL:       auth.StripProtocol(m.state.Server.BaseURL),
-		ContextName:     m.currentContextName,
-		Insecure:        m.state.Server.Insecure,
-		GrpcWeb:         m.state.Server.GrpcWeb,
-		GrpcWebRootPath: m.state.Server.GrpcWebRootPath,
-		ConfigPath:      m.argoConfigPath,
-	}
 
 	epoch := m.switchEpoch
-	loginCmd := m.jwtAuthProvider.LoginCmd(params)
-	return m, tea.ExecProcess(loginCmd, func(err error) tea.Msg {
+	server := m.state.Server  // snapshot to avoid data race
+	configPath := m.argoConfigPath
+	contextName := m.currentContextName
+	provider := m.reauthProvider
+
+	return m, func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		_, err := provider.Reauth(ctx, server, configPath, contextName)
 		return model.ReauthCompleteMsg{Err: err, SwitchEpoch: epoch}
-	})
+	}
 }
 
 // handleReauthCompleteMsg processes the result of argocd login --sso.

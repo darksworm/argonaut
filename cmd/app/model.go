@@ -135,8 +135,8 @@ type Model struct {
 	switchEpoch        int    // Incremented on each context switch; captured by async closures
 
 	// SSO re-authentication
-	jwtAuthProvider auth.JWTAuthProvider // injectable for tests
-	reauthAttempts  int                  // resets to 0 on successful reauth
+	reauthProvider auth.ReauthProvider // injectable for tests
+	reauthAttempts int                 // resets to 0 on successful reauth
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
