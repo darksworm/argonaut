@@ -32,6 +32,8 @@ type ArgoUser struct {
 	Name         string `yaml:"name"`
 	AuthToken    string `yaml:"auth-token,omitempty"`
 	RefreshToken string `yaml:"refresh-token,omitempty"`
+	SSO          bool   `yaml:"sso,omitempty"`
+	OIDCIssuer   string `yaml:"oidc-issuer,omitempty"`
 }
 
 // ArgoCLIConfig represents the complete ArgoCD CLI configuration
@@ -179,11 +181,10 @@ func (c *ArgoCLIConfig) GetCurrentToken() (string, error) {
 	return "", fmt.Errorf("user %s not found in ArgoCD config", currentUser)
 }
 
-// currentUserHasRefreshToken returns true if the active context's user has a
-// refresh-token stored. ArgoCD writes a refresh-token after SSO (OIDC) login
-// but not after username/password login, making its presence a reliable SSO
-// indicator without needing a separate flag.
-func (c *ArgoCLIConfig) currentUserHasRefreshToken() bool {
+// currentUserSSO returns true if the active context's user has sso:true stored.
+// Written by argonaut login --sso; falls back to refresh-token presence for
+// configs created by argocd login --sso (backward compatibility).
+func (c *ArgoCLIConfig) currentUserSSO() bool {
 	if c.CurrentContext == "" {
 		return false
 	}
@@ -194,15 +195,32 @@ func (c *ArgoCLIConfig) currentUserHasRefreshToken() bool {
 			break
 		}
 	}
-	if currentUser == "" {
-		return false
-	}
 	for _, user := range c.Users {
 		if user.Name == currentUser {
-			return user.RefreshToken != ""
+			return user.SSO || user.RefreshToken != ""
 		}
 	}
 	return false
+}
+
+// currentUserOIDCMeta returns the refresh-token and oidc-issuer for the active context's user.
+func (c *ArgoCLIConfig) currentUserOIDCMeta() (refreshToken, oidcIssuer string) {
+	if c.CurrentContext == "" {
+		return "", ""
+	}
+	var currentUser string
+	for _, ctx := range c.Contexts {
+		if ctx.Name == c.CurrentContext {
+			currentUser = ctx.User
+			break
+		}
+	}
+	for _, user := range c.Users {
+		if user.Name == currentUser {
+			return user.RefreshToken, user.OIDCIssuer
+		}
+	}
+	return "", ""
 }
 
 // ToServerConfig converts the ArgoCD CLI config to our internal Server model
@@ -218,6 +236,7 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 	}
 
 	baseURL := ensureHTTPS(serverConfig.Server, serverConfig.PlainText)
+	refreshToken, oidcIssuer := c.currentUserOIDCMeta()
 
 	return &model.Server{
 		BaseURL:         baseURL,
@@ -225,7 +244,9 @@ func (c *ArgoCLIConfig) ToServerConfig() (*model.Server, error) {
 		Insecure:        serverConfig.Insecure,
 		GrpcWeb:         serverConfig.GrpcWeb,
 		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
-		SSO:             c.currentUserHasRefreshToken(),
+		SSO:             c.currentUserSSO(),
+		RefreshToken:    refreshToken,
+		OIDCIssuer:      oidcIssuer,
 	}, nil
 }
 
