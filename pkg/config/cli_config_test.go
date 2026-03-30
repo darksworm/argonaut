@@ -468,6 +468,10 @@ func TestToServerConfigForContext(t *testing.T) {
 			wantErr:     true,
 		},
 		{
+			// Empty token is now allowed — validateAuthentication() will detect it
+			// and trigger SSO reauth. Previously this returned an error; now it
+			// succeeds so context-switch to an SSO context with an expired/missing
+			// token does not fail at config-read time.
 			name: "Context with missing user token",
 			config: &ArgoCLIConfig{
 				Contexts: []ArgoContext{
@@ -481,7 +485,8 @@ func TestToServerConfigForContext(t *testing.T) {
 				},
 			},
 			contextName: "notoken",
-			wantErr:     true,
+			wantBaseURL: "https://example.com",
+			wantToken:   "",
 		},
 	}
 

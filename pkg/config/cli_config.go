@@ -290,20 +290,24 @@ func (c *ArgoCLIConfig) ToServerConfigForContext(contextName string) (*model.Ser
 		return nil, fmt.Errorf("server configuration not found for %s", ctx.Server)
 	}
 
-	// Find user token
+	// Find user token and SSO/OIDC metadata
 	if ctx.User == "" {
 		return nil, fmt.Errorf("no user specified for context %q", contextName)
 	}
 	var token string
+	// Read SSO/OIDC metadata for this context's user
+	var refreshToken, oidcIssuer string
+	var sso bool
 	for _, user := range c.Users {
 		if user.Name == ctx.User {
 			token = user.AuthToken
+			refreshToken = user.RefreshToken
+			oidcIssuer = user.OIDCIssuer
+			sso = user.SSO || user.RefreshToken != ""
 			break
 		}
 	}
-	if token == "" {
-		return nil, fmt.Errorf("no auth token found for user %s in context %q", ctx.User, contextName)
-	}
+	// Allow empty token — validateAuthentication() will detect it and trigger SSO reauth.
 
 	baseURL := ensureHTTPS(serverConfig.Server, serverConfig.PlainText)
 
@@ -313,6 +317,9 @@ func (c *ArgoCLIConfig) ToServerConfigForContext(contextName string) (*model.Ser
 		Insecure:        serverConfig.Insecure,
 		GrpcWeb:         serverConfig.GrpcWeb,
 		GrpcWebRootPath: serverConfig.GrpcWebRootPath,
+		SSO:             sso,
+		RefreshToken:    refreshToken,
+		OIDCIssuer:      oidcIssuer,
 	}, nil
 }
 

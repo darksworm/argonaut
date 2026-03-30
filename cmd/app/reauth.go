@@ -16,11 +16,11 @@ func (m *Model) handleTriggerReauthMsg() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Only attempt automatic re-auth when SSO is in use.  The presence of a
-	// refresh-token in the ArgoCD config is the reliable indicator — it is
-	// written by argocd login --sso but not by username/password login.
-	// Hijacking the terminal with an unexpected browser flow for non-SSO
-	// users would be confusing and wrong.
+	// Only attempt automatic re-auth when SSO is in use.
+	// The explicit sso:true field (written by argonaut login --sso) is the
+	// reliable indicator. Configs created by argocd login --sso also qualify
+	// via backward-compat: presence of refresh-token implies SSO.
+	// Non-SSO users (username/password) fall through to ModeAuthRequired.
 	if m.state.Server == nil || !m.state.Server.SSO {
 		cblog.With("component", "reauth").Debug("SSO not detected — falling back to manual auth screen")
 		m.state.Mode = model.ModeAuthRequired
