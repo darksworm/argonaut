@@ -136,6 +136,11 @@ func renderColorfulHelp(fs *flag.FlagSet) string {
 }
 
 func main() {
+	// Route subcommands before flag parsing.
+	if len(os.Args) > 1 && os.Args[1] == "login" {
+		os.Exit(RunLogin(os.Args[2:]))
+	}
+
 	// Set up logging to file
 	setupLogging()
 
