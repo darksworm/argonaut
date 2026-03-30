@@ -290,7 +290,7 @@ func main() {
 	var pfManager *portforward.Manager
 
 	// Try to read the ArgoCD CLI config file
-	server, err := loadArgoConfig(cfgPathFlag)
+	server, err := loadArgoConfig(effectiveConfigPath)
 	if err != nil {
 		// Check if it's a port-forward mode error
 		if pfErr, isPortForward := err.(*PortForwardModeError); isPortForward {
