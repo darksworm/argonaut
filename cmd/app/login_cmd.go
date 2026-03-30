@@ -26,15 +26,21 @@ func RunLogin(args []string) int {
 	fs := flag.NewFlagSet("login", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	var (
-		ssoFlag       bool
-		insecureFlag  bool
-		nameFlag      string
-		portFlag      int
-		noBrowserFlag bool
-		cfgPathFlag   string
+		ssoFlag             bool
+		insecureFlag        bool
+		plaintextFlag       bool
+		grpcWebFlag         bool
+		grpcWebRootPathFlag string
+		nameFlag            string
+		portFlag            int
+		noBrowserFlag       bool
+		cfgPathFlag         string
 	)
 	fs.BoolVar(&ssoFlag, "sso", false, "Use SSO/OIDC browser authentication")
 	fs.BoolVar(&insecureFlag, "insecure", false, "Skip TLS certificate verification")
+	fs.BoolVar(&plaintextFlag, "plaintext", false, "Use HTTP instead of HTTPS")
+	fs.BoolVar(&grpcWebFlag, "grpc-web", false, "Enable gRPC-web protocol")
+	fs.StringVar(&grpcWebRootPathFlag, "grpc-web-root-path", "", "Enable gRPC-web protocol with this root path prefix")
 	fs.StringVar(&nameFlag, "name", "", "Context name (default: server hostname)")
 	fs.IntVar(&portFlag, "port", 8085, "Local port for SSO callback server")
 	fs.BoolVar(&noBrowserFlag, "no-browser", false, "Print SSO URL instead of opening browser")
@@ -49,7 +55,12 @@ func RunLogin(args []string) int {
 		return 1
 	}
 
-	serverURL := ensureHTTPSScheme(fs.Arg(0))
+	var serverURL string
+	if plaintextFlag {
+		serverURL = "http://" + stripScheme(fs.Arg(0))
+	} else {
+		serverURL = ensureHTTPSScheme(fs.Arg(0))
+	}
 	contextName := nameFlag
 	if contextName == "" {
 		contextName = stripScheme(serverURL)
@@ -86,7 +97,7 @@ func RunLogin(args []string) int {
 		}
 	}
 
-	if err := saveSession(cfgPath, serverURL, contextName, authToken, refreshToken, oidcIssuer, insecureFlag, isSSO); err != nil {
+	if err := saveSession(cfgPath, serverURL, contextName, authToken, refreshToken, oidcIssuer, insecureFlag, plaintextFlag, grpcWebFlag, grpcWebRootPathFlag, isSSO); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
 		return 1
 	}
@@ -202,7 +213,7 @@ func doPasswordLogin(ctx context.Context, serverURL string, insecure bool) (stri
 	return result.Token, nil
 }
 
-func saveSession(cfgPath, serverURL, contextName, authToken, refreshToken, oidcIssuer string, insecure, sso bool) error {
+func saveSession(cfgPath, serverURL, contextName, authToken, refreshToken, oidcIssuer string, insecure, plainText, grpcWeb bool, grpcWebRootPath string, sso bool) error {
 	existing, err := config.ReadCLIConfigFromPath(cfgPath)
 	if err != nil {
 		existing = &config.ArgoCLIConfig{}
@@ -215,14 +226,20 @@ func saveSession(cfgPath, serverURL, contextName, authToken, refreshToken, oidcI
 	for i, s := range existing.Servers {
 		if s.Server == serverHost {
 			existing.Servers[i].Insecure = insecure
+			existing.Servers[i].PlainText = plainText
+			existing.Servers[i].GrpcWeb = grpcWeb
+			existing.Servers[i].GrpcWebRootPath = grpcWebRootPath
 			serverFound = true
 			break
 		}
 	}
 	if !serverFound {
 		existing.Servers = append(existing.Servers, config.ArgoServer{
-			Server:   serverHost,
-			Insecure: insecure,
+			Server:          serverHost,
+			Insecure:        insecure,
+			PlainText:       plainText,
+			GrpcWeb:         grpcWeb,
+			GrpcWebRootPath: grpcWebRootPath,
 		})
 	}
 
