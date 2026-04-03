@@ -54,7 +54,27 @@ yay -S argonaut-bin
 
 <details>
     <summary><strong>Nix</strong></summary>
-With Nix and Flakes enabled, you can run or install Argonaut directly from the repository.
+With Nix and Flakes enabled, you can run or install Argonaut from nixpkgs or directly from the repository.
+
+### nixpkgs
+
+Argonaut is currently available on the `unstable` channel of [nixpkgs](https://search.nixos.org/packages?channel=unstable&query=argonaut&show=argonaut). So you can install it using
+
+```bash
+nix-env -iA nixos.argonaut
+```
+
+On other systems (macOS, non-NixOS Linux):
+
+```bash
+nix-env -iA nixpkgs.argonaut
+```
+
+or by adding it to your `systemPackages`.
+
+```nix
+environment.systemPackages = with pkgs; [ argonaut ];
+```
 
 ### Run Directly
 
