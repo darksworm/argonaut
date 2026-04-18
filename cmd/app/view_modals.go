@@ -61,7 +61,9 @@ func (m *Model) renderHelpModal() string {
 	treeView := strings.Join([]string{
 		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
 		"\n",
-		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
+		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("a"), " actions (Rollouts) ", bullet(), " ", keycap("Ctrl+D"), " delete",
+		"\n",
+		mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
 	}, "")
 
 	var helpSections []string
@@ -882,6 +884,91 @@ func (m *Model) renderResourceSyncLoadingModal() string {
 	minW := 32
 	w := max(minW, lipgloss.Width(content)+4)
 	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}
+
+// renderResourceActionModal renders the resource actions selection modal
+func (m *Model) renderResourceActionModal() string {
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		return ""
+	}
+
+	half := m.state.Terminal.Cols / 2
+	modalWidth := min(max(40, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-4)
+
+	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+
+	var subject string
+	if st.Target.Namespace != "" {
+		subject = fmt.Sprintf("%s/%s/%s", st.Target.Kind, st.Target.Namespace, st.Target.Name)
+	} else {
+		subject = fmt.Sprintf("%s/%s", st.Target.Kind, st.Target.Name)
+	}
+	titleLine := lipgloss.NewStyle().Foreground(whiteBright).Render("Actions on ") +
+		lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
+	title := center.Render(titleLine)
+
+	var body string
+	switch {
+	case st.Loading:
+		body = center.Render(fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading actions...")))
+	case st.Executing:
+		actionName := ""
+		if st.SelectedIdx >= 0 && st.SelectedIdx < len(st.Actions) {
+			actionName = st.Actions[st.SelectedIdx]
+		}
+		body = center.Render(fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Running "+actionName+"...")))
+	case len(st.Actions) == 0:
+		body = center.Render(dim.Render("No actions available"))
+	default:
+		sel := lipgloss.NewStyle().Foreground(whiteBright).Bold(true)
+		unsel := lipgloss.NewStyle().Foreground(dimColor)
+		lines := make([]string, 0, len(st.Actions))
+		for i, a := range st.Actions {
+			prefix := "  "
+			style := unsel
+			if i == st.SelectedIdx {
+				prefix = "▸ "
+				style = sel
+			}
+			lines = append(lines, style.Render(prefix+a))
+		}
+		list := strings.Join(lines, "\n")
+		// Left-align the list within the modal body but center the whole block.
+		listBlock := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Left).Render(list)
+		body = listBlock
+	}
+
+	hint := ""
+	if !st.Loading && !st.Executing {
+		if len(st.Actions) > 0 {
+			hint = center.Render(dim.Render("↑/↓ select • Enter run • Esc cancel"))
+		} else {
+			hint = center.Render(dim.Render("Esc to close"))
+		}
+	}
+
+	parts := []string{title, "", body}
+	if hint != "" {
+		parts = append(parts, "", hint)
+	}
+
+	if st.Error != "" {
+		errStyled := center.Render(lipgloss.NewStyle().Foreground(outOfSyncColor).Render("Error: " + st.Error))
+		parts = append(parts, "", errStyled)
+	}
+
+	content := strings.Join(parts, "\n")
+
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2).
+		Width(modalWidth)
 	outer := lipgloss.NewStyle().Padding(1, 1)
 	return outer.Render(wrapper.Render(content))
 }

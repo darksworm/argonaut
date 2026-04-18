@@ -1,0 +1,15 @@
+                                                    
+ ╭────────────────────────────────────────────────╮ 
+ │                                                │ 
+ │       Actions on Rollout/payments/checkout     │ 
+ │                                                │ 
+ │    promote-full                                │ 
+ │  ▸ promote                                     │ 
+ │    abort                                       │ 
+ │    restart                                     │ 
+ │    retry                                       │ 
+ │                                                │ 
+ │       ↑/↓ select • Enter run • Esc cancel      │ 
+ │                                                │ 
+ ╰────────────────────────────────────────────────╯ 
+                                                    

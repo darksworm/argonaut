@@ -81,6 +81,45 @@ func sampleRollbackState() *model.RollbackState {
 	}
 }
 
+func TestGolden_ResourceActionModal_List(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName:   "demo-app",
+			Group:     "argoproj.io",
+			Version:   "v1alpha1",
+			Kind:      "Rollout",
+			Namespace: "payments",
+			Name:      "checkout",
+		},
+		Actions:     []string{"promote-full", "promote", "abort", "restart", "retry"},
+		SelectedIdx: 1,
+	}
+	out := stripANSI(m.renderResourceActionModal())
+	compareWithGolden(t, "modal_resource_action_list", out)
+}
+
+func TestGolden_ResourceActionModal_Error(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName:   "demo-app",
+			Group:     "argoproj.io",
+			Version:   "v1alpha1",
+			Kind:      "Rollout",
+			Namespace: "payments",
+			Name:      "checkout",
+		},
+		Actions:     []string{"promote", "abort"},
+		SelectedIdx: 0,
+		Error:       "rpc error: code = PermissionDenied",
+	}
+	out := stripANSI(m.renderResourceActionModal())
+	compareWithGolden(t, "modal_resource_action_error", out)
+}
+
 func TestGolden_RollbackModal_List(t *testing.T) {
 	m := buildBaseModel(100, 32)
 	app := "demo-app"

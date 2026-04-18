@@ -1260,6 +1260,103 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 	)
 }
 
+// handleResourceAction opens the resource actions modal for the selected resource
+func (m *Model) handleResourceAction() (tea.Model, tea.Cmd) {
+	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
+		return m, nil
+	}
+
+	selections := m.treeView.GetSelectedResources()
+	if len(selections) == 0 {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "No resource selected for action"}
+		}
+	}
+	if len(selections) > 1 {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Resource actions only work on a single resource"}
+		}
+	}
+
+	sel := selections[0]
+
+	// Look up the app namespace so multi-tenant ArgoCD installs resolve correctly.
+	var appNamespace *string
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name == sel.AppName {
+			appNamespace = m.state.Apps[i].AppNamespace
+			break
+		}
+	}
+
+	target := model.ResourceActionTarget{
+		AppName:      sel.AppName,
+		AppNamespace: appNamespace,
+		Group:        sel.Group,
+		Version:      sel.Version,
+		Kind:         sel.Kind,
+		Namespace:    sel.Namespace,
+		Name:         sel.Name,
+	}
+
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target:  target,
+		Loading: true,
+	}
+
+	cblog.With("component", "resource-action").Debug("Opening actions modal",
+		"app", target.AppName, "kind", target.Kind, "name", target.Name)
+
+	return m, m.loadResourceActions(target)
+}
+
+// handleResourceActionKeys handles input when the resource action modal is open.
+func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	// While loading or executing, only allow cancel to keep UX simple.
+	if st.Loading || st.Executing {
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.state.Mode = model.ModeNormal
+			m.state.Modals.ResourceAction = nil
+			return m, nil
+		}
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "q", "esc", "ctrl+c":
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
+	case "up", "k":
+		if st.SelectedIdx > 0 {
+			st.SelectedIdx--
+		}
+		return m, nil
+	case "down", "j":
+		if st.SelectedIdx < len(st.Actions)-1 {
+			st.SelectedIdx++
+		}
+		return m, nil
+	case "enter":
+		if len(st.Actions) == 0 {
+			return m, nil
+		}
+		action := st.Actions[st.SelectedIdx]
+		st.Executing = true
+		st.Error = ""
+		return m, m.executeResourceAction(st.Target, action)
+	}
+	return m, nil
+}
+
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -1428,6 +1525,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmResourceDeleteKeys(msg)
 	case model.ModeConfirmResourceSync:
 		return m.handleConfirmResourceSyncKeys(msg)
+	case model.ModeResourceAction:
+		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
 	case model.ModeAuthRequired:
@@ -1533,6 +1632,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "s":
 			// Open sync confirmation for selected resource(s)
 			return m.handleResourceSync()
+		case "a":
+			// Open resource actions modal (Rollouts promote/abort/restart/etc.)
+			return m.handleResourceAction()
 		case ":":
 			// Enter command mode
 			return m.handleEnterCommandMode()

@@ -138,6 +138,7 @@ func (m *Model) renderMainLayout() string {
 			m.state.Mode == model.ModeConfirmResourceSync ||
 			m.state.Mode == model.ModeConfirmAppDelete ||
 			m.state.Mode == model.ModeConfirmSync ||
+			m.state.Mode == model.ModeResourceAction ||
 			m.state.Modals.ConfirmSyncLoading ||
 			m.state.Modals.ResourceSyncLoading
 		m.treeView.SetDesaturateMode(willDesaturate)
@@ -305,6 +306,16 @@ func (m *Model) renderMainLayout() string {
 		} else {
 			modal = m.renderResourceSyncConfirmModal()
 		}
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		return m.composeOverlay(baseLayer, modalLayer)
+	}
+	// Resource Action modal (Rollouts promote/abort/etc.)
+	if m.state.Mode == model.ModeResourceAction {
+		modal := m.renderResourceActionModal()
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2

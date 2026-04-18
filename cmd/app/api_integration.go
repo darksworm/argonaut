@@ -1566,3 +1566,87 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 		return model.ResourceSyncSuccessMsg{Count: successCount, AppNames: appNames, SwitchEpoch: epoch}
 	}
 }
+
+// loadResourceActions lists the custom actions available for a resource via ArgoCD
+func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ResourceActionsErrorMsg{Error: "No server configured"}
+		}
+	}
+
+	epoch := m.switchEpoch
+	return func() tea.Msg {
+		appService := api.NewApplicationService(m.state.Server)
+
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
+		defer cancel()
+
+		actions, err := appService.ListResourceActions(ctx, api.ListResourceActionsParams{
+			AppName:      target.AppName,
+			AppNamespace: target.AppNamespace,
+			ResourceName: target.Name,
+			Namespace:    target.Namespace,
+			Kind:         target.Kind,
+			Group:        target.Group,
+			Version:      target.Version,
+		})
+		if err != nil {
+			errMsg := extractUserFriendlyError(err)
+			cblog.With("component", "resource-action").Error("Failed to list actions",
+				"app", target.AppName, "kind", target.Kind, "name", target.Name, "err", err)
+			return model.ResourceActionsErrorMsg{Error: errMsg, SwitchEpoch: epoch}
+		}
+
+		cblog.With("component", "resource-action").Debug("Loaded actions",
+			"app", target.AppName, "kind", target.Kind, "name", target.Name, "count", len(actions))
+		return model.ResourceActionsLoadedMsg{
+			Target:      target,
+			Actions:     actions,
+			SwitchEpoch: epoch,
+		}
+	}
+}
+
+// executeResourceAction runs a custom action on the target resource via ArgoCD
+func (m *Model) executeResourceAction(target model.ResourceActionTarget, action string) tea.Cmd {
+	if m.state.Server == nil {
+		return func() tea.Msg {
+			return model.ResourceActionExecuteErrorMsg{Target: target, Error: "No server configured"}
+		}
+	}
+
+	epoch := m.switchEpoch
+	return func() tea.Msg {
+		appService := api.NewApplicationService(m.state.Server)
+
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := appService.RunResourceAction(ctx, api.ResourceActionRequest{
+			AppName:      target.AppName,
+			AppNamespace: target.AppNamespace,
+			ResourceName: target.Name,
+			Namespace:    target.Namespace,
+			Kind:         target.Kind,
+			Group:        target.Group,
+			Version:      target.Version,
+			Action:       action,
+		})
+		if err != nil {
+			errMsg := extractUserFriendlyError(err)
+			cblog.With("component", "resource-action").Error("Failed to run action",
+				"app", target.AppName, "kind", target.Kind, "name", target.Name, "action", action, "err", err)
+			return model.ResourceActionExecuteErrorMsg{Target: target, Error: errMsg, SwitchEpoch: epoch}
+		}
+
+		cblog.With("component", "resource-action").Info("Action executed",
+			"app", target.AppName, "kind", target.Kind, "name", target.Name, "action", action)
+		return model.ResourceActionExecutedMsg{
+			Target:      target,
+			Action:      action,
+			AppName:     target.AppName,
+			SwitchEpoch: epoch,
+		}
+	}
+}

@@ -1007,6 +1007,76 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep modal open to show error
 		return m, nil
 
+	case model.ResourceActionsLoadedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		// Only apply if the response is for the resource we're looking at.
+		if st.Target != msg.Target {
+			return m, nil
+		}
+		st.Loading = false
+		st.Actions = msg.Actions
+		st.SelectedIdx = 0
+		if len(msg.Actions) == 0 {
+			st.Error = "No actions available for this resource"
+		}
+		return m, nil
+
+	case model.ResourceActionsErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		st.Loading = false
+		st.Error = msg.Error
+		return m, nil
+
+	case model.ResourceActionExecutedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		m.statusService.Set(fmt.Sprintf("Ran %s on %s/%s", msg.Action, msg.Target.Kind, msg.Target.Name))
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		// Trigger a refresh of the app's resource tree
+		if m.state.Navigation.View == model.ViewTree && msg.AppName != "" {
+			var appObj *model.App
+			for i := range m.state.Apps {
+				if m.state.Apps[i].Name == msg.AppName {
+					appObj = &m.state.Apps[i]
+					break
+				}
+			}
+			if appObj == nil {
+				appObj = &model.App{Name: msg.AppName}
+			}
+			return m, m.startLoadingResourceTree(*appObj)
+		}
+		return m, nil
+
+	case model.ResourceActionExecuteErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		if st.Target != msg.Target {
+			return m, nil
+		}
+		st.Executing = false
+		st.Error = msg.Error
+		return m, nil
+
 	case model.MultiSyncCompletedMsg:
 		// Gate by switch epoch
 		if msg.SwitchEpoch != m.switchEpoch {

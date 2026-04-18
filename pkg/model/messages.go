@@ -253,6 +253,34 @@ type ResourceSyncErrorMsg struct {
 	Error string
 }
 
+// ResourceActionsLoadedMsg is sent when available resource actions have loaded
+type ResourceActionsLoadedMsg struct {
+	Target      ResourceActionTarget
+	Actions     []string
+	SwitchEpoch int
+}
+
+// ResourceActionsErrorMsg is sent when listing resource actions fails
+type ResourceActionsErrorMsg struct {
+	Error       string
+	SwitchEpoch int
+}
+
+// ResourceActionExecutedMsg is sent after a resource action runs successfully
+type ResourceActionExecutedMsg struct {
+	Target      ResourceActionTarget
+	Action      string
+	AppName     string
+	SwitchEpoch int
+}
+
+// ResourceActionExecuteErrorMsg is sent when running a resource action fails
+type ResourceActionExecuteErrorMsg struct {
+	Target      ResourceActionTarget
+	Error       string
+	SwitchEpoch int
+}
+
 // AuthErrorMsg is sent when authentication is required
 type AuthErrorMsg struct {
 	Error       error
