@@ -35,6 +35,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 	}
 
 	epoch := m.switchEpoch // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
 
@@ -42,10 +43,10 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		defer cancel()
 
 		// Create a new ArgoApiService with the current server
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 
 		// Load applications with metadata (resourceVersion for watch coordination)
-		result, err := apiService.ListApplicationsWithMeta(ctx, m.state.Server)
+		result, err := apiService.ListApplicationsWithMeta(ctx, server)
 		if err != nil {
 			// Unwrap structured errors if wrapped
 			var argErr *apperrors.ArgonautError
@@ -78,7 +79,6 @@ type watchStartedMsg struct {
 	cleanup          func()
 	generation       int
 	scopeProjects    []string
-	replaceOldWatch  func()
 	startSequenceNum int
 }
 
@@ -90,10 +90,10 @@ type watchScopeDebounceMsg struct {
 
 // startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
-	return m.startWatchingApplicationsWithConfig(m.watchScopeProjects, m.watchGeneration, nil)
+	return m.startWatchingApplicationsWithConfig(m.watchScopeProjects, m.watchGeneration)
 }
 
-func (m *Model) startWatchingApplicationsWithConfig(projects []string, generation int, replaceOldWatch func()) tea.Cmd {
+func (m *Model) startWatchingApplicationsWithConfig(projects []string, generation int) tea.Cmd {
 	cblog.With("component", "api_integration").Info("startWatchingApplications called",
 		"watchChan_nil", m.watchChan == nil,
 		"resourceVersion", m.lastResourceVersion,
@@ -109,8 +109,8 @@ func (m *Model) startWatchingApplicationsWithConfig(projects []string, generatio
 	resourceVersion := m.lastResourceVersion
 	capturedProjects := append([]string(nil), projects...)
 	capturedGeneration := generation
-	capturedReplaceOldWatch := replaceOldWatch
 	epoch := m.switchEpoch
+	server := m.state.Server // capture at call time
 
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startWatchingApplications: executing watch setup",
@@ -122,7 +122,7 @@ func (m *Model) startWatchingApplicationsWithConfig(projects []string, generatio
 		ctx := context.Background()
 
 		// Create a new ArgoApiService with the current server
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 
 		// Build watch options with resourceVersion, field selection, and project filter
 		watchOpts := &api.WatchOptions{
@@ -132,7 +132,7 @@ func (m *Model) startWatchingApplicationsWithConfig(projects []string, generatio
 		}
 
 		// Start watching applications with options
-		eventChan, cleanup, err := apiService.WatchApplicationsWithOptions(ctx, m.state.Server, watchOpts)
+		eventChan, cleanup, err := apiService.WatchApplicationsWithOptions(ctx, server, watchOpts)
 		if err != nil {
 			// Promote auth-related errors to AuthErrorMsg
 			var argErr *apperrors.ArgonautError
@@ -155,7 +155,6 @@ func (m *Model) startWatchingApplicationsWithConfig(projects []string, generatio
 			cleanup:          cleanup,
 			generation:       capturedGeneration,
 			scopeProjects:    capturedProjects,
-			replaceOldWatch:  capturedReplaceOldWatch,
 			startSequenceNum: startSeq,
 		}
 	}
@@ -166,11 +165,12 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 	if m.state.Server == nil {
 		return nil
 	}
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
-		apiService := services.NewArgoApiService(m.state.Server)
-		v, err := apiService.GetAPIVersion(ctx, m.state.Server)
+		apiService := services.NewArgoApiService(server)
+		v, err := apiService.GetAPIVersion(ctx, server)
 		if err != nil {
 			return model.StatusChangeMsg{Status: "Version: unknown"}
 		}
@@ -390,7 +390,7 @@ func (m *Model) restartWatchWithScope() tea.Cmd {
 
 	// Start the new watch first; once it is confirmed via watchStartedMsg,
 	// we stop the old stream to avoid dropping updates during setup failures.
-	return m.startWatchingApplicationsWithConfig(newProjects, targetGeneration, m.watchCleanup)
+	return m.startWatchingApplicationsWithConfig(newProjects, targetGeneration)
 }
 
 // sortedScopeProjects extracts project names from a scope map and returns them sorted.
@@ -420,17 +420,20 @@ func stringSlicesEqual(a, b []string) bool {
 
 // startDiffSession loads diffs and opens the diff pager
 func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		epoch := m.switchEpoch
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
-
+	}
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName, appNamespace)
+		apiService := services.NewArgoApiService(server)
+		diffs, err := apiService.GetResourceDiffs(ctx, server, appName, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
 		}
@@ -468,11 +471,6 @@ func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
 		}
 
 		if len(normalizedDocs) == 0 && len(predictedDocs) == 0 {
-			// Clear loading spinner before showing no-diff modal
-			if m.state.Diff == nil {
-				m.state.Diff = &model.DiffState{}
-			}
-			m.state.Diff.Loading = false
 			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
 
@@ -487,19 +485,8 @@ func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
 		}
 		cleaned := stripDiffHeader(string(out))
 		if strings.TrimSpace(cleaned) == "" {
-			// Clear loading spinner before showing no-diff modal
-			if m.state.Diff == nil {
-				m.state.Diff = &model.DiffState{}
-			}
-			m.state.Diff.Loading = false
 			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
-
-		// Clear loading spinner before handing off to viewer/formatter
-		if m.state.Diff == nil {
-			m.state.Diff = &model.DiffState{}
-		}
-		m.state.Diff.Loading = false
 
 		// 1) Interactive diff viewer: replace the terminal (e.g., vimdiff, meld)
 		if viewer := m.config.GetDiffViewer(); viewer != "" {
@@ -518,17 +505,20 @@ func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
 
 // startResourceDiffSession loads the diff for a specific resource and opens the diff pager
 func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		epoch := m.switchEpoch
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
-
+	}
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, res.AppName, res.AppNamespace)
+		apiService := services.NewArgoApiService(server)
+		diffs, err := apiService.GetResourceDiffs(ctx, server, res.AppName, res.AppNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
 		}
@@ -544,11 +534,6 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 		}
 
 		if targetDiff == nil || targetDiff.Hook {
-			// Clear loading and show no-diff modal
-			if m.state.Diff == nil {
-				m.state.Diff = &model.DiffState{}
-			}
-			m.state.Diff.Loading = false
 			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
 
@@ -562,10 +547,6 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 		}
 
 		if normalizedYAML == predictedYAML {
-			if m.state.Diff == nil {
-				m.state.Diff = &model.DiffState{}
-			}
-			m.state.Diff.Loading = false
 			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
 
@@ -580,18 +561,8 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 		}
 		cleaned := stripDiffHeader(string(out))
 		if strings.TrimSpace(cleaned) == "" {
-			if m.state.Diff == nil {
-				m.state.Diff = &model.DiffState{}
-			}
-			m.state.Diff.Loading = false
 			return model.SetModeMsg{Mode: model.ModeNoDiff}
 		}
-
-		// Clear loading before showing
-		if m.state.Diff == nil {
-			m.state.Diff = &model.DiffState{}
-		}
-		m.state.Diff.Loading = false
 
 		// Support interactive diff viewer
 		if viewer := m.config.GetDiffViewer(); viewer != "" {
@@ -649,20 +620,23 @@ func cleanManifestToYAML(jsonOrYaml string) string {
 
 // startLoadingResourceTree loads the resource tree for the given app
 func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
+	}
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
-		argo := services.NewArgoApiService(m.state.Server)
+		argo := services.NewArgoApiService(server)
 		appNamespace := ""
 		if app.AppNamespace != nil {
 			appNamespace = *app.AppNamespace
 		}
-		tree, err := argo.GetResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+		tree, err := argo.GetResourceTree(ctx, server, app.Name, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: err.Error(), SwitchEpoch: epoch}
 		}
@@ -674,7 +648,7 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 
 		// Also fetch app details to get status.resources for sync status
 		var resourcesData []byte
-		argoApp, appErr := argo.GetApplication(ctx, m.state.Server, app.Name, app.AppNamespace)
+		argoApp, appErr := argo.GetApplication(ctx, server, app.Name, app.AppNamespace)
 		if appErr == nil && argoApp != nil && len(argoApp.Status.Resources) > 0 {
 			resourcesData, _ = json.Marshal(argoApp.Status.Resources)
 		}
@@ -694,34 +668,45 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 type treeWatchStartedMsg struct{ cleanup func() }
 
 func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
+	if m.state.Server == nil {
+		return nil
+	}
+	server := m.state.Server       // capture at call time
+	done := m.treeStreamDone       // capture at call time
 	return func() tea.Msg {
-		if m.state.Server == nil {
-			return nil
-		}
 		ctx := context.Background()
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 		appNamespace := ""
 		if app.AppNamespace != nil {
 			appNamespace = *app.AppNamespace
 		}
 		cblog.With("component", "ui").Info("Starting tree watch", "app", app.Name)
-		ch, cleanup, err := apiService.WatchResourceTree(ctx, m.state.Server, app.Name, appNamespace)
+		ch, cleanup, err := apiService.WatchResourceTree(ctx, server, app.Name, appNamespace)
 		if err != nil {
 			cblog.With("component", "ui").Error("Tree watch failed", "err", err, "app", app.Name)
 			return model.StatusChangeMsg{Status: "Tree watch failed: " + err.Error()}
 		}
 		go func() {
 			eventCount := 0
-			for t := range ch {
-				if t == nil {
-					continue
+			for {
+				select {
+				case t, ok := <-ch:
+					if !ok {
+						cblog.With("component", "ui").Info("Tree watch channel closed", "app", app.Name, "events", eventCount)
+						return
+					}
+					if t == nil {
+						continue
+					}
+					eventCount++
+					cblog.With("component", "ui").Debug("Received tree event", "app", app.Name, "event", eventCount)
+					data, _ := json.Marshal(t)
+					m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
+				case <-done:
+					cblog.With("component", "ui").Info("Tree watch cancelled via done signal", "app", app.Name)
+					return
 				}
-				eventCount++
-				cblog.With("component", "ui").Debug("Received tree event", "app", app.Name, "event", eventCount)
-				data, _ := json.Marshal(t)
-				m.watchTreeDeliver(model.ResourceTreeStreamMsg{AppName: app.Name, TreeJSON: data})
 			}
-			cblog.With("component", "ui").Info("Tree watch channel closed", "app", app.Name, "events", eventCount)
 		}()
 		return treeWatchStartedMsg{cleanup: cleanup}
 	}
@@ -762,14 +747,15 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
-		apiService := services.NewEnhancedArgoApiService(m.state.Server)
+		apiService := services.NewEnhancedArgoApiService(server)
 
 		for _, appName := range selectedApps {
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			// Multi-app sync doesn't track per-app namespaces; pass nil (uses Argo CD default)
-			err := apiService.SyncApplication(ctx, m.state.Server, appName, nil, prune)
+			err := apiService.SyncApplication(ctx, server, appName, nil, prune)
 			cancel()
 			if err != nil {
 				// Convert to structured error and return via TUI error handling
@@ -810,13 +796,14 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
 		// Create delete service
-		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+		deleteService := appdelete.NewAppDeleteService(server)
 
 		// Convert to delete request
 		deleteReq := appdelete.AppDeleteRequest{
@@ -829,7 +816,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 		cblog.With("component", "app-delete").Info("Starting delete", "app", req.AppName, "cascade", req.Cascade)
 
 		// Execute deletion
-		response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+		response, err := deleteService.DeleteApplication(ctx, server, deleteReq)
 		if err != nil {
 			cblog.With("component", "app-delete").Error("Delete failed", "app", req.AppName, "err", err)
 			return model.AppDeleteErrorMsg{
@@ -863,15 +850,16 @@ func (m *Model) syncSingleApplication(appName string, appNamespace *string, prun
 		}
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
-		apiService := services.NewEnhancedArgoApiService(m.state.Server)
+		apiService := services.NewEnhancedArgoApiService(server)
 
 		cblog.With("component", "api").Info("Starting sync", "app", appName)
-		err := apiService.SyncApplication(ctx, m.state.Server, appName, appNamespace, prune)
+		err := apiService.SyncApplication(ctx, server, appName, appNamespace, prune)
 		if err != nil {
 			cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
 			// Convert to structured error and return via TUI error handling
@@ -909,12 +897,13 @@ func (m *Model) refreshSingleApplication(appName string, appNamespace *string, h
 		}
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 
 		opts := &api.RefreshOptions{
 			Hard:         hard,
@@ -982,8 +971,9 @@ func (m *Model) refreshMultipleApplications(hard bool) tea.Cmd {
 		appNamespaces[app.Name] = app.AppNamespace
 	}
 
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 
 		for _, appName := range selectedApps {
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -1053,19 +1043,22 @@ func hasHTTPStatusCtx(err *apperrors.ArgonautError, statuses ...int) bool {
 
 // startRollbackSession loads deployment history for rollback
 func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		epoch := m.switchEpoch
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
-
+	}
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 
 		// Get application with history
-		app, err := apiService.GetApplication(ctx, m.state.Server, appName, appNamespace)
+		app, err := apiService.GetApplication(ctx, server, appName, appNamespace)
 		if err != nil {
 			errMsg := err.Error()
 			cblog.With("component", "rollback").Error("Rollback session failed", "app", appName, "err", err)
@@ -1101,17 +1094,19 @@ func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.C
 
 // loadRevisionMetadata loads git metadata for a specific rollback row
 func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision string, appNamespace *string) tea.Cmd {
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
-
+	}
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 
-		metadata, err := apiService.GetRevisionMetadata(ctx, m.state.Server, appName, revision, appNamespace)
+		metadata, err := apiService.GetRevisionMetadata(ctx, server, appName, revision, appNamespace)
 		if err != nil {
 			return model.RollbackMetadataErrorMsg{
 				RowIndex: rowIndex,
@@ -1128,18 +1123,21 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 
 // executeRollback performs the actual rollback operation
 func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		epoch := m.switchEpoch
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
-
+	}
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 
-		err := apiService.RollbackApplication(ctx, m.state.Server, request)
+		err := apiService.RollbackApplication(ctx, server, request)
 		if err != nil {
 			errMsg := err.Error()
 			if isAuthenticationError(errMsg) {
@@ -1165,19 +1163,22 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 
 // startRollbackDiffSession shows diff between current and selected revision
 func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, revision string) tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
-	return func() tea.Msg {
-		if m.state.Server == nil {
+	if m.state.Server == nil {
+		epoch := m.switchEpoch
+		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
-
+	}
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
+	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
 		defer cancel()
 
-		apiService := services.NewArgoApiService(m.state.Server)
+		apiService := services.NewArgoApiService(server)
 
 		// Get diff between current and target revision
-		diffs, err := apiService.GetResourceDiffs(ctx, m.state.Server, appName, appNamespace)
+		diffs, err := apiService.GetResourceDiffs(ctx, server, appName, appNamespace)
 		if err != nil {
 			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
 		}
@@ -1219,14 +1220,17 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 		}
 
 		lines := strings.Split(cleaned, "\n")
-		m.state.Diff = &model.DiffState{
-			Title:   fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),
-			Content: lines,
-			Offset:  0,
-			Loading: false,
+		return rollbackDiffReadyMsg{
+			title: fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),
+			lines: lines,
 		}
-		return model.SetModeMsg{Mode: model.ModeDiff}
 	}
+}
+
+// rollbackDiffReadyMsg carries computed rollback diff data to Update for safe state mutation.
+type rollbackDiffReadyMsg struct {
+	title string
+	lines []string
 }
 
 // deleteSelectedApplications deletes the currently selected applications
@@ -1248,11 +1252,12 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 		}
 	}
 
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "app-delete").Info("Starting sequential multi-delete", "count", len(selectedApps), "cascade", cascade, "policy", propagationPolicy)
 
 		// Create delete service
-		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+		deleteService := appdelete.NewAppDeleteService(server)
 
 		// Delete applications sequentially to avoid race conditions and dependency issues
 		var failedApps []string
@@ -1271,7 +1276,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 			}
 
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
-			err := m.deleteApplicationHelper(ctx, deleteService, AppDeleteParams{
+			err := m.deleteApplicationHelper(ctx, server, deleteService, AppDeleteParams{
 				AppName:   appName,
 				Namespace: appNamespace,
 				Options: DeleteOptions{
@@ -1308,7 +1313,7 @@ func (m *Model) deleteSelectedApplications(cascade bool, propagationPolicy strin
 }
 
 // deleteApplicationHelper performs the actual deletion of a single app
-func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appdelete.AppDeleteService, params AppDeleteParams) error {
+func (m *Model) deleteApplicationHelper(ctx context.Context, server *model.Server, deleteService appdelete.AppDeleteService, params AppDeleteParams) error {
 	deleteReq := appdelete.AppDeleteRequest{
 		AppName:           params.AppName,
 		AppNamespace:      params.Namespace,
@@ -1316,7 +1321,7 @@ func (m *Model) deleteApplicationHelper(ctx context.Context, deleteService appde
 		PropagationPolicy: params.Options.PropagationPolicy,
 	}
 
-	response, err := deleteService.DeleteApplication(ctx, m.state.Server, deleteReq)
+	response, err := deleteService.DeleteApplication(ctx, server, deleteReq)
 	if err != nil {
 		return err
 	}
@@ -1343,14 +1348,15 @@ func (m *Model) deleteSingleApplication(params AppDeleteParams) tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
-		deleteService := appdelete.NewAppDeleteService(m.state.Server)
+		deleteService := appdelete.NewAppDeleteService(server)
 
-		if err := m.deleteApplicationHelper(ctx, deleteService, params); err != nil {
+		if err := m.deleteApplicationHelper(ctx, server, deleteService, params); err != nil {
 			return model.AppDeleteErrorMsg{
 				AppName: params.AppName,
 				Error:   fmt.Sprintf("Failed to delete application: %v", err),
@@ -1389,11 +1395,12 @@ func (m *Model) deleteSelectedResources(targets []model.ResourceDeleteTarget, op
 		appNames = append(appNames, name)
 	}
 
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "resource-delete").Info("Starting resource deletion",
 			"count", len(targets), "cascade", opts.Cascade, "policy", opts.PropagationPolicy, "orphan", orphan, "force", opts.Force)
 
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 
 		var failedResources []string
 		successCount := 0
@@ -1508,12 +1515,13 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 		appNames = append(appNames, name)
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch  // capture at call time
+	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "resource-sync").Info("Starting resource sync",
 			"count", len(targets), "apps", len(appResources), "prune", prune, "force", force)
 
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 
 		var failedApps []string
 		successCount := 0
