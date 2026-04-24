@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1019,10 +1020,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if st.Target != msg.Target {
 			return m, nil
 		}
+		actions := append([]string(nil), msg.Actions...)
+		sort.SliceStable(actions, func(i, j int) bool {
+			return strings.ToLower(actions[i]) < strings.ToLower(actions[j])
+		})
 		st.Loading = false
-		st.Actions = msg.Actions
+		st.Actions = actions
 		st.SelectedIdx = 0
-		if len(msg.Actions) == 0 {
+		st.Filter = ""
+		if len(actions) == 0 {
 			st.Error = "No actions available for this resource"
 		}
 		return m, nil

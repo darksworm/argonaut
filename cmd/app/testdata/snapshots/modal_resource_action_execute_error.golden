@@ -3,10 +3,11 @@
  │                                                │ 
  │       Actions on Rollout/payments/checkout     │ 
  │                                                │ 
- │  ▸ promote                                     │ 
- │    abort                                       │ 
+ │                abort      promote              │ 
  │                                                │ 
- │       ↑/↓ select • Enter run • Esc cancel      │ 
+ │                  type to filter                │ 
+ │                                                │ 
+ │        ↑↓ select • Enter run • Esc cancel      │ 
  │                                                │ 
  │    Error: rpc error: code = PermissionDenied   │ 
  │                                                │ 

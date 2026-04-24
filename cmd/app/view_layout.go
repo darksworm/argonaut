@@ -13,10 +13,10 @@ import (
 // renderTreePanel renders the resource tree view inside a bordered container with scrolling
 func (m *Model) renderTreePanel(availableRows int) string {
 	contentWidth := max(0, m.contentInnerWidth())
-    treeContent := "(no data)"
-    if m.treeView != nil {
-        treeContent = m.treeView.Render()
-    }
+	treeContent := "(no data)"
+	if m.treeView != nil {
+		treeContent = m.treeView.Render()
+	}
 
 	// Split content into lines for scrolling
 	lines := strings.Split(treeContent, "\n")
@@ -315,7 +315,23 @@ func (m *Model) renderMainLayout() string {
 	}
 	// Resource Action modal (Rollouts promote/abort/etc.)
 	if m.state.Mode == model.ModeResourceAction {
-		modal := m.renderResourceActionModal()
+		var modal string
+		st := m.state.Modals.ResourceAction
+		switch {
+		case st == nil || st.Loading:
+			// Small spinner while we fetch the action list — keeps the full
+			// button modal from flashing empty before we know what to draw.
+			modal = m.renderResourceActionLoadingModal()
+		case st.Executing:
+			// Same compact spinner style while the chosen action runs.
+			modal = m.renderResourceActionExecutingModal()
+		case len(st.Actions) == 0:
+			// Listing failed or returned nothing — single-line info modal,
+			// matching the no-diff popup in scale.
+			modal = m.renderResourceActionInfoModal()
+		default:
+			modal = m.renderResourceActionModal()
+		}
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
 		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2

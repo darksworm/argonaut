@@ -6,7 +6,7 @@
  │       abort      promote      promote-full     │ 
  │                restart      retry              │ 
  │                                                │ 
- │                  type to filter                │ 
+ │                    filter: pr                  │ 
  │                                                │ 
  │        ↑↓ select • Enter run • Esc cancel      │ 
  │                                                │ 

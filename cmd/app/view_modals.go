@@ -888,20 +888,24 @@ func (m *Model) renderResourceSyncLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-// renderResourceActionModal renders the resource actions selection modal
+// renderResourceActionModal renders the resource actions selection modal,
+// styled to match the resource-sync confirm modal (same width, button look,
+// border, padding).
 func (m *Model) renderResourceActionModal() string {
 	st := m.state.Modals.ResourceAction
 	if st == nil {
 		return ""
 	}
 
+	// Modal width: compact and centered (matches sync/delete confirm modals).
 	half := m.state.Terminal.Cols / 2
-	modalWidth := min(max(40, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4)
+	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
 
 	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 
+	// Title: "Actions on Kind/Namespace/Name" — bright bold subject.
 	var subject string
 	if st.Target.Namespace != "" {
 		subject = fmt.Sprintf("%s/%s/%s", st.Target.Kind, st.Target.Namespace, st.Target.Name)
@@ -912,51 +916,71 @@ func (m *Model) renderResourceActionModal() string {
 		lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
 	title := center.Render(titleLine)
 
-	var body string
-	switch {
-	case st.Loading:
-		body = center.Render(fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading actions...")))
-	case st.Executing:
-		actionName := ""
-		if st.SelectedIdx >= 0 && st.SelectedIdx < len(st.Actions) {
-			actionName = st.Actions[st.SelectedIdx]
+	// Buttons use the same active/inactive style as the sync confirm modal.
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
+
+	rendered := make([]string, len(st.Actions))
+	widths := make([]int, len(st.Actions))
+	for i, name := range st.Actions {
+		var btn string
+		if i == st.SelectedIdx {
+			btn = active.Render(name)
+		} else {
+			btn = inactive.Render(name)
 		}
-		body = center.Render(fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Running "+actionName+"...")))
-	case len(st.Actions) == 0:
-		body = center.Render(dim.Render("No actions available"))
-	default:
-		sel := lipgloss.NewStyle().Foreground(whiteBright).Bold(true)
-		unsel := lipgloss.NewStyle().Foreground(dimColor)
-		lines := make([]string, 0, len(st.Actions))
-		for i, a := range st.Actions {
-			prefix := "  "
-			style := unsel
-			if i == st.SelectedIdx {
-				prefix = "▸ "
-				style = sel
-			}
-			lines = append(lines, style.Render(prefix+a))
-		}
-		list := strings.Join(lines, "\n")
-		// Left-align the list within the modal body but center the whole block.
-		listBlock := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Left).Render(list)
-		body = listBlock
+		rendered[i] = btn
+		widths[i] = lipgloss.Width(btn)
 	}
 
-	hint := ""
-	if !st.Loading && !st.Executing {
-		if len(st.Actions) > 0 {
-			hint = center.Render(dim.Render("↑/↓ select • Enter run • Esc cancel"))
-		} else {
-			hint = center.Render(dim.Render("Esc to close"))
+	// Pack buttons into rows that fit innerWidth, two-space separator between
+	// buttons (same as sync modal "Sync  Cancel").
+	const spacing = 2
+	var rowLines []string
+	var rowBtns []string
+	rowWidth := 0
+	for i, btn := range rendered {
+		w := widths[i]
+		next := rowWidth + w
+		if len(rowBtns) > 0 {
+			next += spacing
 		}
+		if next > innerWidth && len(rowBtns) > 0 {
+			rowLines = append(rowLines, center.Render(strings.Join(rowBtns, "  ")))
+			rowBtns = nil
+			rowWidth = 0
+		}
+		if len(rowBtns) > 0 {
+			rowWidth += spacing
+		}
+		rowBtns = append(rowBtns, btn)
+		rowWidth += w
 	}
+	if len(rowBtns) > 0 {
+		rowLines = append(rowLines, center.Render(strings.Join(rowBtns, "  ")))
+	}
+	body := strings.Join(rowLines, "\n")
 
 	parts := []string{title, "", body}
-	if hint != "" {
-		parts = append(parts, "", hint)
-	}
 
+	// Sub-line under the buttons. When the user has typed something we surface
+	// the active filter; otherwise we show a dim "type to filter" cue so users
+	// discover the typeahead behaviour without a wall of help text.
+	var subLine string
+	if st.Filter != "" {
+		on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+		subLine = dim.Render("filter: ") + on.Render(st.Filter)
+	} else {
+		subLine = dim.Render("type to filter")
+	}
+	parts = append(parts, "", center.Render(subLine))
+
+	hint := center.Render(dim.Render("↑↓ select • Enter run • Esc cancel"))
+	parts = append(parts, "", hint)
+
+	// Inline error after a failed execution — keeps the modal open so the user
+	// can pick another action.
 	if st.Error != "" {
 		errStyled := center.Render(lipgloss.NewStyle().Foreground(outOfSyncColor).Render("Error: " + st.Error))
 		parts = append(parts, "", errStyled)
@@ -971,6 +995,81 @@ func (m *Model) renderResourceActionModal() string {
 		Width(modalWidth)
 	outer := lipgloss.NewStyle().Padding(1, 1)
 	return outer.Render(wrapper.Render(content))
+}
+
+// renderResourceActionLoadingModal is a compact spinner shown while we fetch
+// the list of available actions, matching renderSyncLoadingModal in style.
+func (m *Model) renderResourceActionLoadingModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading actions…"))
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2)
+	minW := 28
+	w := max(minW, lipgloss.Width(msg)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(msg))
+}
+
+// renderResourceActionExecutingModal is shown while an action is running,
+// also matching the small loading-modal style used elsewhere in the app.
+func (m *Model) renderResourceActionExecutingModal() string {
+	st := m.state.Modals.ResourceAction
+	actionName := ""
+	if st != nil && st.SelectedIdx >= 0 && st.SelectedIdx < len(st.Actions) {
+		actionName = st.Actions[st.SelectedIdx]
+	}
+	label := "Running…"
+	if actionName != "" {
+		label = "Running " + actionName + "…"
+	}
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render(label))
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2)
+	minW := 28
+	w := max(minW, lipgloss.Width(msg)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(msg))
+}
+
+// renderResourceActionInfoModal is a single-line modal shown when the action
+// list comes back empty or the list call failed. Mirrors renderNoDiffModal so
+// the visual weight matches what the user expects for a small status pop-up.
+func (m *Model) renderResourceActionInfoModal() string {
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		return ""
+	}
+
+	// Distinguish "empty list" (informational) from a real error so the user
+	// can tell why nothing happened at a glance.
+	const noActionsSentinel = "No actions available for this resource"
+	isError := st.Error != "" && st.Error != noActionsSentinel
+
+	var msg string
+	border := dimColor
+	if isError {
+		msg = lipgloss.NewStyle().Foreground(outOfSyncColor).Render("✗ ") +
+			lipgloss.NewStyle().Foreground(whiteBright).Render(st.Error)
+		border = outOfSyncColor
+	} else {
+		msg = lipgloss.NewStyle().Foreground(dimColor).Render("○ ") +
+			statusStyle.Render("No actions available")
+	}
+
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(border).
+		Padding(1, 2)
+	minW := 32
+	w := max(minW, lipgloss.Width(msg)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(msg))
 }
 
 // renderNoDiffModal renders a simple modal for when there are no differences
@@ -1190,10 +1289,10 @@ func (m *Model) renderThemeSelectionModal() string {
 	options := m.themeOptions
 
 	// Calculate available height for themes (subtract header, footer, borders, etc.)
-	headerLines := 2      // title + blank line
-	borderLines := 4      // top + bottom border + padding
-	footerLines := 2      // potential warning message + blank line
-	statusLine := 1       // status line at bottom
+	headerLines := 2 // title + blank line
+	borderLines := 4 // top + bottom border + padding
+	footerLines := 2 // potential warning message + blank line
+	statusLine := 1  // status line at bottom
 	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
 
 	// Ensure we have a reasonable minimum height

@@ -280,7 +280,8 @@ type ResourceActionState struct {
 	Target      ResourceActionTarget `json:"target"`
 	Actions     []string             `json:"actions"`
 	SelectedIdx int                  `json:"selectedIdx"`
-	Loading     bool                 `json:"loading"`   // true while listing available actions
-	Executing   bool                 `json:"executing"` // true while a chosen action is being run
+	Filter      string               `json:"filter,omitempty"` // type-to-select prefix
+	Loading     bool                 `json:"loading"`          // true while listing available actions
+	Executing   bool                 `json:"executing"`        // true while a chosen action is being run
 	Error       string               `json:"error"`
 }

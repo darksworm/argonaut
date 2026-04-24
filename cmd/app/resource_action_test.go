@@ -8,8 +8,9 @@ import (
 )
 
 // buildResourceActionTestModel returns a model pre-set into the resource action
-// modal with a fake target and a couple of fake actions loaded. Tests mutate
-// the returned model to exercise specific flows.
+// modal with a fake target and a couple of fake actions loaded. Actions are
+// stored sorted alphabetically to match what production sees after the load
+// handler runs. Tests mutate the returned model to exercise specific flows.
 func buildResourceActionTestModel(t *testing.T) *Model {
 	t.Helper()
 	m := buildDeleteTestModel(100, 30)
@@ -23,7 +24,7 @@ func buildResourceActionTestModel(t *testing.T) *Model {
 			Namespace: "test-namespace",
 			Name:      "web",
 		},
-		Actions:     []string{"promote", "abort", "retry"},
+		Actions:     []string{"abort", "promote", "retry"},
 		SelectedIdx: 0,
 	}
 	return m
@@ -51,6 +52,125 @@ func TestResourceActionKeys_ArrowNavigation(t *testing.T) {
 	newModel = teaModel.(*Model)
 	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
 		t.Fatalf("k should move cursor up to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+	}
+
+	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyLeft})
+	newModel = teaModel.(*Model)
+	if newModel.state.Modals.ResourceAction.SelectedIdx != 0 {
+		t.Fatalf("left arrow should move cursor to 0, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+	}
+
+	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
+	newModel = teaModel.(*Model)
+	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
+		t.Fatalf("right arrow should move cursor to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+	}
+}
+
+func TestResourceActionKeys_TypeToFilter_SelectsFirstMatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	// Actions are alphabetical: abort, promote, retry.
+	// Typing 'p' should jump from abort to promote.
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "p" {
+		t.Fatalf("filter should be 'p', got %q", st.Filter)
+	}
+	if st.SelectedIdx != 1 {
+		t.Fatalf("typing 'p' should select promote (idx 1), got %d", st.SelectedIdx)
+	}
+
+	// Typing another char that still matches keeps the same selection.
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "pr" {
+		t.Fatalf("filter should be 'pr', got %q", st.Filter)
+	}
+	if st.SelectedIdx != 1 {
+		t.Fatalf("typing 'pr' should still select promote, got idx %d", st.SelectedIdx)
+	}
+}
+
+func TestResourceActionKeys_TypeToFilter_RejectsNoMatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	// Type a char that no action starts with — keystroke should be rejected
+	// so the user can't get stuck on a filter that selects nothing.
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("z"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "" {
+		t.Fatalf("filter should remain empty on no-match, got %q", st.Filter)
+	}
+	if st.SelectedIdx != 0 {
+		t.Fatalf("selection should not move on no-match, got idx %d", st.SelectedIdx)
+	}
+}
+
+func TestResourceActionKeys_BackspaceShrinksFilter(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "pr" {
+		t.Fatalf("setup: expected filter 'pr', got %q", st.Filter)
+	}
+
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("backspace"))
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "p" {
+		t.Fatalf("backspace should shrink filter to 'p', got %q", st.Filter)
+	}
+	if st.SelectedIdx != 1 {
+		t.Fatalf("filter 'p' should still select promote (idx 1), got %d", st.SelectedIdx)
+	}
+
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("backspace"))
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "" {
+		t.Fatalf("backspace should clear filter, got %q", st.Filter)
+	}
+}
+
+func TestResourceActionKeys_EscClearsFilterBeforeClosing(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter == "" {
+		t.Fatalf("setup: filter should be set after typing 'p'")
+	}
+
+	// First Esc clears the filter but keeps the modal open.
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("esc"))
+	newModel := teaModel.(*Model)
+	if newModel.state.Mode != model.ModeResourceAction {
+		t.Fatalf("first Esc should keep modal open while filter is active, got mode %s", newModel.state.Mode)
+	}
+	if newModel.state.Modals.ResourceAction == nil {
+		t.Fatalf("first Esc should not destroy the modal state")
+	}
+	if newModel.state.Modals.ResourceAction.Filter != "" {
+		t.Fatalf("first Esc should clear the filter, got %q", newModel.state.Modals.ResourceAction.Filter)
+	}
+
+	// Second Esc closes the modal.
+	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("esc"))
+	newModel = teaModel.(*Model)
+	if newModel.state.Mode != model.ModeNormal {
+		t.Fatalf("second Esc should close the modal, got mode %s", newModel.state.Mode)
+	}
+}
+
+func TestResourceActionKeys_EmptyActionsEnterClosesModal(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Actions = nil
+	m.state.Modals.ResourceAction.Error = "No actions available for this resource"
+
+	teaModel, _ := m.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+	newModel := teaModel.(*Model)
+	if newModel.state.Mode != model.ModeNormal {
+		t.Fatalf("Enter on the empty/error modal should close it, got mode %s", newModel.state.Mode)
+	}
+	if newModel.state.Modals.ResourceAction != nil {
+		t.Fatalf("Enter on the empty/error modal should clear the modal state")
 	}
 }
 
@@ -128,8 +248,9 @@ func TestUpdate_ResourceActionsLoadedMsg_PopulatesModal(t *testing.T) {
 	if st.Loading {
 		t.Fatalf("Loading should be false after load")
 	}
-	if len(st.Actions) != 2 || st.Actions[0] != "promote-full" {
-		t.Fatalf("Actions not populated correctly: %v", st.Actions)
+	// Actions should be sorted alphabetically so the order is deterministic.
+	if len(st.Actions) != 2 || st.Actions[0] != "pause" || st.Actions[1] != "promote-full" {
+		t.Fatalf("Actions should be sorted alphabetically, got: %v", st.Actions)
 	}
 	if st.SelectedIdx != 0 {
 		t.Fatalf("SelectedIdx should reset to 0, got %d", st.SelectedIdx)
