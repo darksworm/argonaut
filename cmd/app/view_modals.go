@@ -976,7 +976,7 @@ func (m *Model) renderResourceActionModal() string {
 	}
 	parts = append(parts, "", center.Render(subLine))
 
-	hint := center.Render(dim.Render("↑↓ select • Enter run • Esc cancel"))
+	hint := center.Render(dim.Render("←→ select • Enter run • Esc cancel"))
 	parts = append(parts, "", hint)
 
 	// Inline error after a failed execution — keeps the modal open so the user
