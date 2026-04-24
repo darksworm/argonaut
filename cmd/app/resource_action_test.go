@@ -33,37 +33,38 @@ func buildResourceActionTestModel(t *testing.T) *Model {
 func TestResourceActionKeys_ArrowNavigation(t *testing.T) {
 	m := buildResourceActionTestModel(t)
 
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("j"))
+	// Buttons are laid out horizontally so navigation is left/right only.
+	teaModel, _ := m.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
 	newModel := teaModel.(*Model)
 	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
-		t.Fatalf("j should move cursor down to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+		t.Fatalf("right should move cursor to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
 	}
 
-	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("j"))
+	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
 	newModel = teaModel.(*Model)
-	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("j"))
+	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
 	newModel = teaModel.(*Model)
 	// Should clamp at last index (2).
 	if newModel.state.Modals.ResourceAction.SelectedIdx != 2 {
 		t.Fatalf("cursor should clamp at last index 2, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
 	}
 
-	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("k"))
+	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("h"))
 	newModel = teaModel.(*Model)
 	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
-		t.Fatalf("k should move cursor up to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+		t.Fatalf("h should move cursor left to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+	}
+
+	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("l"))
+	newModel = teaModel.(*Model)
+	if newModel.state.Modals.ResourceAction.SelectedIdx != 2 {
+		t.Fatalf("l should move cursor right to 2, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
 	}
 
 	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyLeft})
 	newModel = teaModel.(*Model)
-	if newModel.state.Modals.ResourceAction.SelectedIdx != 0 {
-		t.Fatalf("left arrow should move cursor to 0, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
-	}
-
-	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
-	newModel = teaModel.(*Model)
 	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
-		t.Fatalf("right arrow should move cursor to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+		t.Fatalf("left arrow should move cursor to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
 	}
 }
 

@@ -1363,12 +1363,12 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			applyResourceActionFilter(st)
 		}
 		return m, nil
-	case "up", "left", "h", "k":
+	case "left", "h":
 		if st.SelectedIdx > 0 {
 			st.SelectedIdx--
 		}
 		return m, nil
-	case "down", "right", "l", "j":
+	case "right", "l":
 		if st.SelectedIdx < len(st.Actions)-1 {
 			st.SelectedIdx++
 		}
