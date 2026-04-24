@@ -33,39 +33,27 @@ func buildResourceActionTestModel(t *testing.T) *Model {
 func TestResourceActionKeys_ArrowNavigation(t *testing.T) {
 	m := buildResourceActionTestModel(t)
 
-	// Buttons are laid out horizontally so navigation is left/right only.
-	teaModel, _ := m.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
-	newModel := teaModel.(*Model)
-	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
-		t.Fatalf("right should move cursor to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
+	// Buttons are laid out horizontally; the hint advertises ←→ but per
+	// upstream review we also accept ↑↓ and hjkl so users reaching for
+	// those keys aren't stranded. All of them traverse the linear list.
+	advance := func(model *Model, msg tea.KeyMsg, want int, label string) *Model {
+		teaModel, _ := model.handleResourceActionKeys(msg)
+		next := teaModel.(*Model)
+		if next.state.Modals.ResourceAction.SelectedIdx != want {
+			t.Fatalf("%s should select idx %d, got %d", label, want, next.state.Modals.ResourceAction.SelectedIdx)
+		}
+		return next
 	}
 
-	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
-	newModel = teaModel.(*Model)
-	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
-	newModel = teaModel.(*Model)
-	// Should clamp at last index (2).
-	if newModel.state.Modals.ResourceAction.SelectedIdx != 2 {
-		t.Fatalf("cursor should clamp at last index 2, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
-	}
-
-	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("h"))
-	newModel = teaModel.(*Model)
-	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
-		t.Fatalf("h should move cursor left to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
-	}
-
-	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("l"))
-	newModel = teaModel.(*Model)
-	if newModel.state.Modals.ResourceAction.SelectedIdx != 2 {
-		t.Fatalf("l should move cursor right to 2, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
-	}
-
-	teaModel, _ = newModel.handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyLeft})
-	newModel = teaModel.(*Model)
-	if newModel.state.Modals.ResourceAction.SelectedIdx != 1 {
-		t.Fatalf("left arrow should move cursor to 1, got %d", newModel.state.Modals.ResourceAction.SelectedIdx)
-	}
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyRight}, 1, "right arrow")
+	m = advance(m, testKeyMsg("l"), 2, "l")
+	m = advance(m, testKeyMsg("l"), 2, "l clamps at last index")
+	m = advance(m, testKeyMsg("h"), 1, "h")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyLeft}, 0, "left arrow")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyDown}, 1, "down arrow")
+	m = advance(m, testKeyMsg("j"), 2, "j")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyUp}, 1, "up arrow")
+	_ = advance(m, testKeyMsg("k"), 0, "k")
 }
 
 func TestResourceActionKeys_TypeToFilter_SelectsFirstMatch(t *testing.T) {

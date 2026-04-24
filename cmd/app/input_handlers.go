@@ -1363,12 +1363,15 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			applyResourceActionFilter(st)
 		}
 		return m, nil
-	case "left", "h":
+	// Buttons sit on a single horizontal axis but per upstream review we also
+	// accept up/down and full hjkl so users who reach for those keys aren't
+	// stranded — both pairs traverse the linear button list.
+	case "left", "h", "up", "k":
 		if st.SelectedIdx > 0 {
 			st.SelectedIdx--
 		}
 		return m, nil
-	case "right", "l":
+	case "right", "l", "down", "j":
 		if st.SelectedIdx < len(st.Actions)-1 {
 			st.SelectedIdx++
 		}
