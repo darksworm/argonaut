@@ -93,7 +93,6 @@ func TestGolden_ResourceActionModal_List(t *testing.T) {
 			Namespace: "payments",
 			Name:      "checkout",
 		},
-		// Production sorts actions alphabetically before they reach the renderer.
 		Actions:     []string{"abort", "promote", "promote-full", "restart", "retry"},
 		SelectedIdx: 1,
 	}
@@ -115,6 +114,7 @@ func TestGolden_ResourceActionModal_WithFilter(t *testing.T) {
 		},
 		Actions:     []string{"abort", "promote", "promote-full", "restart", "retry"},
 		Filter:      "pr",
+		Filtering:   true,
 		SelectedIdx: 1,
 	}
 	out := stripANSI(m.renderResourceActionModal())

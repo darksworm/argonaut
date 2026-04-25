@@ -7,10 +7,6 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
-// buildResourceActionTestModel returns a model pre-set into the resource action
-// modal with a fake target and a couple of fake actions loaded. Actions are
-// stored sorted alphabetically to match what production sees after the load
-// handler runs. Tests mutate the returned model to exercise specific flows.
 func buildResourceActionTestModel(t *testing.T) *Model {
 	t.Helper()
 	m := buildDeleteTestModel(100, 30)
@@ -33,9 +29,6 @@ func buildResourceActionTestModel(t *testing.T) *Model {
 func TestResourceActionKeys_ArrowNavigation(t *testing.T) {
 	m := buildResourceActionTestModel(t)
 
-	// Buttons are laid out horizontally; the hint advertises ←→ but per
-	// upstream review we also accept ↑↓ and hjkl so users reaching for
-	// those keys aren't stranded. All of them traverse the linear list.
 	advance := func(model *Model, msg tea.KeyMsg, want int, label string) *Model {
 		teaModel, _ := model.handleResourceActionKeys(msg)
 		next := teaModel.(*Model)
@@ -56,47 +49,105 @@ func TestResourceActionKeys_ArrowNavigation(t *testing.T) {
 	_ = advance(m, testKeyMsg("k"), 0, "k")
 }
 
-func TestResourceActionKeys_TypeToFilter_SelectsFirstMatch(t *testing.T) {
+func TestResourceActionKeys_DefaultModeIgnoresLetters(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	// Actions are alphabetical: abort, promote, retry.
-	// Typing 'p' should jump from abort to promote.
 	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
 	st := teaModel.(*Model).state.Modals.ResourceAction
-	if st.Filter != "p" {
-		t.Fatalf("filter should be 'p', got %q", st.Filter)
+	if st.Filtering {
+		t.Fatalf("typing a letter without '/' should not enter filter mode")
 	}
-	if st.SelectedIdx != 1 {
-		t.Fatalf("typing 'p' should select promote (idx 1), got %d", st.SelectedIdx)
-	}
-
-	// Typing another char that still matches keeps the same selection.
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
-	st = teaModel.(*Model).state.Modals.ResourceAction
-	if st.Filter != "pr" {
-		t.Fatalf("filter should be 'pr', got %q", st.Filter)
-	}
-	if st.SelectedIdx != 1 {
-		t.Fatalf("typing 'pr' should still select promote, got idx %d", st.SelectedIdx)
+	if st.Filter != "" {
+		t.Fatalf("typing a letter without '/' should not extend a filter, got %q", st.Filter)
 	}
 }
 
-func TestResourceActionKeys_TypeToFilter_RejectsNoMatch(t *testing.T) {
+func TestResourceActionKeys_SlashEntersFilterMode(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	// Type a char that no action starts with — keystroke should be rejected
-	// so the user can't get stuck on a filter that selects nothing.
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("z"))
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if !st.Filtering {
+		t.Fatalf("'/' should enter filter mode")
+	}
+	if st.Filter != "" {
+		t.Fatalf("'/' should start with an empty filter, got %q", st.Filter)
+	}
+
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("p"))
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "p" || st.SelectedIdx != 1 {
+		t.Fatalf("typing 'p' in filter mode should select promote, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
+	}
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "pr" || st.SelectedIdx != 1 {
+		t.Fatalf("typing 'pr' should still select promote, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
+	}
+}
+
+func TestResourceActionKeys_FilterModeAcceptsHJKLAsChars(t *testing.T) {
+	cases := []struct {
+		key  string
+		want string
+	}{
+		{"h", "halt"},
+		{"k", "kill"},
+		{"l", "list"},
+	}
+	for _, tc := range cases {
+		m := buildResourceActionTestModel(t)
+		m.state.Modals.ResourceAction.Actions = []string{"abort", "halt", "kill", "list", "promote"}
+
+		teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
+		teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg(tc.key))
+		st := teaModel.(*Model).state.Modals.ResourceAction
+		if st.Filter != tc.key {
+			t.Errorf("%q in filter mode should extend filter, got filter=%q", tc.key, st.Filter)
+			continue
+		}
+		if got := st.Actions[st.SelectedIdx]; got != tc.want {
+			t.Errorf("filter %q should select %q, got %q", tc.key, tc.want, got)
+		}
+	}
+}
+
+func TestResourceActionKeys_SlashIsLiteralInFilterMode(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Actions = []string{"abort", "halt", "kill", "promote"}
+
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("h"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("/"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if !st.Filtering {
+		t.Fatalf("/ during filter mode should not exit filter mode")
+	}
+	if st.Filter != "h" {
+		t.Fatalf("/ during filter mode should not reset the filter, got %q", st.Filter)
+	}
+
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("esc"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("/"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("k"))
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Actions[st.SelectedIdx] != "kill" {
+		t.Fatalf("Esc+/+k should select kill, got %q", st.Actions[st.SelectedIdx])
+	}
+}
+
+func TestResourceActionKeys_FilterModeRejectsNoMatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("z"))
 	st := teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "" {
 		t.Fatalf("filter should remain empty on no-match, got %q", st.Filter)
-	}
-	if st.SelectedIdx != 0 {
-		t.Fatalf("selection should not move on no-match, got idx %d", st.SelectedIdx)
 	}
 }
 
 func TestResourceActionKeys_BackspaceShrinksFilter(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("p"))
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
 	st := teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "pr" {
@@ -105,11 +156,8 @@ func TestResourceActionKeys_BackspaceShrinksFilter(t *testing.T) {
 
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("backspace"))
 	st = teaModel.(*Model).state.Modals.ResourceAction
-	if st.Filter != "p" {
-		t.Fatalf("backspace should shrink filter to 'p', got %q", st.Filter)
-	}
-	if st.SelectedIdx != 1 {
-		t.Fatalf("filter 'p' should still select promote (idx 1), got %d", st.SelectedIdx)
+	if st.Filter != "p" || st.SelectedIdx != 1 {
+		t.Fatalf("backspace should shrink filter to 'p' and keep promote selected, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
 	}
 
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("backspace"))
@@ -117,30 +165,32 @@ func TestResourceActionKeys_BackspaceShrinksFilter(t *testing.T) {
 	if st.Filter != "" {
 		t.Fatalf("backspace should clear filter, got %q", st.Filter)
 	}
+	if !st.Filtering {
+		t.Fatalf("backspacing past start should keep us in filter mode (Esc exits, not backspace)")
+	}
 }
 
-func TestResourceActionKeys_EscClearsFilterBeforeClosing(t *testing.T) {
+func TestResourceActionKeys_EscExitsFilterModeBeforeClosing(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
-	st := teaModel.(*Model).state.Modals.ResourceAction
-	if st.Filter == "" {
-		t.Fatalf("setup: filter should be set after typing 'p'")
-	}
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("p"))
 
-	// First Esc clears the filter but keeps the modal open.
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("esc"))
 	newModel := teaModel.(*Model)
 	if newModel.state.Mode != model.ModeResourceAction {
 		t.Fatalf("first Esc should keep modal open while filter is active, got mode %s", newModel.state.Mode)
 	}
-	if newModel.state.Modals.ResourceAction == nil {
+	st := newModel.state.Modals.ResourceAction
+	if st == nil {
 		t.Fatalf("first Esc should not destroy the modal state")
 	}
-	if newModel.state.Modals.ResourceAction.Filter != "" {
-		t.Fatalf("first Esc should clear the filter, got %q", newModel.state.Modals.ResourceAction.Filter)
+	if st.Filtering {
+		t.Fatalf("first Esc should exit filter mode")
+	}
+	if st.Filter != "" {
+		t.Fatalf("first Esc should clear the filter, got %q", st.Filter)
 	}
 
-	// Second Esc closes the modal.
 	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("esc"))
 	newModel = teaModel.(*Model)
 	if newModel.state.Mode != model.ModeNormal {
@@ -237,7 +287,6 @@ func TestUpdate_ResourceActionsLoadedMsg_PopulatesModal(t *testing.T) {
 	if st.Loading {
 		t.Fatalf("Loading should be false after load")
 	}
-	// Actions should be sorted alphabetically so the order is deterministic.
 	if len(st.Actions) != 2 || st.Actions[0] != "pause" || st.Actions[1] != "promote-full" {
 		t.Fatalf("Actions should be sorted alphabetically, got: %v", st.Actions)
 	}

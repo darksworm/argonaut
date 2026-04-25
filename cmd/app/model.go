@@ -1016,7 +1016,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if st == nil || m.state.Mode != model.ModeResourceAction {
 			return m, nil
 		}
-		// Only apply if the response is for the resource we're looking at.
 		if st.Target != msg.Target {
 			return m, nil
 		}
@@ -1028,6 +1027,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		st.Actions = actions
 		st.SelectedIdx = 0
 		st.Filter = ""
+		st.Filtering = false
 		if len(actions) == 0 {
 			st.Error = "No actions available for this resource"
 		}

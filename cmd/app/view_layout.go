@@ -313,21 +313,16 @@ func (m *Model) renderMainLayout() string {
 		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
 		return m.composeOverlay(baseLayer, modalLayer)
 	}
-	// Resource Action modal (Rollouts promote/abort/etc.)
+	// Resource Action modal (loading, executing, info, or button selector)
 	if m.state.Mode == model.ModeResourceAction {
 		var modal string
 		st := m.state.Modals.ResourceAction
 		switch {
 		case st == nil || st.Loading:
-			// Small spinner while we fetch the action list — keeps the full
-			// button modal from flashing empty before we know what to draw.
 			modal = m.renderResourceActionLoadingModal()
 		case st.Executing:
-			// Same compact spinner style while the chosen action runs.
 			modal = m.renderResourceActionExecutingModal()
 		case len(st.Actions) == 0:
-			// Listing failed or returned nothing — single-line info modal,
-			// matching the no-diff popup in scale.
 			modal = m.renderResourceActionInfoModal()
 		default:
 			modal = m.renderResourceActionModal()

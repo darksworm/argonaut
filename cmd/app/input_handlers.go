@@ -1280,7 +1280,6 @@ func (m *Model) handleResourceAction() (tea.Model, tea.Cmd) {
 
 	sel := selections[0]
 
-	// Look up the app namespace so multi-tenant ArgoCD installs resolve correctly.
 	var appNamespace *string
 	for i := range m.state.Apps {
 		if m.state.Apps[i].Name == sel.AppName {
@@ -1319,7 +1318,6 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// While loading or executing, only allow cancel to keep UX simple.
 	if st.Loading || st.Executing {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
@@ -1330,8 +1328,6 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// If listing failed and we have no actions, the small error/empty modal
-	// is showing — Enter or Esc dismiss it.
 	if len(st.Actions) == 0 {
 		switch msg.String() {
 		case "enter", "esc", "q", "ctrl+c":
@@ -1347,31 +1343,12 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.ResourceAction = nil
 		return m, nil
-	case "esc":
-		// Esc clears an active filter first, then closes the modal.
-		if st.Filter != "" {
-			st.Filter = ""
-			st.SelectedIdx = 0
-			return m, nil
-		}
-		m.state.Mode = model.ModeNormal
-		m.state.Modals.ResourceAction = nil
-		return m, nil
-	case "backspace", "ctrl+h":
-		if len(st.Filter) > 0 {
-			st.Filter = st.Filter[:len(st.Filter)-1]
-			applyResourceActionFilter(st)
-		}
-		return m, nil
-	// Buttons sit on a single horizontal axis but per upstream review we also
-	// accept up/down and full hjkl so users who reach for those keys aren't
-	// stranded — both pairs traverse the linear button list.
-	case "left", "h", "up", "k":
+	case "left", "up":
 		if st.SelectedIdx > 0 {
 			st.SelectedIdx--
 		}
 		return m, nil
-	case "right", "l", "down", "j":
+	case "right", "down":
 		if st.SelectedIdx < len(st.Actions)-1 {
 			st.SelectedIdx++
 		}
@@ -1383,26 +1360,56 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.executeResourceAction(st.Target, action)
 	}
 
-	// Any single printable rune extends the filter. Reject the keystroke if
-	// no action would match the new prefix so users can't get stuck on a
-	// filter that selects nothing.
-	if len(key) == 1 {
-		r := rune(key[0])
-		if isResourceActionFilterRune(r) {
-			candidate := st.Filter + strings.ToLower(string(r))
-			if matchIdx := firstResourceActionMatch(st.Actions, candidate); matchIdx >= 0 {
-				st.Filter = candidate
-				st.SelectedIdx = matchIdx
+	if st.Filtering {
+		switch key {
+		case "esc":
+			st.Filtering = false
+			st.Filter = ""
+			st.SelectedIdx = 0
+			return m, nil
+		case "backspace":
+			if len(st.Filter) > 0 {
+				st.Filter = st.Filter[:len(st.Filter)-1]
+				applyResourceActionFilter(st)
+			}
+			return m, nil
+		}
+		if len(key) == 1 {
+			r := rune(key[0])
+			if isResourceActionFilterRune(r) {
+				candidate := st.Filter + strings.ToLower(string(r))
+				if matchIdx := firstResourceActionMatch(st.Actions, candidate); matchIdx >= 0 {
+					st.Filter = candidate
+					st.SelectedIdx = matchIdx
+				}
 			}
 		}
+		return m, nil
+	}
+
+	switch key {
+	case "esc":
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
+	case "/":
+		st.Filtering = true
+		st.Filter = ""
+		return m, nil
+	case "h", "k":
+		if st.SelectedIdx > 0 {
+			st.SelectedIdx--
+		}
+		return m, nil
+	case "l", "j":
+		if st.SelectedIdx < len(st.Actions)-1 {
+			st.SelectedIdx++
+		}
+		return m, nil
 	}
 	return m, nil
 }
 
-// isResourceActionFilterRune reports whether a key pressed while the resource
-// action modal is open should be treated as filter input. Rollouts and other
-// CRD actions are typically lowercase letters, digits, dashes, dots, or
-// underscores.
 func isResourceActionFilterRune(r rune) bool {
 	if r >= 'a' && r <= 'z' {
 		return true
@@ -1420,8 +1427,6 @@ func isResourceActionFilterRune(r rune) bool {
 	return false
 }
 
-// firstResourceActionMatch returns the index of the first action whose name
-// case-insensitively starts with prefix, or -1 if none match.
 func firstResourceActionMatch(actions []string, prefix string) int {
 	if prefix == "" {
 		if len(actions) == 0 {
@@ -1438,8 +1443,6 @@ func firstResourceActionMatch(actions []string, prefix string) int {
 	return -1
 }
 
-// applyResourceActionFilter recomputes SelectedIdx from the current Filter,
-// falling back to 0 when the (possibly shortened) filter no longer matches.
 func applyResourceActionFilter(st *model.ResourceActionState) {
 	if st == nil {
 		return

@@ -5,9 +5,7 @@
  │                                                │ 
  │                abort      promote              │ 
  │                                                │ 
- │                  type to filter                │ 
- │                                                │ 
- │        ←→ select • Enter run • Esc cancel      │ 
+ │         / filter • ←→ select • Enter run       │ 
  │                                                │ 
  │    Error: rpc error: code = PermissionDenied   │ 
  │                                                │ 

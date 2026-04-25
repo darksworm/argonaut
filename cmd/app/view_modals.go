@@ -322,7 +322,7 @@ func (m *Model) renderUpgradeConfirmModal() string {
 	// Modal styling with reduced padding for smaller terminals
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(68).
 		AlignHorizontal(lipgloss.Center)
@@ -413,7 +413,7 @@ func (m *Model) renderUpgradeConfirmModal() string {
 func (m *Model) renderUpgradeLoadingModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(50).
 		AlignHorizontal(lipgloss.Center)
@@ -888,16 +888,14 @@ func (m *Model) renderResourceSyncLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-// renderResourceActionModal renders the resource actions selection modal,
-// styled to match the resource-sync confirm modal (same width, button look,
-// border, padding).
+// renderResourceActionModal renders the resource actions selection modal
 func (m *Model) renderResourceActionModal() string {
 	st := m.state.Modals.ResourceAction
 	if st == nil {
 		return ""
 	}
 
-	// Modal width: compact and centered (matches sync/delete confirm modals).
+	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
 	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
@@ -905,7 +903,6 @@ func (m *Model) renderResourceActionModal() string {
 	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 
-	// Title: "Actions on Kind/Namespace/Name" — bright bold subject.
 	var subject string
 	if st.Target.Namespace != "" {
 		subject = fmt.Sprintf("%s/%s/%s", st.Target.Kind, st.Target.Namespace, st.Target.Name)
@@ -916,7 +913,6 @@ func (m *Model) renderResourceActionModal() string {
 		lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
 	title := center.Render(titleLine)
 
-	// Buttons use the same active/inactive style as the sync confirm modal.
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
 	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
@@ -934,8 +930,6 @@ func (m *Model) renderResourceActionModal() string {
 		widths[i] = lipgloss.Width(btn)
 	}
 
-	// Pack buttons into rows that fit innerWidth, two-space separator between
-	// buttons (same as sync modal "Sync  Cancel").
 	const spacing = 2
 	var rowLines []string
 	var rowBtns []string
@@ -964,23 +958,21 @@ func (m *Model) renderResourceActionModal() string {
 
 	parts := []string{title, "", body}
 
-	// Sub-line under the buttons. When the user has typed something we surface
-	// the active filter; otherwise we show a dim "type to filter" cue so users
-	// discover the typeahead behaviour without a wall of help text.
-	var subLine string
-	if st.Filter != "" {
+	if st.Filtering {
 		on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-		subLine = dim.Render("filter: ") + on.Render(st.Filter)
-	} else {
-		subLine = dim.Render("type to filter")
+		cursor := lipgloss.NewStyle().Foreground(yellowBright).Reverse(true).Render(" ")
+		subLine := dim.Render("filter: ") + on.Render(st.Filter) + cursor
+		parts = append(parts, "", center.Render(subLine))
 	}
-	parts = append(parts, "", center.Render(subLine))
 
-	hint := center.Render(dim.Render("←→ select • Enter run • Esc cancel"))
-	parts = append(parts, "", hint)
+	var hintText string
+	if st.Filtering {
+		hintText = "←→ select • Enter run • Esc exit"
+	} else {
+		hintText = "/ filter • ←→ select • Enter run"
+	}
+	parts = append(parts, "", center.Render(dim.Render(hintText)))
 
-	// Inline error after a failed execution — keeps the modal open so the user
-	// can pick another action.
 	if st.Error != "" {
 		errStyled := center.Render(lipgloss.NewStyle().Foreground(outOfSyncColor).Render("Error: " + st.Error))
 		parts = append(parts, "", errStyled)
@@ -997,8 +989,7 @@ func (m *Model) renderResourceActionModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-// renderResourceActionLoadingModal is a compact spinner shown while we fetch
-// the list of available actions, matching renderSyncLoadingModal in style.
+// renderResourceActionLoadingModal renders the loading state while listing actions
 func (m *Model) renderResourceActionLoadingModal() string {
 	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading actions…"))
 	wrapper := lipgloss.NewStyle().
@@ -1012,8 +1003,7 @@ func (m *Model) renderResourceActionLoadingModal() string {
 	return outer.Render(wrapper.Render(msg))
 }
 
-// renderResourceActionExecutingModal is shown while an action is running,
-// also matching the small loading-modal style used elsewhere in the app.
+// renderResourceActionExecutingModal renders the loading state while an action runs
 func (m *Model) renderResourceActionExecutingModal() string {
 	st := m.state.Modals.ResourceAction
 	actionName := ""
@@ -1036,17 +1026,13 @@ func (m *Model) renderResourceActionExecutingModal() string {
 	return outer.Render(wrapper.Render(msg))
 }
 
-// renderResourceActionInfoModal is a single-line modal shown when the action
-// list comes back empty or the list call failed. Mirrors renderNoDiffModal so
-// the visual weight matches what the user expects for a small status pop-up.
+// renderResourceActionInfoModal renders a small modal when no actions are available or listing failed
 func (m *Model) renderResourceActionInfoModal() string {
 	st := m.state.Modals.ResourceAction
 	if st == nil {
 		return ""
 	}
 
-	// Distinguish "empty list" (informational) from a real error so the user
-	// can tell why nothing happened at a glance.
 	const noActionsSentinel = "No actions available for this resource"
 	isError := st.Error != "" && st.Error != noActionsSentinel
 
@@ -1146,7 +1132,7 @@ func (m *Model) renderK9sContextSelectionModal() string {
 	// Modal styling
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(50).
 		AlignHorizontal(lipgloss.Left)
@@ -1373,7 +1359,7 @@ func (m *Model) renderThemeSelectionModal() string {
 	// Modal styling
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(44).
 		AlignHorizontal(lipgloss.Left)

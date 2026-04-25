@@ -6,9 +6,9 @@
  │       abort      promote      promote-full     │ 
  │                restart      retry              │ 
  │                                                │ 
- │                    filter: pr                  │ 
+ │                   filter: pr                   │ 
  │                                                │ 
- │        ←→ select • Enter run • Esc cancel      │ 
+ │         ←→ select • Enter run • Esc exit       │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     
