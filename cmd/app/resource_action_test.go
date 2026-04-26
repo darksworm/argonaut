@@ -342,6 +342,7 @@ func TestUpdate_ResourceActionsErrorMsg_SurfacesError(t *testing.T) {
 	m.state.Modals.ResourceAction.Loading = true
 
 	msg := model.ResourceActionsErrorMsg{
+		Target:      m.state.Modals.ResourceAction.Target,
 		Error:       "Forbidden: user cannot list actions",
 		SwitchEpoch: m.switchEpoch,
 	}
@@ -547,6 +548,35 @@ func TestRenderResourceActionInfoModal_BorderMatchesNoDiffModal(t *testing.T) {
 
 // extractTopBorderEscape returns the ANSI escape preceding the rounded-
 // border top-left character ╭, which corresponds to the border style.
+// A late ResourceActionsErrorMsg from a previously-targeted load must not
+// overwrite the modal state of a different (newer) target.
+func TestUpdate_ResourceActionsErrorMsg_IgnoredOnTargetMismatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Loading = true
+
+	stale := m.state.Modals.ResourceAction.Target
+	stale.Name = "previous-rollout"
+
+	msg := model.ResourceActionsErrorMsg{
+		Target:      stale,
+		Error:       "stale list error",
+		SwitchEpoch: m.switchEpoch,
+	}
+	teaModel, _ := m.Update(msg)
+	newModel := teaModel.(*Model)
+
+	st := newModel.state.Modals.ResourceAction
+	if st == nil {
+		t.Fatalf("modal should still be open")
+	}
+	if !st.Loading {
+		t.Fatalf("Loading should remain true; stale error must not clear it")
+	}
+	if st.Error != "" {
+		t.Fatalf("Error should remain empty; stale error must not be surfaced, got %q", st.Error)
+	}
+}
+
 func extractTopBorderEscape(t *testing.T, rendered, label string) string {
 	t.Helper()
 	for _, line := range strings.Split(rendered, "\n") {

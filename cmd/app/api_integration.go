@@ -1569,13 +1569,13 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 
 // loadResourceActions lists the custom actions available for a resource via ArgoCD
 func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
+	epoch := m.switchEpoch
 	if m.state.Server == nil {
 		return func() tea.Msg {
-			return model.ResourceActionsErrorMsg{Error: "No server configured"}
+			return model.ResourceActionsErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
 		}
 	}
 
-	epoch := m.switchEpoch
 	return func() tea.Msg {
 		appService := api.NewApplicationService(m.state.Server)
 
@@ -1595,7 +1595,7 @@ func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
 			errMsg := extractUserFriendlyError(err)
 			cblog.With("component", "resource-action").Error("Failed to list actions",
 				"app", target.AppName, "kind", target.Kind, "name", target.Name, "err", err)
-			return model.ResourceActionsErrorMsg{Error: errMsg, SwitchEpoch: epoch}
+			return model.ResourceActionsErrorMsg{Target: target, Error: errMsg, SwitchEpoch: epoch}
 		}
 
 		cblog.With("component", "resource-action").Debug("Loaded actions",

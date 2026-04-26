@@ -1052,6 +1052,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if st == nil || m.state.Mode != model.ModeResourceAction {
 			return m, nil
 		}
+		if st.Target != msg.Target {
+			return m, nil
+		}
 		st.Loading = false
 		st.Error = msg.Error
 		return m, nil

@@ -262,6 +262,7 @@ type ResourceActionsLoadedMsg struct {
 
 // ResourceActionsErrorMsg is sent when listing resource actions fails
 type ResourceActionsErrorMsg struct {
+	Target      ResourceActionTarget
 	Error       string
 	SwitchEpoch int
 }
