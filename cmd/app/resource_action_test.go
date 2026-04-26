@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 func buildResourceActionTestModel(t *testing.T) *Model {
@@ -631,6 +633,46 @@ func TestExecuteResourceAction_NoServer_PreservesSwitchEpoch(t *testing.T) {
 	msg := cmd().(model.ResourceActionExecuteErrorMsg)
 	if msg.SwitchEpoch != 11 {
 		t.Fatalf("expected SwitchEpoch=11, got %d", msg.SwitchEpoch)
+	}
+}
+
+// handleResourceAction must resolve AppNamespace using the tree's currently
+// scoped app (UI.TreeApp), not the first name-match in m.state.Apps. When two
+// apps share a name across different ArgoCD namespaces, the wrong namespace
+// would otherwise be sent to the API.
+func TestHandleResourceAction_DisambiguatesAppByNamespace(t *testing.T) {
+	m := buildSyncTestModel(100, 30)
+
+	nsArgocd := "argocd"
+	nsTeamA := "team-a"
+	// "wrong" app first in slice; tree is scoped to the second one.
+	m.state.Apps = []model.App{
+		{Name: "my-app", AppNamespace: &nsArgocd},
+		{Name: "my-app", AppNamespace: &nsTeamA},
+	}
+	m.state.Navigation.View = model.ViewTree
+	m.state.UI.TreeApp = &model.TreeAppInfo{Name: "my-app", AppNamespace: &nsTeamA}
+
+	m.treeView = treeview.NewTreeView(0, 0)
+	deployNS := "default"
+	healthy := "Healthy"
+	tree := api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "d1", Kind: "Deployment", Name: "web", Namespace: &deployNS, Health: &api.ResourceHealth{Status: &healthy}},
+	}}
+	m.treeView.SetAppMeta("my-app", "Healthy", "Synced")
+	m.treeView.UpsertAppTree("my-app", &tree)
+	m.treeView.SetSelectedIndex(1) // Deployment node (0 is synthetic Application root)
+
+	newModel, _ := m.handleResourceAction()
+	m = newModel.(*Model)
+
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		t.Fatalf("ResourceAction modal should be open")
+	}
+	if st.Target.AppNamespace == nil || *st.Target.AppNamespace != nsTeamA {
+		t.Fatalf("expected target AppNamespace %q (the tree-scoped app), got %v",
+			nsTeamA, st.Target.AppNamespace)
 	}
 }
 

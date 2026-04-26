@@ -1280,11 +1280,19 @@ func (m *Model) handleResourceAction() (tea.Model, tea.Cmd) {
 
 	sel := selections[0]
 
+	// Resolve AppNamespace using the tree-scoped app first — Argo CD apps are
+	// not unique by name across ArgoCD namespaces, so a first-name-match in
+	// m.state.Apps can pick the wrong app.
 	var appNamespace *string
-	for i := range m.state.Apps {
-		if m.state.Apps[i].Name == sel.AppName {
-			appNamespace = m.state.Apps[i].AppNamespace
-			break
+	if treeApp := m.state.UI.TreeApp; treeApp != nil && treeApp.Name == sel.AppName {
+		appNamespace = treeApp.AppNamespace
+	}
+	if appNamespace == nil {
+		for i := range m.state.Apps {
+			if m.state.Apps[i].Name == sel.AppName {
+				appNamespace = m.state.Apps[i].AppNamespace
+				break
+			}
 		}
 	}
 
