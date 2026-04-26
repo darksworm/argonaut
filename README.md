@@ -168,6 +168,7 @@ argonaut
 - **Live resources view** per app with health & sync status
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
+- **Execute actions** on resources — dynamically discovered per resource, including Argo Rollouts and any custom-defined actions
 - **Keyboard-only workflow** with Vim-like navigation
 
 ---
@@ -191,6 +192,9 @@ argonaut
 
 ### **Delete apps**  
 <img src="assets/argonaut_delete_apps.png" alt="Delete apps"/>
+
+### **Execute actions**  
+<img src="assets/argonaut_resource_actions.png" alt="Execute actions modal — dynamically lists actions for the selected resource"/>
 
 ### **Enjoy colorful themes**  
 <img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
