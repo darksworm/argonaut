@@ -1064,8 +1064,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.statusService.Set(fmt.Sprintf("Ran %s on %s/%s", msg.Action, msg.Target.Kind, msg.Target.Name))
-		m.state.Mode = model.ModeNormal
-		m.state.Modals.ResourceAction = nil
+		// Only tear down the modal if it still targets the same resource —
+		// the user may have closed the original modal and opened another one
+		// for a different resource before this completion arrived.
+		if st := m.state.Modals.ResourceAction; st != nil && st.Target == msg.Target {
+			m.state.Mode = model.ModeNormal
+			m.state.Modals.ResourceAction = nil
+		}
 		// Trigger a refresh of the app's resource tree
 		if m.state.Navigation.View == model.ViewTree && msg.AppName != "" {
 			var appObj *model.App

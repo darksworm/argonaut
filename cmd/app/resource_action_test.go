@@ -577,6 +577,35 @@ func TestUpdate_ResourceActionsErrorMsg_IgnoredOnTargetMismatch(t *testing.T) {
 	}
 }
 
+// A late ResourceActionExecutedMsg from a previously-targeted execute must not
+// close the modal of a different (newer) target.
+func TestUpdate_ResourceActionExecutedMsg_IgnoredOnTargetMismatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	current := m.state.Modals.ResourceAction.Target
+
+	stale := current
+	stale.Name = "previous-rollout"
+
+	msg := model.ResourceActionExecutedMsg{
+		Target:      stale,
+		Action:      "promote",
+		AppName:     stale.AppName,
+		SwitchEpoch: m.switchEpoch,
+	}
+	teaModel, _ := m.Update(msg)
+	newModel := teaModel.(*Model)
+
+	if newModel.state.Mode != model.ModeResourceAction {
+		t.Fatalf("mode should stay on modal; stale exec must not return to Normal, got %s", newModel.state.Mode)
+	}
+	if newModel.state.Modals.ResourceAction == nil {
+		t.Fatalf("ResourceAction state must remain; stale exec msg should not clear it")
+	}
+	if newModel.state.Modals.ResourceAction.Target != current {
+		t.Fatalf("Target should be untouched on stale exec")
+	}
+}
+
 func extractTopBorderEscape(t *testing.T, rendered, label string) string {
 	t.Helper()
 	for _, line := range strings.Split(rendered, "\n") {
