@@ -1,18 +1,18 @@
- Context: argo.example.com                                                           Argonaut dev 
+ Context: argo.example.com                                                           Argonaut dev   
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application [multi-app] (Healthy, Synced)                                                      │ 
- │ ├── Deployment [staging/backend] (Healthy)                                                     │
- │ ├── Service [staging/backend-svc] (Healthy)                                                    │
- │ ├── Deployment [stagi                                                                          │
+ │ ├── Deployment [staging/backend] (Healthy)                                                     │ 
+ │ ├── Service [staging/backend-svc] (Healthy)                                                    │ 
+ │ ├── Deployment [stagi                                                                          │ 
  │ └── Service [staging/ ╭────────────────────────────────────────────────╮                       │ 
  │                       │                                                │                       │ 
- │                       │              Delete 3 resource(s)?             │                       │ 
+ │                       │             Delete 3 resource(s)?              │                       │ 
  │                       │                                                │                       │ 
- │                       │                    Delete (y)                  │                       │ 
+ │                       │                   Delete (y)                   │                       │ 
  │                       │                                                │                       │ 
- │                       │      c: Cascade On (all resources deleted)     │                       │ 
- │                       │       p: Policy background (async cleanup)     │                       │ 
- │                       │                   f: Force Off                 │                       │ 
+ │                       │     c: Cascade On (all resources deleted)      │                       │ 
+ │                       │      p: Policy background (async cleanup)      │                       │ 
+ │                       │                  f: Force Off                  │                       │ 
  │                       │                                                │                       │ 
  │                       ╰────────────────────────────────────────────────╯                       │ 
  │                                                                                                │ 
