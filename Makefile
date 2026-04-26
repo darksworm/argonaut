@@ -76,19 +76,40 @@ argocd-restart:
 	@$(MAKE) --no-print-directory argocd-down
 	@$(MAKE) --no-print-directory argocd-up
 
-# Start ArgoCD port-forward in background; writes PID to .argocd-portforward.pid
+# Start ArgoCD port-forward in background; writes PID to .argocd-portforward.pid.
+# Uses setsid so the kubectl process is detached into its own session/process group
+# and survives the make recipe's subshell exit. Waits until the port is accepting
+# connections before returning, so dependents (argocd-login) don't race.
 argocd-portforward:
-	@# Kill existing port-forward if tracked
+	@# Clean up any existing port-forward by PID file. Intentionally do NOT
+	@# use `pkill -f <pattern>` here: make runs each recipe line via `sh -c "..."`,
+	@# so the parent shell's cmdline contains the pkill pattern literally and
+	@# pkill ends up killing its own parent (visible as "Terminated" on the recipe).
 	@if [ -f .argocd-portforward.pid ]; then \
-		PID=$$(cat .argocd-portforward.pid) && kill $$PID 2>/dev/null || true; \
+		kill -TERM $$(cat .argocd-portforward.pid) 2>/dev/null || true; \
 		rm -f .argocd-portforward.pid; \
 	fi
-	@# Also ensure no stray port-forward remains (e.g., from setup script)
-	@pkill -f "port-forward.*argocd-server" 2>/dev/null || true
-	@echo "Port-forwarding ArgoCD on https://localhost:$(ARGOCD_PORT) (PID will be saved)"
-	@kubectl -n $(ARGOCD_NAMESPACE) port-forward svc/argocd-server $(ARGOCD_PORT):443 >/dev/null 2>&1 & echo $$! > .argocd-portforward.pid
+	@# If anything is still bound to the port (stale / untracked process), free it.
+	@fuser -k -TERM $(ARGOCD_PORT)/tcp 2>/dev/null || true
+	@sleep 0.3
+	@echo "Port-forwarding ArgoCD on https://$(ARGOCD_HOST):$(ARGOCD_PORT) ..."
+	@setsid -f kubectl -n $(ARGOCD_NAMESPACE) port-forward svc/argocd-server $(ARGOCD_PORT):443 \
+		>/tmp/argocd-portforward.log 2>&1 < /dev/null & \
+		echo $$! > .argocd-portforward.pid
+	@# Wait up to ~15s for the local listener to accept connections
+	@for i in $$(seq 1 60); do \
+		if curl -sk -o /dev/null --max-time 1 https://$(ARGOCD_HOST):$(ARGOCD_PORT); then \
+			echo "Port-forward ready (PID $$(cat .argocd-portforward.pid))."; \
+			exit 0; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	echo "Port-forward failed to become ready; see /tmp/argocd-portforward.log" >&2; \
+	exit 1
 
-# Stop ArgoCD port-forward (uses PID file; falls back to pkill)
+# Stop ArgoCD port-forward (uses PID file; falls back to `fuser -k` on the port
+# since `pkill -f` self-terminates when invoked from a make recipe — see the
+# comment in argocd-portforward for details).
 argocd-portforward-stop:
 	@if [ -f .argocd-portforward.pid ]; then \
 		PID=$$(cat .argocd-portforward.pid); \
@@ -96,8 +117,8 @@ argocd-portforward-stop:
 		kill $$PID 2>/dev/null || true; \
 		rm -f .argocd-portforward.pid; \
 	else \
-		echo "No PID file; attempting to pkill any ArgoCD port-forward..."; \
-		pkill -f "port-forward.*argocd-server" || true; \
+		echo "No PID file; freeing port $(ARGOCD_PORT) if bound..."; \
+		fuser -k -TERM $(ARGOCD_PORT)/tcp 2>/dev/null || true; \
 	fi
 
 # Echo the initial ArgoCD admin password (reads from k3d-managed cluster)

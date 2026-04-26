@@ -36,22 +36,8 @@ kubectl -n argocd apply --server-side --force-conflicts -f https://raw.githubuse
 echo "Waiting for ArgoCD to be ready..."
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 
-# 4) Port-forward (kill existing if any)
-echo "Setting up port-forward..."
-pkill -f "port-forward.*argocd-server" || true
-sleep 2
-kubectl -n argocd port-forward svc/argocd-server 8080:443 >/dev/null 2>&1 &
-PF_PID=$!
-echo "Port-forward PID: $PF_PID"
-sleep 3
-
-# 5) Get admin password and login
-PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)
-echo "Admin password: $PASS"
-
-# 6) Login with argocd CLI
-echo "Logging into ArgoCD..."
-argocd login localhost:8080 --username admin --password "$PASS" --insecure --grpc-web
+# 4) Get admin password (for display at the end)
+PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
 
 # 7) Apply projects if they exist
 if [ -f "$SCRIPT_DIR/projects.yaml" ]; then
@@ -72,16 +58,13 @@ kubectl apply -f "$SCRIPT_DIR/app-of-apps.yaml"
 echo ""
 echo "✅ Setup complete!"
 echo ""
-echo "ArgoCD UI: https://localhost:8080"
+echo "ArgoCD UI: https://localhost:8080 (start port-forward with: make argocd-portforward)"
 echo "Username: admin"
 echo "Password: $PASS"
 echo ""
-echo "Apps created (OutOfSync - manual sync required):"
-argocd app list --output name
+echo "Applications (OutOfSync - manual sync required):"
+kubectl -n argocd get applications.argoproj.io -o name
 echo ""
-echo "To sync all apps: argocd app sync --all"
-echo "To sync one app: argocd app sync test-dev"
-echo "To sync app-of-apps and its children: argocd app sync app-of-apps --async && argocd app wait app-of-apps --health"
-echo "To list apps: argocd app list"
-echo ""
-echo "To cleanup everything: k3d cluster delete argocd-demo"
+echo "To log in to argocd CLI:          make argocd-login"
+echo "To sync all apps:                 argocd app sync --all"
+echo "To cleanup everything:            k3d cluster delete argocd-demo"
