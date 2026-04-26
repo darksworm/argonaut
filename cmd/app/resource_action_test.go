@@ -525,3 +525,37 @@ func TestRenderResourceActionModal_TypingHint(t *testing.T) {
 	}
 }
 
+
+// The "no actions available" overlay was bumped from a dim border to the
+// same bright green border the "no differences" modal uses, so it catches
+// the eye. Compare the leading ANSI escape on the top-border row of both
+// modals; they must match.
+func TestRenderResourceActionInfoModal_BorderMatchesNoDiffModal(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Actions = nil
+	m.state.Modals.ResourceAction.Error = "No actions available for this resource"
+
+	infoOut := m.renderResourceActionInfoModal()
+	noDiffOut := m.renderNoDiffModal()
+
+	infoBorder := extractTopBorderEscape(t, infoOut, "no-actions modal")
+	noDiffBorder := extractTopBorderEscape(t, noDiffOut, "no-diff modal")
+	if infoBorder != noDiffBorder {
+		t.Errorf("no-actions border should match no-diff border\n  no-actions: %q\n  no-diff:    %q", infoBorder, noDiffBorder)
+	}
+}
+
+// extractTopBorderEscape returns the ANSI escape preceding the rounded-
+// border top-left character ╭, which corresponds to the border style.
+func extractTopBorderEscape(t *testing.T, rendered, label string) string {
+	t.Helper()
+	for _, line := range strings.Split(rendered, "\n") {
+		idx := strings.Index(line, "╭")
+		if idx < 0 {
+			continue
+		}
+		return line[:idx]
+	}
+	t.Fatalf("%s: no top-border row found in:\n%s", label, rendered)
+	return ""
+}

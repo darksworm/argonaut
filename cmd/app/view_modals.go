@@ -1055,13 +1055,15 @@ func (m *Model) renderResourceActionInfoModal() string {
 	isError := st.Error != "" && st.Error != noActionsSentinel
 
 	var msg string
-	border := dimColor
+	// Match the "No differences" modal's bright green border so the popup
+	// catches the eye instead of fading into the background.
+	border := syncedColor
 	if isError {
 		msg = lipgloss.NewStyle().Foreground(outOfSyncColor).Render("✗ ") +
 			lipgloss.NewStyle().Foreground(whiteBright).Render(st.Error)
 		border = outOfSyncColor
 	} else {
-		msg = lipgloss.NewStyle().Foreground(dimColor).Render("○ ") +
+		msg = lipgloss.NewStyle().Foreground(syncedColor).Render("○ ") +
 			statusStyle.Render("No actions available")
 	}
 
