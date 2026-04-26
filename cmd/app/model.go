@@ -1073,16 +1073,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Trigger a refresh of the app's resource tree
 		if m.state.Navigation.View == model.ViewTree && msg.AppName != "" {
-			var appObj *model.App
-			for i := range m.state.Apps {
-				if m.state.Apps[i].Name == msg.AppName {
-					appObj = &m.state.Apps[i]
-					break
-				}
-			}
-			if appObj == nil {
-				appObj = &model.App{Name: msg.AppName}
-			}
+			appObj := m.resolveActionRefreshApp(msg)
 			return m, m.startLoadingResourceTree(*appObj)
 		}
 		return m, nil
@@ -1553,6 +1544,31 @@ func (m *Model) setTreeApp(app model.App) {
 // individual fields.
 func (m *Model) clearTreeApp() {
 	m.state.UI.TreeApp = nil
+}
+
+// resolveActionRefreshApp finds the App entry in m.state.Apps that the post-
+// execute tree refresh should reload. It matches on (Name, AppNamespace) so
+// that two apps sharing a name in different ArgoCD namespaces resolve to the
+// correct one. Falls back to a synthesized App carrying both fields when no
+// match is found.
+func (m *Model) resolveActionRefreshApp(msg model.ResourceActionExecutedMsg) *model.App {
+	wantNs := ""
+	if msg.Target.AppNamespace != nil {
+		wantNs = *msg.Target.AppNamespace
+	}
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name != msg.AppName {
+			continue
+		}
+		appNs := ""
+		if m.state.Apps[i].AppNamespace != nil {
+			appNs = *m.state.Apps[i].AppNamespace
+		}
+		if appNs == wantNs {
+			return &m.state.Apps[i]
+		}
+	}
+	return &model.App{Name: msg.AppName, AppNamespace: msg.Target.AppNamespace}
 }
 
 func (m *Model) applyBatchAppDelete(name string) bool {

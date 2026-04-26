@@ -757,6 +757,54 @@ func TestLoadResourceActions_CapturesServerAtCmdCreation(t *testing.T) {
 	}
 }
 
+// After a successful execute, the post-action tree refresh must look the app
+// up by both Name and AppNamespace. Otherwise, in a multi-tenant ArgoCD where
+// two apps share a name across ArgoCD namespaces, the wrong app's tree gets
+// reloaded and the user is left looking at stale data for the actioned app.
+func TestUpdate_ResourceActionExecutedMsg_RefreshUsesAppNamespace(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Navigation.View = model.ViewTree
+
+	nsArgocd := "argocd"
+	nsTeamA := "team-a"
+	// "wrong" app first in slice; the actioned app is the team-a one.
+	m.state.Apps = []model.App{
+		{Name: "my-app", AppNamespace: &nsArgocd},
+		{Name: "my-app", AppNamespace: &nsTeamA},
+	}
+
+	target := model.ResourceActionTarget{
+		AppName: "my-app", AppNamespace: &nsTeamA,
+		Kind: "Rollout", Name: "web", Namespace: "team-a",
+		Group: "argoproj.io", Version: "v1alpha1",
+	}
+	m.state.Modals.ResourceAction.Target = target
+
+	msg := model.ResourceActionExecutedMsg{
+		Target: target, Action: "promote", AppName: "my-app",
+		SwitchEpoch: m.switchEpoch,
+	}
+	teaModel, _ := m.Update(msg)
+	newModel := teaModel.(*Model)
+
+	// The refresh cmd needs the right app object. We can't easily inspect the
+	// closure, but we can verify the Apps slice still has both entries and
+	// that the refresh logic in the handler picks the team-a app by checking
+	// the loadingApp helper (or a side-effect trace).
+	//
+	// Practical check: the handler must NOT have replaced apps[0] for the
+	// refresh — if it did first-name-match, it would have built model.App from
+	// apps[0] (nsArgocd). We instead verify by retrieving the resolved app via
+	// a small helper exposed for this purpose.
+	got := newModel.resolveActionRefreshApp(msg)
+	if got == nil {
+		t.Fatalf("expected a resolved app for refresh")
+	}
+	if got.AppNamespace == nil || *got.AppNamespace != nsTeamA {
+		t.Fatalf("refresh should target the team-a app; got AppNamespace=%v", got.AppNamespace)
+	}
+}
+
 func extractTopBorderEscape(t *testing.T, rendered, label string) string {
 	t.Helper()
 	for _, line := range strings.Split(rendered, "\n") {
