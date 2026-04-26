@@ -151,7 +151,11 @@ func TestResourceActionKeys_FilterDecayClearsOnIdle(t *testing.T) {
 	}
 
 	// Decay matching the current seq clears the buffer.
-	teaModel, _ = teaModel.(*Model).Update(model.ResourceActionFilterDecayMsg{Seq: seq})
+	target := teaModel.(*Model).state.Modals.ResourceAction.Target
+	epoch := teaModel.(*Model).switchEpoch
+	teaModel, _ = teaModel.(*Model).Update(model.ResourceActionFilterDecayMsg{
+		Target: target, SwitchEpoch: epoch, Seq: seq,
+	})
 	st = teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "" {
 		t.Fatalf("decay with matching seq should clear filter, got %q", st.Filter)
@@ -200,7 +204,11 @@ func TestResourceActionKeys_FilterDecayIgnoredWhenStale(t *testing.T) {
 	// New keypress bumps the seq.
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
 
-	teaModel, _ = teaModel.(*Model).Update(model.ResourceActionFilterDecayMsg{Seq: staleSeq})
+	target := teaModel.(*Model).state.Modals.ResourceAction.Target
+	epoch := teaModel.(*Model).switchEpoch
+	teaModel, _ = teaModel.(*Model).Update(model.ResourceActionFilterDecayMsg{
+		Target: target, SwitchEpoch: epoch, Seq: staleSeq,
+	})
 	st := teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "pr" {
 		t.Fatalf("stale decay must not clear a freshly-extended buffer, got %q", st.Filter)
@@ -802,6 +810,50 @@ func TestUpdate_ResourceActionExecutedMsg_RefreshUsesAppNamespace(t *testing.T) 
 	}
 	if got.AppNamespace == nil || *got.AppNamespace != nsTeamA {
 		t.Fatalf("refresh should target the team-a app; got AppNamespace=%v", got.AppNamespace)
+	}
+}
+
+// FilterDecay ticks must gate by Target — otherwise a stale tick from a
+// previously-open modal can land on a newly-opened modal whose FilterSeq
+// happens to match (both reset to small ints per modal), clearing the
+// active type-ahead buffer unexpectedly.
+func TestUpdate_ResourceActionFilterDecayMsg_IgnoredOnTargetMismatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Filter = "pr"
+	m.state.Modals.ResourceAction.FilterSeq = 2
+
+	stale := m.state.Modals.ResourceAction.Target
+	stale.Name = "previous-rollout"
+
+	msg := model.ResourceActionFilterDecayMsg{
+		Target:      stale,
+		SwitchEpoch: m.switchEpoch,
+		Seq:         2, // matches current FilterSeq — only Target should reject it
+	}
+	teaModel, _ := m.Update(msg)
+	st := teaModel.(*Model).state.Modals.ResourceAction
+
+	if st.Filter != "pr" {
+		t.Fatalf("filter must not be cleared by stale-target decay tick, got %q", st.Filter)
+	}
+}
+
+// Same gating against epoch.
+func TestUpdate_ResourceActionFilterDecayMsg_IgnoredOnEpochMismatch(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Filter = "pr"
+	m.state.Modals.ResourceAction.FilterSeq = 2
+
+	msg := model.ResourceActionFilterDecayMsg{
+		Target:      m.state.Modals.ResourceAction.Target,
+		SwitchEpoch: m.switchEpoch + 1, // stale
+		Seq:         2,
+	}
+	teaModel, _ := m.Update(msg)
+	st := teaModel.(*Model).state.Modals.ResourceAction
+
+	if st.Filter != "pr" {
+		t.Fatalf("filter must not be cleared by stale-epoch decay tick, got %q", st.Filter)
 	}
 }
 

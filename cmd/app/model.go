@@ -1034,8 +1034,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.ResourceActionFilterDecayMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		st := m.state.Modals.ResourceAction
 		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		if st.Target != msg.Target {
 			return m, nil
 		}
 		// Only clear if no newer keypress has occurred since this tick was scheduled.

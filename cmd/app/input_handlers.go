@@ -1408,8 +1408,14 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				st.SelectedIdx = matchIdx
 				st.FilterSeq++
 				seq := st.FilterSeq
+				target := st.Target
+				epoch := m.switchEpoch
 				return m, tea.Tick(800*time.Millisecond, func(time.Time) tea.Msg {
-					return model.ResourceActionFilterDecayMsg{Seq: seq}
+					return model.ResourceActionFilterDecayMsg{
+						Target:      target,
+						SwitchEpoch: epoch,
+						Seq:         seq,
+					}
 				})
 			}
 		}
