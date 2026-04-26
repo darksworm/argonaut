@@ -1,13 +1,13 @@
                                           
  ╭──────────────────────────────────────╮ 
  │                                      │ 
- │        Delete non-cascade-app?       │ 
+ │       Delete non-cascade-app?        │ 
  │                                      │ 
- │               Delete (y)             │ 
+ │              Delete (y)              │ 
  │                                      │ 
- │  c: Cascade Off (resources           │ 
- │  orphaned)                           │ 
- │     p: Policy orphan (no cleanup)    │ 
+ │      c: Cascade Off (resources       │ 
+ │              orphaned)               │ 
+ │    p: Policy orphan (no cleanup)     │ 
  │                                      │ 
  ╰──────────────────────────────────────╯ 
                                           

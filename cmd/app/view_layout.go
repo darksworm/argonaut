@@ -10,6 +10,138 @@ import (
 
 // moved: full-screen helpers remain in view.go
 
+// overlaySpec describes a modal/spinner currently being shown above
+// the base view. activeOverlay returns one of these (or nil) so the
+// "what modal is up?" decision lives in exactly one place — both
+// renderMainLayout (which does the actual composition) and row
+// renderers via willDesaturateBase consult the same function.
+type overlaySpec struct {
+	modal       string           // primary modal content; centered on screen
+	extraLayers []*lipgloss.Layer // any additional layers below the modal (e.g. a corner badge)
+	desaturate  bool             // whether the base view should be dimmed under the modal
+}
+
+// activeOverlay returns the overlay currently shown above the base
+// view, or nil if none. Branch order matches the original
+// renderMainLayout decision tree so behaviour is preserved.
+func (m *Model) activeOverlay() *overlaySpec {
+	// Non-desaturating overlays (the modal carries its own opaque
+	// content; we don't want to dim what's beneath it).
+	if m.state.Mode == model.ModeTheme {
+		return &overlaySpec{modal: m.renderThemeSelectionModal()}
+	}
+	if m.state.Mode == model.ModeK9sContextSelect {
+		return &overlaySpec{modal: m.renderK9sContextSelectionModal()}
+	}
+
+	// Desaturating overlays.
+	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && m.state.Rollback.Loading {
+		return &overlaySpec{modal: m.renderRollbackLoadingModal(), desaturate: true}
+	}
+	if m.state.Navigation.View == model.ViewTree && m.treeLoading {
+		return &overlaySpec{modal: m.renderTreeLoadingSpinner(), desaturate: true}
+	}
+	if m.state.Mode == model.ModeConfirmSync || m.state.Modals.ConfirmSyncLoading {
+		modal := m.renderConfirmSyncModal()
+		if m.state.Modals.ConfirmSyncLoading {
+			modal = m.renderSyncLoadingModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
+	if m.state.Modals.ChangelogLoading {
+		return &overlaySpec{modal: m.renderChangelogLoadingModal(), desaturate: true}
+	}
+	if m.state.Mode == model.ModeUpgrade || m.state.Mode == model.ModeUpgradeError || m.state.Mode == model.ModeUpgradeSuccess {
+		var modal string
+		switch {
+		case m.state.Mode == model.ModeUpgradeError:
+			modal = m.renderUpgradeErrorModal()
+		case m.state.Mode == model.ModeUpgradeSuccess:
+			modal = m.renderUpgradeSuccessModal()
+		case m.state.Modals.UpgradeLoading:
+			modal = m.renderUpgradeLoadingModal()
+		default:
+			modal = m.renderUpgradeConfirmModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
+	if m.state.Mode == model.ModeNoDiff {
+		return &overlaySpec{modal: m.renderNoDiffModal(), desaturate: true}
+	}
+	if m.state.Mode == model.ModeK9sError {
+		return &overlaySpec{modal: m.renderK9sErrorModal(), desaturate: true}
+	}
+	if m.state.Mode == model.ModeDefaultViewWarning {
+		return &overlaySpec{modal: m.renderDefaultViewWarningModal(), desaturate: true}
+	}
+	if m.state.Mode == model.ModeConfirmAppDelete {
+		modal := m.renderAppDeleteConfirmModal()
+		if m.state.Modals.DeleteLoading {
+			modal = m.renderAppDeleteLoadingModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
+	if m.state.Mode == model.ModeConfirmResourceDelete {
+		modal := m.renderResourceDeleteConfirmModal()
+		if m.state.Modals.ResourceDeleteLoading {
+			modal = m.renderResourceDeleteLoadingModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
+	if m.state.Mode == model.ModeConfirmResourceSync {
+		modal := m.renderResourceSyncConfirmModal()
+		if m.state.Modals.ResourceSyncLoading {
+			modal = m.renderResourceSyncLoadingModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
+	if m.state.Mode == model.ModeResourceAction {
+		var modal string
+		st := m.state.Modals.ResourceAction
+		switch {
+		case st == nil || st.Loading:
+			modal = m.renderResourceActionLoadingModal()
+		case st.Executing:
+			modal = m.renderResourceActionExecutingModal()
+		case len(st.Actions) == 0:
+			modal = m.renderResourceActionInfoModal()
+		default:
+			modal = m.renderResourceActionModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
+	if m.state.Mode == model.ModeLoading && m.state.Navigation.View != model.ViewContexts {
+		spec := &overlaySpec{modal: m.renderInitialLoadingModal(), desaturate: true}
+		// Diff loading badge in the top-left corner, layered below the
+		// loading modal but above the desaturated base.
+		if m.state.Diff != nil && m.state.Diff.Loading {
+			badge := m.renderSmallBadge(true, m.state.Terminal.Cols >= 72)
+			spec.extraLayers = append(spec.extraLayers,
+				lipgloss.NewLayer(badge).X(1).Y(1).Z(1))
+		}
+		return spec
+	}
+	if len(m.state.Apps) == 0 && m.state.Mode == model.ModeNormal && m.state.Navigation.View != model.ViewContexts {
+		return &overlaySpec{modal: m.renderNoServerModal(), desaturate: true}
+	}
+	if m.state.Diff != nil && m.state.Diff.Loading {
+		return &overlaySpec{modal: m.renderDiffLoadingSpinner(), desaturate: true}
+	}
+	return nil
+}
+
+// willDesaturateBase reports whether the base view will be rendered
+// behind a desaturating overlay. Row renderers consult this so the
+// cursor's bg highlight is suppressed while a modal is up — otherwise
+// the bg-styled segment survives the per-segment desaturation pass
+// and the cursor row leaks through. Single source of truth: derived
+// directly from activeOverlay so it can never drift from the actual
+// composition.
+func (m *Model) willDesaturateBase() bool {
+	ov := m.activeOverlay()
+	return ov != nil && ov.desaturate
+}
+
 // renderTreePanel renders the resource tree view inside a bordered container with scrolling
 func (m *Model) renderTreePanel(availableRows int) string {
 	contentWidth := max(0, m.contentInnerWidth())
@@ -134,14 +266,7 @@ func (m *Model) renderMainLayout() string {
 	// Set desaturate mode on tree view if a modal with desaturation will be shown
 	// This makes the tree view only highlight selected items (not cursor) with scoped highlights
 	if m.treeView != nil && m.state.Navigation.View == model.ViewTree {
-		willDesaturate := m.state.Mode == model.ModeConfirmResourceDelete ||
-			m.state.Mode == model.ModeConfirmResourceSync ||
-			m.state.Mode == model.ModeConfirmAppDelete ||
-			m.state.Mode == model.ModeConfirmSync ||
-			m.state.Mode == model.ModeResourceAction ||
-			m.state.Modals.ConfirmSyncLoading ||
-			m.state.Modals.ResourceSyncLoading
-		m.treeView.SetDesaturateMode(willDesaturate)
+		m.treeView.SetDesaturateMode(m.willDesaturateBase())
 	}
 
 	if m.state.Navigation.View == model.ViewTree {
@@ -154,225 +279,28 @@ func (m *Model) renderMainLayout() string {
 	content := strings.Join(sections, "\n")
 	baseView := mainContainerStyle.Render(content)
 
-	// Overlays
-	// Theme selection overlay
-	if m.state.Mode == model.ModeTheme {
-		modal := m.renderThemeSelectionModal()
-		baseLayer := lipgloss.NewLayer(baseView)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
+	ov := m.activeOverlay()
+	if ov == nil {
+		return baseView
 	}
-	// k9s context selection overlay
-	if m.state.Mode == model.ModeK9sContextSelect {
-		modal := m.renderK9sContextSelectionModal()
-		baseLayer := lipgloss.NewLayer(baseView)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Rollback loading overlay (history load or executing rollback)
-	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && m.state.Rollback.Loading {
-		modal := m.renderRollbackLoadingModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Tree loading overlay when entering resources view
-	if m.state.Navigation.View == model.ViewTree && m.treeLoading {
-		spinner := m.renderTreeLoadingSpinner()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		spinnerLayer := lipgloss.NewLayer(spinner).
-			X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
-			Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
-			Z(1)
-		return m.composeOverlay(baseLayer, spinnerLayer)
-	}
-	// Confirm Sync modal (confirmation or loading state)
-	if m.state.Mode == model.ModeConfirmSync || m.state.Modals.ConfirmSyncLoading {
-		modal := ""
-		if m.state.Modals.ConfirmSyncLoading {
-			modal = m.renderSyncLoadingModal()
-		} else {
-			modal = m.renderConfirmSyncModal()
-		}
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Changelog loading modal
-	if m.state.Modals.ChangelogLoading {
-		modal := m.renderChangelogLoadingModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Upgrade modal (confirmation, loading, success, or error state)
-	if m.state.Mode == model.ModeUpgrade || m.state.Mode == model.ModeUpgradeError || m.state.Mode == model.ModeUpgradeSuccess {
-		modal := ""
-		if m.state.Mode == model.ModeUpgradeError {
-			modal = m.renderUpgradeErrorModal()
-		} else if m.state.Mode == model.ModeUpgradeSuccess {
-			modal = m.renderUpgradeSuccessModal()
-		} else if m.state.Modals.UpgradeLoading {
-			modal = m.renderUpgradeLoadingModal()
-		} else {
-			modal = m.renderUpgradeConfirmModal()
-		}
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// No diff modal (overlaid on existing content)
-	if m.state.Mode == model.ModeNoDiff {
-		modal := m.renderNoDiffModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// K9s error modal
-	if m.state.Mode == model.ModeK9sError {
-		modal := m.renderK9sErrorModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Default view warning modal
-	if m.state.Mode == model.ModeDefaultViewWarning {
-		modal := m.renderDefaultViewWarningModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// App Delete modal (confirmation or loading state)
-	if m.state.Mode == model.ModeConfirmAppDelete {
-		modal := ""
-		if m.state.Modals.DeleteLoading {
-			modal = m.renderAppDeleteLoadingModal()
-		} else {
-			modal = m.renderAppDeleteConfirmModal()
-		}
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Resource Delete modal (confirmation or loading state)
-	if m.state.Mode == model.ModeConfirmResourceDelete {
-		modal := ""
-		if m.state.Modals.ResourceDeleteLoading {
-			modal = m.renderResourceDeleteLoadingModal()
-		} else {
-			modal = m.renderResourceDeleteConfirmModal()
-		}
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Resource Sync modal (confirmation or loading state)
-	if m.state.Mode == model.ModeConfirmResourceSync {
-		modal := ""
-		if m.state.Modals.ResourceSyncLoading {
-			modal = m.renderResourceSyncLoadingModal()
-		} else {
-			modal = m.renderResourceSyncConfirmModal()
-		}
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Resource Action modal (loading, executing, info, or button selector)
-	if m.state.Mode == model.ModeResourceAction {
-		var modal string
-		st := m.state.Modals.ResourceAction
-		switch {
-		case st == nil || st.Loading:
-			modal = m.renderResourceActionLoadingModal()
-		case st.Executing:
-			modal = m.renderResourceActionExecutingModal()
-		case len(st.Actions) == 0:
-			modal = m.renderResourceActionInfoModal()
-		default:
-			modal = m.renderResourceActionModal()
-		}
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	if m.state.Mode == model.ModeLoading && m.state.Navigation.View != model.ViewContexts {
-		modal := m.renderInitialLoadingModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		if m.state.Diff != nil && m.state.Diff.Loading {
-			badge := m.renderSmallBadge(true, m.state.Terminal.Cols >= 72)
-			badgeLayer := lipgloss.NewLayer(badge).X(1).Y(1).Z(1)
-			modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(2)
-			return m.composeOverlay(baseLayer, badgeLayer, modalLayer)
-		}
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
-	}
-	// Show loading modal when we have no data loaded yet (initial startup or server not running)
-	// Check if we have no apps loaded (apps are the main data source)
-	hasNoData := len(m.state.Apps) == 0
 
-	if hasNoData && m.state.Mode == model.ModeNormal && m.state.Navigation.View != model.ViewContexts {
-		modal := m.renderNoServerModal()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
-		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
-		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
-		return m.composeOverlay(baseLayer, modalLayer)
+	base := baseView
+	if ov.desaturate {
+		base = desaturateANSI(baseView)
 	}
-	if m.state.Diff != nil && m.state.Diff.Loading {
-		spinner := m.renderDiffLoadingSpinner()
-		grayBase := desaturateANSI(baseView)
-		baseLayer := lipgloss.NewLayer(grayBase)
-		spinnerLayer := lipgloss.NewLayer(spinner).
-			X((m.state.Terminal.Cols - lipgloss.Width(spinner)) / 2).
-			Y((m.state.Terminal.Rows - lipgloss.Height(spinner)) / 2).
-			Z(1)
-		return m.composeOverlay(baseLayer, spinnerLayer)
+	layers := []*lipgloss.Layer{lipgloss.NewLayer(base)}
+	layers = append(layers, ov.extraLayers...)
+
+	modalX := (m.state.Terminal.Cols - lipgloss.Width(ov.modal)) / 2
+	modalY := (m.state.Terminal.Rows - lipgloss.Height(ov.modal)) / 2
+	// Modal sits above any extra layers (badges, etc.) the spec carries.
+	modalZ := 1
+	if len(ov.extraLayers) > 0 {
+		modalZ = 2
 	}
-	return baseView
+	layers = append(layers, lipgloss.NewLayer(ov.modal).X(modalX).Y(modalY).Z(modalZ))
+
+	return m.composeOverlay(layers...)
 }
 
 // composeOverlay composites the given layers onto a full-screen canvas and

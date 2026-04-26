@@ -21,7 +21,15 @@ func clipAnsiToWidth(s string, width int) string {
 		}
 		b.WriteRune(r)
 	}
-	return b.String()
+	out := b.String()
+	// If the clipped portion contains an opening SGR with no trailing
+	// reset, append one. Otherwise the active fg/bg bleeds onto the
+	// next visual line — visible as a selected-row highlight or status
+	// color carrying past the clip point.
+	if strings.Contains(out, "\x1b[") && !strings.HasSuffix(out, "\x1b[0m") && !strings.HasSuffix(out, "\x1b[m") {
+		out += "\x1b[m"
+	}
+	return out
 }
 
 // wrapAnsiToWidth wraps a string into visual lines that fit the given width (ANSI-aware)

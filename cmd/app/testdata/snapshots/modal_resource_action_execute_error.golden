@@ -1,13 +1,13 @@
                                                     
  ╭────────────────────────────────────────────────╮ 
  │                                                │ 
- │       Actions on Rollout/payments/checkout     │ 
+ │      Actions on Rollout/payments/checkout      │ 
  │                                                │ 
- │                abort       promote             │ 
+ │               abort       promote              │ 
  │                                                │ 
- │            type to select • Enter run          │ 
+ │           type to select • Enter run           │ 
  │                                                │ 
- │    Error: rpc error: code = PermissionDenied   │ 
+ │   Error: rpc error: code = PermissionDenied    │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     
