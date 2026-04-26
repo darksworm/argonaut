@@ -1570,14 +1570,15 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 // loadResourceActions lists the custom actions available for a resource via ArgoCD
 func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
 	epoch := m.switchEpoch
-	if m.state.Server == nil {
+	server := m.state.Server
+	if server == nil {
 		return func() tea.Msg {
 			return model.ResourceActionsErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
 		}
 	}
 
 	return func() tea.Msg {
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
@@ -1611,14 +1612,15 @@ func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
 // executeResourceAction runs a custom action on the target resource via ArgoCD
 func (m *Model) executeResourceAction(target model.ResourceActionTarget, action string) tea.Cmd {
 	epoch := m.switchEpoch
-	if m.state.Server == nil {
+	server := m.state.Server
+	if server == nil {
 		return func() tea.Msg {
 			return model.ResourceActionExecuteErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
 		}
 	}
 
 	return func() tea.Msg {
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 30*time.Second)
 		defer cancel()

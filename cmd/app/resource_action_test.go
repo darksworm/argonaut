@@ -1,7 +1,10 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -673,6 +676,84 @@ func TestHandleResourceAction_DisambiguatesAppByNamespace(t *testing.T) {
 	if st.Target.AppNamespace == nil || *st.Target.AppNamespace != nsTeamA {
 		t.Fatalf("expected target AppNamespace %q (the tree-scoped app), got %v",
 			nsTeamA, st.Target.AppNamespace)
+	}
+}
+
+// Closures returned by load/executeResourceAction must dereference the server
+// they were created against, not whatever m.state.Server points to at the
+// moment of execution. Otherwise a context switch between cmd creation and
+// execution causes a destructive action to fire on the *new* context's server.
+func TestExecuteResourceAction_CapturesServerAtCmdCreation(t *testing.T) {
+	var serverAHits, serverBHits int32
+	serverA := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&serverAHits, 1)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer serverA.Close()
+	serverB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&serverBHits, 1)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer serverB.Close()
+
+	m := buildDeleteTestModel(100, 30)
+	m.state.Server = &model.Server{BaseURL: serverA.URL, Token: "tok"}
+
+	cmd := m.executeResourceAction(model.ResourceActionTarget{
+		AppName: "x", Kind: "Rollout", Name: "y", Version: "v1alpha1", Group: "argoproj.io",
+	}, "promote")
+	if cmd == nil {
+		t.Fatalf("expected a cmd")
+	}
+
+	// Simulate a context switch between cmd creation and execution.
+	m.state.Server = &model.Server{BaseURL: serverB.URL, Token: "tok2"}
+
+	_ = cmd()
+
+	if got := atomic.LoadInt32(&serverBHits); got != 0 {
+		t.Fatalf("post-switch server B must NOT receive the request; got %d hits", got)
+	}
+	if got := atomic.LoadInt32(&serverAHits); got != 1 {
+		t.Fatalf("pre-switch server A must receive the request; got %d hits", got)
+	}
+}
+
+// Same as above for loadResourceActions — a stale list shouldn't hit the new
+// server (less catastrophic than a mutation, but still wrong).
+func TestLoadResourceActions_CapturesServerAtCmdCreation(t *testing.T) {
+	var serverAHits, serverBHits int32
+	serverA := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&serverAHits, 1)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"actions":[]}`))
+	}))
+	defer serverA.Close()
+	serverB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&serverBHits, 1)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"actions":[]}`))
+	}))
+	defer serverB.Close()
+
+	m := buildDeleteTestModel(100, 30)
+	m.state.Server = &model.Server{BaseURL: serverA.URL, Token: "tok"}
+
+	cmd := m.loadResourceActions(model.ResourceActionTarget{
+		AppName: "x", Kind: "Rollout", Name: "y", Version: "v1alpha1", Group: "argoproj.io",
+	})
+
+	m.state.Server = &model.Server{BaseURL: serverB.URL, Token: "tok2"}
+
+	_ = cmd()
+
+	if got := atomic.LoadInt32(&serverBHits); got != 0 {
+		t.Fatalf("post-switch server B must NOT receive the request; got %d hits", got)
+	}
+	if got := atomic.LoadInt32(&serverAHits); got != 1 {
+		t.Fatalf("pre-switch server A must receive the request; got %d hits", got)
 	}
 }
 
