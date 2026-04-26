@@ -1610,13 +1610,13 @@ func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
 
 // executeResourceAction runs a custom action on the target resource via ArgoCD
 func (m *Model) executeResourceAction(target model.ResourceActionTarget, action string) tea.Cmd {
+	epoch := m.switchEpoch
 	if m.state.Server == nil {
 		return func() tea.Msg {
-			return model.ResourceActionExecuteErrorMsg{Target: target, Error: "No server configured"}
+			return model.ResourceActionExecuteErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
 		}
 	}
 
-	epoch := m.switchEpoch
 	return func() tea.Msg {
 		appService := api.NewApplicationService(m.state.Server)
 

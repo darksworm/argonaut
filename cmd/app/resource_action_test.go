@@ -606,6 +606,34 @@ func TestUpdate_ResourceActionExecutedMsg_IgnoredOnTargetMismatch(t *testing.T) 
 	}
 }
 
+// The nil-server fast path in loadResourceActions must carry the current
+// switch epoch, otherwise the model.go gate drops the error and the modal
+// stays stuck on Loading forever after a context switch.
+func TestLoadResourceActions_NoServer_PreservesSwitchEpoch(t *testing.T) {
+	m := buildDeleteTestModel(100, 30)
+	m.state.Server = nil
+	m.switchEpoch = 7
+
+	cmd := m.loadResourceActions(model.ResourceActionTarget{AppName: "x", Kind: "Rollout", Name: "y"})
+	msg := cmd().(model.ResourceActionsErrorMsg)
+	if msg.SwitchEpoch != 7 {
+		t.Fatalf("expected SwitchEpoch=7, got %d", msg.SwitchEpoch)
+	}
+}
+
+// Same as above for executeResourceAction.
+func TestExecuteResourceAction_NoServer_PreservesSwitchEpoch(t *testing.T) {
+	m := buildDeleteTestModel(100, 30)
+	m.state.Server = nil
+	m.switchEpoch = 11
+
+	cmd := m.executeResourceAction(model.ResourceActionTarget{AppName: "x", Kind: "Rollout", Name: "y"}, "promote")
+	msg := cmd().(model.ResourceActionExecuteErrorMsg)
+	if msg.SwitchEpoch != 11 {
+		t.Fatalf("expected SwitchEpoch=11, got %d", msg.SwitchEpoch)
+	}
+}
+
 func extractTopBorderEscape(t *testing.T, rendered, label string) string {
 	t.Helper()
 	for _, line := range strings.Split(rendered, "\n") {
