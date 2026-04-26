@@ -526,7 +526,7 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: make all title text bright and readable
 	var titleLine string
@@ -645,7 +645,7 @@ func (m *Model) renderResourceDeleteConfirmModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: make all title text bright and readable
 	var titleLine string
@@ -779,7 +779,7 @@ func (m *Model) renderResourceSyncConfirmModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: make all title text bright and readable
 	var titleLine string
@@ -898,7 +898,7 @@ func (m *Model) renderResourceActionModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
@@ -923,12 +923,18 @@ func (m *Model) renderResourceActionModal() string {
 		}
 	}
 	btnWidth := maxName + 4
-	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2).Width(btnWidth).Align(lipgloss.Center)
-	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2).Width(btnWidth).Align(lipgloss.Center)
 
-	// Highlight styles for the matched type-ahead prefix. Each one inherits
-	// the parent button's background so the highlight overlays cleanly
-	// instead of punching a transparent hole through the colored cell.
+	// Render each button as a SINGLE styled block: pre-pad the label to
+	// btnWidth and then style the whole thing in one Render call. This
+	// avoids lipgloss emitting multiple adjacent bg-styled segments
+	// (`[bg]center-pad[/bg][bg]padding[/bg][bg]text[/bg]…`) which some
+	// terminals render with visible seams — the bug shows up as right-
+	// column buttons appearing narrower than left-column ones.
+	activeBase := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true)
+	inactiveBase := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG)
+	// Underline highlight for the matched type-ahead prefix. Inherits
+	// the active button's bg so the underline doesn't punch a transparent
+	// hole through the colored cell.
 	matchHLActive := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Underline(true)
 
 	prefixLen := 0
@@ -937,21 +943,43 @@ func (m *Model) renderResourceActionModal() string {
 		prefixLen = len(st.Filter)
 	}
 
+	// padToCenter centers raw text in n columns using plain spaces. The
+	// caller will style the full padded string as one bg-colored run.
+	padToCenter := func(text string, n int) string {
+		w := lipgloss.Width(text)
+		if w >= n {
+			return text
+		}
+		left := (n - w) / 2
+		right := n - w - left
+		return strings.Repeat(" ", left) + text + strings.Repeat(" ", right)
+	}
+
 	rendered := make([]string, len(st.Actions))
 	widths := make([]int, len(st.Actions))
 	for i, name := range st.Actions {
 		isSel := i == st.SelectedIdx
-		var label string
-		if isSel && prefixLen > 0 && prefixLen <= len(name) {
-			label = matchHLActive.Render(name[:prefixLen]) + name[prefixLen:]
-		} else {
-			label = name
-		}
 		var btn string
-		if isSel {
-			btn = active.Render(label)
+		if isSel && prefixLen > 0 && prefixLen <= len(name) {
+			// Selected with prefix highlight: split into 3 styled runs
+			// (left bg-pad, underlined-prefix, suffix+bg-pad) but each
+			// run is a single contiguous styled block.
+			suffix := name[prefixLen:]
+			contentW := btnWidth // total cell width including padding
+			textW := lipgloss.Width(name)
+			leftPad := (contentW - textW) / 2
+			rightPad := contentW - textW - leftPad
+			leftPart := activeBase.Render(strings.Repeat(" ", leftPad))
+			matchPart := matchHLActive.Render(name[:prefixLen])
+			rightPart := activeBase.Render(suffix + strings.Repeat(" ", rightPad))
+			btn = leftPart + matchPart + rightPart
 		} else {
-			btn = inactive.Render(label)
+			padded := padToCenter(name, btnWidth)
+			if isSel {
+				btn = activeBase.Render(padded)
+			} else {
+				btn = inactiveBase.Render(padded)
+			}
 		}
 		rendered[i] = btn
 		widths[i] = lipgloss.Width(btn)

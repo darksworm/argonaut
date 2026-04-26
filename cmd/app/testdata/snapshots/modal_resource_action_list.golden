@@ -1,13 +1,13 @@
                                                     
  ╭────────────────────────────────────────────────╮ 
  │                                                │ 
- │       Actions on Rollout/payments/checkout     │ 
+ │      Actions on Rollout/payments/checkout      │ 
  │                                                │ 
- │             abort            promote           │ 
- │          promote-full        restart           │ 
- │                      retry                     │ 
+ │            abort            promote            │ 
+ │         promote-full        restart            │ 
+ │                     retry                      │ 
  │                                                │ 
- │            type to select • Enter run          │ 
+ │           type to select • Enter run           │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     
