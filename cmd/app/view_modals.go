@@ -89,12 +89,9 @@ func (m *Model) renderHelpModal() string {
 
 func (m *Model) renderDiffLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
-	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
-		Background(spinnerBG).
-		Foreground(spinnerFG).
 		Padding(1, 2).
 		Bold(true).
 		Align(lipgloss.Center)
@@ -105,12 +102,9 @@ func (m *Model) renderDiffLoadingSpinner() string {
 // renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
 func (m *Model) renderTreeLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
-	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
-		Background(spinnerBG).
-		Foreground(spinnerFG).
 		Padding(1, 2).
 		Bold(true).
 		Align(lipgloss.Center)
