@@ -84,6 +84,7 @@ argocd/install.yaml
 logs/
 
 .argocd-portforward.pid
+.argocd-gitdaemon.pid
 
 # Local Go build/test caches (do not commit)
 .gocache/

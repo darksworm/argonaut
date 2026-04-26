@@ -3,6 +3,7 @@
 	k3d-start k3d-stop k3d-restart k3d-delete \
 	argocd-up argocd-down argocd-restart \
 	argocd-portforward argocd-portforward-stop \
+	argocd-git-daemon argocd-git-daemon-stop \
 	argocd-password argocd-login
 
 # Default parallelism for tests
@@ -13,6 +14,12 @@ K3D_CLUSTER ?= argocd-demo
 ARGOCD_NAMESPACE ?= argocd
 ARGOCD_PORT ?= 8080
 ARGOCD_HOST ?= localhost
+
+# Local git daemon defaults — serves this repo to the k3d cluster via
+# host.k3d.internal so ArgoCD can resolve it without any remote push.
+# The daemon exposes all repos under GIT_DAEMON_BASE_PATH.
+GIT_DAEMON_PORT ?= 9418
+GIT_DAEMON_BASE_PATH ?= $(abspath $(CURDIR)/..)
 
 # Run all tests, including e2e (unix-only), with parallelism and no cache.
 test:
@@ -62,33 +69,96 @@ k3d-delete:
 
 # --- ArgoCD convenience targets ---
 
-# Full setup: cluster + ArgoCD + login + apps + port-forward
+# Full setup: cluster + ArgoCD + apps + login + port-forward
+# To test the rollouts demo against an unmerged branch, run `make
+# argocd-git-daemon` first and edit argocd/apps-rollouts.yaml accordingly.
 argocd-up:
 	@./argocd/setup-fixed.sh
 	@$(MAKE) --no-print-directory argocd-login
 
-# Stop ArgoCD port-forward and stop cluster (non-destructive)
-argocd-down: argocd-portforward-stop
+# Stop ArgoCD port-forward, git daemon, and cluster (non-destructive)
+argocd-down: argocd-portforward-stop argocd-git-daemon-stop
 	@$(MAKE) --no-print-directory k3d-stop
+
+# Start a local `git daemon` serving this repo so ArgoCD in k3d can clone
+# it via `git://host.k3d.internal/<repo>` — enables fully offline testing
+# without pushing to GitHub. PID written to .argocd-gitdaemon.pid.
+argocd-git-daemon:
+	@if [ -f .argocd-gitdaemon.pid ] && kill -0 $$(cat .argocd-gitdaemon.pid) 2>/dev/null; then \
+		echo "git daemon already running (PID $$(cat .argocd-gitdaemon.pid))."; \
+		exit 0; \
+	fi
+	@# Free the port if a stale daemon is bound
+	@fuser -k -TERM $(GIT_DAEMON_PORT)/tcp 2>/dev/null || true
+	@rm -f .argocd-gitdaemon.pid
+	@sleep 0.2
+	@echo "Starting git daemon on :$(GIT_DAEMON_PORT) serving $(GIT_DAEMON_BASE_PATH) ..."
+	@setsid -f git daemon --reuseaddr --listen=0.0.0.0 --port=$(GIT_DAEMON_PORT) \
+		--base-path=$(GIT_DAEMON_BASE_PATH) --export-all --informative-errors \
+		>/tmp/argocd-gitdaemon.log 2>&1 < /dev/null & \
+		echo $$! > .argocd-gitdaemon.pid
+	@# Wait until the daemon is accepting connections (bash required for /dev/tcp)
+	@for i in $$(seq 1 40); do \
+		if bash -c "exec 3<>/dev/tcp/127.0.0.1/$(GIT_DAEMON_PORT); exec 3<&-" 2>/dev/null; then \
+			echo "git daemon ready (PID $$(cat .argocd-gitdaemon.pid))."; \
+			exit 0; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	echo "git daemon failed to start; see /tmp/argocd-gitdaemon.log" >&2; \
+	exit 1
+
+# Stop the local git daemon
+argocd-git-daemon-stop:
+	@if [ -f .argocd-gitdaemon.pid ]; then \
+		PID=$$(cat .argocd-gitdaemon.pid); \
+		echo "Stopping git daemon PID $$PID..."; \
+		kill $$PID 2>/dev/null || true; \
+		rm -f .argocd-gitdaemon.pid; \
+	else \
+		echo "No git daemon PID file; freeing port $(GIT_DAEMON_PORT) if bound..."; \
+		fuser -k -TERM $(GIT_DAEMON_PORT)/tcp 2>/dev/null || true; \
+	fi
 
 # Restart ArgoCD environment (stop, then full setup again)
 argocd-restart:
 	@$(MAKE) --no-print-directory argocd-down
 	@$(MAKE) --no-print-directory argocd-up
 
-# Start ArgoCD port-forward in background; writes PID to .argocd-portforward.pid
+# Start ArgoCD port-forward in background; writes PID to .argocd-portforward.pid.
+# Uses setsid so the kubectl process is detached into its own session/process group
+# and survives the make recipe's subshell exit. Waits until the port is accepting
+# connections before returning, so dependents (argocd-login) don't race.
 argocd-portforward:
-	@# Kill existing port-forward if tracked
+	@# Clean up any existing port-forward by PID file. Intentionally do NOT
+	@# use `pkill -f <pattern>` here: make runs each recipe line via `sh -c "..."`,
+	@# so the parent shell's cmdline contains the pkill pattern literally and
+	@# pkill ends up killing its own parent (visible as "Terminated" on the recipe).
 	@if [ -f .argocd-portforward.pid ]; then \
-		PID=$$(cat .argocd-portforward.pid) && kill $$PID 2>/dev/null || true; \
+		kill -TERM $$(cat .argocd-portforward.pid) 2>/dev/null || true; \
 		rm -f .argocd-portforward.pid; \
 	fi
-	@# Also ensure no stray port-forward remains (e.g., from setup script)
-	@pkill -f "port-forward.*argocd-server" 2>/dev/null || true
-	@echo "Port-forwarding ArgoCD on https://localhost:$(ARGOCD_PORT) (PID will be saved)"
-	@kubectl -n $(ARGOCD_NAMESPACE) port-forward svc/argocd-server $(ARGOCD_PORT):443 >/dev/null 2>&1 & echo $$! > .argocd-portforward.pid
+	@# If anything is still bound to the port (stale / untracked process), free it.
+	@fuser -k -TERM $(ARGOCD_PORT)/tcp 2>/dev/null || true
+	@sleep 0.3
+	@echo "Port-forwarding ArgoCD on https://$(ARGOCD_HOST):$(ARGOCD_PORT) ..."
+	@setsid -f kubectl -n $(ARGOCD_NAMESPACE) port-forward svc/argocd-server $(ARGOCD_PORT):443 \
+		>/tmp/argocd-portforward.log 2>&1 < /dev/null & \
+		echo $$! > .argocd-portforward.pid
+	@# Wait up to ~15s for the local listener to accept connections
+	@for i in $$(seq 1 60); do \
+		if curl -sk -o /dev/null --max-time 1 https://$(ARGOCD_HOST):$(ARGOCD_PORT); then \
+			echo "Port-forward ready (PID $$(cat .argocd-portforward.pid))."; \
+			exit 0; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	echo "Port-forward failed to become ready; see /tmp/argocd-portforward.log" >&2; \
+	exit 1
 
-# Stop ArgoCD port-forward (uses PID file; falls back to pkill)
+# Stop ArgoCD port-forward (uses PID file; falls back to `fuser -k` on the port
+# since `pkill -f` self-terminates when invoked from a make recipe — see the
+# comment in argocd-portforward for details).
 argocd-portforward-stop:
 	@if [ -f .argocd-portforward.pid ]; then \
 		PID=$$(cat .argocd-portforward.pid); \
@@ -96,8 +166,8 @@ argocd-portforward-stop:
 		kill $$PID 2>/dev/null || true; \
 		rm -f .argocd-portforward.pid; \
 	else \
-		echo "No PID file; attempting to pkill any ArgoCD port-forward..."; \
-		pkill -f "port-forward.*argocd-server" || true; \
+		echo "No PID file; freeing port $(ARGOCD_PORT) if bound..."; \
+		fuser -k -TERM $(ARGOCD_PORT)/tcp 2>/dev/null || true; \
 	fi
 
 # Echo the initial ArgoCD admin password (reads from k3d-managed cluster)

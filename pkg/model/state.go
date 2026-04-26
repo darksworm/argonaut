@@ -173,6 +173,8 @@ type ModalState struct {
 	ResourceSyncError           *string              `json:"resourceSyncError,omitempty"`
 	ResourceSyncPrune           bool                 `json:"resourceSyncPrune"` // Prune option
 	ResourceSyncForce           bool                 `json:"resourceSyncForce"` // Force option
+	// Resource action modal state (Rollouts promote/abort/etc. and other custom actions)
+	ResourceAction *ResourceActionState `json:"resourceAction,omitempty"`
 	// Changelog loading modal state
 	ChangelogLoading bool `json:"changelogLoading"`
 	// K9s error modal state

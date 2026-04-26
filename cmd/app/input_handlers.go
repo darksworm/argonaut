@@ -1260,6 +1260,215 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 	)
 }
 
+// handleResourceAction opens the resource actions modal for the selected resource
+func (m *Model) handleResourceAction() (tea.Model, tea.Cmd) {
+	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
+		return m, nil
+	}
+
+	selections := m.treeView.GetSelectedResources()
+	if len(selections) == 0 {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "No resource selected for action"}
+		}
+	}
+	if len(selections) > 1 {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Resource actions only work on a single resource"}
+		}
+	}
+
+	sel := selections[0]
+
+	// Resolve AppNamespace using the tree-scoped app first — Argo CD apps are
+	// not unique by name across ArgoCD namespaces, so a first-name-match in
+	// m.state.Apps can pick the wrong app.
+	var appNamespace *string
+	if treeApp := m.state.UI.TreeApp; treeApp != nil && treeApp.Name == sel.AppName {
+		appNamespace = treeApp.AppNamespace
+	}
+	if appNamespace == nil {
+		for i := range m.state.Apps {
+			if m.state.Apps[i].Name == sel.AppName {
+				appNamespace = m.state.Apps[i].AppNamespace
+				break
+			}
+		}
+	}
+
+	target := model.ResourceActionTarget{
+		AppName:      sel.AppName,
+		AppNamespace: appNamespace,
+		Group:        sel.Group,
+		Version:      sel.Version,
+		Kind:         sel.Kind,
+		Namespace:    sel.Namespace,
+		Name:         sel.Name,
+	}
+
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target:  target,
+		Loading: true,
+	}
+
+	cblog.With("component", "resource-action").Debug("Opening actions modal",
+		"app", target.AppName, "kind", target.Kind, "name", target.Name)
+
+	return m, m.loadResourceActions(target)
+}
+
+// handleResourceActionKeys handles input when the resource action modal is open.
+func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	if st.Loading || st.Executing {
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.state.Mode = model.ModeNormal
+			m.state.Modals.ResourceAction = nil
+			return m, nil
+		}
+		return m, nil
+	}
+
+	if len(st.Actions) == 0 {
+		switch msg.String() {
+		case "enter", "esc", "q", "ctrl+c":
+			m.state.Mode = model.ModeNormal
+			m.state.Modals.ResourceAction = nil
+		}
+		return m, nil
+	}
+
+	key := msg.String()
+
+	// 'q' closes the modal whenever no action starts with 'q' (the common case
+	// for argo-rollouts and built-in actions). If a custom action does start
+	// with 'q', it stays reachable via type-ahead at the cost of q-close —
+	// that's a deliberate trade-off in favor of muscle memory.
+	if key == "q" && !anyActionStartsWith(st.Actions, 'q') {
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
+	}
+
+	switch key {
+	case "ctrl+c":
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
+	case "esc":
+		// Two-stage Esc so a fresh buffer can be cleared without losing the
+		// modal: first Esc clears any in-flight type-ahead, second Esc closes.
+		if st.Filter != "" {
+			st.Filter = ""
+			st.FilterSeq++
+			return m, nil
+		}
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
+	case "left", "up":
+		st.Filter = ""
+		if st.SelectedIdx > 0 {
+			st.SelectedIdx--
+		}
+		return m, nil
+	case "right", "down":
+		st.Filter = ""
+		if st.SelectedIdx < len(st.Actions)-1 {
+			st.SelectedIdx++
+		}
+		return m, nil
+	case "enter":
+		action := st.Actions[st.SelectedIdx]
+		st.Executing = true
+		st.Error = ""
+		return m, m.executeResourceAction(st.Target, action)
+	case "backspace":
+		// Full reset of the type-ahead buffer (Explorer-style).
+		st.Filter = ""
+		return m, nil
+	}
+
+	// Type-ahead: any printable single rune extends the buffer and jumps to
+	// the first action whose name matches as a case-insensitive prefix. If
+	// nothing matches the keypress is dropped silently.
+	if len(key) == 1 {
+		r := rune(key[0])
+		if isResourceActionFilterRune(r) {
+			candidate := st.Filter + strings.ToLower(string(r))
+			if matchIdx := firstResourceActionMatch(st.Actions, candidate); matchIdx >= 0 {
+				st.Filter = candidate
+				st.SelectedIdx = matchIdx
+				st.FilterSeq++
+				seq := st.FilterSeq
+				target := st.Target
+				epoch := m.switchEpoch
+				return m, tea.Tick(800*time.Millisecond, func(time.Time) tea.Msg {
+					return model.ResourceActionFilterDecayMsg{
+						Target:      target,
+						SwitchEpoch: epoch,
+						Seq:         seq,
+					}
+				})
+			}
+		}
+	}
+	return m, nil
+}
+
+func isResourceActionFilterRune(r rune) bool {
+	if r >= 'a' && r <= 'z' {
+		return true
+	}
+	if r >= 'A' && r <= 'Z' {
+		return true
+	}
+	if r >= '0' && r <= '9' {
+		return true
+	}
+	switch r {
+	case '-', '_', '.':
+		return true
+	}
+	return false
+}
+
+func anyActionStartsWith(actions []string, c rune) bool {
+	for _, a := range actions {
+		if a == "" {
+			continue
+		}
+		if strings.ToLower(a)[0] == byte(c) {
+			return true
+		}
+	}
+	return false
+}
+
+func firstResourceActionMatch(actions []string, prefix string) int {
+	if prefix == "" {
+		if len(actions) == 0 {
+			return -1
+		}
+		return 0
+	}
+	lower := strings.ToLower(prefix)
+	for i, a := range actions {
+		if strings.HasPrefix(strings.ToLower(a), lower) {
+			return i
+		}
+	}
+	return -1
+}
+
+
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -1428,6 +1637,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmResourceDeleteKeys(msg)
 	case model.ModeConfirmResourceSync:
 		return m.handleConfirmResourceSyncKeys(msg)
+	case model.ModeResourceAction:
+		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
 	case model.ModeAuthRequired:
@@ -1533,6 +1744,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "s":
 			// Open sync confirmation for selected resource(s)
 			return m.handleResourceSync()
+		case "a":
+			// Open resource actions modal (Rollouts promote/abort/restart/etc.)
+			return m.handleResourceAction()
 		case ":":
 			// Enter command mode
 			return m.handleEnterCommandMode()

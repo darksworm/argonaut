@@ -253,6 +253,46 @@ type ResourceSyncErrorMsg struct {
 	Error string
 }
 
+// ResourceActionsLoadedMsg is sent when available resource actions have loaded
+type ResourceActionsLoadedMsg struct {
+	Target      ResourceActionTarget
+	Actions     []string
+	SwitchEpoch int
+}
+
+// ResourceActionsErrorMsg is sent when listing resource actions fails
+type ResourceActionsErrorMsg struct {
+	Target      ResourceActionTarget
+	Error       string
+	SwitchEpoch int
+}
+
+// ResourceActionFilterDecayMsg fires after the type-ahead idle window. The
+// handler clears the filter only if Seq still matches the current state, so
+// stale ticks scheduled before more recent typing are ignored. Target and
+// SwitchEpoch additionally protect against a tick from a previous modal/
+// context whose Seq happens to collide with the active modal's FilterSeq.
+type ResourceActionFilterDecayMsg struct {
+	Target      ResourceActionTarget
+	SwitchEpoch int
+	Seq         int
+}
+
+// ResourceActionExecutedMsg is sent after a resource action runs successfully
+type ResourceActionExecutedMsg struct {
+	Target      ResourceActionTarget
+	Action      string
+	AppName     string
+	SwitchEpoch int
+}
+
+// ResourceActionExecuteErrorMsg is sent when running a resource action fails
+type ResourceActionExecuteErrorMsg struct {
+	Target      ResourceActionTarget
+	Error       string
+	SwitchEpoch int
+}
+
 // AuthErrorMsg is sent when authentication is required
 type AuthErrorMsg struct {
 	Error       error

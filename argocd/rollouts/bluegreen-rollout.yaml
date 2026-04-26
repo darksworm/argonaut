@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bluegreen-demo-active
+  namespace: argonaut-demo
+spec:
+  selector:
+    app: bluegreen-demo
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bluegreen-demo-preview
+  namespace: argonaut-demo
+spec:
+  selector:
+    app: bluegreen-demo
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: bluegreen-demo
+  namespace: argonaut-demo
+spec:
+  replicas: 3
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: bluegreen-demo
+  template:
+    metadata:
+      labels:
+        app: bluegreen-demo
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 10m
+              memory: 32Mi
+  strategy:
+    blueGreen:
+      activeService: bluegreen-demo-active
+      previewService: bluegreen-demo-preview
+      autoPromotionEnabled: false
+      scaleDownDelaySeconds: 30

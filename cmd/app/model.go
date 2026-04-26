@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1007,6 +1008,97 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep modal open to show error
 		return m, nil
 
+	case model.ResourceActionsLoadedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		if st.Target != msg.Target {
+			return m, nil
+		}
+		actions := append([]string(nil), msg.Actions...)
+		sort.SliceStable(actions, func(i, j int) bool {
+			return strings.ToLower(actions[i]) < strings.ToLower(actions[j])
+		})
+		st.Loading = false
+		st.Actions = actions
+		st.SelectedIdx = 0
+		st.Filter = ""
+		st.FilterSeq = 0
+		if len(actions) == 0 {
+			st.Error = "No actions available for this resource"
+		}
+		return m, nil
+
+	case model.ResourceActionFilterDecayMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		if st.Target != msg.Target {
+			return m, nil
+		}
+		// Only clear if no newer keypress has occurred since this tick was scheduled.
+		if msg.Seq == st.FilterSeq {
+			st.Filter = ""
+		}
+		return m, nil
+
+	case model.ResourceActionsErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		if st.Target != msg.Target {
+			return m, nil
+		}
+		st.Loading = false
+		st.Error = msg.Error
+		return m, nil
+
+	case model.ResourceActionExecutedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		m.statusService.Set(fmt.Sprintf("Ran %s on %s/%s", msg.Action, msg.Target.Kind, msg.Target.Name))
+		// Only tear down the modal if it still targets the same resource —
+		// the user may have closed the original modal and opened another one
+		// for a different resource before this completion arrived.
+		if st := m.state.Modals.ResourceAction; st != nil && st.Target == msg.Target {
+			m.state.Mode = model.ModeNormal
+			m.state.Modals.ResourceAction = nil
+		}
+		// Trigger a refresh of the app's resource tree
+		if m.state.Navigation.View == model.ViewTree && msg.AppName != "" {
+			appObj := m.resolveActionRefreshApp(msg)
+			return m, m.startLoadingResourceTree(*appObj)
+		}
+		return m, nil
+
+	case model.ResourceActionExecuteErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		if st.Target != msg.Target {
+			return m, nil
+		}
+		st.Executing = false
+		st.Error = msg.Error
+		return m, nil
+
 	case model.MultiSyncCompletedMsg:
 		// Gate by switch epoch
 		if msg.SwitchEpoch != m.switchEpoch {
@@ -1458,6 +1550,31 @@ func (m *Model) setTreeApp(app model.App) {
 // individual fields.
 func (m *Model) clearTreeApp() {
 	m.state.UI.TreeApp = nil
+}
+
+// resolveActionRefreshApp finds the App entry in m.state.Apps that the post-
+// execute tree refresh should reload. It matches on (Name, AppNamespace) so
+// that two apps sharing a name in different ArgoCD namespaces resolve to the
+// correct one. Falls back to a synthesized App carrying both fields when no
+// match is found.
+func (m *Model) resolveActionRefreshApp(msg model.ResourceActionExecutedMsg) *model.App {
+	wantNs := ""
+	if msg.Target.AppNamespace != nil {
+		wantNs = *msg.Target.AppNamespace
+	}
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name != msg.AppName {
+			continue
+		}
+		appNs := ""
+		if m.state.Apps[i].AppNamespace != nil {
+			appNs = *m.state.Apps[i].AppNamespace
+		}
+		if appNs == wantNs {
+			return &m.state.Apps[i]
+		}
+	}
+	return &model.App{Name: msg.AppName, AppNamespace: msg.Target.AppNamespace}
 }
 
 func (m *Model) applyBatchAppDelete(name string) bool {

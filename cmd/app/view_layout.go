@@ -13,10 +13,10 @@ import (
 // renderTreePanel renders the resource tree view inside a bordered container with scrolling
 func (m *Model) renderTreePanel(availableRows int) string {
 	contentWidth := max(0, m.contentInnerWidth())
-    treeContent := "(no data)"
-    if m.treeView != nil {
-        treeContent = m.treeView.Render()
-    }
+	treeContent := "(no data)"
+	if m.treeView != nil {
+		treeContent = m.treeView.Render()
+	}
 
 	// Split content into lines for scrolling
 	lines := strings.Split(treeContent, "\n")
@@ -138,6 +138,7 @@ func (m *Model) renderMainLayout() string {
 			m.state.Mode == model.ModeConfirmResourceSync ||
 			m.state.Mode == model.ModeConfirmAppDelete ||
 			m.state.Mode == model.ModeConfirmSync ||
+			m.state.Mode == model.ModeResourceAction ||
 			m.state.Modals.ConfirmSyncLoading ||
 			m.state.Modals.ResourceSyncLoading
 		m.treeView.SetDesaturateMode(willDesaturate)
@@ -304,6 +305,27 @@ func (m *Model) renderMainLayout() string {
 			modal = m.renderResourceSyncLoadingModal()
 		} else {
 			modal = m.renderResourceSyncConfirmModal()
+		}
+		grayBase := desaturateANSI(baseView)
+		baseLayer := lipgloss.NewLayer(grayBase)
+		modalX := (m.state.Terminal.Cols - lipgloss.Width(modal)) / 2
+		modalY := (m.state.Terminal.Rows - lipgloss.Height(modal)) / 2
+		modalLayer := lipgloss.NewLayer(modal).X(modalX).Y(modalY).Z(1)
+		return m.composeOverlay(baseLayer, modalLayer)
+	}
+	// Resource Action modal (loading, executing, info, or button selector)
+	if m.state.Mode == model.ModeResourceAction {
+		var modal string
+		st := m.state.Modals.ResourceAction
+		switch {
+		case st == nil || st.Loading:
+			modal = m.renderResourceActionLoadingModal()
+		case st.Executing:
+			modal = m.renderResourceActionExecutingModal()
+		case len(st.Actions) == 0:
+			modal = m.renderResourceActionInfoModal()
+		default:
+			modal = m.renderResourceActionModal()
 		}
 		grayBase := desaturateANSI(baseView)
 		baseLayer := lipgloss.NewLayer(grayBase)
