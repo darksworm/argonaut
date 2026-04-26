@@ -36,6 +36,17 @@ kubectl -n argocd apply --server-side --force-conflicts -f https://raw.githubuse
 echo "Waiting for ArgoCD to be ready..."
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 
+# 3.5) Install/verify argo-rollouts controller (needed by the rollouts-demo ApplicationSet)
+if kubectl get ns argo-rollouts &>/dev/null; then
+    echo "argo-rollouts namespace exists, ensuring controller is up to date..."
+else
+    echo "Installing argo-rollouts controller..."
+    kubectl create ns argo-rollouts
+fi
+kubectl -n argo-rollouts apply --server-side --force-conflicts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+echo "Waiting for argo-rollouts controller to be ready..."
+kubectl -n argo-rollouts rollout status deploy/argo-rollouts --timeout=180s
+
 # 4) Get admin password (for display at the end)
 PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
 
@@ -50,6 +61,10 @@ fi
 # 8) Apply the working apps configuration
 echo "Creating applications..."
 kubectl apply -f "$SCRIPT_DIR/apps-working.yaml"
+
+# 8.5) Apply the rollouts demo ApplicationSet (issue #138 resource-actions modal)
+echo "Creating rollouts demo apps..."
+kubectl apply -f "$SCRIPT_DIR/apps-rollouts.yaml"
 
 # 9) Apply the app-of-apps configuration
 echo "Creating app-of-apps..."
@@ -67,4 +82,5 @@ kubectl -n argocd get applications.argoproj.io -o name
 echo ""
 echo "To log in to argocd CLI:          make argocd-login"
 echo "To sync all apps:                 argocd app sync --all"
+echo "To sync the rollouts demo:        argocd app sync rollout-canary rollout-bluegreen"
 echo "To cleanup everything:            k3d cluster delete argocd-demo"
