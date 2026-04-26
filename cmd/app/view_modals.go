@@ -914,17 +914,44 @@ func (m *Model) renderResourceActionModal() string {
 	title := center.Render(titleLine)
 
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
-	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
-	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
+	// Uniform button width: widest action name plus the 2+2 horizontal padding,
+	// so every button is the same size regardless of label length.
+	maxName := 0
+	for _, name := range st.Actions {
+		if w := lipgloss.Width(name); w > maxName {
+			maxName = w
+		}
+	}
+	btnWidth := maxName + 4
+	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2).Width(btnWidth).Align(lipgloss.Center)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2).Width(btnWidth).Align(lipgloss.Center)
+
+	// Highlight styles for the matched type-ahead prefix. Each one inherits
+	// the parent button's background so the highlight overlays cleanly
+	// instead of punching a transparent hole through the colored cell.
+	matchHLActive := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Underline(true)
+
+	prefixLen := 0
+	if st.Filter != "" && st.SelectedIdx >= 0 && st.SelectedIdx < len(st.Actions) &&
+		strings.HasPrefix(strings.ToLower(st.Actions[st.SelectedIdx]), st.Filter) {
+		prefixLen = len(st.Filter)
+	}
 
 	rendered := make([]string, len(st.Actions))
 	widths := make([]int, len(st.Actions))
 	for i, name := range st.Actions {
-		var btn string
-		if i == st.SelectedIdx {
-			btn = active.Render(name)
+		isSel := i == st.SelectedIdx
+		var label string
+		if isSel && prefixLen > 0 && prefixLen <= len(name) {
+			label = matchHLActive.Render(name[:prefixLen]) + name[prefixLen:]
 		} else {
-			btn = inactive.Render(name)
+			label = name
+		}
+		var btn string
+		if isSel {
+			btn = active.Render(label)
+		} else {
+			btn = inactive.Render(label)
 		}
 		rendered[i] = btn
 		widths[i] = lipgloss.Width(btn)
@@ -958,18 +985,9 @@ func (m *Model) renderResourceActionModal() string {
 
 	parts := []string{title, "", body}
 
-	if st.Filtering {
-		on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-		cursor := lipgloss.NewStyle().Foreground(yellowBright).Reverse(true).Render(" ")
-		subLine := dim.Render("filter: ") + on.Render(st.Filter) + cursor
-		parts = append(parts, "", center.Render(subLine))
-	}
-
-	var hintText string
-	if st.Filtering {
-		hintText = "←→ select • Enter run • Esc exit"
-	} else {
-		hintText = "/ filter • ←→ select • Enter run"
+	hintText := "type to select • Enter run"
+	if st.Filter != "" {
+		hintText = "Esc clear • Enter run"
 	}
 	parts = append(parts, "", center.Render(dim.Render(hintText)))
 

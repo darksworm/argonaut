@@ -266,6 +266,13 @@ type ResourceActionsErrorMsg struct {
 	SwitchEpoch int
 }
 
+// ResourceActionFilterDecayMsg fires after the type-ahead idle window. The
+// handler clears the filter only if Seq still matches the current state, so
+// stale ticks scheduled before more recent typing are ignored.
+type ResourceActionFilterDecayMsg struct {
+	Seq int
+}
+
 // ResourceActionExecutedMsg is sent after a resource action runs successfully
 type ResourceActionExecutedMsg struct {
 	Target      ResourceActionTarget

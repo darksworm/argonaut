@@ -114,7 +114,7 @@ func TestGolden_ResourceActionModal_WithFilter(t *testing.T) {
 		},
 		Actions:     []string{"abort", "promote", "promote-full", "restart", "retry"},
 		Filter:      "pr",
-		Filtering:   true,
+		FilterSeq:   1,
 		SelectedIdx: 1,
 	}
 	out := stripANSI(m.renderResourceActionModal())

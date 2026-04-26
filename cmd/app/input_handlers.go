@@ -1338,17 +1338,41 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	key := msg.String()
+
+	// 'q' closes the modal whenever no action starts with 'q' (the common case
+	// for argo-rollouts and built-in actions). If a custom action does start
+	// with 'q', it stays reachable via type-ahead at the cost of q-close —
+	// that's a deliberate trade-off in favor of muscle memory.
+	if key == "q" && !anyActionStartsWith(st.Actions, 'q') {
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
+	}
+
 	switch key {
 	case "ctrl+c":
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.ResourceAction = nil
 		return m, nil
+	case "esc":
+		// Two-stage Esc so a fresh buffer can be cleared without losing the
+		// modal: first Esc clears any in-flight type-ahead, second Esc closes.
+		if st.Filter != "" {
+			st.Filter = ""
+			st.FilterSeq++
+			return m, nil
+		}
+		m.state.Mode = model.ModeNormal
+		m.state.Modals.ResourceAction = nil
+		return m, nil
 	case "left", "up":
+		st.Filter = ""
 		if st.SelectedIdx > 0 {
 			st.SelectedIdx--
 		}
 		return m, nil
 	case "right", "down":
+		st.Filter = ""
 		if st.SelectedIdx < len(st.Actions)-1 {
 			st.SelectedIdx++
 		}
@@ -1358,54 +1382,29 @@ func (m *Model) handleResourceActionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		st.Executing = true
 		st.Error = ""
 		return m, m.executeResourceAction(st.Target, action)
-	}
-
-	if st.Filtering {
-		switch key {
-		case "esc":
-			st.Filtering = false
-			st.Filter = ""
-			st.SelectedIdx = 0
-			return m, nil
-		case "backspace":
-			if len(st.Filter) > 0 {
-				st.Filter = st.Filter[:len(st.Filter)-1]
-				applyResourceActionFilter(st)
-			}
-			return m, nil
-		}
-		if len(key) == 1 {
-			r := rune(key[0])
-			if isResourceActionFilterRune(r) {
-				candidate := st.Filter + strings.ToLower(string(r))
-				if matchIdx := firstResourceActionMatch(st.Actions, candidate); matchIdx >= 0 {
-					st.Filter = candidate
-					st.SelectedIdx = matchIdx
-				}
-			}
-		}
-		return m, nil
-	}
-
-	switch key {
-	case "esc":
-		m.state.Mode = model.ModeNormal
-		m.state.Modals.ResourceAction = nil
-		return m, nil
-	case "/":
-		st.Filtering = true
+	case "backspace":
+		// Full reset of the type-ahead buffer (Explorer-style).
 		st.Filter = ""
 		return m, nil
-	case "h", "k":
-		if st.SelectedIdx > 0 {
-			st.SelectedIdx--
+	}
+
+	// Type-ahead: any printable single rune extends the buffer and jumps to
+	// the first action whose name matches as a case-insensitive prefix. If
+	// nothing matches the keypress is dropped silently.
+	if len(key) == 1 {
+		r := rune(key[0])
+		if isResourceActionFilterRune(r) {
+			candidate := st.Filter + strings.ToLower(string(r))
+			if matchIdx := firstResourceActionMatch(st.Actions, candidate); matchIdx >= 0 {
+				st.Filter = candidate
+				st.SelectedIdx = matchIdx
+				st.FilterSeq++
+				seq := st.FilterSeq
+				return m, tea.Tick(800*time.Millisecond, func(time.Time) tea.Msg {
+					return model.ResourceActionFilterDecayMsg{Seq: seq}
+				})
+			}
 		}
-		return m, nil
-	case "l", "j":
-		if st.SelectedIdx < len(st.Actions)-1 {
-			st.SelectedIdx++
-		}
-		return m, nil
 	}
 	return m, nil
 }
@@ -1427,6 +1426,18 @@ func isResourceActionFilterRune(r rune) bool {
 	return false
 }
 
+func anyActionStartsWith(actions []string, c rune) bool {
+	for _, a := range actions {
+		if a == "" {
+			continue
+		}
+		if strings.ToLower(a)[0] == byte(c) {
+			return true
+		}
+	}
+	return false
+}
+
 func firstResourceActionMatch(actions []string, prefix string) int {
 	if prefix == "" {
 		if len(actions) == 0 {
@@ -1443,16 +1454,6 @@ func firstResourceActionMatch(actions []string, prefix string) int {
 	return -1
 }
 
-func applyResourceActionFilter(st *model.ResourceActionState) {
-	if st == nil {
-		return
-	}
-	idx := firstResourceActionMatch(st.Actions, st.Filter)
-	if idx < 0 {
-		idx = 0
-	}
-	st.SelectedIdx = idx
-}
 
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

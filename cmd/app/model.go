@@ -1027,9 +1027,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		st.Actions = actions
 		st.SelectedIdx = 0
 		st.Filter = ""
-		st.Filtering = false
+		st.FilterSeq = 0
 		if len(actions) == 0 {
 			st.Error = "No actions available for this resource"
+		}
+		return m, nil
+
+	case model.ResourceActionFilterDecayMsg:
+		st := m.state.Modals.ResourceAction
+		if st == nil || m.state.Mode != model.ModeResourceAction {
+			return m, nil
+		}
+		// Only clear if no newer keypress has occurred since this tick was scheduled.
+		if msg.Seq == st.FilterSeq {
+			st.Filter = ""
 		}
 		return m, nil
 

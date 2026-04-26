@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -39,52 +40,33 @@ func TestResourceActionKeys_ArrowNavigation(t *testing.T) {
 	}
 
 	m = advance(m, tea.KeyPressMsg{Code: tea.KeyRight}, 1, "right arrow")
-	m = advance(m, testKeyMsg("l"), 2, "l")
-	m = advance(m, testKeyMsg("l"), 2, "l clamps at last index")
-	m = advance(m, testKeyMsg("h"), 1, "h")
-	m = advance(m, tea.KeyPressMsg{Code: tea.KeyLeft}, 0, "left arrow")
-	m = advance(m, tea.KeyPressMsg{Code: tea.KeyDown}, 1, "down arrow")
-	m = advance(m, testKeyMsg("j"), 2, "j")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyRight}, 2, "right arrow")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyRight}, 2, "right arrow clamps at last")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyLeft}, 1, "left arrow")
+	m = advance(m, tea.KeyPressMsg{Code: tea.KeyDown}, 2, "down arrow")
 	m = advance(m, tea.KeyPressMsg{Code: tea.KeyUp}, 1, "up arrow")
-	_ = advance(m, testKeyMsg("k"), 0, "k")
+	_ = advance(m, tea.KeyPressMsg{Code: tea.KeyLeft}, 0, "left arrow")
 }
 
-func TestResourceActionKeys_DefaultModeIgnoresLetters(t *testing.T) {
+// Letters now type into the type-ahead buffer instead of being navigation
+// shortcuts (no '/' prefix needed).
+func TestResourceActionKeys_TypeAheadJumpsToFirstMatch(t *testing.T) {
 	m := buildResourceActionTestModel(t)
 	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
 	st := teaModel.(*Model).state.Modals.ResourceAction
-	if st.Filtering {
-		t.Fatalf("typing a letter without '/' should not enter filter mode")
-	}
-	if st.Filter != "" {
-		t.Fatalf("typing a letter without '/' should not extend a filter, got %q", st.Filter)
-	}
-}
-
-func TestResourceActionKeys_SlashEntersFilterMode(t *testing.T) {
-	m := buildResourceActionTestModel(t)
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
-	st := teaModel.(*Model).state.Modals.ResourceAction
-	if !st.Filtering {
-		t.Fatalf("'/' should enter filter mode")
-	}
-	if st.Filter != "" {
-		t.Fatalf("'/' should start with an empty filter, got %q", st.Filter)
-	}
-
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("p"))
-	st = teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "p" || st.SelectedIdx != 1 {
-		t.Fatalf("typing 'p' in filter mode should select promote, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
+		t.Fatalf("typing 'p' should select promote, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
 	}
+
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
 	st = teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "pr" || st.SelectedIdx != 1 {
-		t.Fatalf("typing 'pr' should still select promote, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
+		t.Fatalf("typing 'pr' should keep promote selected, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
 	}
 }
 
-func TestResourceActionKeys_FilterModeAcceptsHJKLAsChars(t *testing.T) {
+// hjkl no longer navigates — they're typeable buffer chars like any letter.
+func TestResourceActionKeys_HJKLAreTypeAheadChars(t *testing.T) {
 	cases := []struct {
 		key  string
 		want string
@@ -97,57 +79,32 @@ func TestResourceActionKeys_FilterModeAcceptsHJKLAsChars(t *testing.T) {
 		m := buildResourceActionTestModel(t)
 		m.state.Modals.ResourceAction.Actions = []string{"abort", "halt", "kill", "list", "promote"}
 
-		teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
-		teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg(tc.key))
+		teaModel, _ := m.handleResourceActionKeys(testKeyMsg(tc.key))
 		st := teaModel.(*Model).state.Modals.ResourceAction
 		if st.Filter != tc.key {
-			t.Errorf("%q in filter mode should extend filter, got filter=%q", tc.key, st.Filter)
+			t.Errorf("%q should extend type-ahead buffer, got filter=%q", tc.key, st.Filter)
 			continue
 		}
 		if got := st.Actions[st.SelectedIdx]; got != tc.want {
-			t.Errorf("filter %q should select %q, got %q", tc.key, tc.want, got)
+			t.Errorf("buffer %q should select %q, got %q", tc.key, tc.want, got)
 		}
 	}
 }
 
-func TestResourceActionKeys_SlashIsLiteralInFilterMode(t *testing.T) {
+// A keystroke that doesn't extend any prefix is dropped silently.
+func TestResourceActionKeys_NoMatchKeystrokeDropped(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	m.state.Modals.ResourceAction.Actions = []string{"abort", "halt", "kill", "promote"}
-
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("h"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("/"))
-	st := teaModel.(*Model).state.Modals.ResourceAction
-	if !st.Filtering {
-		t.Fatalf("/ during filter mode should not exit filter mode")
-	}
-	if st.Filter != "h" {
-		t.Fatalf("/ during filter mode should not reset the filter, got %q", st.Filter)
-	}
-
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("esc"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("/"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("k"))
-	st = teaModel.(*Model).state.Modals.ResourceAction
-	if st.Actions[st.SelectedIdx] != "kill" {
-		t.Fatalf("Esc+/+k should select kill, got %q", st.Actions[st.SelectedIdx])
-	}
-}
-
-func TestResourceActionKeys_FilterModeRejectsNoMatch(t *testing.T) {
-	m := buildResourceActionTestModel(t)
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("z"))
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("z"))
 	st := teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "" {
-		t.Fatalf("filter should remain empty on no-match, got %q", st.Filter)
+		t.Fatalf("non-matching keystroke must not enter the buffer, got %q", st.Filter)
 	}
 }
 
-func TestResourceActionKeys_BackspaceShrinksFilter(t *testing.T) {
+// Backspace clears the entire buffer (Explorer-style reset, not per-char shrink).
+func TestResourceActionKeys_BackspaceClearsBuffer(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("p"))
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
 	st := teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "pr" {
@@ -156,45 +113,92 @@ func TestResourceActionKeys_BackspaceShrinksFilter(t *testing.T) {
 
 	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("backspace"))
 	st = teaModel.(*Model).state.Modals.ResourceAction
-	if st.Filter != "p" || st.SelectedIdx != 1 {
-		t.Fatalf("backspace should shrink filter to 'p' and keep promote selected, got filter=%q idx=%d", st.Filter, st.SelectedIdx)
-	}
-
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("backspace"))
-	st = teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "" {
-		t.Fatalf("backspace should clear filter, got %q", st.Filter)
-	}
-	if !st.Filtering {
-		t.Fatalf("backspacing past start should keep us in filter mode (Esc exits, not backspace)")
+		t.Fatalf("backspace should clear the buffer, got %q", st.Filter)
 	}
 }
 
-func TestResourceActionKeys_EscExitsFilterModeBeforeClosing(t *testing.T) {
+// Arrow navigation is an explicit override and clears the buffer so the
+// highlight goes away the moment the user takes manual control.
+func TestResourceActionKeys_ArrowClearsBuffer(t *testing.T) {
 	m := buildResourceActionTestModel(t)
-	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("/"))
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("p"))
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter == "" {
+		t.Fatalf("setup: filter should be non-empty after typing")
+	}
 
-	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("esc"))
-	newModel := teaModel.(*Model)
-	if newModel.state.Mode != model.ModeResourceAction {
-		t.Fatalf("first Esc should keep modal open while filter is active, got mode %s", newModel.state.Mode)
-	}
-	st := newModel.state.Modals.ResourceAction
-	if st == nil {
-		t.Fatalf("first Esc should not destroy the modal state")
-	}
-	if st.Filtering {
-		t.Fatalf("first Esc should exit filter mode")
-	}
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(tea.KeyPressMsg{Code: tea.KeyRight})
+	st = teaModel.(*Model).state.Modals.ResourceAction
 	if st.Filter != "" {
-		t.Fatalf("first Esc should clear the filter, got %q", st.Filter)
+		t.Fatalf("arrow nav must clear the type-ahead buffer, got %q", st.Filter)
+	}
+}
+
+// The decay tick clears the buffer only when no newer keypress has happened.
+func TestResourceActionKeys_FilterDecayClearsOnIdle(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	seq := st.FilterSeq
+	if st.Filter == "" || seq == 0 {
+		t.Fatalf("setup: filter and seq should be set after typing")
 	}
 
-	teaModel, _ = newModel.handleResourceActionKeys(testKeyMsg("esc"))
-	newModel = teaModel.(*Model)
-	if newModel.state.Mode != model.ModeNormal {
-		t.Fatalf("second Esc should close the modal, got mode %s", newModel.state.Mode)
+	// Decay matching the current seq clears the buffer.
+	teaModel, _ = teaModel.(*Model).Update(model.ResourceActionFilterDecayMsg{Seq: seq})
+	st = teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "" {
+		t.Fatalf("decay with matching seq should clear filter, got %q", st.Filter)
+	}
+}
+
+// 'q' closes the modal whenever no enabled action starts with 'q' — the
+// common case for argo-rollouts. The action list is the only authority.
+func TestResourceActionKeys_QClosesModalWhenNoActionStartsWithQ(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	// Default fixture: actions = abort/promote/retry — none start with 'q'.
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("q"))
+	mm := teaModel.(*Model)
+	if mm.state.Mode != model.ModeNormal {
+		t.Fatalf("q should close modal when no action starts with q, got mode %s", mm.state.Mode)
+	}
+	if mm.state.Modals.ResourceAction != nil {
+		t.Fatalf("q should clear ResourceAction state when closing")
+	}
+}
+
+// When some action does start with 'q', q is treated as a typeable character
+// and the modal stays open. This trades q-as-close for the ability to reach
+// custom actions like "quarantine" via type-ahead.
+func TestResourceActionKeys_QIsTypeableWhenAnActionStartsWithQ(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Actions = []string{"abort", "promote", "quarantine"}
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("q"))
+	mm := teaModel.(*Model)
+	st := mm.state.Modals.ResourceAction
+	if st == nil || mm.state.Mode != model.ModeResourceAction {
+		t.Fatalf("q should not close when an action starts with q")
+	}
+	if st.Filter != "q" {
+		t.Fatalf("q should extend the type-ahead buffer, got filter=%q", st.Filter)
+	}
+	if got := st.Actions[st.SelectedIdx]; got != "quarantine" {
+		t.Fatalf("typing q should select quarantine, got %q", got)
+	}
+}
+
+func TestResourceActionKeys_FilterDecayIgnoredWhenStale(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	teaModel, _ := m.handleResourceActionKeys(testKeyMsg("p"))
+	staleSeq := teaModel.(*Model).state.Modals.ResourceAction.FilterSeq
+	// New keypress bumps the seq.
+	teaModel, _ = teaModel.(*Model).handleResourceActionKeys(testKeyMsg("r"))
+
+	teaModel, _ = teaModel.(*Model).Update(model.ResourceActionFilterDecayMsg{Seq: staleSeq})
+	st := teaModel.(*Model).state.Modals.ResourceAction
+	if st.Filter != "pr" {
+		t.Fatalf("stale decay must not clear a freshly-extended buffer, got %q", st.Filter)
 	}
 }
 
@@ -493,3 +497,31 @@ func stringContains(s, sub string) bool {
 	}
 	return false
 }
+
+// While idle (no type-ahead buffer) the bottom hint nudges the user toward
+// typing. Verifies the hint text is "type to select" not "Esc clear".
+func TestRenderResourceActionModal_IdleHint(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	out := stripANSI(m.renderResourceActionModal())
+	if !strings.Contains(out, "type to select") {
+		t.Errorf("idle modal should hint 'type to select', got:\n%s", out)
+	}
+	if strings.Contains(out, "Esc clear") {
+		t.Errorf("idle modal should not show 'Esc clear' yet, got:\n%s", out)
+	}
+}
+
+// Once the user has typed at least one matching char, the hint flips to
+// "Esc clear" so the user knows how to wipe the buffer fast.
+func TestRenderResourceActionModal_TypingHint(t *testing.T) {
+	m := buildResourceActionTestModel(t)
+	m.state.Modals.ResourceAction.Filter = "p"
+	out := stripANSI(m.renderResourceActionModal())
+	if !strings.Contains(out, "Esc clear") {
+		t.Errorf("typing modal should hint 'Esc clear', got:\n%s", out)
+	}
+	if strings.Contains(out, "type to select") {
+		t.Errorf("typing modal should not show 'type to select', got:\n%s", out)
+	}
+}
+

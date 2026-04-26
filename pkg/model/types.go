@@ -280,9 +280,11 @@ type ResourceActionState struct {
 	Target      ResourceActionTarget `json:"target"`
 	Actions     []string             `json:"actions"`
 	SelectedIdx int                  `json:"selectedIdx"`
-	Filter      string               `json:"filter,omitempty"`
-	Filtering   bool                 `json:"filtering,omitempty"`
-	Loading     bool                 `json:"loading"`
-	Executing   bool                 `json:"executing"`
-	Error       string               `json:"error"`
+	// Filter is the currently-typed type-ahead buffer. It decays after a
+	// short idle period via FilterSeq-tagged tick messages. Always lower-case.
+	Filter    string `json:"filter,omitempty"`
+	FilterSeq int    `json:"-"`
+	Loading   bool   `json:"loading"`
+	Executing bool   `json:"executing"`
+	Error     string `json:"error"`
 }

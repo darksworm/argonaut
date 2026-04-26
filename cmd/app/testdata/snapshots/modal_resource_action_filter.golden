@@ -3,12 +3,11 @@
  │                                                │ 
  │       Actions on Rollout/payments/checkout     │ 
  │                                                │ 
- │       abort      promote      promote-full     │ 
- │                restart      retry              │ 
+ │             abort            promote           │ 
+ │          promote-full        restart           │ 
+ │                      retry                     │ 
  │                                                │ 
- │                   filter: pr                   │ 
- │                                                │ 
- │         ←→ select • Enter run • Esc exit       │ 
+ │              Esc clear • Enter run             │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     
