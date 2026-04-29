@@ -206,7 +206,12 @@ request_timeout = "` + reqTimeout + `"
 
 [clipboard]
 # Mock clipboard for tests - writes to file instead of system clipboard
-copy_command = "tee ` + clipboardFile + `"`
+copy_command = "tee ` + clipboardFile + `"
+
+[updates]
+# Disable the GitHub-API update check during e2e runs — it adds latency,
+# paints "New version available" in the status bar, and contends for CPU.
+check_enabled = false`
 
 	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
 		return err
@@ -296,7 +301,12 @@ request_timeout = "` + reqTimeout + `"
 
 [clipboard]
 # Mock clipboard for tests - writes to file instead of system clipboard
-copy_command = "tee ` + clipboardFile + `"`
+copy_command = "tee ` + clipboardFile + `"
+
+[updates]
+# Disable the GitHub-API update check during e2e runs — it adds latency,
+# paints "New version available" in the status bar, and contends for CPU.
+check_enabled = false`
 
 	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
 		return err
