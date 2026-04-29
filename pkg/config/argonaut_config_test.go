@@ -648,3 +648,64 @@ func TestSaveAndLoadHTTPTimeoutConfig(t *testing.T) {
 			expectedDuration, loadedConfig.GetRequestTimeout().String())
 	}
 }
+
+func TestIsUpdateCheckEnabled(t *testing.T) {
+	tt := false
+	tr := true
+
+	tests := []struct {
+		name string
+		cfg  *ArgonautConfig
+		want bool
+	}{
+		{"nil config defaults to enabled", nil, true},
+		{"unset key defaults to enabled", &ArgonautConfig{}, true},
+		{"explicit true", &ArgonautConfig{Updates: UpdatesConfig{CheckEnabled: &tr}}, true},
+		{"explicit false", &ArgonautConfig{Updates: UpdatesConfig{CheckEnabled: &tt}}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.cfg.IsUpdateCheckEnabled(); got != tc.want {
+				t.Errorf("IsUpdateCheckEnabled() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSaveAndLoadUpdatesConfig(t *testing.T) {
+	tests := []struct {
+		name   string
+		toml   string
+		want   bool // expected result of IsUpdateCheckEnabled
+		wantSb bool // expected non-nil pointer (i.e. user explicitly set the field)
+	}{
+		{"absent section → default-true", ``, true, false},
+		{"explicit true", "[updates]\ncheck_enabled = true\n", true, true},
+		{"explicit false", "[updates]\ncheck_enabled = false\n", false, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			originalConfig := os.Getenv("ARGONAUT_CONFIG")
+			defer os.Setenv("ARGONAUT_CONFIG", originalConfig)
+
+			configPath := filepath.Join(tempDir, "test_config.toml")
+			os.Setenv("ARGONAUT_CONFIG", configPath)
+			if err := os.WriteFile(configPath, []byte(tc.toml), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+
+			loaded, err := LoadArgonautConfig()
+			if err != nil {
+				t.Fatalf("LoadArgonautConfig: %v", err)
+			}
+			if got := loaded.IsUpdateCheckEnabled(); got != tc.want {
+				t.Errorf("IsUpdateCheckEnabled() = %v, want %v", got, tc.want)
+			}
+			set := loaded.Updates.CheckEnabled != nil
+			if set != tc.wantSb {
+				t.Errorf("CheckEnabled pointer set = %v, want %v", set, tc.wantSb)
+			}
+		})
+	}
+}

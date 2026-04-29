@@ -219,6 +219,9 @@ func (m *Model) initializeUpdateService() {
 
 // scheduleInitialUpdateCheck performs an initial update check after app startup
 func (m *Model) scheduleInitialUpdateCheck() tea.Cmd {
+	if !m.config.IsUpdateCheckEnabled() {
+		return nil
+	}
 	return func() tea.Msg {
 		// Wait a bit after app startup to not interfere with initial loading
 		time.Sleep(5 * time.Second)
@@ -247,6 +250,9 @@ func (m *Model) scheduleInitialUpdateCheck() tea.Cmd {
 
 // schedulePeriodicUpdateCheck starts a background goroutine for periodic update checks
 func (m *Model) schedulePeriodicUpdateCheck() tea.Cmd {
+	if !m.config.IsUpdateCheckEnabled() {
+		return nil
+	}
 	return func() tea.Msg {
 		// Wait before first check to not interfere with app startup
 		time.Sleep(30 * time.Second)
