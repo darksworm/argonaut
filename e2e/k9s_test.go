@@ -64,7 +64,6 @@ func TestK9s_NotFound_ShowsErrorModal(t *testing.T) {
 
 	// Navigate down to a Kubernetes resource (skip Application root)
 	_ = tf.Send("j") // Move to first child
-	time.Sleep(200 * time.Millisecond)
 
 	// Press K to trigger k9s
 	_ = tf.Send("K")
@@ -82,19 +81,10 @@ func TestK9s_NotFound_ShowsErrorModal(t *testing.T) {
 		t.Fatal("error message about k9s not found is missing")
 	}
 
-	// Dismiss modal with Enter
+	// Dismiss modal with Enter and verify we're back in tree view.
 	_ = tf.Enter()
-
-	// Wait for modal to close - verify by checking that k9s Error is no longer shown
-	// and tree view is back
-	time.Sleep(500 * time.Millisecond)
-
-	// Take snapshot and verify modal is closed
-	snapshot = tf.SnapshotPlain()
-	// The modal may still be rendered in the buffer history - check the most recent state
-	// by looking for the tree view without the error overlay
-	if !strings.Contains(snapshot, "Application [demo]") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("Application [demo]", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("should be back in tree view after dismissing error modal")
 	}
 }
@@ -173,8 +163,6 @@ func TestK9s_OpenApplicationCR(t *testing.T) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("mock k9s was not launched")
 	}
-
-	time.Sleep(500 * time.Millisecond)
 
 	// Verify k9s was called with Application CR arguments
 	args := readMockK9sArgs(t, argsFile)
@@ -266,8 +254,6 @@ func TestK9s_OpenApplicationFromAppsList(t *testing.T) {
 		t.Fatal("mock k9s was not launched")
 	}
 
-	time.Sleep(500 * time.Millisecond)
-
 	// Verify k9s was called with Application CR arguments
 	args := readMockK9sArgs(t, argsFile)
 	if args == "" {
@@ -343,7 +329,6 @@ func TestK9s_OpenDeploymentResource(t *testing.T) {
 
 	// Navigate to Deployment (first child after Application root)
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
 
 	// Press K to open k9s
 	_ = tf.Send("K")
@@ -362,8 +347,6 @@ func TestK9s_OpenDeploymentResource(t *testing.T) {
 
 	// Wait for k9s to exit and return to tree view
 	// The mock exits after 0.2s
-	time.Sleep(500 * time.Millisecond)
-
 	// Verify k9s was called with correct arguments
 	args := readMockK9sArgs(t, argsFile)
 	if args == "" {
@@ -440,15 +423,9 @@ func TestK9s_OpenServiceResource(t *testing.T) {
 	// │   └── ReplicaSet (pos 3)
 	// │       └── Pod (pos 4)
 	// └── Service (pos 5)
-	// Navigate down 4 times to reach Service
-	for i := 0; i < 4; i++ {
-		_ = tf.Send("j")
-		time.Sleep(100 * time.Millisecond)
-	}
-	time.Sleep(200 * time.Millisecond)
-
-	// Press K to open k9s
-	_ = tf.Send("K")
+	// Navigate down 4 times to reach Service, then open k9s. PTY preserves
+	// keystroke order so all of these are queued in sequence to the app.
+	_ = tf.Send("jjjjK")
 
 	// Wait for mock k9s to be launched
 	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
@@ -461,8 +438,6 @@ func TestK9s_OpenServiceResource(t *testing.T) {
 	}
 
 	// Wait for k9s to exit
-	time.Sleep(500 * time.Millisecond)
-
 	args := readMockK9sArgs(t, argsFile)
 	if args == "" {
 		t.Fatal("k9s was not invoked")
@@ -521,10 +496,9 @@ func TestK9s_TerminalRestoredAfterExit(t *testing.T) {
 		t.Fatal("tree view not loaded")
 	}
 
-	// Navigate to Deployment and open k9s
-	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-	_ = tf.Send("K")
+	// Navigate to Deployment and open k9s. PTY preserves keystroke order so
+	// j is fully processed before K reaches the app.
+	_ = tf.Send("jK")
 
 	// Wait for mock k9s to be launched
 	if !tf.WaitForPlain("Mock k9s", 5*time.Second) {
@@ -532,28 +506,17 @@ func TestK9s_TerminalRestoredAfterExit(t *testing.T) {
 		t.Fatal("mock k9s was not launched")
 	}
 
-	// Wait for k9s to exit
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify UI is functional - try navigating
-	_ = tf.Send("j") // Move down
-	time.Sleep(200 * time.Millisecond)
-	_ = tf.Send("k") // Move up
-	time.Sleep(200 * time.Millisecond)
-
-	// Open command mode to verify input works
+	// Verify UI is functional after k9s exits. OpenCommand polls for the
+	// command-bar prompt, which is the signal that input is being routed
+	// to Argonaut again (rather than the dead k9s child).
+	_ = tf.Send("jk")
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatalf("command mode failed after k9s exit: %v", err)
 	}
+	_ = tf.Send("\x1b") // close command bar
 
-	// Press Escape to exit command mode
-	_ = tf.Send("\x1b")
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify we're still in tree view
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "Application [demo]") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("Application [demo]", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("UI not functional after k9s exit")
 	}
 }
@@ -610,7 +573,6 @@ func TestK9s_ContextPicker_SingleContext_StillShowsPicker(t *testing.T) {
 
 	// Navigate to Deployment
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
 
 	// Press K - should show context picker even with single context (safety feature)
 	_ = tf.Send("K")
@@ -637,8 +599,6 @@ func TestK9s_ContextPicker_SingleContext_StillShowsPicker(t *testing.T) {
 	}
 
 	// Wait for k9s to exit
-	time.Sleep(500 * time.Millisecond)
-
 	// Verify k9s was called with the single context
 	args := readMockK9sArgs(t, argsFile)
 	if !strings.Contains(args, "--context my-single-context") {
@@ -699,7 +659,6 @@ func TestK9s_ContextPicker_MultipleContexts(t *testing.T) {
 	}
 
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
 
 	// Press K - should show context picker
 	_ = tf.Send("K")
@@ -730,8 +689,6 @@ func TestK9s_ContextPicker_MultipleContexts(t *testing.T) {
 	}
 
 	// Wait for k9s to exit
-	time.Sleep(500 * time.Millisecond)
-
 	// Verify k9s was called with staging-cluster
 	args := readMockK9sArgs(t, argsFile)
 	if !strings.Contains(args, "--context staging-cluster") {
@@ -792,7 +749,6 @@ func TestK9s_ContextPicker_NavigateWithJK(t *testing.T) {
 	}
 
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
 	_ = tf.Send("K")
 
 	if !tf.WaitForPlain("Select Kubernetes Context", 3*time.Second) {
@@ -800,13 +756,15 @@ func TestK9s_ContextPicker_NavigateWithJK(t *testing.T) {
 		t.Fatal("context picker not shown")
 	}
 
-	// Navigate: j, j to ctx-3, then k back to ctx-2
+	// Navigate: j, j to ctx-3, then k back to ctx-2. Each keystroke needs
+	// the app to commit a render frame before the next so the final
+	// cursor position is correct.
 	_ = tf.Send("j") // ctx-2
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	_ = tf.Send("j") // ctx-3
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	_ = tf.Send("k") // back to ctx-2
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	_ = tf.Enter()
 
 	// Wait for mock k9s to be launched
@@ -816,8 +774,6 @@ func TestK9s_ContextPicker_NavigateWithJK(t *testing.T) {
 	}
 
 	// Wait for k9s to exit
-	time.Sleep(500 * time.Millisecond)
-
 	args := readMockK9sArgs(t, argsFile)
 	if !strings.Contains(args, "--context ctx-2") {
 		t.Errorf("expected context 'ctx-2', got args: %s", args)
@@ -877,7 +833,6 @@ func TestK9s_InCluster_ShowsContextPicker(t *testing.T) {
 
 	// Navigate to Deployment
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
 
 	// Press K - should show context picker (not auto-detect)
 	_ = tf.Send("K")
@@ -903,8 +858,6 @@ func TestK9s_InCluster_ShowsContextPicker(t *testing.T) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("mock k9s was not launched")
 	}
-
-	time.Sleep(500 * time.Millisecond)
 
 	// Verify k9s was called with staging-cluster (the pre-selected current context)
 	args := readMockK9sArgs(t, argsFile)
@@ -966,7 +919,6 @@ func TestK9s_KeyboardInputForwarded(t *testing.T) {
 
 	// Navigate to Deployment and open k9s
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
 	_ = tf.Send("K")
 
 	// Wait for mock k9s to be launched

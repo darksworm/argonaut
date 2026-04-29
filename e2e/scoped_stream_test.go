@@ -179,13 +179,25 @@ func TestScopedStreamingFiltersEvents(t *testing.T) {
 	// Record how many stream requests we have before drilling down
 	initialRequests := rec.len()
 
-	// Drill down into the first project by pressing Enter
-	// Projects are sorted alphabetically, so "backend" should be first
+	// Drill down into the first project by pressing Enter. The cursor's
+	// initial position can take an extra render frame to settle on row 1
+	// under heavy parallel load — give it a brief barrier, and if Enter
+	// didn't drill in (current screen still shows the projects list)
+	// retry once.
+	time.Sleep(100 * time.Millisecond)
 	_ = tf.Enter()
-
-	// Wait for the scoped view — should show backend apps
-	if !tf.WaitForPlain("db-primary", 3*time.Second) {
-		t.Fatalf("backend apps not shown after drill-down\n%s", tf.SnapshotPlain())
+	if !waitUntil(t, func() bool {
+		s := tf.Screen()
+		return strings.Contains(s, "db-primary") && !strings.Contains(s, "<projects>")
+	}, 3*time.Second) {
+		// Retry once in case the first Enter raced cursor settling.
+		_ = tf.Enter()
+		if !waitUntil(t, func() bool {
+			s := tf.Screen()
+			return strings.Contains(s, "db-primary") && !strings.Contains(s, "<projects>")
+		}, 1*time.Second) {
+			t.Fatalf("backend apps not shown after drill-down\n%s", tf.Screen())
+		}
 	}
 
 	// Wait for watch restart (500ms debounce + some margin)

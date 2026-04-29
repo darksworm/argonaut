@@ -29,6 +29,37 @@ import (
 
 const ringSize = 1 << 20 // 1 MiB scrollback
 
+// mergeEnv merges base and overrides, collapsing duplicate keys with later
+// writes winning. On Linux glibc's getenv returns the first matching entry,
+// so simple appending wouldn't let callers override framework defaults —
+// and base itself can contain duplicates (os.Environ() inheriting a value
+// the framework also sets), so both halves need de-duping.
+func mergeEnv(base, overrides []string) []string {
+	idx := make(map[string]int, len(base)+len(overrides))
+	out := make([]string, 0, len(base)+len(overrides))
+	merge := func(kv string) {
+		eq := strings.IndexByte(kv, '=')
+		if eq < 0 {
+			out = append(out, kv)
+			return
+		}
+		key := kv[:eq]
+		if i, ok := idx[key]; ok {
+			out[i] = kv
+			return
+		}
+		idx[key] = len(out)
+		out = append(out, kv)
+	}
+	for _, kv := range base {
+		merge(kv)
+	}
+	for _, kv := range overrides {
+		merge(kv)
+	}
+	return out
+}
+
 // ANSI cleaner (CSI + OSC + CR)
 var ansiRe = regexp.MustCompile(`(?:\x1b\[[0-9;?]*[ -/]*[@-~])|(?:\x1b\][^\x07]*\x07)|\r`)
 
@@ -102,6 +133,20 @@ func (tf *TUITestFramework) SetupWorkspace() (string, error) {
 	tf.t.Helper()
 	dir := tf.t.TempDir()
 	tf.workspace = dir
+
+	// t.TempDir() registers a RemoveAll cleanup, and Go's t.Cleanup is LIFO.
+	// Tests typically register tf.Cleanup() in their body BEFORE calling
+	// SetupWorkspace, which means the temp-dir RemoveAll would run first
+	// while the app subprocess is still alive and writing config files,
+	// causing intermittent "directory not empty" errors. Register a
+	// just-in-time process kill here so it runs *before* the temp-dir
+	// RemoveAll (LIFO: last registered runs first).
+	tf.t.Cleanup(func() {
+		if tf.cmd != nil && tf.cmd.Process != nil {
+			_ = tf.cmd.Process.Kill()
+			_, _ = tf.cmd.Process.Wait()
+		}
+	})
 	// Ensure ~/.config/argocd exists
 	cfgDir := filepath.Join(dir, ".config", "argocd")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -176,8 +221,20 @@ copy_command = "tee ` + clipboardFile + `"`
 		// Force isolated Argonaut config - clear any inherited config paths
 		"ARGONAUT_CONFIG="+configPath,
 		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
+		// Tests don't need the production retry budget — collapse it so
+		// failure-path tests don't pay seconds of exponential back-off.
+		// Tests that specifically exercise the "Connecting…" spinner can
+		// override these via extraEnv (mergeEnv lets later entries win).
+		"ARGONAUT_RETRY_MAX_ATTEMPTS=2",
+		"ARGONAUT_RETRY_INITIAL_DELAY=10ms",
+		// The 500ms watch-scope debounce is real-user-friendly anti-thrash;
+		// in tests we want the restart to fire as soon as scope changes.
+		"ARGONAUT_WATCH_SCOPE_DEBOUNCE=10ms",
+		// The 500ms watch-event batch drain reduces render churn for busy
+		// streams; tests want time-to-first-render to be short.
+		"ARGONAUT_WATCH_BATCH_DRAIN=20ms",
 	)
-	env = append(env, extraEnv...)
+	env = mergeEnv(env, extraEnv)
 	tf.cmd.Env = env
 
 	// Set window size
@@ -254,8 +311,20 @@ copy_command = "tee ` + clipboardFile + `"`
 		// Force isolated Argonaut config - clear any inherited config paths
 		"ARGONAUT_CONFIG="+configPath,
 		"XDG_CONFIG_HOME=", // Clear XDG_CONFIG_HOME to ensure HOME-based path is used
+		// Tests don't need the production retry budget — collapse it so
+		// failure-path tests don't pay seconds of exponential back-off.
+		// Tests that specifically exercise the "Connecting…" spinner can
+		// override these via extraEnv (mergeEnv lets later entries win).
+		"ARGONAUT_RETRY_MAX_ATTEMPTS=2",
+		"ARGONAUT_RETRY_INITIAL_DELAY=10ms",
+		// The 500ms watch-scope debounce is real-user-friendly anti-thrash;
+		// in tests we want the restart to fire as soon as scope changes.
+		"ARGONAUT_WATCH_SCOPE_DEBOUNCE=10ms",
+		// The 500ms watch-event batch drain reduces render churn for busy
+		// streams; tests want time-to-first-render to be short.
+		"ARGONAUT_WATCH_BATCH_DRAIN=20ms",
 	)
-	env = append(env, extraEnv...)
+	env = mergeEnv(env, extraEnv)
 	tf.cmd.Env = env
 
 	// Set window size
@@ -413,9 +482,12 @@ func (tf *TUITestFramework) OpenCommand() error {
 	if err := tf.Send(":"); err != nil {
 		return err
 	}
-	// Command bar shows "│ > " with box drawing character - unique to command input
-	// Note: "> " alone matches the ASCII art logo, so we need the box char prefix
-	if !tf.WaitForPlain("│ > ", 2*time.Second) {
+	// Command bar shows "│ > " with box drawing character - unique to command input.
+	// "> " alone matches the ASCII art logo, so we need the box char prefix.
+	// Use a generous 10s timeout — CI runners are 2-core boxes with parallel=4
+	// (heavy oversubscription) and the command-bar render can lag several
+	// seconds under that load. The ceiling only bites on real regressions.
+	if !tf.WaitForPlain("│ > ", 10*time.Second) {
 		return fmt.Errorf("command bar not ready")
 	}
 	return nil
@@ -524,7 +596,7 @@ func MockArgoServer() (*httptest.Server, error) {
 	mux.HandleFunc("/api/v1/applications/demo", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			// Add small delay to ensure loading modal is visible
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 			w.Header().Set("Content-Type", "application/json")
 			// Return proper AppDeleteResponse with Success field
 			_, _ = w.Write([]byte(`{"Success": true}`))
@@ -534,14 +606,17 @@ func MockArgoServer() (*httptest.Server, error) {
 	return srv, nil
 }
 
-// MockArgoServerStreaming creates a server that sends multiple streaming updates
+// MockArgoServerStreaming creates a server whose REST list returns the demo
+// app as Synced and whose SSE stream then sends a single OutOfSync event.
+// This makes the corresponding test deterministic: the only way the apps
+// view can show OutOfSync is if the streaming update was applied.
 func MockArgoServerStreaming() (*httptest.Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/session/userinfo", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte(`{}`)) })
 	mux.HandleFunc("/api/v1/applications", func(w http.ResponseWriter, r *http.Request) {
-		// Initial app with OutOfSync status
+		// Initial REST state: Synced.
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}]`, "1000")))
+		_, _ = w.Write([]byte(wrapListResponse(`[{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}]`, "1000")))
 	})
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"version":"e2e"}`)) })
 	mux.HandleFunc("/api/v1/applications/demo/resource-tree", func(w http.ResponseWriter, r *http.Request) {
@@ -550,25 +625,13 @@ func MockArgoServerStreaming() (*httptest.Server, error) {
 			{"kind":"ReplicaSet","name":"demo-rs","namespace":"default","version":"v1","group":"apps","uid":"rs-1","status":"Synced","parentRefs":[{"uid":"dep-1","kind":"Deployment","name":"demo","namespace":"default","group":"apps","version":"v1"}]}
 		]}`))
 	})
-	// Streaming endpoint that sends multiple updates
+	// SSE stream sends one OutOfSync event, then returns.
 	mux.HandleFunc("/api/v1/stream/applications", func(w http.ResponseWriter, r *http.Request) {
 		fl, _ := w.(http.Flusher)
 		w.Header().Set("Content-Type", "text/event-stream")
 
-		// Send initial state in SSE format
 		if shouldSendEvent(r, "demo") {
 			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"OutOfSync"},"health":{"status":"Healthy"}}}}}`)))
-			if fl != nil {
-				fl.Flush()
-			}
-		}
-
-		// Wait for UI to have time to render initial state before sending update
-		time.Sleep(1500 * time.Millisecond)
-
-		// Send sync status update in SSE format
-		if shouldSendEvent(r, "demo") {
-			_, _ = w.Write([]byte(sseEvent(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"demo","namespace":"argocd"},"spec":{"project":"demo","destination":{"name":"cluster-a","namespace":"default"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`)))
 			if fl != nil {
 				fl.Flush()
 			}
@@ -981,7 +1044,7 @@ printf "%%s" "$*" > %q
 printf '\033[2J\033[H'
 printf 'Mock k9s\n'
 # Brief delay then exit
-sleep 0.2
+sleep 0.05
 exit %d
 `, argsFile, exitCode)
 
@@ -1229,9 +1292,9 @@ func MockArgoServerWithInCluster() (*httptest.Server, error) {
 
 // MockKubectlOptions configures mock kubectl behavior for port-forward testing
 type MockKubectlOptions struct {
-	PodName     string // Pod name to return from "kubectl get pods" (empty = no pods found)
-	LocalPort   int    // Port to report in port-forward output
-	PFExitAfter int    // Seconds before port-forward exits (0 = run until killed, simulates stable connection)
+	PodName       string        // Pod name to return from "kubectl get pods" (empty = no pods found)
+	LocalPort     int           // Port to report in port-forward output
+	PFExitAfter   time.Duration // Duration before port-forward exits (0 = run until killed)
 }
 
 // DefaultMockKubectlOptions returns sensible defaults for happy path testing
@@ -1263,11 +1326,12 @@ func createMockKubectl(t *testing.T, workspace string, opts MockKubectlOptions) 
 	// Build the port-forward command handling
 	var pfCommand string
 	if opts.PFExitAfter > 0 {
-		// Exit after delay (for reconnection testing)
+		// Exit after delay (for reconnection testing). Emit a fractional-second
+		// sleep so callers can request sub-second exits.
 		pfCommand = fmt.Sprintf(`
     echo "Forwarding from 127.0.0.1:%d -> 8080"
-    sleep %d
-    exit 1`, opts.LocalPort, opts.PFExitAfter)
+    sleep %.3f
+    exit 1`, opts.LocalPort, opts.PFExitAfter.Seconds())
 	} else {
 		// Run forever (stable connection)
 		pfCommand = fmt.Sprintf(`

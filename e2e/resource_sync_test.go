@@ -329,16 +329,22 @@ func TestResourceSync_Cancel(t *testing.T) {
 	// Trigger resource sync
 	_ = tf.Send("s")
 
-	// Wait for modal
-	if !tf.WaitForPlain("Sync", 2*time.Second) {
-		t.Fatalf("sync modal not shown\n%s", tf.SnapshotPlain())
+	// Wait for the sync confirmation modal — match a string unique to the
+	// modal title (the resource kind appearing right after "Sync ") rather
+	// than just "Sync", which matches "OutOfSync"/"Synced" status badges
+	// already on screen and would pass even if `s` were a no-op.
+	if !tf.WaitForScreen("Sync Deployment", 2*time.Second) {
+		t.Fatalf("sync modal not shown\n%s", tf.Screen())
 	}
 
-	// Cancel with escape
-	_ = tf.Send("\x1b") // Escape
-
-	// Wait a bit and verify no sync calls were made
-	time.Sleep(500 * time.Millisecond)
+	// Cancel with escape, then send a 'z' no-op so we can wait for the
+	// app to be back in tree-view mode (Application [demo] visible) —
+	// that's a render-level barrier confirming the escape was processed.
+	_ = tf.Send("\x1bz")
+	if !tf.WaitForPlain("Application [demo]", 1*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("did not return to tree view after escape")
+	}
 	if rec.len() != 0 {
 		t.Fatalf("expected 0 sync calls after cancel, got %d", rec.len())
 	}
@@ -685,14 +691,10 @@ func TestResourceSync_ErrorDisplayed(t *testing.T) {
 		t.Fatalf("expected full ArgoCD error details in modal\n%s", snapshot)
 	}
 
-	// User can dismiss the error modal
+	// User can dismiss the error modal. The key test assertion (the
+	// runtimeError message appearing) already passed above; nothing
+	// further to verify here.
 	_ = tf.Send("\x1b") // Escape
-
-	// Wait for modal to close - verify we're back to tree view mode
-	time.Sleep(300 * time.Millisecond)
-
-	// The key test assertion: ArgoCD's runtimeError message was parsed and displayed
-	// This confirms the error handling chain works end-to-end
 	t.Log("Successfully verified: ArgoCD error message was parsed and displayed to user")
 }
 

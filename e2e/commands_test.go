@@ -3,12 +3,21 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
 
 // Parallelized basic command navigation tests
 
+// TestCommandCtxFromProjects verifies that `:context` from projects view
+// switches to the contexts picker view.
+//
+// Earlier this test sent `:ctx cluster-a` and asserted "default" appeared,
+// but `:ctx <name>` switches Argo CD context (not cluster scope), the test
+// passed an unknown context name, and "default" was already in the
+// cumulative buffer from the earlier `:ns default` step — so the test
+// passed even when `:ctx` was a no-op.
 func TestCommandCtxFromProjects(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
@@ -32,28 +41,30 @@ func TestCommandCtxFromProjects(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Go to projects deterministically via commands
+	// Drill into projects view first.
 	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
-	_ = tf.Send(":")
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
 	_ = tf.Send("ns default")
 	_ = tf.Enter()
 	if !tf.WaitForPlain("demo", 5*time.Second) {
 		t.Fatal("projects not ready")
 	}
 
-	// Use :ctx to jump back to clusters (with arg -> advance to namespaces)
+	// `:context` (no arg) must open the contexts picker even from a
+	// non-clusters view.
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatal(err)
 	}
-	_ = tf.Send("ctx cluster-a")
+	_ = tf.Send("context")
 	_ = tf.Enter()
 
-	// Expect namespaces view after applying cluster scope
-	if !tf.WaitForPlain("default", 3*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("expected namespaces view after :ctx cluster-a")
+	if !tf.WaitForScreen("<contexts>", 3*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("expected `<contexts>` breadcrumb after `:context` from projects view")
 	}
 }
 
@@ -130,14 +141,27 @@ func TestCommandAppFromAnywhere(t *testing.T) {
 	_ = tf.Send("app demo")
 	_ = tf.Enter()
 
-	// Expect apps list showing demo
-	if !tf.WaitForPlain("demo", 5*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("expected apps view after :app demo")
+	// Expect apps view. Assert on the `<apps>` breadcrumb in the rendered
+	// status line — `WaitForPlain("demo", ...)` would match the demo
+	// substring in the cluster-view's REST JSON payload (project: demo)
+	// and pass even when `:app` is a no-op.
+	if !tf.WaitForScreen("<apps>", 5*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("expected `<apps>` status breadcrumb after :app demo")
+	}
+	if !strings.Contains(tf.Screen(), "demo") {
+		t.Log(tf.Screen())
+		t.Fatal("expected `demo` in apps view rows")
 	}
 }
 
-func TestStreamingUpdates(t *testing.T) {
+// TestStreamingAppliesUpdates verifies that an SSE-delivered status change
+// is applied to the apps view. The mock server returns the demo app as
+// Synced via REST and then sends a single OutOfSync event over SSE — so
+// the only way the apps view can display "OutOfSync" is if the streaming
+// update was wired through to the model. No transition-history assertion
+// (which would be timing-sensitive); just final-state assertion.
+func TestStreamingAppliesUpdates(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -160,37 +184,20 @@ func TestStreamingUpdates(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Wait for initial app load
 	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
 
-	// Navigate to apps view
-	if err := tf.OpenCommand(); err != nil {
-		t.Fatal(err)
-	}
-	_ = tf.Send("ns default")
-	_ = tf.Enter()
-	if !tf.WaitForPlain("demo", 5*time.Second) {
-		t.Fatal("projects not ready")
-	}
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatal(err)
 	}
 	_ = tf.Send("apps")
 	_ = tf.Enter()
 
-	// Check initial state - should show OutOfSync
-	if !tf.WaitForPlain("OutOfSync", 3*time.Second) {
-		t.Log("Initial snapshot:", tf.SnapshotPlain())
-		t.Fatal("expected OutOfSync status initially")
+	// REST returns Synced, SSE sends one OutOfSync event. If "OutOfSync"
+	// ever appears, streaming worked.
+	if !tf.WaitForPlain("OutOfSync", 5*time.Second) {
+		t.Log("Snapshot:", tf.SnapshotPlain())
+		t.Fatal("expected OutOfSync status (delivered via SSE) to appear in apps view")
 	}
-
-	// Wait for streaming update - should change to Synced
-	if !tf.WaitForPlain("Synced", 5*time.Second) {
-		t.Log("Final snapshot:", tf.SnapshotPlain())
-		t.Fatal("expected Synced status after streaming update")
-	}
-
-	t.Log("Streaming update test passed - status changed from OutOfSync to Synced")
 }

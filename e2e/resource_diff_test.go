@@ -125,7 +125,7 @@ func createMockLess(t *testing.T, workspace string) (scriptPath, inputFile strin
 cat > %q
 printf '\033[2J\033[H'
 printf 'Mock less diff viewer\n'
-sleep 0.2
+sleep 0.05
 exit 0
 `, inputFile)
 
@@ -182,12 +182,9 @@ func TestResourceDiff_SyncedResource_ShowsNoDiffModal(t *testing.T) {
 		t.Fatal("tree view not loaded")
 	}
 
-	// Navigate to Deployment (synced resource)
-	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-
-	// Press d to view diff
-	_ = tf.Send("d")
+	// Navigate to Deployment (synced resource) and request diff in one
+	// send — the PTY preserves keystroke order to the app.
+	_ = tf.Send("jd")
 
 	// Wait for "No differences found" modal - the modal shows when resource has no changes
 	if !tf.WaitForPlain("No differences found", 5*time.Second) {
@@ -195,26 +192,28 @@ func TestResourceDiff_SyncedResource_ShowsNoDiffModal(t *testing.T) {
 		t.Fatal("no diff modal not shown for synced resource")
 	}
 
-	// Dismiss modal
+	// Dismiss modal and verify we're back in tree view.
 	_ = tf.Enter()
-	time.Sleep(300 * time.Millisecond)
-
-	// Verify we're back in tree view
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "Application [demo]") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("Application [demo]", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("should be back in tree view after dismissing modal")
 	}
 }
 
-// TestResourceDiff_ApplicationNode_ShowsFullAppDiff verifies that pressing d on
-// the Application node shows the full app diff (all resources).
-func TestResourceDiff_ApplicationNode_ShowsFullAppDiff(t *testing.T) {
+// TestResourceDiff_ApplicationNode_AllSyncedShowsNoDiff verifies that
+// pressing `d` on the Application root node when all resources are
+// in sync shows the "No differences found" modal — the application-level
+// diff aggregates over all child resources, and with everything synced
+// the aggregate has no diff content.
+//
+// (Renamed from `_ShowsFullAppDiff` — the original name suggested this
+// test exercised the full-diff path, but the mock has all-synced
+// resources, so the only path actually tested is the no-diff modal.)
+func TestResourceDiff_ApplicationNode_AllSyncedShowsNoDiff(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
 
-	// Use synced resources - app-level diff should also show "No Diff"
 	srv, err := MockArgoServerWithSyncedResources()
 	if err != nil {
 		t.Fatalf("mock server: %v", err)
@@ -238,7 +237,6 @@ func TestResourceDiff_ApplicationNode_ShowsFullAppDiff(t *testing.T) {
 		t.Fatal("clusters not visible")
 	}
 
-	// Navigate to tree view
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatalf("open command: %v", err)
 	}
@@ -250,11 +248,9 @@ func TestResourceDiff_ApplicationNode_ShowsFullAppDiff(t *testing.T) {
 		t.Fatal("tree view not loaded")
 	}
 
-	// Stay on Application node (cursor should be there by default)
-	// Press d to view full app diff
+	// Cursor on Application root; press d to request a full app-level diff.
 	_ = tf.Send("d")
 
-	// For a fully synced app, should show "No differences found" modal
 	if !tf.WaitForPlain("No differences found", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("no diff modal not shown for synced application")
@@ -317,31 +313,14 @@ func TestResourceDiff_OutOfSyncResource_OpensDiffViewer(t *testing.T) {
 	// 1. Application [demo]
 	// 2. ConfigMap [default/demo-config] (Synced)
 	// 3. Deployment [default/demo-deploy] (OutOfSync)
-	// Navigate to Deployment (position 3) - need to press j twice
-	_ = tf.Send("j")
-	time.Sleep(100 * time.Millisecond)
-	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-
-	// Press d to view diff
-	_ = tf.Send("d")
+	// Navigate to Deployment (j j) and request diff (d) — PTY preserves order.
+	_ = tf.Send("jjd")
 
 	// Wait for mock less to display something
 	if !tf.WaitForPlain("Mock less", 5*time.Second) {
-		// Check if loading spinner appeared
-		snapshot := tf.SnapshotPlain()
-		if strings.Contains(snapshot, "Loading") {
-			t.Log("Loading spinner appeared, waiting longer...")
-			time.Sleep(2 * time.Second)
-		}
-		if !tf.WaitForPlain("Mock less", 3*time.Second) {
-			t.Log(tf.SnapshotPlain())
-			t.Fatal("mock less was not launched for diff")
-		}
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("mock less was not launched for diff")
 	}
-
-	// Wait for mock less to exit
-	time.Sleep(500 * time.Millisecond)
 
 	// Verify diff content was passed to less
 	diffContent, err := os.ReadFile(inputFile)
@@ -380,8 +359,12 @@ func TestResourceDiff_LoadingSpinner_Appears(t *testing.T) {
 		_, _ = w.Write([]byte(`{"nodes":[{"kind":"Deployment","name":"demo-deploy","namespace":"default","version":"v1","group":"apps","uid":"dep-1","status":"OutOfSync"}]}`))
 	})
 	mux.HandleFunc("/api/v1/applications/demo/managed-resources", func(w http.ResponseWriter, r *http.Request) {
-		// Slow response to ensure loading spinner is visible
-		time.Sleep(1 * time.Second)
+		// Slow response to ensure loading spinner is visible. 150ms is
+		// plenty for at least one spinner frame (~80ms cadence), and we
+		// poll for it below rather than sleeping a fixed amount.
+		// httptest.Server.Close blocks on in-flight handlers, so this
+		// also caps the test's worst-case duration.
+		time.Sleep(150 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
 		deployState := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"demo-deploy","namespace":"default"},"spec":{"replicas":1}}`
 		_, _ = w.Write([]byte(`{"items":[{"kind":"Deployment","namespace":"default","name":"demo-deploy","group":"apps","normalizedLiveState":` + jsonEscape(deployState) + `,"predictedLiveState":` + jsonEscape(deployState) + `}]}`))
@@ -426,30 +409,26 @@ func TestResourceDiff_LoadingSpinner_Appears(t *testing.T) {
 		t.Fatal("tree view not loaded")
 	}
 
-	// Navigate to Deployment
+	// Navigate to Deployment, then trigger the diff.
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-
-	// Press d to view diff
 	_ = tf.Send("d")
 
-	// Check for loading indicator (spinner or "Loading" text)
-	// The loading spinner uses a spinner character animation
-	time.Sleep(200 * time.Millisecond)
-	snapshot := tf.SnapshotPlain()
-
-	// Look for evidence of loading state - could be spinner or dimmed background
-	// Since the server is slow, we should see the loading state
-	loadingVisible := strings.Contains(snapshot, "Loading") ||
-		strings.Contains(snapshot, "⠋") ||
-		strings.Contains(snapshot, "⠙") ||
-		strings.Contains(snapshot, "⠹") ||
-		strings.Contains(snapshot, "⠸")
-
-	if !loadingVisible {
-		// Not a hard failure - loading might be too fast to capture
-		t.Log("Note: Loading spinner was not captured (may have been too fast)")
-		t.Log(snapshot)
+	// Poll for the diff-loading marker on the *current* screen (not the
+	// cumulative SnapshotPlain — that buffer also contains the
+	// "Connecting to Argo CD..." startup-spinner chars from earlier in
+	// the run, which would make this assertion pass even if pressing 'd'
+	// produced no spinner at all). The managed-resources mock above sleeps
+	// 150ms, so the diff-loading spinner has a window to render.
+	if !waitUntil(t, func() bool {
+		s := tf.Screen()
+		return strings.Contains(s, "Loading") ||
+			strings.Contains(s, "⠋") ||
+			strings.Contains(s, "⠙") ||
+			strings.Contains(s, "⠹") ||
+			strings.Contains(s, "⠸")
+	}, 500*time.Millisecond) {
+		t.Log(tf.Screen())
+		t.Fatal("loading spinner did not appear before managed-resources response arrived")
 	}
 }
 
@@ -522,12 +501,8 @@ func TestResourceDiff_ResourceNotInDiffList_ShowsNoDiff(t *testing.T) {
 		t.Fatal("tree view not loaded")
 	}
 
-	// Navigate to Pod
-	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-
-	// Press d to view diff
-	_ = tf.Send("d")
+	// Navigate to Pod and request diff (PTY preserves keystroke order).
+	_ = tf.Send("jd")
 
 	// Should show "No differences found" since resource isn't in managed-resources
 	if !tf.WaitForPlain("No differences found", 5*time.Second) {
@@ -648,12 +623,8 @@ func TestAppOfApps_ChildAppDiff_ShowsApplicationCRDiff(t *testing.T) {
 		t.Fatal("parent-app tree view not loaded")
 	}
 
-	// Navigate to child Application node (press j once from root)
-	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
-
-	// Press d to view diff of child Application CR
-	_ = tf.Send("d")
+	// Navigate to child Application node (j) and request diff (d).
+	_ = tf.Send("jd")
 
 	// Should open diff viewer with the Application CR targetRevision diff (not "No differences found")
 	if !tf.WaitForPlain("Mock less", 5*time.Second) {
@@ -665,9 +636,6 @@ func TestAppOfApps_ChildAppDiff_ShowsApplicationCRDiff(t *testing.T) {
 		t.Log(snapshot)
 		t.Fatal("mock less was not launched for Application CR diff")
 	}
-
-	// Wait for mock less to exit
-	time.Sleep(500 * time.Millisecond)
 
 	// Verify diff content contains the targetRevision change
 	diffContent, err := os.ReadFile(inputFile)

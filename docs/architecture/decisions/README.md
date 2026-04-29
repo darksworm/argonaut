@@ -25,6 +25,7 @@ ADRs are numbered sequentially with descriptive names:
 | [0002](./0002-api-timeout-strategy.md) | API Timeout Strategy | Accepted |
 | [0003](./0003-async-message-gating.md) | Async Message Gating (Epoch + Target) | Accepted |
 | [0004](./0004-app-identity.md) | App Identity Is `(Name, AppNamespace)` | Accepted |
+| [0005](./0005-reliable-fast-e2e-tests.md) | Reliable Fast E2E Tests | Accepted |
 
 ## Guidelines
 

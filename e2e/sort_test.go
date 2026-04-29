@@ -139,10 +139,8 @@ func TestSortCommand(t *testing.T) {
 	}
 
 	// Default sort is by name ascending - verify ascending indicator exists
-	time.Sleep(500 * time.Millisecond)
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▲") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("▲", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected ascending sort indicator (▲)")
 	}
 
@@ -154,10 +152,8 @@ func TestSortCommand(t *testing.T) {
 	_ = tf.Enter()
 
 	// Wait and verify sort indicator changes to descending
-	time.Sleep(500 * time.Millisecond)
-	snapshot = tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▼") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("▼", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected descending sort indicator (▼)")
 	}
 
@@ -169,10 +165,8 @@ func TestSortCommand(t *testing.T) {
 	_ = tf.Enter()
 
 	// Wait for sort to apply - should show ascending indicator
-	time.Sleep(500 * time.Millisecond)
-	snapshot = tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▲") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("▲", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected ascending sort indicator after sorting by sync")
 	}
 
@@ -184,16 +178,24 @@ func TestSortCommand(t *testing.T) {
 	_ = tf.Enter()
 
 	// Wait for sort to apply - should show descending indicator
-	time.Sleep(500 * time.Millisecond)
-	snapshot = tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▼") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("▼", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected descending sort indicator after sorting by health")
 	}
 }
 
-// TestSortRequiresDirection verifies that :sort requires both field and direction
-func TestSortRequiresDirection(t *testing.T) {
+// TestSortRequiresValidDirection verifies that submitting `:sort <field> <bogus>`
+// is rejected with an error status, and does not change the active sort.
+//
+// Earlier this test was named `TestSortRequiresDirection` and typed
+// `:sort name` *without* committing (Enter), then asserted the sort
+// indicator was unchanged after Escape — but Escape cancels any command,
+// so the assertion was equivalent to "Escape works". And submitting
+// `:sort name` + Enter doesn't fail either: the command-bar autocomplete
+// silently extends the input to `:sort name asc` before dispatching. So
+// we instead submit an invalid direction and assert the validation rejects
+// it with the expected status message and the sort indicator is unchanged.
+func TestSortRequiresValidDirection(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -216,7 +218,6 @@ func TestSortRequiresDirection(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Wait for app to load and navigate to apps
 	if !tf.WaitForPlain("cluster-a", 5*time.Second) {
 		t.Fatal("clusters not ready")
 	}
@@ -232,40 +233,27 @@ func TestSortRequiresDirection(t *testing.T) {
 		t.Fatal("apps not loaded")
 	}
 
-	// Default is name asc - should have ▲
-	time.Sleep(500 * time.Millisecond)
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▲") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("▲", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("expected ascending indicator initially")
 	}
 
-	// Try to sort without direction - should show autocomplete suggestions
+	// Submit a sort command with an invalid direction. Production behaviour:
+	// the command-bar validation rejects it with the "unknown command"
+	// indicator and leaves the active sort unchanged.
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatal(err)
 	}
-	_ = tf.Send("sort name")
+	_ = tf.Send("sort name backwards")
+	_ = tf.Enter()
 
-	// Wait a moment for autocomplete to render
-	time.Sleep(300 * time.Millisecond)
-	snapshot = tf.SnapshotPlain()
-
-	// Should show autocomplete suggestion for direction (asc or desc)
-	// The autocomplete should suggest "sort name asc" or similar
-	if !strings.Contains(snapshot, "asc") && !strings.Contains(snapshot, "desc") {
-		t.Log(snapshot)
-		t.Fatal("expected autocomplete to suggest direction (asc/desc)")
+	if !tf.WaitForPlain("unknown command", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("expected `unknown command` indicator for `:sort name backwards`")
 	}
-
-	// Press Escape to cancel and verify sort unchanged
-	_ = tf.Send("\x1b") // Escape
-	time.Sleep(300 * time.Millisecond)
-
-	// Sort should still be ascending (unchanged)
-	snapshot = tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "▲") {
-		t.Log(snapshot)
-		t.Fatal("expected ascending indicator to remain unchanged after cancelled incomplete command")
+	if !tf.WaitForScreen("▲", 1*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("expected ascending indicator to remain unchanged after rejected :sort")
 	}
 }
 
@@ -310,19 +298,8 @@ func TestSortInTreeView(t *testing.T) {
 		t.Fatal("clusters not ready")
 	}
 
-	// Navigate to apps view
-	if err := tf.OpenCommand(); err != nil {
-		t.Fatal(err)
-	}
-	_ = tf.Send("apps")
-	_ = tf.Enter()
-
-	if !tf.WaitForPlain("app-alpha", 5*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("apps not loaded")
-	}
-
-	// Open the resource tree for app-charlie
+	// Open the resource tree for app-charlie directly (the apps-view detour
+	// only matters if the test asserts something there).
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatal(err)
 	}
@@ -361,8 +338,17 @@ func TestSortInTreeView(t *testing.T) {
 	_ = tf.Send("sort health asc")
 	_ = tf.Enter()
 
-	time.Sleep(500 * time.Millisecond)
-	snap, pos := screenSnapshot()
+	var snap string
+	var pos func(string) int
+	if !waitUntil(t, func() bool {
+		snap, pos = screenSnapshot()
+		// Healthy/Degraded labels render with the sort applied — wait until the
+		// expected health-asc ordering holds (Degraded < Progressing < Healthy).
+		d, p, a, s := pos("broken-deploy"), pos("mid-cfg"), pos("alpha-svc"), pos("stable-svc")
+		return d >= 0 && p >= 0 && a >= 0 && s >= 0 && d < p && p < a && a < s
+	}, 2*time.Second) {
+		t.Fatalf("sort health asc: expected ordering not reached\nscreen:\n%s", snap)
+	}
 
 	degradedPos := pos("broken-deploy")
 	progressingPos := pos("mid-cfg")
@@ -396,8 +382,13 @@ func TestSortInTreeView(t *testing.T) {
 	_ = tf.Send("sort sync asc")
 	_ = tf.Enter()
 
-	time.Sleep(500 * time.Millisecond)
-	snap, pos = screenSnapshot()
+	if !waitUntil(t, func() bool {
+		snap, pos = screenSnapshot()
+		o, u, a, s := pos("broken-deploy"), pos("mid-cfg"), pos("alpha-svc"), pos("stable-svc")
+		return o >= 0 && u >= 0 && a >= 0 && s >= 0 && o < u && u < a && a < s
+	}, 2*time.Second) {
+		t.Fatalf("sort sync asc: expected ordering not reached\nscreen:\n%s", snap)
+	}
 
 	outOfSyncPos := pos("broken-deploy") // OutOfSync
 	unknownPos := pos("mid-cfg")         // Unknown
@@ -432,8 +423,13 @@ func TestSortInTreeView(t *testing.T) {
 	_ = tf.Send("sort health desc")
 	_ = tf.Enter()
 
-	time.Sleep(500 * time.Millisecond)
-	snap, pos = screenSnapshot()
+	if !waitUntil(t, func() bool {
+		snap, pos = screenSnapshot()
+		st, a, p, d := pos("stable-svc"), pos("alpha-svc"), pos("mid-cfg"), pos("broken-deploy")
+		return st >= 0 && a >= 0 && p >= 0 && d >= 0 && st < a && a < p && p < d
+	}, 2*time.Second) {
+		t.Fatalf("sort health desc: expected ordering not reached\nscreen:\n%s", snap)
+	}
 
 	stableDescPos := pos("stable-svc") // Healthy (desc name tiebreak: "stable" > "alpha" → first)
 	alphaDescPos := pos("alpha-svc")   // Healthy (second)
