@@ -6,8 +6,11 @@
 	argocd-git-daemon argocd-git-daemon-stop \
 	argocd-password argocd-login
 
-# Default parallelism for tests
-PARALLEL ?= 8
+# Default parallelism for tests. 16 matches the typical core count and
+# fully saturates the box for the e2e suite (~3.3s wall-clock). Higher
+# numbers risk port/process contention with mock servers. Override
+# via `make e2e PARALLEL=N`.
+PARALLEL ?= 16
 
 # k3d/ArgoCD defaults
 K3D_CLUSTER ?= argocd-demo

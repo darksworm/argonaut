@@ -4,6 +4,8 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"os"
+	"strconv"
 	"time"
 
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
@@ -20,10 +22,32 @@ type RetryConfig struct {
 	ShouldRetry  func(*apperrors.ArgonautError) bool `json:"-"`
 }
 
-// NetworkConfig is optimized for network operations
+// envInt reads a positive integer from env, falling back to def.
+func envInt(name string, def int) int {
+	if v := os.Getenv(name); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return def
+}
+
+// envDuration reads a duration from env (e.g. "50ms"), falling back to def.
+func envDuration(name string, def time.Duration) time.Duration {
+	if v := os.Getenv(name); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return def
+}
+
+// NetworkConfig is optimized for network operations.
+// MaxAttempts and InitialDelay are overridable via
+// ARGONAUT_RETRY_MAX_ATTEMPTS / ARGONAUT_RETRY_INITIAL_DELAY for tests.
 var NetworkConfig = RetryConfig{
-	MaxAttempts:  5,
-	InitialDelay: 500 * time.Millisecond,
+	MaxAttempts:  envInt("ARGONAUT_RETRY_MAX_ATTEMPTS", 5),
+	InitialDelay: envDuration("ARGONAUT_RETRY_INITIAL_DELAY", 500*time.Millisecond),
 	MaxDelay:     10 * time.Second,
 	Multiplier:   1.5,
 	Jitter:       true,

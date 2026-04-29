@@ -73,9 +73,6 @@ func TestMouseSelection(t *testing.T) {
 		t.Fatalf("mouse drag: %v", err)
 	}
 
-	// Wait a bit for the copy to happen
-	time.Sleep(200 * time.Millisecond)
-
 	// Check that "Copied!" appears in status
 	if !tf.WaitForScreen("Copied!", 2*time.Second) {
 		t.Logf("Note: 'Copied!' message may have already disappeared")
@@ -103,7 +100,19 @@ func TestMouseSelection(t *testing.T) {
 	}
 }
 
-// TestMouseSelectionClearsOnEscape tests that Escape clears the selection.
+// TestMouseSelectionClearsOnEscape tests that Escape clears an in-flight
+// selection: a drag-then-release that would normally produce a clipboard
+// write must not produce one when Escape is pressed before release.
+//
+// Two-phase strategy: first do a drag *without* Escape and verify the
+// clipboard file received content (positive control — proves the copy
+// path works). Then do a drag *with* Escape and verify the clipboard file
+// did NOT receive new content. Without the positive control, the
+// "no copy" assertion passes whenever the copy path is globally broken,
+// which makes the test a poor regression detector.
+//
+// The test relies on the e2e framework's mock copy_command (`tee
+// $WORKSPACE/clipboard.txt`) to make the clipboard write observable.
 func TestMouseSelectionClearsOnEscape(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
@@ -120,45 +129,50 @@ func TestMouseSelectionClearsOnEscape(t *testing.T) {
 		t.Fatalf("workspace: %v", err)
 	}
 	WriteArgoConfig(cfgPath, srv.URL)
+	clipboardFile := filepath.Join(tf.Workspace(), "clipboard.txt")
 
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// Wait for UI to be ready and data to load (cluster-a appears on screen)
 	if !tf.WaitForPlain("cluster-a", 10*time.Second) {
 		t.Fatalf("timeout waiting for cluster-a to appear\nScreen:\n%s", tf.Screen())
 	}
 
-	// Start a selection but don't release - just click
+	// --- Positive control: drag without Escape must populate the clipboard.
+	if err := tf.MouseDrag(10, 5, 20, 5); err != nil {
+		t.Fatalf("control drag: %v", err)
+	}
+	if !waitUntil(t, func() bool {
+		b, err := os.ReadFile(clipboardFile)
+		return err == nil && len(b) > 0
+	}, 2*time.Second) {
+		t.Fatalf("control drag did not write to clipboard — copy path broken or selection logic regressed:\n%s", tf.Screen())
+	}
+	controlBytes, _ := os.ReadFile(clipboardFile)
+
+	// --- Real assertion: drag, Escape mid-drag, release. Clipboard file
+	// must remain unchanged.
 	if err := tf.MouseClick(0, 10, 5); err != nil {
 		t.Fatalf("mouse click: %v", err)
 	}
-	time.Sleep(50 * time.Millisecond)
-
-	// Move mouse to create selection
+	time.Sleep(25 * time.Millisecond)
 	if err := tf.MouseMotion(0, 20, 5); err != nil {
 		t.Fatalf("mouse motion: %v", err)
 	}
-	time.Sleep(50 * time.Millisecond)
-
-	// Press Escape to clear selection (without releasing mouse first)
-	// This simulates user pressing Escape while dragging
+	time.Sleep(25 * time.Millisecond)
 	if err := tf.Escape(); err != nil {
 		t.Fatalf("escape: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
-
-	// Now release - should not copy since selection was cleared
+	time.Sleep(50 * time.Millisecond)
 	if err := tf.MouseRelease(0, 20, 5); err != nil {
 		t.Fatalf("mouse release: %v", err)
 	}
 
-	// "Copied!" should NOT appear since selection was cleared
-	time.Sleep(200 * time.Millisecond)
-	screen := tf.Screen()
-	if strings.Contains(screen, "Copied!") {
-		t.Errorf("expected 'Copied!' to NOT appear after Escape cleared selection")
+	time.Sleep(150 * time.Millisecond)
+	finalBytes, _ := os.ReadFile(clipboardFile)
+	if string(finalBytes) != string(controlBytes) {
+		t.Errorf("clipboard was overwritten after Escape cleared the selection:\n  before escape: %q\n  after escape:  %q", controlBytes, finalBytes)
 	}
 }
 
@@ -193,17 +207,15 @@ func TestMouseSelectionMultiLine(t *testing.T) {
 		t.Fatalf("timeout waiting for cluster-a to appear\nScreen:\n%s", tf.Screen())
 	}
 
-	// Select cluster and navigate to apps view
-	tf.Enter()
-	// Wait for app-01 to appear (navigating through namespaces/projects if needed)
+	// Jump straight to the apps view via :apps — much faster than drilling
+	// through clusters → namespaces → projects with Enter.
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
 	if !tf.WaitForPlain("app-01", 5*time.Second) {
-		tf.Enter()
-		if !tf.WaitForPlain("app-01", 3*time.Second) {
-			tf.Enter()
-			if !tf.WaitForPlain("app-01", 3*time.Second) {
-				t.Fatalf("could not navigate to apps view with app-01\nScreen:\n%s", tf.Screen())
-			}
-		}
+		t.Fatalf("could not reach apps view with app-01\nScreen:\n%s", tf.Screen())
 	}
 
 	// Find app-01 on screen to make selection more precise
@@ -227,12 +239,18 @@ func TestMouseSelectionMultiLine(t *testing.T) {
 		t.Fatalf("mouse drag: %v", err)
 	}
 
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify clipboard content by reading the mock clipboard file
-	clipboardBytes, err := os.ReadFile(clipboardFile)
-	if err != nil {
-		t.Fatalf("failed to read clipboard file: %v", err)
+	// Poll for the clipboard file to appear with content (app processes the
+	// release asynchronously, but typically within a few ms).
+	var clipboardBytes []byte
+	if !waitUntil(t, func() bool {
+		b, err := os.ReadFile(clipboardFile)
+		if err != nil || len(b) == 0 {
+			return false
+		}
+		clipboardBytes = b
+		return true
+	}, 2*time.Second) {
+		t.Fatalf("clipboard file empty after multi-line selection")
 	}
 	clipboardContent := string(clipboardBytes)
 	t.Logf("Multi-line clipboard content: %q", clipboardContent)

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -75,9 +76,17 @@ func TestDefaultViewWithScope(t *testing.T) {
 		t.Fatalf("start app: %v", err)
 	}
 
-	// In namespaces view scoped to cluster-a, we should see "default" namespace
-	if !tf.WaitForPlain("default", 5*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("expected 'default' namespace in namespaces view scoped to cluster-a")
+	// In namespaces view scoped to cluster-a, we should see "default"
+	// namespace. Assert on the `<namespaces>` breadcrumb — the substring
+	// "default" appears in the REST JSON payload regardless of view, so
+	// `WaitForPlain("default", ...)` would pass even when `default_view`
+	// is ignored entirely.
+	if !tf.WaitForScreen("<namespaces>", 5*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("expected `<namespaces>` breadcrumb when default_view scopes to a cluster")
+	}
+	if !strings.Contains(tf.Screen(), "default") {
+		t.Log(tf.Screen())
+		t.Fatal("expected `default` namespace row in the namespaces view")
 	}
 }

@@ -114,19 +114,12 @@ func TestThemeCommand_NavigateAndSelect(t *testing.T) {
 		// Don't fail - different themes might be default in different setups
 	}
 
-	// Navigate down and select a theme
+	// Navigate down and verify selection moved before committing it.
 	_ = tf.Send("j") // Move down to second theme
-	time.Sleep(200 * time.Millisecond)
-	_ = tf.Enter() // Press Enter to select
-
-	// Check that theme navigation works by ensuring selection moved
-	time.Sleep(1 * time.Second)
-	screen = tf.SnapshotPlain()
-
-	// Verify that selection moved to the next theme (tokyo-storm)
-	if !strings.Contains(screen, "► tokyo-storm") {
-		t.Fatalf("Expected theme selection to move to tokyo-storm after pressing j, but got: %s", screen)
+	if !tf.WaitForPlain("► tokyo-storm", 2*time.Second) {
+		t.Fatalf("Expected theme selection to move to tokyo-storm after pressing j, but got: %s", tf.SnapshotPlain())
 	}
+	_ = tf.Enter() // Press Enter to commit (closes modal)
 
 	// Note: Modal closing functionality works in real app but cannot be reliably tested in PTY environment
 	// The user confirmed that 'q' and escape work correctly to close the modal in actual usage
@@ -177,12 +170,10 @@ func TestThemeCommand_CancelRestoresOriginal(t *testing.T) {
 
 	// Navigate down to change selection
 	_ = tf.Send("j") // Move down to second theme
-	time.Sleep(200 * time.Millisecond)
 
 	// Verify navigation worked (selection moved to tokyo-storm)
-	screen := tf.SnapshotPlain()
-	if !strings.Contains(screen, "► tokyo-storm") {
-		t.Fatalf("Expected theme selection to move to tokyo-storm after pressing j, but got: %s", screen)
+	if !tf.WaitForPlain("► tokyo-storm", 2*time.Second) {
+		t.Fatalf("Expected theme selection to move to tokyo-storm after pressing j, but got: %s", tf.SnapshotPlain())
 	}
 
 	// Note: Modal closing functionality works in real app but cannot be reliably tested in PTY environment

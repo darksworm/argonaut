@@ -82,8 +82,33 @@ type watchStartedMsg struct {
 	startSequenceNum int
 }
 
-// watchScopeDebounceMsg is sent after 500ms to trigger a scoped watch restart.
-// The version field prevents stale debounce ticks from restarting the watch.
+// watchScopeDebounce is the delay before a scoped watch restart fires after a
+// scope change. Overridable via ARGONAUT_WATCH_SCOPE_DEBOUNCE for tests.
+var watchScopeDebounce = func() time.Duration {
+	if v := os.Getenv("ARGONAUT_WATCH_SCOPE_DEBOUNCE"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return 500 * time.Millisecond
+}()
+
+// watchBatchDrain is the maximum time the watch-event consumer batches
+// updates before flushing to the UI. Larger values reduce render churn for
+// busy streams; smaller values shorten time-to-first-render. Overridable
+// via ARGONAUT_WATCH_BATCH_DRAIN for tests.
+var watchBatchDrain = func() time.Duration {
+	if v := os.Getenv("ARGONAUT_WATCH_BATCH_DRAIN"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return 500 * time.Millisecond
+}()
+
+// watchScopeDebounceMsg is sent after watchScopeDebounce to trigger a scoped
+// watch restart. The version field prevents stale debounce ticks from
+// restarting the watch.
 type watchScopeDebounceMsg struct {
 	version int
 }
@@ -312,8 +337,9 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 			operations = append(operations, op)
 		}
 
-		// Drain for up to 500ms
-		timer := time.NewTimer(500 * time.Millisecond)
+		// Drain for up to watchBatchDrain (default 500ms; overridable via
+		// ARGONAUT_WATCH_BATCH_DRAIN for tests).
+		timer := time.NewTimer(watchBatchDrain)
 		defer timer.Stop()
 
 		var immediate tea.Msg
@@ -373,7 +399,7 @@ func (m *Model) maybeRestartWatchForScope() tea.Cmd {
 		"new", newProjects)
 	m.scopeVersion++
 	version := m.scopeVersion
-	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(watchScopeDebounce, func(t time.Time) tea.Msg {
 		return watchScopeDebounceMsg{version: version}
 	})
 }
