@@ -1,0 +1,146 @@
+name: goreleaser
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag to build and upload assets for"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)build and upload assets for, e.g. v2.17.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release as pre-release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const tag = '${{ inputs.tag }}';
+
+            console.log(`Marking release ${tag} as pre-release...`);
+
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag
+            });
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              prerelease: true
+            });
+
+            console.log(`Release ${tag} marked as pre-release until GoReleaser completes`);
+            console.log(`Release URL: ${release.html_url}`);
+
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          # Fetch recent tags for GoReleaser changelog generation
+          fetch-depth: 100
+          ref: ${{ inputs.tag }}
+
+      - name: Fetch tags for GoReleaser
+        run: git fetch --tags --force
+
+      - name: Setup Git identity
+        run: |
+          git config --global user.name "goreleaser"
+          git config --global user.email "bot@goreleaser.com"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: Setup SSH key for AUR
+        if: env.AUR_SSH_PRIVATE_KEY != ''
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+      - name: Import GPG key
+        if: env.GPG_PRIVATE_KEY != ''
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PRIVATE_KEY_PASSPHRASE }}
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: nightly
+          args: release --config .goreleaser.release.yml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}          # must have repo:status, repo:write
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }} # PAT with write on tap repo
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
+          TAG: ${{ inputs.tag }}
+
+      - name: Upload GoReleaser artifacts for npm publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-dist-release
+          path: dist/
+          retention-days: 1
+
+      - name: Mark release as final
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const tag = '${{ inputs.tag }}';
+
+            console.log(`Marking release ${tag} as final release...`);
+
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag
+            });
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              prerelease: false
+            });
+
+            console.log(`Release ${tag} marked as final release`);
+            console.log(`Release URL: ${release.html_url}`);
