@@ -97,7 +97,8 @@ homebrew_casks:
         argonaut --help
 
 release:
-  draft: false
+  # Keep as draft; the workflow publishes after assets upload successfully.
+  draft: true
   prerelease: auto
   name_template: "{{ .Tag }}"
 

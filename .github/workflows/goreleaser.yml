@@ -23,32 +23,6 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - name: Mark release as pre-release
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          script: |
-            const { owner, repo } = context.repo;
-            const tag = '${{ inputs.tag }}';
-
-            console.log(`Marking release ${tag} as pre-release...`);
-
-            const { data: release } = await github.rest.repos.getReleaseByTag({
-              owner,
-              repo,
-              tag
-            });
-
-            await github.rest.repos.updateRelease({
-              owner,
-              repo,
-              release_id: release.id,
-              prerelease: true
-            });
-
-            console.log(`Release ${tag} marked as pre-release until GoReleaser completes`);
-            console.log(`Release URL: ${release.html_url}`);
-
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
@@ -119,7 +93,7 @@ jobs:
           path: dist/
           retention-days: 1
 
-      - name: Mark release as final
+      - name: Publish release
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
@@ -127,20 +101,22 @@ jobs:
             const { owner, repo } = context.repo;
             const tag = '${{ inputs.tag }}';
 
-            console.log(`Marking release ${tag} as final release...`);
-
-            const { data: release } = await github.rest.repos.getReleaseByTag({
-              owner,
-              repo,
-              tag
-            });
+            // getReleaseByTag does not return drafts, so list and match.
+            const releases = await github.paginate(
+              github.rest.repos.listReleases,
+              { owner, repo, per_page: 100 }
+            );
+            const release = releases.find(r => r.tag_name === tag);
+            if (!release) {
+              throw new Error(`No release found for tag ${tag}`);
+            }
 
             await github.rest.repos.updateRelease({
               owner,
               repo,
               release_id: release.id,
+              draft: false,
               prerelease: false
             });
 
-            console.log(`Release ${tag} marked as final release`);
-            console.log(`Release URL: ${release.html_url}`);
+            console.log(`Published ${tag}: ${release.html_url}`);
