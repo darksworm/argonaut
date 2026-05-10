@@ -21,6 +21,10 @@ func (m *Model) cleanupTreeWatchers() *Model {
 		}
 	}
 	m.treeWatchCleanups = nil
+	if m.treeStreamDone != nil {
+		close(m.treeStreamDone)
+		m.treeStreamDone = make(chan struct{})
+	}
 	return m
 }
 
