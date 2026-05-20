@@ -90,6 +90,7 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		inPager:            false,
 		treeView:           treeview.NewTreeView(0, 0),
 		treeStream:         make(chan model.ResourceTreeStreamMsg, 64),
+		treeStreamDone:     make(chan struct{}),
 		listNav:            listnav.New(),
 		treeNav:            listnav.New(),
 		themeNav:           listnav.New(),
@@ -203,11 +204,13 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) validateAuthentication() tea.Cmd {
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch           // capture at call time
+	server := m.state.Server         // capture at call time
+	currentMode := m.state.Mode      // capture at call time
 	return func() tea.Msg {
-		if m.state.Server == nil {
+		if server == nil {
 			// Check if we're already in core detected mode (set during config loading)
-			if m.state.Mode == model.ModeCoreDetected {
+			if currentMode == model.ModeCoreDetected {
 				return model.AuthValidationResultMsg{Mode: model.ModeCoreDetected, SwitchEpoch: epoch}
 			}
 			cblog.With("component", "auth").Info("No server configured - showing auth required")
@@ -215,7 +218,7 @@ func (m *Model) validateAuthentication() tea.Cmd {
 		}
 
 		// Create API service to validate authentication
-		appService := api.NewApplicationService(m.state.Server)
+		appService := api.NewApplicationService(server)
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 

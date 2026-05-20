@@ -6,6 +6,21 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
+func TestRollbackBottomNavigation_EmptyRows_DoesNotSetNegativeIndex(t *testing.T) {
+	m := buildSyncTestModel(100, 30)
+	m.state.Rollback = &model.RollbackState{
+		Rows:        []model.RollbackRow{},
+		SelectedIdx: 0,
+	}
+
+	newModel, _ := m.Update(model.RollbackNavigationMsg{Direction: "bottom"})
+	m = newModel.(*Model)
+
+	if m.state.Rollback.SelectedIdx < 0 {
+		t.Fatalf("expected SelectedIdx >= 0 with empty Rows, got %d", m.state.Rollback.SelectedIdx)
+	}
+}
+
 func TestHandleRollback_CapturesAppNamespaceFromCursor(t *testing.T) {
 	m := buildSyncTestModel(100, 30)
 
