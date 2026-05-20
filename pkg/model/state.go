@@ -24,6 +24,11 @@ type NavigationState struct {
 	LastEscPressed int64        `json:"lastEscPressed"`
 	LastZPressed   int64        `json:"lastZPressed"`
 	TreeApp        *TreeAppInfo `json:"treeApp,omitempty"`
+	// SavedSearchQuery / SavedActiveFilter only apply to entries stored on
+	// AppState.SavedNavigation — they capture the UI filter state at the
+	// moment we drilled into a child view, so Escape can restore it.
+	SavedSearchQuery  string `json:"savedSearchQuery,omitempty"`
+	SavedActiveFilter string `json:"savedActiveFilter,omitempty"`
 }
 
 // SelectionState holds selection-related state using map[string]bool for sets
@@ -240,12 +245,14 @@ type DiffState struct {
 // Used before navigating into a child view so Escape can pop back.
 func (s *AppState) SaveNavigationState() {
 	s.SavedNavigation = append(s.SavedNavigation, NavigationState{
-		View:             s.Navigation.View,
-		SelectedIdx:      s.Navigation.SelectedIdx,
-		LastGPressed:     s.Navigation.LastGPressed,
-		LastEscPressed:   s.Navigation.LastEscPressed,
-		LastZPressed:     s.Navigation.LastZPressed,
-		TreeApp: s.UI.TreeApp,
+		View:              s.Navigation.View,
+		SelectedIdx:       s.Navigation.SelectedIdx,
+		LastGPressed:      s.Navigation.LastGPressed,
+		LastEscPressed:    s.Navigation.LastEscPressed,
+		LastZPressed:      s.Navigation.LastZPressed,
+		TreeApp:           s.UI.TreeApp,
+		SavedSearchQuery:  s.UI.SearchQuery,
+		SavedActiveFilter: s.UI.ActiveFilter,
 	})
 	s.SavedSelections = &SelectionState{
 		ScopeClusters:        copyStringSet(s.Selections.ScopeClusters),
