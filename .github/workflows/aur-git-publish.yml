@@ -1,0 +1,65 @@
+name: aur-git-publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: aur-git-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.repository == 'darksworm/argonaut'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute pkgver
+        id: ver
+        run: |
+          set -euo pipefail
+          # Match the pkgver() logic in packaging/aur/argonaut-git/PKGBUILD:
+          # v2.17.0-3-gabc1234 -> 2.17.0.r3.gabc1234
+          if pkgver=$(git describe --long --tags --abbrev=7 2>/dev/null); then
+            pkgver=$(echo "$pkgver" | sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g')
+          else
+            pkgver="r$(git rev-list --count HEAD).$(git rev-parse --short=7 HEAD)"
+          fi
+          echo "pkgver=$pkgver" >> "$GITHUB_OUTPUT"
+          echo "Computed pkgver: $pkgver"
+
+      - name: Render PKGBUILD with concrete pkgver
+        run: |
+          set -euo pipefail
+          mkdir -p dist/aur
+          # Inject the computed pkgver as a static value so AUR helpers detect
+          # updates without rebuilding. The dynamic pkgver() function is retained
+          # so the package still works for users building straight from AUR.
+          sed -E 's/^pkgver=.*/pkgver=${{ steps.ver.outputs.pkgver }}/' \
+            packaging/aur/argonaut-git/PKGBUILD > dist/aur/PKGBUILD
+          echo "--- rendered PKGBUILD ---"
+          cat dist/aur/PKGBUILD
+
+      - name: Publish to AUR
+        if: env.AUR_SSH_PRIVATE_KEY != ''
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: argonaut-git
+          pkgbuild: dist/aur/PKGBUILD
+          commit_username: goreleaser
+          commit_email: bot@goreleaser.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "upgpkg: argonaut-git ${{ steps.ver.outputs.pkgver }}-1"
+          updpkgsums: false
+          test: false
+          force_push: false
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
