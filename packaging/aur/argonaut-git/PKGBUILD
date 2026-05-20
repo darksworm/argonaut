@@ -26,8 +26,7 @@ build() {
     cd "${_pkgname}"
     export CGO_ENABLED=0
     export GOFLAGS="-trimpath -mod=readonly -modcacherw"
-    export LDFLAGS="${LDFLAGS} -s -w -X main.appVersion=${pkgver}"
-    go build -ldflags "${LDFLAGS}" -o "${_pkgname}" ./cmd/app
+    go build -ldflags "-s -w -X main.appVersion=${pkgver}" -o "${_pkgname}" ./cmd/app
 }
 
 package() {
