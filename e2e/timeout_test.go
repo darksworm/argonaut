@@ -46,20 +46,61 @@ func MockArgoServerSlow(appDelay time.Duration) (*httptest.Server, error) {
 
 // TestConfiguredTimeoutRespected verifies that request_timeout config
 // actually controls the API call deadline. A slow server that responds
-// after 3s should:
-// - Time out when request_timeout = "1s"
-// - Succeed when request_timeout = "5s"
+// after 250ms should:
+// - Time out when request_timeout = "50ms"
+// - Succeed when request_timeout = "1s"
 func TestConfiguredTimeoutRespected(t *testing.T) {
 	t.Parallel()
 
-	// Server takes 3s to respond to /api/v1/applications
-	srv, err := MockArgoServerSlow(3 * time.Second)
+	// Server takes 250ms to respond to /api/v1/applications — long enough
+	// to be cleanly distinguishable from a 50ms timeout, short enough that
+	// the "sufficient timeout" subtest doesn't drag the suite.
+	srv, err := MockArgoServerSlow(250 * time.Millisecond)
 	if err != nil {
 		t.Fatalf("mock server: %v", err)
 	}
 	t.Cleanup(srv.Close)
 
 	t.Run("short timeout causes error", func(t *testing.T) {
+		t.Parallel()
+		tf := NewTUITest(t)
+		t.Cleanup(tf.Cleanup)
+		tf.requestTimeout = "50ms"
+
+		cfgPath, err := tf.SetupWorkspace()
+		if err != nil {
+			t.Fatalf("setup workspace: %v", err)
+		}
+		if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+
+		if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+			t.Fatalf("start app: %v", err)
+		}
+
+		// With 50ms timeout and 250ms server delay, should see a
+		// timeout/error.
+		if !tf.WaitForPlain("timed out", 3*time.Second) {
+			snap := tf.SnapshotPlain()
+			// Also accept connection-related errors since the timeout might
+			// manifest as different error types depending on timing
+			if !strings.Contains(snap, "Error") && !strings.Contains(snap, "error") {
+				t.Log("Snapshot:", snap)
+				t.Fatal("expected timeout error with 50ms request_timeout and 250ms server delay")
+			}
+		}
+
+		// Verify the error message shows the actual configured timeout
+		// (50ms), not a hardcoded value.
+		snap := tf.SnapshotPlain()
+		if strings.Contains(snap, "after 10s") || strings.Contains(snap, "after 5s") {
+			t.Log("Snapshot:", snap)
+			t.Fatal("error message shows hardcoded timeout instead of configured 50ms")
+		}
+	})
+
+	t.Run("sufficient timeout loads apps", func(t *testing.T) {
 		t.Parallel()
 		tf := NewTUITest(t)
 		t.Cleanup(tf.Cleanup)
@@ -77,49 +118,13 @@ func TestConfiguredTimeoutRespected(t *testing.T) {
 			t.Fatalf("start app: %v", err)
 		}
 
-		// With 1s timeout and 3s server delay, should see a timeout/error
-		if !tf.WaitForPlain("timed out", 6*time.Second) {
-			snap := tf.SnapshotPlain()
-			// Also accept connection-related errors since the timeout might
-			// manifest as different error types depending on timing
-			if !strings.Contains(snap, "Error") && !strings.Contains(snap, "error") {
-				t.Log("Snapshot:", snap)
-				t.Fatal("expected timeout error with 1s request_timeout and 3s server delay")
-			}
-		}
-
-		// Verify the error message shows the actual configured timeout (1s), not a hardcoded value
-		snap := tf.SnapshotPlain()
-		if strings.Contains(snap, "after 10s") || strings.Contains(snap, "after 5s") {
-			t.Log("Snapshot:", snap)
-			t.Fatal("error message shows hardcoded timeout instead of configured 1s")
-		}
-	})
-
-	t.Run("sufficient timeout loads apps", func(t *testing.T) {
-		t.Parallel()
-		tf := NewTUITest(t)
-		t.Cleanup(tf.Cleanup)
-		tf.requestTimeout = "5s"
-
-		cfgPath, err := tf.SetupWorkspace()
-		if err != nil {
-			t.Fatalf("setup workspace: %v", err)
-		}
-		if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
-			t.Fatalf("write config: %v", err)
-		}
-
-		if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
-			t.Fatalf("start app: %v", err)
-		}
-
-		// With 5s timeout and 3s server delay, app should load successfully.
-		// Default view is clusters, so look for the cluster name from app data.
-		if !tf.WaitForPlain("cluster-a", 8*time.Second) {
+		// With 1s timeout and 250ms server delay, app should load
+		// successfully. Default view is clusters, so look for the cluster
+		// name from app data.
+		if !tf.WaitForPlain("cluster-a", 3*time.Second) {
 			snap := tf.SnapshotPlain()
 			t.Log("Snapshot:", snap)
-			t.Fatal("expected apps to load with 5s timeout")
+			t.Fatal("expected apps to load with 1s timeout")
 		}
 	})
 }

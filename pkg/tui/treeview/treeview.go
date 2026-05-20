@@ -583,7 +583,7 @@ func (v *TreeView) Render() string {
 			ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(prefix + disc)
 			ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(flashBG).Render(n.kind)
 			ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(flashBG).Render("[" + name + "]")
-			st := v.renderStatusPartWithBG(n, flashBG)
+			st := v.renderStatusPartNeutralBG(n, flashBG)
 			sp := bgStyle.Render(" ")
 			line = ps + ks + sp + ns + sp + st
 			line = padRightWithBG(line, v.innerWidth(), flashBG)
@@ -600,10 +600,16 @@ func (v *TreeView) Render() string {
 				bgStyle := lipgloss.NewStyle().Background(rowBG)
 				// Prefix rendered WITHOUT background (will be dimmed by desaturateANSI)
 				ps := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
-				// Only resource text (kind, name, status) gets background
+				// Only resource text (kind, name, status) gets background.
+				// In desaturate mode the row's status uses the neutral
+				// text color rather than status hues — otherwise the
+				// green/red fg survives our outer per-segment preserve
+				// logic (the bg keeps the segment, but the saturated fg
+				// rides along) and "(Healthy)" / "(OutOfSync)" stay
+				// brightly colored under a popup.
 				ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
 				ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
-				st := v.renderStatusPartWithBG(n, rowBG)
+				st := v.renderStatusPartNeutralBG(n, rowBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
 				// NO padRightWithBG - don't extend highlight to full width
@@ -632,7 +638,11 @@ func (v *TreeView) Render() string {
 				ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(prefix + disc)
 				ks := lipgloss.NewStyle().Foreground(v.palette.Text).Background(rowBG).Render(n.kind)
 				ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(rowBG).Render("[" + name + "]")
-				st := v.renderStatusPartWithBG(n, rowBG)
+				// Use the inverted/neutral fg for status too. The
+				// natural status hue (e.g. yellow for Suspended) can
+				// blend into rowBG and make the text disappear when
+				// the row is hovered/selected.
+				st := v.renderStatusPartNeutralBG(n, rowBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
 				line = padRightWithBG(line, v.innerWidth(), rowBG)
@@ -647,7 +657,7 @@ func (v *TreeView) Render() string {
 				ps := lipgloss.NewStyle().Foreground(v.palette.Text).Background(matchBG).Render(prefix + disc)
 				ks := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render(n.kind)
 				ns := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(matchBG).Render("[" + name + "]")
-				st := v.renderStatusPartWithBG(n, matchBG)
+				st := v.renderStatusPartNeutralBG(n, matchBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
 				line = padRightWithBG(line, v.innerWidth(), matchBG)
@@ -699,26 +709,27 @@ func (v *TreeView) renderStatusPart(n *treeNode) string {
 	return ""
 }
 
-// renderStatusPartWithBG returns styled status string with a background color
-func (v *TreeView) renderStatusPartWithBG(n *treeNode, bg color.Color) string {
+// renderStatusPartNeutralBG renders the status with a contrasting,
+// non-status-hue foreground over the given background. Used when the
+// row already conveys highlight via bg — keeping the status fg in its
+// natural green/red/yellow either makes the text unreadable against
+// the highlight bg, or (under a desaturating modal overlay) leaves a
+// saturated patch that survives outer dimming. Mirrors the contrast
+// treatment used for the "[name]" portion of selected rows.
+func (v *TreeView) renderStatusPartNeutralBG(n *treeNode, bg color.Color) string {
 	health := n.health
 	sync := n.status
 
-	bgStyle := lipgloss.NewStyle().Background(bg)
+	textStyle := lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(bg)
 
-	// Both present and different: show both
 	if health != "" && sync != "" && !strings.EqualFold(health, sync) {
-		healthStyled := v.statusStyle(health).Background(bg).Render(health)
-		syncStyled := v.statusStyle(sync).Background(bg).Render(sync)
-		return bgStyle.Render("(") + healthStyled + bgStyle.Render(", ") + syncStyled + bgStyle.Render(")")
+		return textStyle.Render(fmt.Sprintf("(%s, %s)", health, sync))
 	}
-	// Only health present (or both same)
 	if health != "" {
-		return bgStyle.Render("(") + v.statusStyle(health).Background(bg).Render(health) + bgStyle.Render(")")
+		return textStyle.Render(fmt.Sprintf("(%s)", health))
 	}
-	// Only sync present
 	if sync != "" {
-		return bgStyle.Render("(") + v.statusStyle(sync).Background(bg).Render(sync) + bgStyle.Render(")")
+		return textStyle.Render(fmt.Sprintf("(%s)", sync))
 	}
 	return ""
 }

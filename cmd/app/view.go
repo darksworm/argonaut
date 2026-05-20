@@ -409,24 +409,119 @@ func normalizeLinesToWidth(s string, width int) string {
 // ANSI escape sequence regex for colors/styles
 var ansiRE = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
-// Regex to detect background color codes in ANSI sequences
-// Matches: 4X (basic bg), 10X (bright bg), 48;5;X (256-color bg), 48;2;R;G;B (truecolor bg)
+// Regex to detect background color codes in ANSI sequences. Used by
+// tests; the runtime path in segmentHasBgColor parses SGR parameters
+// properly to avoid false positives where a trailing truecolor-fg
+// blue byte (e.g. ";106m" in `\x1b[38;2;158;206;106m`) accidentally
+// looks like the bright-bg pattern `10[0-7]m`.
 var bgColorRE = regexp.MustCompile("\x1b\\[(?:[0-9;]*;)?(?:4[0-7]|10[0-7]|48;[25];[0-9;]+)m")
 
-// desaturateANSI strips ANSI color/style codes and recolors text.
-// Lines with background colors are preserved as-is (they represent selected items).
-// Other lines are dimmed.
-func desaturateANSI(s string) string {
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		if bgColorRE.MatchString(line) {
-			// Line has background color - preserve it as-is (selected item)
-			// Don't modify - keep the original styling from tree view
+// segmentHasBgColor reports whether the given styled segment contains
+// any SGR sequence that sets a background color. It walks the SGR
+// parameter list properly (instead of regex-matching the raw byte
+// stream) so a truecolor foreground like 38;2;R;G;B isn't confused
+// with a bright-bg byte just because B happens to fall in 100-107.
+//
+// Recognised bg forms:
+//   - 40-47       basic bg
+//   - 100-107     bright bg
+//   - 48;5;N      256-color bg
+//   - 48;2;R;G;B  truecolor bg
+//
+// 38-prefixed (fg) sequences and any other params are skipped over,
+// including their parameter tails (38;5;N consumes 3 params,
+// 38;2;R;G;B consumes 5).
+func segmentHasBgColor(seg string) bool {
+	sgrs := ansiRE.FindAllString(seg, -1)
+	for _, sgr := range sgrs {
+		inner := sgr
+		if strings.HasPrefix(inner, "\x1b[") {
+			inner = inner[2:]
+		}
+		if strings.HasSuffix(inner, "m") {
+			inner = inner[:len(inner)-1]
+		}
+		if inner == "" {
 			continue
 		}
-		// Regular line - dim it
-		plain := ansiRE.ReplaceAllString(line, "")
-		lines[i] = lipgloss.NewStyle().Foreground(dimColor).Render(plain)
+		params := strings.Split(inner, ";")
+		for i := 0; i < len(params); i++ {
+			p := params[i]
+			switch {
+			case len(p) == 2 && p[0] == '4' && p[1] >= '0' && p[1] <= '7':
+				return true
+			case len(p) == 3 && p[0] == '1' && p[1] == '0' && p[2] >= '0' && p[2] <= '7':
+				return true
+			case p == "48":
+				return true
+			case p == "38":
+				// Skip the fg payload so its bytes can't be
+				// misread as a bg code.
+				if i+1 < len(params) {
+					switch params[i+1] {
+					case "5":
+						i += 2 // 38;5;N
+					case "2":
+						i += 4 // 38;2;R;G;B
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// Matches an SGR reset: both `\x1b[0m` and the shorthand `\x1b[m`
+// (lipgloss emits the shorthand). Used by desaturateANSI to split a
+// styled line into segments.
+var resetRE = regexp.MustCompile("\x1b\\[0?m")
+
+// desaturateANSI strips foreground colors from a styled string so a
+// popup overlay can sit cleanly on top of a dimmed base. Lines are
+// processed per-ANSI-segment (split on SGR reset) so a single styled
+// span on a line doesn't cause the whole line to be skipped.
+//
+// For each segment:
+//   - If the segment carries a background color, the styled run is kept
+//     intact (bg + original fg). Bg-styled runs are deliberate UI
+//     elements — selection highlights, the ":upgrade" token in the
+//     status bar, the "Argonaut dev" badge — and dimming their fg
+//     would either bleed the bg across nearby unstyled text or change
+//     the badge's contrast. Saturated status hues that ride alongside
+//     a selection bg are addressed at the source (see
+//     renderStatusPartNeutralBG in pkg/tui/treeview).
+//   - Segments without a bg are stripped of all ANSI and re-rendered
+//     with the dim foreground.
+func desaturateANSI(s string) string {
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if !strings.Contains(line, "\x1b") {
+			lines[i] = dim.Render(line)
+			continue
+		}
+		var b strings.Builder
+		locs := resetRE.FindAllStringIndex(line, -1)
+		cursor := 0
+		emit := func(seg, reset string) {
+			if seg == "" && reset == "" {
+				return
+			}
+			if segmentHasBgColor(seg) {
+				b.WriteString(seg)
+				if reset != "" {
+					b.WriteString(reset)
+				}
+				return
+			}
+			b.WriteString(dim.Render(ansiRE.ReplaceAllString(seg, "")))
+		}
+		for _, loc := range locs {
+			emit(line[cursor:loc[0]], line[loc[0]:loc[1]])
+			cursor = loc[1]
+		}
+		emit(line[cursor:], "")
+		lines[i] = b.String()
 	}
 	return strings.Join(lines, "\n")
 }

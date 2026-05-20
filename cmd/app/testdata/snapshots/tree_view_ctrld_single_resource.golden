@@ -1,4 +1,4 @@
- Context: argo.example.com                                                           Argonaut dev 
+ Context: argo.example.com                                                           Argonaut dev   
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
  │ Application [my-app] (Healthy, Synced)                                                         │ 
  │ ├── Deployment [production/api-server] (Healthy)                                               │ 
@@ -6,13 +6,13 @@
  │ └── ConfigMap [produc                                                                          │ 
  │                       ╭────────────────────────────────────────────────╮                       │ 
  │                       │                                                │                       │ 
- │                       │     Delete Deployment/production/api-server?   │                       │ 
+ │                       │    Delete Deployment/production/api-server?    │                       │ 
  │                       │                                                │                       │ 
- │                       │                    Delete (y)                  │                       │ 
+ │                       │                   Delete (y)                   │                       │ 
  │                       │                                                │                       │ 
- │                       │      c: Cascade On (all resources deleted)     │                       │ 
- │                       │     p: Policy foreground (wait for cleanup)    │                       │ 
- │                       │                   f: Force Off                 │                       │ 
+ │                       │     c: Cascade On (all resources deleted)      │                       │ 
+ │                       │    p: Policy foreground (wait for cleanup)     │                       │ 
+ │                       │                  f: Force Off                  │                       │ 
  │                       │                                                │                       │ 
  │                       ╰────────────────────────────────────────────────╯                       │ 
  │                                                                                                │ 

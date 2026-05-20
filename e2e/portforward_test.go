@@ -163,16 +163,18 @@ func TestPortForward_Reconnection(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	// Create mock kubectl that exits after 3 seconds (simulates pod restart)
+	// Create mock kubectl that exits quickly (simulates pod restart)
 	opts := DefaultMockKubectlOptions()
 	opts.LocalPort = extractPortFromURL(srv.URL)
-	opts.PFExitAfter = 3 // Exit after 3 seconds
+	opts.PFExitAfter = 100 * time.Millisecond
 
 	mockKubectl, argsFile := createMockKubectl(t, tf.workspace, opts)
 
-	// Start app
+	// Start app with a shortened reconnect delay so the test doesn't pay the
+	// production 2s back-off.
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
 		"PATH="+filepath.Dir(mockKubectl)+":"+os.Getenv("PATH"),
+		"ARGONAUT_PF_RECONNECT_DELAY=50ms",
 	); err != nil {
 		t.Fatalf("start app: %v", err)
 	}
@@ -183,11 +185,10 @@ func TestPortForward_Reconnection(t *testing.T) {
 		t.Fatal("expected to see 'cluster-a' initially")
 	}
 
-	// Wait for reconnection: kubectl exits after PFExitAfter=3s, then ~2s reconnect delay.
-	// Poll until we see a second port-forward call or the deadline passes.
+	// Wait for reconnection: kubectl exits after 100ms, then ~50ms reconnect delay.
+	// Poll until we see a second port-forward call.
 	var args []string
-	reconnectDeadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(reconnectDeadline) {
+	if !waitUntil(t, func() bool {
 		args = readMockKubectlArgs(t, argsFile)
 		count := 0
 		for _, arg := range args {
@@ -195,10 +196,9 @@ func TestPortForward_Reconnection(t *testing.T) {
 				count++
 			}
 		}
-		if count >= 2 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+		return count >= 2
+	}, 3*time.Second) {
+		t.Fatalf("expected at least 2 port-forward calls within 3s. Args: %v", args)
 	}
 
 	// After reconnection, the app should still be functional

@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.17.0](https://github.com/darksworm/argonaut/compare/v2.16.0...v2.17.0) (2026-04-29)
+
+
+### Features
+
+* Argo Rollouts resource actions modal ([#236](https://github.com/darksworm/argonaut/issues/236)) ([9102992](https://github.com/darksworm/argonaut/commit/91029920e78aed0215a516c6371824f83adb75d3))
+* automatic update checking can be disabled via config ([91e731d](https://github.com/darksworm/argonaut/commit/91e731de677204ad2a27c7c366f6b31410980bbe))
+
+
+### Bug Fixes
+
+* dimmed background behind popups now works with all themes ([9575090](https://github.com/darksworm/argonaut/commit/957509099d03275c54f40c47f4faac3c77fa911b))
+* status text no longer disappears for hovered tree rows ([f7bb94a](https://github.com/darksworm/argonaut/commit/f7bb94adfb9a4ea7a6ef89b3993e8c845c75b4ae))
+
+
+### Performance Improvements
+
+* millions of test improvements ([6434ad6](https://github.com/darksworm/argonaut/commit/6434ad641af6c282049df85a405ae350c181757f))
+
 ## [2.16.0](https://github.com/darksworm/argonaut/compare/v2.15.0...v2.16.0) (2026-03-29)
 
 

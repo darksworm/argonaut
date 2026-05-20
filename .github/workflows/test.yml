@@ -30,7 +30,13 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run tests (unit + e2e)
-        run: make test PARALLEL=8
+        # Match parallelism to the runner's core count — full CPU
+        # utilisation, no oversubscription. Anything higher introduces
+        # "command bar not ready" flakes because the PTY subprocesses +
+        # mock servers + go test framework contend for CPU. GitHub bumped
+        # the default runner from 2 to 4 cores in 2024, so $(nproc) is
+        # the right call rather than hardcoding a number.
+        run: make test PARALLEL="$(nproc)"
 
       - name: Upload e2e test snapshots
         if: failure()

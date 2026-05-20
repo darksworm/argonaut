@@ -46,6 +46,7 @@ const (
 	ModeK9sError              Mode = "k9s-error"
 	ModeConfirmResourceSync   Mode = "confirm-resource-sync"
 	ModeDefaultViewWarning    Mode = "default-view-warning"
+	ModeResourceAction        Mode = "resource-action"
 )
 
 // App represents an ArgoCD application
@@ -261,4 +262,29 @@ type ResourceSyncTarget struct {
 	Kind      string `json:"kind"`
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
+}
+
+// ResourceActionTarget identifies a resource on which a custom action is to be performed
+type ResourceActionTarget struct {
+	AppName      string  `json:"appName"`
+	AppNamespace *string `json:"appNamespace,omitempty"`
+	Group        string  `json:"group"`
+	Version      string  `json:"version"`
+	Kind         string  `json:"kind"`
+	Namespace    string  `json:"namespace"`
+	Name         string  `json:"name"`
+}
+
+// ResourceActionState holds the state for the resource actions modal
+type ResourceActionState struct {
+	Target      ResourceActionTarget `json:"target"`
+	Actions     []string             `json:"actions"`
+	SelectedIdx int                  `json:"selectedIdx"`
+	// Filter is the currently-typed type-ahead buffer. It decays after a
+	// short idle period via FilterSeq-tagged tick messages. Always lower-case.
+	Filter    string `json:"filter,omitempty"`
+	FilterSeq int    `json:"-"`
+	Loading   bool   `json:"loading"`
+	Executing bool   `json:"executing"`
+	Error     string `json:"error"`
 }

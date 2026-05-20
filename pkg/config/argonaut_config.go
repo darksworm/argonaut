@@ -16,15 +16,16 @@ const DefaultThemeName = "tokyo-night"
 
 // ArgonautConfig represents the complete Argonaut configuration
 type ArgonautConfig struct {
-	Appearance      AppearanceConfig   `toml:"appearance"`
-	Sort            SortConfig         `toml:"sort,omitempty"`
-	K9s             K9sConfig          `toml:"k9s,omitempty"`
-	Diff            DiffConfig         `toml:"diff,omitempty"`
-	PortForward     PortForwardConfig  `toml:"port_forward,omitempty"`
-	Clipboard       ClipboardConfig    `toml:"clipboard,omitempty"`
-	HTTPTimeouts    HTTPTimeoutConfig  `toml:"http_timeouts,omitempty"`
-	DefaultView     string             `toml:"default_view,omitempty"`
-	LastSeenVersion string             `toml:"last_seen_version,omitempty"`
+	Appearance      AppearanceConfig  `toml:"appearance"`
+	Sort            SortConfig        `toml:"sort,omitempty"`
+	K9s             K9sConfig         `toml:"k9s,omitempty"`
+	Diff            DiffConfig        `toml:"diff,omitempty"`
+	PortForward     PortForwardConfig `toml:"port_forward,omitempty"`
+	Clipboard       ClipboardConfig   `toml:"clipboard,omitempty"`
+	HTTPTimeouts    HTTPTimeoutConfig `toml:"http_timeouts,omitempty"`
+	Updates         UpdatesConfig     `toml:"updates,omitempty"`
+	DefaultView     string            `toml:"default_view,omitempty"`
+	LastSeenVersion string            `toml:"last_seen_version,omitempty"`
 }
 
 // AppearanceConfig holds theme and visual settings
@@ -64,6 +65,25 @@ type ClipboardConfig struct {
 	// PasteCommand is the command to paste text from clipboard.
 	// Text is read from stdout. Examples: "pbpaste", "xclip -selection clipboard -o", "wl-paste"
 	PasteCommand string `toml:"paste_command,omitempty"`
+}
+
+// UpdatesConfig holds settings for the GitHub-API update check.
+type UpdatesConfig struct {
+	// CheckEnabled controls whether the periodic GitHub release check runs
+	// (and thus whether the "New version available" status nag can appear).
+	// Pointer so the zero value is "unset" rather than "disabled" — when
+	// unset, IsUpdateCheckEnabled() returns true. Set to false in config
+	// (e.g. for air-gapped environments or e2e tests).
+	CheckEnabled *bool `toml:"check_enabled,omitempty"`
+}
+
+// IsUpdateCheckEnabled returns true when the update check should run.
+// Defaults to true when the config key is omitted.
+func (c *ArgonautConfig) IsUpdateCheckEnabled() bool {
+	if c == nil || c.Updates.CheckEnabled == nil {
+		return true
+	}
+	return *c.Updates.CheckEnabled
 }
 
 // HTTPTimeoutConfig holds HTTP request timeout settings.

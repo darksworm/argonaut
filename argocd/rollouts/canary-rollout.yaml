@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: canary-demo-stable
+  namespace: argonaut-demo
+spec:
+  selector:
+    app: canary-demo
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: canary-demo-canary
+  namespace: argonaut-demo
+spec:
+  selector:
+    app: canary-demo
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: canary-demo
+  namespace: argonaut-demo
+spec:
+  replicas: 4
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: canary-demo
+  template:
+    metadata:
+      labels:
+        app: canary-demo
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 10m
+              memory: 32Mi
+  strategy:
+    canary:
+      stableService: canary-demo-stable
+      canaryService: canary-demo-canary
+      steps:
+        - setWeight: 20
+        - pause: {}
+        - setWeight: 50
+        - pause:
+            duration: 10s
+        - setWeight: 80
+        - pause: {}

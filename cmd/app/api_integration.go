@@ -82,8 +82,33 @@ type watchStartedMsg struct {
 	startSequenceNum int
 }
 
-// watchScopeDebounceMsg is sent after 500ms to trigger a scoped watch restart.
-// The version field prevents stale debounce ticks from restarting the watch.
+// watchScopeDebounce is the delay before a scoped watch restart fires after a
+// scope change. Overridable via ARGONAUT_WATCH_SCOPE_DEBOUNCE for tests.
+var watchScopeDebounce = func() time.Duration {
+	if v := os.Getenv("ARGONAUT_WATCH_SCOPE_DEBOUNCE"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return 500 * time.Millisecond
+}()
+
+// watchBatchDrain is the maximum time the watch-event consumer batches
+// updates before flushing to the UI. Larger values reduce render churn for
+// busy streams; smaller values shorten time-to-first-render. Overridable
+// via ARGONAUT_WATCH_BATCH_DRAIN for tests.
+var watchBatchDrain = func() time.Duration {
+	if v := os.Getenv("ARGONAUT_WATCH_BATCH_DRAIN"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return 500 * time.Millisecond
+}()
+
+// watchScopeDebounceMsg is sent after watchScopeDebounce to trigger a scoped
+// watch restart. The version field prevents stale debounce ticks from
+// restarting the watch.
 type watchScopeDebounceMsg struct {
 	version int
 }
@@ -312,8 +337,9 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 			operations = append(operations, op)
 		}
 
-		// Drain for up to 500ms
-		timer := time.NewTimer(500 * time.Millisecond)
+		// Drain for up to watchBatchDrain (default 500ms; overridable via
+		// ARGONAUT_WATCH_BATCH_DRAIN for tests).
+		timer := time.NewTimer(watchBatchDrain)
 		defer timer.Stop()
 
 		var immediate tea.Msg
@@ -373,7 +399,7 @@ func (m *Model) maybeRestartWatchForScope() tea.Cmd {
 		"new", newProjects)
 	m.scopeVersion++
 	version := m.scopeVersion
-	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(watchScopeDebounce, func(t time.Time) tea.Msg {
 		return watchScopeDebounceMsg{version: version}
 	})
 }
@@ -1572,5 +1598,91 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 
 		cblog.With("component", "resource-sync").Info("Resource sync completed successfully", "count", successCount)
 		return model.ResourceSyncSuccessMsg{Count: successCount, AppNames: appNames, SwitchEpoch: epoch}
+	}
+}
+
+// loadResourceActions lists the custom actions available for a resource via ArgoCD
+func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
+	epoch := m.switchEpoch
+	server := m.state.Server
+	if server == nil {
+		return func() tea.Msg {
+			return model.ResourceActionsErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
+		}
+	}
+
+	return func() tea.Msg {
+		appService := api.NewApplicationService(server)
+
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
+		defer cancel()
+
+		actions, err := appService.ListResourceActions(ctx, api.ListResourceActionsParams{
+			AppName:      target.AppName,
+			AppNamespace: target.AppNamespace,
+			ResourceName: target.Name,
+			Namespace:    target.Namespace,
+			Kind:         target.Kind,
+			Group:        target.Group,
+			Version:      target.Version,
+		})
+		if err != nil {
+			errMsg := extractUserFriendlyError(err)
+			cblog.With("component", "resource-action").Error("Failed to list actions",
+				"app", target.AppName, "kind", target.Kind, "name", target.Name, "err", err)
+			return model.ResourceActionsErrorMsg{Target: target, Error: errMsg, SwitchEpoch: epoch}
+		}
+
+		cblog.With("component", "resource-action").Debug("Loaded actions",
+			"app", target.AppName, "kind", target.Kind, "name", target.Name, "count", len(actions))
+		return model.ResourceActionsLoadedMsg{
+			Target:      target,
+			Actions:     actions,
+			SwitchEpoch: epoch,
+		}
+	}
+}
+
+// executeResourceAction runs a custom action on the target resource via ArgoCD
+func (m *Model) executeResourceAction(target model.ResourceActionTarget, action string) tea.Cmd {
+	epoch := m.switchEpoch
+	server := m.state.Server
+	if server == nil {
+		return func() tea.Msg {
+			return model.ResourceActionExecuteErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
+		}
+	}
+
+	return func() tea.Msg {
+		appService := api.NewApplicationService(server)
+
+		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := appService.RunResourceAction(ctx, api.ResourceActionRequest{
+			AppName:      target.AppName,
+			AppNamespace: target.AppNamespace,
+			ResourceName: target.Name,
+			Namespace:    target.Namespace,
+			Kind:         target.Kind,
+			Group:        target.Group,
+			Version:      target.Version,
+			Action:       action,
+		})
+		if err != nil {
+			errMsg := extractUserFriendlyError(err)
+			cblog.With("component", "resource-action").Error("Failed to run action",
+				"app", target.AppName, "kind", target.Kind, "name", target.Name, "action", action, "err", err)
+			return model.ResourceActionExecuteErrorMsg{Target: target, Error: errMsg, SwitchEpoch: epoch}
+		}
+
+		cblog.With("component", "resource-action").Info("Action executed",
+			"app", target.AppName, "kind", target.Kind, "name", target.Name, "action", action)
+		return model.ResourceActionExecutedMsg{
+			Target:      target,
+			Action:      action,
+			AppName:     target.AppName,
+			SwitchEpoch: epoch,
+		}
 	}
 }

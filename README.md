@@ -168,6 +168,7 @@ argonaut
 - **Live resources view** per app with health & sync status
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
+- **Execute actions** on resources — dynamically discovered per resource, including Argo Rollouts and any custom-defined actions
 - **Keyboard-only workflow** with Vim-like navigation
 
 ---
@@ -191,6 +192,9 @@ argonaut
 
 ### **Delete apps**  
 <img src="assets/argonaut_delete_apps.png" alt="Delete apps"/>
+
+### **Execute actions**  
+<img src="assets/argonaut_resource_actions.png" alt="Execute actions modal — dynamically lists actions for the selected resource"/>
 
 ### **Enjoy colorful themes**  
 <img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
@@ -270,6 +274,9 @@ formatter = ""            # Diff formatter command (e.g., "delta --side-by-side"
 
 [http_timeouts]
 request_timeout = "10s"   # Timeout for HTTP requests (increase for large deployments)
+
+[updates]
+check_enabled = true      # Set to false to disable the GitHub release-check on startup
 
 # Start in apps view instead of clusters (supports :command syntax)
 default_view = "apps"
@@ -362,6 +369,19 @@ request_timeout = "2m"
 ```
 
 > **Note:** If you're experiencing timeout errors when listing applications or resources, increase this value. The timeout applies to all API operations including listing applications, getting resources, and sync operations.
+
+#### `[updates]`
+
+Settings for the automatic update check. On startup (and once per hour after that), Argonaut hits the GitHub Releases API to see whether a newer version exists; when one does, it shows a `New version available, run :upgrade` hint in the status bar.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `check_enabled` | Enable the periodic GitHub release check. Set to `false` to disable in air-gapped environments, behind restrictive firewalls, or anywhere outbound traffic to `api.github.com` is unwanted. | `true` |
+
+```toml
+[updates]
+check_enabled = false
+```
 
 #### `default_view`
 

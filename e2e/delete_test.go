@@ -9,6 +9,7 @@ import (
 )
 
 func TestDeleteFunctionality_FullFlow(t *testing.T) {
+	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
 
@@ -48,9 +49,6 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 		t.Fatal("did not see demo loaded")
 	}
 
-	// Wait a bit for the view to stabilize
-	time.Sleep(100 * time.Millisecond)
-
 	// Trigger delete with Ctrl+D
 	if err := tf.Send("\x04"); err != nil { // Ctrl+D
 		t.Fatalf("send Ctrl+D: %v", err)
@@ -70,29 +68,11 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 		t.Fatal("delete modal should show safety instructions")
 	}
 
-	// Type 'n' first (should not trigger delete)
-	if err := tf.Send("n"); err != nil {
-		t.Fatalf("send 'n': %v", err)
-	}
-
-	time.Sleep(200 * time.Millisecond)
-
-	// Modal should still be visible
-	if !tf.WaitForPlain("Delete demo?", 1*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("modal should still be visible after typing 'n'")
-	}
-
-	// Use backspace to clear input
-	if err := tf.Send("\x7f"); err != nil { // Backspace
-		t.Fatalf("send backspace: %v", err)
-	}
-
-	time.Sleep(100 * time.Millisecond)
-
-	// Now type 'y' to confirm delete
-	if err := tf.Send("y"); err != nil {
-		t.Fatalf("send 'y': %v", err)
+	// Type 'n' (must not trigger delete), then backspace, then 'y' to commit.
+	// PTY preserves keystroke order; the next assertion (Deleting modal)
+	// would not appear if 'n' had been treated as confirmation.
+	if err := tf.Send("n\x7fy"); err != nil {
+		t.Fatalf("send n/backspace/y: %v", err)
 	}
 
 	// Wait for delete to process (delete modal should appear)
@@ -115,6 +95,7 @@ func TestDeleteFunctionality_FullFlow(t *testing.T) {
 }
 
 func TestDeleteFunctionality_CancelWithNonYKey(t *testing.T) {
+	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
 
@@ -159,34 +140,24 @@ func TestDeleteFunctionality_CancelWithNonYKey(t *testing.T) {
 		t.Fatalf("send Ctrl+D: %v", err)
 	}
 
-	// Wait for delete confirmation modal to appear and stabilize
+	// Wait for delete confirmation modal to appear.
 	if !tf.WaitForPlain("Delete demo?", 2*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("delete confirmation modal not shown")
 	}
 
-	// Wait for modal to fully render
-	time.Sleep(200 * time.Millisecond)
-
-	// Type 'n' - this should NOT trigger delete and modal should remain
-	if err := tf.Send("n"); err != nil {
-		t.Fatalf("send 'n': %v", err)
+	// Type 'n' - must not trigger delete; modal must remain. Send a
+	// known-no-op key (e.g. another 'n') as a barrier so we can poll the
+	// final state and be confident the first 'n' has been processed.
+	if err := tf.Send("nn"); err != nil {
+		t.Fatalf("send 'nn': %v", err)
 	}
-
-	// Wait a moment for processing
-	time.Sleep(300 * time.Millisecond)
-
-	// Verify modal is still there (showing it responds to input but doesn't delete)
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "Delete demo?") {
-		t.Log(snapshot)
-		t.Fatal("delete modal should still be visible after typing 'n'")
-	}
-
-	// Verify app is still in the list (not deleted)
-	if !strings.Contains(snapshot, "demo") {
-		t.Log(snapshot)
-		t.Fatal("app should still be in list after typing 'n'")
+	if !waitUntil(t, func() bool {
+		s := tf.SnapshotPlain()
+		return strings.Contains(s, "Delete demo?") && strings.Contains(s, "demo")
+	}, 1*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("delete modal should still be visible (and demo still listed) after typing 'n'")
 	}
 
 	// Exit the app
@@ -194,6 +165,7 @@ func TestDeleteFunctionality_CancelWithNonYKey(t *testing.T) {
 }
 
 func TestDeleteFunctionality_NotInAppsView(t *testing.T) {
+	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
 
@@ -220,38 +192,46 @@ func TestDeleteFunctionality_NotInAppsView(t *testing.T) {
 		t.Fatal("clusters not ready")
 	}
 
-	// Navigate to clusters view
+	// Navigate to clusters view and trigger Ctrl+D (must be a no-op there).
 	if err := tf.Send("c"); err != nil {
-		t.Fatalf("navigate to clusters: %v", err)
+		t.Fatalf("send 'c': %v", err)
 	}
-
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify we're in clusters view
-	snapshot := tf.SnapshotPlain()
-	if !strings.Contains(snapshot, "<clusters>") {
-		t.Log(snapshot)
+	if !tf.WaitForPlain("<clusters>", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
 		t.Fatal("should be in clusters view")
 	}
 
-	// Try to trigger delete with Ctrl+D (should do nothing)
 	if err := tf.Send("\x04"); err != nil { // Ctrl+D
 		t.Fatalf("send Ctrl+D: %v", err)
 	}
-
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify no delete modal appears
-	snapshot = tf.SnapshotPlain()
-	if strings.Contains(snapshot, "Delete Application") {
-		t.Log(snapshot)
+	time.Sleep(100 * time.Millisecond)
+	if strings.Contains(tf.Screen(), "Delete Application") {
+		t.Log(tf.Screen())
 		t.Fatal("delete modal should not appear in clusters view")
 	}
-
-	// Should still be in clusters view
-	if !strings.Contains(snapshot, "<clusters>") {
-		t.Log(snapshot)
+	if !strings.Contains(tf.Screen(), "<clusters>") {
+		t.Log(tf.Screen())
 		t.Fatal("should still be in clusters view")
+	}
+
+	// --- Positive contrast: navigate to apps view, Ctrl+D must show modal.
+	// Without this contrast the negative assertion above would also pass
+	// when Ctrl+D is broken globally — both branches would silently no-op.
+	if err := tf.OpenCommand(); err != nil {
+		t.Fatal(err)
+	}
+	_ = tf.Send("apps")
+	_ = tf.Enter()
+	if !tf.WaitForPlain("demo", 3*time.Second) {
+		t.Fatal("apps view not ready")
+	}
+
+	if err := tf.Send("\x04"); err != nil {
+		t.Fatalf("send Ctrl+D in apps view: %v", err)
+	}
+	if !tf.WaitForPlain("Delete demo?", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("Ctrl+D in apps view should open the delete confirmation — Ctrl+D may be globally broken")
 	}
 
 	// Exit

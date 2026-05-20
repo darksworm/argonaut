@@ -41,11 +41,15 @@ func TestSearchInputAcceptsAllCharacters(t *testing.T) {
 	}
 
 	// Type "jk" — these characters should appear in the search input,
-	// not be swallowed by vim-style navigation
+	// not be swallowed by vim-style navigation. Use WaitForScreen, not
+	// WaitForPlain: the latter polls the cumulative raw output ring
+	// buffer and may see ANSI cursor-move sequences interleaved between
+	// the "j" and "k" renders even though the rendered screen has them
+	// adjacent ("Search > jk"). WaitForScreen reads the actual terminal
+	// state from the emulator, which is what the user sees.
 	_ = tf.Send("jk")
-
-	if !tf.WaitForPlain("jk", 3*time.Second) {
-		t.Log(tf.SnapshotPlain())
+	if !tf.WaitForScreen("Search > jk", 3*time.Second) {
+		t.Log(tf.Screen())
 		t.Fatal("expected 'jk' to appear in search input, but it was intercepted as navigation")
 	}
 }

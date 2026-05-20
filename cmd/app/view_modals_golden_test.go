@@ -81,6 +81,130 @@ func sampleRollbackState() *model.RollbackState {
 	}
 }
 
+func TestGolden_ResourceActionModal_List(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName:   "demo-app",
+			Group:     "argoproj.io",
+			Version:   "v1alpha1",
+			Kind:      "Rollout",
+			Namespace: "payments",
+			Name:      "checkout",
+		},
+		Actions:     []string{"abort", "promote", "promote-full", "restart", "retry"},
+		SelectedIdx: 1,
+	}
+	out := stripANSI(m.renderResourceActionModal())
+	compareWithGolden(t, "modal_resource_action_list", out)
+}
+
+func TestGolden_ResourceActionModal_WithFilter(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName:   "demo-app",
+			Group:     "argoproj.io",
+			Version:   "v1alpha1",
+			Kind:      "Rollout",
+			Namespace: "payments",
+			Name:      "checkout",
+		},
+		Actions:     []string{"abort", "promote", "promote-full", "restart", "retry"},
+		Filter:      "pr",
+		FilterSeq:   1,
+		SelectedIdx: 1,
+	}
+	out := stripANSI(m.renderResourceActionModal())
+	compareWithGolden(t, "modal_resource_action_filter", out)
+}
+
+func TestGolden_ResourceActionModal_ExecuteError(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName:   "demo-app",
+			Group:     "argoproj.io",
+			Version:   "v1alpha1",
+			Kind:      "Rollout",
+			Namespace: "payments",
+			Name:      "checkout",
+		},
+		Actions:     []string{"abort", "promote"},
+		SelectedIdx: 1,
+		Error:       "rpc error: code = PermissionDenied",
+	}
+	out := stripANSI(m.renderResourceActionModal())
+	compareWithGolden(t, "modal_resource_action_execute_error", out)
+}
+
+func TestGolden_ResourceActionModal_NoActions(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName: "demo-app",
+			Kind:    "ReplicaSet",
+			Name:    "test-prod-guestbook-ui-7b44b8ddbd",
+		},
+		Actions: nil,
+		Error:   "No actions available for this resource",
+	}
+	out := stripANSI(m.renderResourceActionInfoModal())
+	compareWithGolden(t, "modal_resource_action_no_actions", out)
+}
+
+func TestGolden_ResourceActionModal_ListError(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName: "demo-app",
+			Kind:    "Rollout",
+			Name:    "checkout",
+		},
+		Actions: nil,
+		Error:   "rpc error: code = PermissionDenied",
+	}
+	out := stripANSI(m.renderResourceActionInfoModal())
+	compareWithGolden(t, "modal_resource_action_list_error", out)
+}
+
+func TestGolden_ResourceActionModal_Loading(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName: "demo-app",
+			Kind:    "Rollout",
+			Name:    "checkout",
+		},
+		Loading: true,
+	}
+	out := stripANSI(m.renderResourceActionLoadingModal())
+	compareWithGolden(t, "modal_resource_action_loading", out)
+}
+
+func TestGolden_ResourceActionModal_Executing(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeResourceAction
+	m.state.Modals.ResourceAction = &model.ResourceActionState{
+		Target: model.ResourceActionTarget{
+			AppName: "demo-app",
+			Kind:    "Rollout",
+			Name:    "checkout",
+		},
+		Actions:     []string{"abort", "promote"},
+		SelectedIdx: 1,
+		Executing:   true,
+	}
+	out := stripANSI(m.renderResourceActionExecutingModal())
+	compareWithGolden(t, "modal_resource_action_executing", out)
+}
+
 func TestGolden_RollbackModal_List(t *testing.T) {
 	m := buildBaseModel(100, 32)
 	app := "demo-app"

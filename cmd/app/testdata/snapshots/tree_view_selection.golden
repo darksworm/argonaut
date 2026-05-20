@@ -1,5 +1,5 @@
 [95m╭────────────────────────────────────────────────────────────────────────────────────────────────╮[m
-[95m│[m [97;105m[m[97;105mApplication[m[105m [m[30;105m[demo-app][m[105m [m[105m([m[92;105mHealthy[m[105m, [m[92;105mSynced[m[105m)[m                                                       [95m│[m
+[95m│[m [97;105m[m[97;105mApplication[m[105m [m[30;105m[demo-app][m[105m [m[30;105m(Healthy, Synced)[m                                                       [95m│[m
 [95m│[m [97m├── [m[97mDeployment[m [90m[ns-a/web][m [92m(Healthy)[m                                                            [95m│[m
 [95m│[m [97m└── [m[97mService[m [90m[ns-a/web][m [92m(Healthy)[m                                                               [95m│[m
 [95m│[m                                                                                                [95m│[m

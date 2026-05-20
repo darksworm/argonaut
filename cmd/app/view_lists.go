@@ -214,6 +214,14 @@ func (m *Model) renderListHeader() string {
 func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 	// Selection checking (matches ListView isChecked logic)
 	isSelected := m.state.Selections.HasSelectedApp(app.Name)
+	// While a desaturating modal is up, suppress the cursor-only highlight
+	// so unrelated rows don't appear bright behind the popup. Truly
+	// selected rows still keep their bg so the user can see what's
+	// being acted on.
+	desaturating := m.willDesaturateBase()
+	if desaturating {
+		isCursor = false
+	}
 	active := isCursor || isSelected
 
 	// Get project name (for future use)
@@ -275,8 +283,11 @@ func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 		row = clipAnsiToWidth(row, fullRowWidth)
 	}
 
-	// Check if this app should flash (refresh feedback)
-	isFlashing := m.state.UI.RefreshFlashApps != nil && m.state.UI.RefreshFlashApps[app.Name]
+	// Check if this app should flash (refresh feedback). Suppress
+	// flash highlight while a desaturating modal is up — a transient
+	// success-color flash on an unrelated row reads as "this random
+	// app is highlighted" against the dimmed base.
+	isFlashing := m.state.UI.RefreshFlashApps != nil && m.state.UI.RefreshFlashApps[app.Name] && !desaturating
 
 	// Apply highlight: use a distinct style when cursor overlaps a selected row
 	if isFlashing {
@@ -307,6 +318,9 @@ func (m *Model) renderSimpleRow(label string, isCursor bool) string {
 		isSelected = m.state.Selections.HasProject(label)
 	}
 
+	if m.willDesaturateBase() {
+		isCursor = false
+	}
 	active := isCursor || isSelected
 
 	// Calculate available width for simple rows (full content width minus padding)

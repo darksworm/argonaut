@@ -9,6 +9,7 @@ import (
 )
 
 func TestHelpModalOpensAndQuits(t *testing.T) {
+	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
 
@@ -36,16 +37,8 @@ func TestHelpModalOpensAndQuits(t *testing.T) {
 		t.Fatal("did not see cluster data loaded")
 	}
 
-	// Wait for loading text to disappear to ensure UI is fully stable
-	for i := 0; i < 10; i++ {
-		snapshot := tf.SnapshotPlain()
-		if !strings.Contains(snapshot, "Connecting to Argo CD") {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	// Enter help
+	// Enter help. (Earlier WaitForPlain on cluster-a is enough — by the
+	// time clusters render, the connecting overlay has been dismissed.)
 	if err := tf.Send("?"); err != nil {
 		t.Fatalf("send ?: %v", err)
 	}

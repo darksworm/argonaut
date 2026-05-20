@@ -151,37 +151,60 @@ func TestTreeViewFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test 2: Type filter query "pod" and press Enter
-	_ = tf.Send("pod")
-	time.Sleep(200 * time.Millisecond) // Allow real-time filtering to update
+	// Test 2: Type filter query "pod" and press Enter.
+	// Real-time filtering rerenders on each keystroke; under heavy parallel
+	// load these renders can interleave with the next keystroke. Send chars
+	// one at a time with a small pause so each one is processed by the app
+	// before the next arrives, then commit with Enter.
+	for _, c := range "pod" {
+		_ = tf.Send(string(c))
+		time.Sleep(20 * time.Millisecond)
+	}
 	_ = tf.Enter()
 
-	// Should show match count in status line
-	if !tf.WaitForPlain("matches", 3*time.Second) {
+	// Wait for both: the match-count status line AND a frame where the
+	// Pod row has the yellow-background highlight rendered. Polling the
+	// raw snapshot here lets us exit as soon as we've captured one good
+	// frame, instead of paying a fixed render budget.
+	hasPodHighlight := func(raw string) bool {
+		for _, line := range strings.Split(raw, "\n") {
+			yellow := strings.Contains(line, "48;2;224;175;104") ||
+				strings.Contains(line, "48;5;179") ||
+				strings.Contains(line, "[103m")
+			if yellow && strings.Contains(line, "Pod") && strings.Contains(line, "nginx-pod") {
+				return true
+			}
+		}
+		return false
+	}
+	if !waitUntil(t, func() bool {
+		return strings.Contains(tf.SnapshotPlain(), "matches") && hasPodHighlight(tf.Snapshot())
+	}, 3*time.Second) {
 		t.Log(tf.SnapshotPlain())
-		t.Fatal("match count not shown in status")
+		t.Fatal("match count or Pod highlight not observed within 3s")
 	}
 
 	// Test 3: Verify "Pod" is highlighted with background color
 	// The match should have yellow/warning background applied to the row containing Pod
 	rawSnap := tf.Snapshot()
 
-	// Find the line containing "Pod" and verify it has yellow background
-	// Lipgloss v2 optimizes ANSI sequences, so the background may be set at the start
-	// of the line rather than immediately before "Pod"
+	// Find any line containing "Pod" with a yellow-background ANSI sequence.
+	// Lipgloss v2 optimizes ANSI sequences, so the background may be set at
+	// the start of the line rather than immediately before "Pod". The raw
+	// buffer accumulates re-renders, so we OR over all of them — any one
+	// frame with the highlight is sufficient evidence.
 	var podLineHighlighted bool
 	var serviceLineHighlighted bool
 	for _, line := range strings.Split(rawSnap, "\n") {
-		// Check for yellow background (warning color) on lines with Pod/Service
 		hasYellowBG := strings.Contains(line, "48;2;224;175;104") ||
 			strings.Contains(line, "48;5;179") ||
 			strings.Contains(line, "[103m")
 
-		if strings.Contains(line, "Pod") && strings.Contains(line, "nginx-pod") {
-			podLineHighlighted = hasYellowBG
+		if strings.Contains(line, "Pod") && strings.Contains(line, "nginx-pod") && hasYellowBG {
+			podLineHighlighted = true
 		}
-		if strings.Contains(line, "Service") && strings.Contains(line, "nginx-service") {
-			serviceLineHighlighted = hasYellowBG
+		if strings.Contains(line, "Service") && strings.Contains(line, "nginx-service") && hasYellowBG {
+			serviceLineHighlighted = true
 		}
 	}
 
@@ -198,7 +221,6 @@ func TestTreeViewFilter(t *testing.T) {
 
 	// Test 4: Press n to navigate to next match (should work since we have match)
 	_ = tf.Send("n")
-	time.Sleep(100 * time.Millisecond)
 
 	// Test 5: Exit tree view
 	_ = tf.Send("q")
@@ -253,7 +275,6 @@ func TestTreeViewFilterNoMatches(t *testing.T) {
 	}
 
 	_ = tf.Send("nonexistent")
-	time.Sleep(200 * time.Millisecond)
 	_ = tf.Enter()
 
 	// Should show "no matches" in status
@@ -303,8 +324,17 @@ func MockArgoServerWithResourceSyncStatus() (*httptest.Server, error) {
 			fl.Flush()
 		}
 
-		// Keep stream open for a bit
-		time.Sleep(3 * time.Second)
+		// Hold the stream open so the client receives the initial event,
+		// then return. We can't block purely on r.Context().Done() because
+		// httptest.Server.Close() (called from t.Cleanup) waits for
+		// in-flight handlers to return without cancelling their contexts
+		// — that would deadlock the test cleanup. 500ms amortizes
+		// reconnects under the e2e default ARGONAUT_RETRY_INITIAL_DELAY=10ms
+		// without introducing the deadlock risk.
+		select {
+		case <-r.Context().Done():
+		case <-time.After(500 * time.Millisecond):
+		}
 	})
 	srv := httptest.NewServer(mux)
 	return srv, nil
@@ -411,22 +441,38 @@ func TestTreeViewFilterEscapeClearsFilter(t *testing.T) {
 		t.Fatal("application root not shown")
 	}
 
-	// Enter search, type query, then Escape without Enter
+	// Enter search, type a query that produces a real-time match count,
+	// then Escape without committing. The filter must be discarded:
+	// the match-count indicator must NOT remain on the rendered screen.
 	if err := tf.OpenSearch(); err != nil {
 		t.Fatal(err)
 	}
-	_ = tf.Send("pod")
-	time.Sleep(200 * time.Millisecond)
+	for _, c := range "pod" {
+		_ = tf.Send(string(c))
+		time.Sleep(20 * time.Millisecond)
+	}
 
-	// Press Escape to cancel search - should close search bar
-	_ = tf.Send("\x1b") // Escape key
+	// Wait for the real-time filter to render its match-count indicator —
+	// proves the filter was actually applied while typing.
+	if !tf.WaitForScreen("match", 2*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("real-time filter indicator did not appear before Escape")
+	}
 
-	// Wait for search bar to close (search bar gone means filter cancelled)
-	// The status should show <tree> without match count after escape
-	time.Sleep(300 * time.Millisecond)
+	// Escape cancels the search and must clear the filter from the model.
+	_ = tf.Escape()
 
-	// Verify search bar is closed by checking we're back in tree view mode
-	// (typing q should exit tree view, not type 'q' in search)
+	// After Escape the search bar is closed AND the filter indicator
+	// ("matches" / "no matches") must not be on screen any more.
+	if !waitUntil(t, func() bool {
+		s := tf.Screen()
+		return !strings.Contains(s, "matches") && !strings.Contains(s, "no match")
+	}, 2*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("filter indicator still visible after Escape — filter was not cleared")
+	}
+
+	// And the search bar should be closed: pressing q must exit tree view.
 	_ = tf.Send("q")
 	if !tf.WaitForPlain("cluster-a", 3*time.Second) {
 		t.Log(tf.SnapshotPlain())
@@ -476,9 +522,12 @@ func TestAppOfApps_ChildAppEnter_NavigatesToChildApp(t *testing.T) {
 		t.Fatal("parent-app tree view not loaded")
 	}
 
-	// Navigate to child Application node and press Enter
+	// Navigate to child Application node and press Enter. A small gap
+	// between j and Enter is needed because the app processes the cursor
+	// move on a render frame; Enter applied before that frame would
+	// activate the wrong (root) node.
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	_ = tf.Enter()
 
 	if !tf.WaitForPlain("Application [child-app]", 5*time.Second) {
@@ -544,7 +593,7 @@ func TestAppOfApps_EscapeFromChildApp_ReturnsToParentTree(t *testing.T) {
 	}
 
 	_ = tf.Send("j")
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	_ = tf.Enter()
 
 	if !tf.WaitForPlain("Application [child-app]", 5*time.Second) {

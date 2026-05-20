@@ -175,9 +175,6 @@ func TestPageDownFromStart(t *testing.T) {
 		t.Fatalf("expected cursor at position 1 initially, got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 
-	// Wait for UI to stabilize before sending PageDown
-	time.Sleep(200 * time.Millisecond)
-
 	// Send PageDown (escape sequence for PageDown)
 	_ = tf.Send("\x1b[6~")
 
@@ -216,27 +213,11 @@ func TestPageDownAtEnd(t *testing.T) {
 
 	navigateToApps(t, tf)
 
-	// Press PageDown multiple times to ensure we reach the end
-	for i := 0; i < 3; i++ {
-		_ = tf.Send("\x1b[6~")
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	// After multiple PageDowns, we should be able to see app-35 (last item)
-	// and the app should still be responsive (not crashed)
+	// PageDown four times — last keystroke is past the end, must not crash.
+	_ = tf.Send("\x1b[6~\x1b[6~\x1b[6~\x1b[6~")
 	if !tf.WaitForPlain("app-35", 2*time.Second) {
 		snap := tf.SnapshotPlain()
 		t.Fatalf("expected app-35 to be visible after PageDown to end\nSnapshot:\n%s", snap)
-	}
-
-	// Press PageDown one more time - should not crash, app should still work
-	_ = tf.Send("\x1b[6~")
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify app-35 is still visible (we haven't gone past it)
-	if !tf.WaitForPlain("app-35", 1*time.Second) {
-		snap := tf.SnapshotPlain()
-		t.Fatalf("expected app-35 to still be visible after extra PageDown at end\nSnapshot:\n%s", snap)
 	}
 }
 
@@ -266,32 +247,30 @@ func TestPageUpFromEnd(t *testing.T) {
 
 	navigateToApps(t, tf)
 
-	// Go to end first using multiple PageDowns
-	for i := 0; i < 3; i++ {
-		_ = tf.Send("\x1b[6~")
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	// Verify we're at/near the end - app-35 should be visible
+	// Go to end first using 3 PageDowns, then poll for arrival.
+	_ = tf.Send("\x1b[6~\x1b[6~\x1b[6~")
 	if !tf.WaitForPlain("app-35", 2*time.Second) {
 		snap := tf.SnapshotPlain()
 		t.Fatalf("expected app-35 to be visible before PageUp\nSnapshot:\n%s", snap)
 	}
 
-	// Press PageUp
+	// PageUp — cursor should drop back to position <= 10.
 	_ = tf.Send("\x1b[5~")
-	time.Sleep(200 * time.Millisecond)
-
-	// After PageUp from the end, we should see earlier apps (around app-01 to app-10)
-	// Check cursor position moved to a lower value
-	screen := tf.Screen()
-	pos := extractCursorPosition(screen)
-	if pos > 10 {
-		t.Fatalf("expected cursor position <= 10 after PageUp from end, got %d\nScreen:\n%s", pos, screen)
+	if !waitUntil(t, func() bool { return extractCursorPosition(tf.Screen()) <= 10 }, 2*time.Second) {
+		screen := tf.Screen()
+		t.Fatalf("expected cursor position <= 10 after PageUp from end, got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 }
 
-// TestPageUpAtStart tests that PageUp at the start doesn't go negative
+// TestPageUpAtStart tests that PageUp from the top of a paged list returns to
+// position 1 and doesn't go below 1, even when invoked multiple times.
+//
+// Strategy: PageDown first to a known-non-1 position (proves the navigator
+// is wired and the test setup is correct), then PageUp twice and verify we
+// landed back at position 1 — not 0, not negative. A previous version of
+// this test only sent two PageUps at the start and checked pos == 1, which
+// passed even when PageUp() panicked: the assertion was indistinguishable
+// from "cursor never moved".
 func TestPageUpAtStart(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
@@ -317,30 +296,24 @@ func TestPageUpAtStart(t *testing.T) {
 
 	navigateToApps(t, tf)
 
-	// Verify we start at position 1
 	if !waitForCursorPositionExact(tf, 1, 2*time.Second) {
 		screen := tf.Screen()
 		t.Fatalf("expected cursor at position 1 initially, got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 
-	// Press PageUp at the start - should not crash or go negative, should stay at 1
-	_ = tf.Send("\x1b[5~")
-	time.Sleep(200 * time.Millisecond)
-
-	screen := tf.Screen()
-	pos := extractCursorPosition(screen)
-	if pos != 1 {
-		t.Fatalf("expected cursor to stay at position 1 after PageUp at start, got %d\nScreen:\n%s", pos, screen)
+	// PageDown to move off position 1 — proves keystroke routing works.
+	_ = tf.Send("\x1b[6~")
+	if !waitForCursorPosition(tf, 10, 3*time.Second) {
+		screen := tf.Screen()
+		t.Fatalf("expected cursor >= 10 after PageDown (sanity check), got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 
-	// Press PageUp again - still should stay at 1
-	_ = tf.Send("\x1b[5~")
-	time.Sleep(200 * time.Millisecond)
-
-	screen = tf.Screen()
-	pos = extractCursorPosition(screen)
-	if pos != 1 {
-		t.Fatalf("expected cursor to stay at position 1 after multiple PageUps at start, got %d\nScreen:\n%s", pos, screen)
+	// PageUp three times. The first PageUp must move the cursor *back toward*
+	// position 1; subsequent PageUps must clamp to 1 (not go negative).
+	_ = tf.Send("\x1b[5~\x1b[5~\x1b[5~")
+	if !waitForCursorPositionExact(tf, 1, 3*time.Second) {
+		screen := tf.Screen()
+		t.Fatalf("expected cursor at position 1 after PageUp from middle, got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 }
 
@@ -376,22 +349,14 @@ func TestPageUpDownRoundTrip(t *testing.T) {
 		t.Fatalf("expected cursor at position 1 initially, got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 
-	// Wait for UI to stabilize
-	time.Sleep(200 * time.Millisecond)
-
-	// PageDown
+	// PageDown — cursor should move to a higher position (at least 10).
 	_ = tf.Send("\x1b[6~")
-
-	// Should move to a higher position (at least 10)
 	if !waitForCursorPosition(tf, 10, 5*time.Second) {
 		screen := tf.Screen()
 		t.Fatalf("expected cursor position >= 10 after PageDown, got %d\nScreen:\n%s", extractCursorPosition(screen), screen)
 	}
 
-	// Wait before PageUp
-	time.Sleep(200 * time.Millisecond)
-
-	// PageUp - should return to start (position 1)
+	// PageUp — should return to start (position 1).
 	_ = tf.Send("\x1b[5~")
 
 	// Should be back at position 1

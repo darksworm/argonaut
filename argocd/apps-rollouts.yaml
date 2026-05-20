@@ -1,0 +1,37 @@
+# Argo Rollouts demo apps — exercise the resource-actions modal (issue #138).
+#
+# Workload manifests live at argocd/rollouts/ in this repo, so once these
+# files are on the default branch the Application just works. To test from
+# a fork or a feature branch, swap repoURL / targetRevision below, or run
+# `make argocd-git-daemon` to serve this repo to the in-cluster ArgoCD via
+# host.k3d.internal (`git://host.k3d.internal/argonaut`).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: rollouts-demo
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - {name: rollout-canary,    path: argocd/rollouts, include: '{namespace.yaml,canary-rollout.yaml}'}
+          - {name: rollout-bluegreen, path: argocd/rollouts, include: '{namespace.yaml,bluegreen-rollout.yaml}'}
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/darksworm/argonaut
+        targetRevision: HEAD
+        path: '{{path}}'
+        directory:
+          include: '{{include}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argonaut-demo
+      syncPolicy:
+        automated: null  # Manual sync, matches apps-working.yaml convention
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

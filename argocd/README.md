@@ -137,3 +137,36 @@ rm -f projects.yaml apps.yaml
 * Add more themed apps by appending elements under `generators.list.elements`.
 * Swap `source` to your own repos/paths or Helm charts.
 * If you want a **lot** of pretend clusters without networking tweaks, run multiple **vcluster** instances inside `k3d-mgmt` and add them to Argo CD by name.
+
+---
+
+## Rollouts demo (issue #138 / resource-actions modal)
+
+`make argocd-up` also installs the `argo-rollouts` controller and applies `apps-rollouts.yaml`, creating two Applications in the `argonaut-demo` namespace:
+
+* `rollout-canary` — canary with two manual pauses (`setWeight 20 → pause → 50 → pause 10s → 80 → pause`)
+* `rollout-bluegreen` — blue/green with `autoPromotionEnabled: false`
+
+Workload manifests live under `argocd/rollouts/`. The Applications pull them from `https://github.com/darksworm/argonaut` at `HEAD` — if testing a pre-merge branch, push the branch and bump `targetRevision` in `apps-rollouts.yaml`.
+
+### Exercising the modal
+
+Sync the rollouts, then trigger a new revision so the actions have something to act on. Press `a` on the Rollout in argonaut's tree view.
+
+```bash
+argocd app sync rollout-canary rollout-bluegreen
+kubectl argo rollouts set image canary-demo    nginx=nginx:1.26 -n argonaut-demo
+kubectl argo rollouts set image bluegreen-demo nginx=nginx:1.26 -n argonaut-demo
+```
+
+| Rollout          | State                    | Actions to try                                               |
+|------------------|--------------------------|--------------------------------------------------------------|
+| `canary-demo`    | paused at step 2         | `promote`, `promote-full`, `abort` (then `retry`), `restart` |
+| `bluegreen-demo` | preview up, not promoted | `promote`, `abort`, `restart`                                |
+
+Watch state out-of-band:
+
+```bash
+kubectl argo rollouts get rollout canary-demo    -n argonaut-demo --watch
+kubectl argo rollouts get rollout bluegreen-demo -n argonaut-demo --watch
+```

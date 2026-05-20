@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -22,12 +23,20 @@ const (
 	// DefaultTargetPort is the ArgoCD server port to forward to
 	DefaultTargetPort = 8080
 
-	// reconnectDelay is the delay between reconnection attempts
-	reconnectDelay = 2 * time.Second
-
 	// maxReconnectAttempts is the maximum number of consecutive reconnection attempts
 	maxReconnectAttempts = 5
 )
+
+// reconnectDelay is the delay between reconnection attempts.
+// Overridable via ARGONAUT_PF_RECONNECT_DELAY (e.g. "200ms") for tests.
+var reconnectDelay = func() time.Duration {
+	if v := os.Getenv("ARGONAUT_PF_RECONNECT_DELAY"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return 2 * time.Second
+}()
 
 // portRegex matches kubectl port-forward output like "Forwarding from 127.0.0.1:12345 -> 8080"
 var portRegex = regexp.MustCompile(`Forwarding from 127\.0\.0\.1:(\d+)`)

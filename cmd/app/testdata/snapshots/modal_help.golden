@@ -16,12 +16,12 @@
  │              :resources [app] • :up • :all                                                     │ 
  │                                                                                                │ 
  │ TREE VIEW    / filter • n/N next/prev match •  d  diff • K open in k9s                         │ 
- │               Space  select •  s  sync •  Ctrl+D  delete • :refresh|:refresh! • :up            │ 
+ │               Space  select •  s  sync •  a  actions (Rollouts) •  Ctrl+D  delete              │ 
+ │              :refresh|:refresh! • :up                                                          │ 
  │                                                                                                │ 
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

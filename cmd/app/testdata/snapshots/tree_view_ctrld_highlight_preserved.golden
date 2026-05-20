@@ -1,6 +1,6 @@
 [95m╭────────────────────────────────────────────────────────────────────────────────────────────────╮[m
 [95m│[m [97m[m[97mApplication[m [90m[highlight-test][m ([92mHealthy[m, [92mSynced[m)                                                 [95m│[m
-[95m│[m [97m├── [m[97;105mDeployment[m[105m [m[30;105m[default/web][m[105m [m[105m([m[92;105mHealthy[m[105m)[m                                                         [95m│[m
+[95m│[m [97m├── [m[97;105mDeployment[m[105m [m[30;105m[default/web][m[105m [m[30;105m(Healthy)[m                                                         [95m│[m
 [95m│[m [97m└── [m[97mService[m [90m[default/web][m [92m(Healthy)[m                                                            [95m│[m
 [95m│[m                                                                                                [95m│[m
 [95m│[m                                                                                                [95m│[m

@@ -61,7 +61,9 @@ func (m *Model) renderHelpModal() string {
 	treeView := strings.Join([]string{
 		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
 		"\n",
-		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("Ctrl+D"), " delete ", bullet(), " ", mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
+		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("a"), " actions (Rollouts) ", bullet(), " ", keycap("Ctrl+D"), " delete",
+		"\n",
+		mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
 	}, "")
 
 	var helpSections []string
@@ -87,12 +89,9 @@ func (m *Model) renderHelpModal() string {
 
 func (m *Model) renderDiffLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading diff...", m.spinner.View())
-	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(yellowBright).
-		Background(spinnerBG).
-		Foreground(spinnerFG).
 		Padding(1, 2).
 		Bold(true).
 		Align(lipgloss.Center)
@@ -103,12 +102,9 @@ func (m *Model) renderDiffLoadingSpinner() string {
 // renderTreeLoadingSpinner displays a centered loading spinner for resources/tree operations
 func (m *Model) renderTreeLoadingSpinner() string {
 	spinnerContent := fmt.Sprintf("%s Loading resources...", m.spinner.View())
-	spinnerFG := ensureContrastingForeground(spinnerBG, whiteBright)
 	spinnerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(cyanBright).
-		Background(spinnerBG).
-		Foreground(spinnerFG).
 		Padding(1, 2).
 		Bold(true).
 		Align(lipgloss.Center)
@@ -320,7 +316,7 @@ func (m *Model) renderUpgradeConfirmModal() string {
 	// Modal styling with reduced padding for smaller terminals
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(68).
 		AlignHorizontal(lipgloss.Center)
@@ -411,7 +407,7 @@ func (m *Model) renderUpgradeConfirmModal() string {
 func (m *Model) renderUpgradeLoadingModal() string {
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(50).
 		AlignHorizontal(lipgloss.Center)
@@ -524,7 +520,7 @@ func (m *Model) renderAppDeleteConfirmModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: make all title text bright and readable
 	var titleLine string
@@ -643,7 +639,7 @@ func (m *Model) renderResourceDeleteConfirmModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: make all title text bright and readable
 	var titleLine string
@@ -777,7 +773,7 @@ func (m *Model) renderResourceSyncConfirmModal() string {
 	// Modal width: compact and centered (like sync modal)
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: make all title text bright and readable
 	var titleLine string
@@ -886,6 +882,224 @@ func (m *Model) renderResourceSyncLoadingModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
+// renderResourceActionModal renders the resource actions selection modal
+func (m *Model) renderResourceActionModal() string {
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		return ""
+	}
+
+	// Modal width: compact and centered (like sync modal)
+	half := m.state.Terminal.Cols / 2
+	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
+
+	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+
+	var subject string
+	if st.Target.Namespace != "" {
+		subject = fmt.Sprintf("%s/%s/%s", st.Target.Kind, st.Target.Namespace, st.Target.Name)
+	} else {
+		subject = fmt.Sprintf("%s/%s", st.Target.Kind, st.Target.Name)
+	}
+	titleLine := lipgloss.NewStyle().Foreground(whiteBright).Render("Actions on ") +
+		lipgloss.NewStyle().Foreground(whiteBright).Bold(true).Render(subject)
+	title := center.Render(titleLine)
+
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	// Uniform button width: widest action name plus the 2+2 horizontal padding,
+	// so every button is the same size regardless of label length.
+	maxName := 0
+	for _, name := range st.Actions {
+		if w := lipgloss.Width(name); w > maxName {
+			maxName = w
+		}
+	}
+	btnWidth := maxName + 4
+
+	// Render each button as a SINGLE styled block: pre-pad the label to
+	// btnWidth and then style the whole thing in one Render call. This
+	// avoids lipgloss emitting multiple adjacent bg-styled segments
+	// (`[bg]center-pad[/bg][bg]padding[/bg][bg]text[/bg]…`) which some
+	// terminals render with visible seams — the bug shows up as right-
+	// column buttons appearing narrower than left-column ones.
+	activeBase := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true)
+	inactiveBase := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG)
+	// Underline highlight for the matched type-ahead prefix. Inherits
+	// the active button's bg so the underline doesn't punch a transparent
+	// hole through the colored cell.
+	matchHLActive := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Underline(true)
+
+	prefixLen := 0
+	if st.Filter != "" && st.SelectedIdx >= 0 && st.SelectedIdx < len(st.Actions) &&
+		strings.HasPrefix(strings.ToLower(st.Actions[st.SelectedIdx]), st.Filter) {
+		prefixLen = len(st.Filter)
+	}
+
+	// padToCenter centers raw text in n columns using plain spaces. The
+	// caller will style the full padded string as one bg-colored run.
+	padToCenter := func(text string, n int) string {
+		w := lipgloss.Width(text)
+		if w >= n {
+			return text
+		}
+		left := (n - w) / 2
+		right := n - w - left
+		return strings.Repeat(" ", left) + text + strings.Repeat(" ", right)
+	}
+
+	rendered := make([]string, len(st.Actions))
+	widths := make([]int, len(st.Actions))
+	for i, name := range st.Actions {
+		isSel := i == st.SelectedIdx
+		var btn string
+		if isSel && prefixLen > 0 && prefixLen <= len(name) {
+			// Selected with prefix highlight: split into 3 styled runs
+			// (left bg-pad, underlined-prefix, suffix+bg-pad) but each
+			// run is a single contiguous styled block.
+			suffix := name[prefixLen:]
+			contentW := btnWidth // total cell width including padding
+			textW := lipgloss.Width(name)
+			leftPad := (contentW - textW) / 2
+			rightPad := contentW - textW - leftPad
+			leftPart := activeBase.Render(strings.Repeat(" ", leftPad))
+			matchPart := matchHLActive.Render(name[:prefixLen])
+			rightPart := activeBase.Render(suffix + strings.Repeat(" ", rightPad))
+			btn = leftPart + matchPart + rightPart
+		} else {
+			padded := padToCenter(name, btnWidth)
+			if isSel {
+				btn = activeBase.Render(padded)
+			} else {
+				btn = inactiveBase.Render(padded)
+			}
+		}
+		rendered[i] = btn
+		widths[i] = lipgloss.Width(btn)
+	}
+
+	const spacing = 2
+	var rowLines []string
+	var rowBtns []string
+	rowWidth := 0
+	for i, btn := range rendered {
+		w := widths[i]
+		next := rowWidth + w
+		if len(rowBtns) > 0 {
+			next += spacing
+		}
+		if next > innerWidth && len(rowBtns) > 0 {
+			rowLines = append(rowLines, center.Render(strings.Join(rowBtns, "  ")))
+			rowBtns = nil
+			rowWidth = 0
+		}
+		if len(rowBtns) > 0 {
+			rowWidth += spacing
+		}
+		rowBtns = append(rowBtns, btn)
+		rowWidth += w
+	}
+	if len(rowBtns) > 0 {
+		rowLines = append(rowLines, center.Render(strings.Join(rowBtns, "  ")))
+	}
+	body := strings.Join(rowLines, "\n")
+
+	parts := []string{title, "", body}
+
+	hintText := "type to select • Enter run"
+	if st.Filter != "" {
+		hintText = "Esc clear • Enter run"
+	}
+	parts = append(parts, "", center.Render(dim.Render(hintText)))
+
+	if st.Error != "" {
+		errStyled := center.Render(lipgloss.NewStyle().Foreground(outOfSyncColor).Render("Error: " + st.Error))
+		parts = append(parts, "", errStyled)
+	}
+
+	content := strings.Join(parts, "\n")
+
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2).
+		Width(modalWidth)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
+}
+
+// renderResourceActionLoadingModal renders the loading state while listing actions
+func (m *Model) renderResourceActionLoadingModal() string {
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Loading actions…"))
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2)
+	minW := 28
+	w := max(minW, lipgloss.Width(msg)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(msg))
+}
+
+// renderResourceActionExecutingModal renders the loading state while an action runs
+func (m *Model) renderResourceActionExecutingModal() string {
+	st := m.state.Modals.ResourceAction
+	actionName := ""
+	if st != nil && st.SelectedIdx >= 0 && st.SelectedIdx < len(st.Actions) {
+		actionName = st.Actions[st.SelectedIdx]
+	}
+	label := "Running…"
+	if actionName != "" {
+		label = "Running " + actionName + "…"
+	}
+	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render(label))
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(syncedColor).
+		Padding(1, 2)
+	minW := 28
+	w := max(minW, lipgloss.Width(msg)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(msg))
+}
+
+// renderResourceActionInfoModal renders a small modal when no actions are available or listing failed
+func (m *Model) renderResourceActionInfoModal() string {
+	st := m.state.Modals.ResourceAction
+	if st == nil {
+		return ""
+	}
+
+	const noActionsSentinel = "No actions available for this resource"
+	isError := st.Error != "" && st.Error != noActionsSentinel
+
+	var msg string
+	// Match the "No differences" modal's bright green border so the popup
+	// catches the eye instead of fading into the background.
+	border := syncedColor
+	if isError {
+		msg = lipgloss.NewStyle().Foreground(outOfSyncColor).Render("✗ ") +
+			lipgloss.NewStyle().Foreground(whiteBright).Render(st.Error)
+		border = outOfSyncColor
+	} else {
+		msg = lipgloss.NewStyle().Foreground(syncedColor).Render("○ ") +
+			statusStyle.Render("No actions available")
+	}
+
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(border).
+		Padding(1, 2)
+	minW := 32
+	w := max(minW, lipgloss.Width(msg)+4)
+	wrapper = wrapper.Width(w)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(msg))
+}
+
 // renderNoDiffModal renders a simple modal for when there are no differences
 func (m *Model) renderNoDiffModal() string {
 	msg := "✓ " + statusStyle.Render("No differences found")
@@ -960,7 +1174,7 @@ func (m *Model) renderK9sContextSelectionModal() string {
 	// Modal styling
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(50).
 		AlignHorizontal(lipgloss.Left)
@@ -1103,10 +1317,10 @@ func (m *Model) renderThemeSelectionModal() string {
 	options := m.themeOptions
 
 	// Calculate available height for themes (subtract header, footer, borders, etc.)
-	headerLines := 2      // title + blank line
-	borderLines := 4      // top + bottom border + padding
-	footerLines := 2      // potential warning message + blank line
-	statusLine := 1       // status line at bottom
+	headerLines := 2 // title + blank line
+	borderLines := 4 // top + bottom border + padding
+	footerLines := 2 // potential warning message + blank line
+	statusLine := 1  // status line at bottom
 	maxAvailableHeight := m.state.Terminal.Rows - headerLines - borderLines - footerLines - statusLine
 
 	// Ensure we have a reasonable minimum height
@@ -1187,7 +1401,7 @@ func (m *Model) renderThemeSelectionModal() string {
 	// Modal styling
 	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(44).
 		AlignHorizontal(lipgloss.Left)

@@ -1,6 +1,5 @@
 # Architecture
 
-Before modifying API call sites, timeout handling, or the HTTP client layer, read the relevant ADRs in `docs/architecture/decisions/`:
+Before changing API call sites, async message handlers, the HTTP client layer, or anything that resolves Argo CD applications, skim the relevant ADR.
 
-- **ADR-0002**: API timeout strategy — timeouts must be set at call sites using `appcontext.WithAPITimeout()` or `WithMinAPITimeout()`, never hardcoded with `context.WithTimeout()` and never inside `Client.Get/Post/Put/Delete`. See the ADR for the full rationale.
-
+See [`docs/architecture/decisions/`](./docs/architecture/decisions/README.md) for the full index.

@@ -83,7 +83,7 @@ func MockArgoServerContextA() (*httptest.Server, *StreamRecorder, error) {
 
 		// Send multiple rounds of events to simulate a busy server.
 		// Per memory notes: send events and return, never block on r.Context().Done().
-		for round := 0; round < 6; round++ {
+		for round := 0; round < 3; round++ {
 			for _, app := range apps {
 				if shouldSendEvent(r, app.project) {
 					event := fmt.Sprintf(`{"result":{"type":"MODIFIED","application":{"metadata":{"name":"%s","namespace":"argocd"},"spec":{"project":"%s","destination":{"name":"cluster-a","namespace":"ns-a"}},"status":{"sync":{"status":"Synced"},"health":{"status":"Healthy"}}}}}`, app.name, app.project)
@@ -93,7 +93,7 @@ func MockArgoServerContextA() (*httptest.Server, *StreamRecorder, error) {
 			if fl != nil {
 				fl.Flush()
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		}
 	})
 
@@ -257,8 +257,9 @@ func TestContextSwitchDiscardsOldSSEEvents(t *testing.T) {
 		t.Fatalf("bravo-app should NOT be visible after switching to Server B\nScreen:\n%s", screen)
 	}
 
-	// 11. Let Server A's SSE keep emitting (it sends events every 500ms for 3s total)
-	time.Sleep(2 * time.Second)
+	// 11. Let Server A's SSE keep emitting (3 rounds at 20ms cadence ≈ 60ms
+	// total) so the leak window is fully covered.
+	time.Sleep(80 * time.Millisecond)
 
 	// 12. Final assertion: screen still shows ONLY Server B's apps
 	screen = tf.Screen()
@@ -309,8 +310,15 @@ func TestViewContextsDismissesLoadingState(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	// 3. Start app with -argocd-config flag
-	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+	// 3. Start app with -argocd-config flag.
+	// This test specifically asserts the "Connecting to Argo CD..." spinner
+	// is visible while a context attempt is in flight; restore production-ish
+	// retry timings so the spinner stays on screen long enough to observe
+	// (the global e2e default collapses retries for speed).
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath},
+		"ARGONAUT_RETRY_MAX_ATTEMPTS=5",
+		"ARGONAUT_RETRY_INITIAL_DELAY=200ms",
+	); err != nil {
 		t.Fatalf("start app: %v", err)
 	}
 
@@ -331,8 +339,7 @@ func TestViewContextsDismissesLoadingState(t *testing.T) {
 		t.Fatalf("expected 'Connecting to Argo CD' after switching to unreachable context\n%s", tf.Screen())
 	}
 
-	// 7. Brief pause, then open :context view (no arg = browse contexts)
-	time.Sleep(300 * time.Millisecond)
+	// 7. Open :context view (no arg = browse contexts)
 	if err := tf.OpenCommand(); err != nil {
 		t.Fatal(err)
 	}
@@ -355,8 +362,8 @@ func TestViewContextsDismissesLoadingState(t *testing.T) {
 		t.Fatalf("'Connecting to Argo CD' should be dismissed when contexts view is active\nScreen:\n%s", screen)
 	}
 
-	// 11. Wait a moment and re-check — the loading state should not reappear
-	time.Sleep(1 * time.Second)
+	// 11. Wait a moment and re-check — the loading state should not reappear.
+	time.Sleep(100 * time.Millisecond)
 	screen = tf.Screen()
 	if strings.Contains(screen, "Connecting to Argo CD") {
 		t.Fatalf("'Connecting to Argo CD' reappeared after waiting — loading state leaked into contexts view\nScreen:\n%s", screen)
