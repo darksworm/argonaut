@@ -429,10 +429,20 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-			// Return to apps view from tree/resources view
+			// Return to apps view from tree/resources view. If we have a saved
+			// navigation entry from when we drilled in, restore the apps-view
+			// filter so the user lands back in the same filtered context.
 			m = m.safeChangeView(model.ViewApps)
 			m.clearTreeApp()
 			m.state.Navigation.SelectedIdx = 0
+			if n := len(m.state.SavedNavigation); n > 0 {
+				top := m.state.SavedNavigation[n-1]
+				if top.View == model.ViewApps {
+					m.state.UI.SearchQuery = top.SavedSearchQuery
+					m.state.UI.ActiveFilter = top.SavedActiveFilter
+					m.state.SavedNavigation = m.state.SavedNavigation[:n-1]
+				}
+			}
 		case model.ViewApps:
 			// Check if scoped by ApplicationSet (separate hierarchy)
 			if len(m.state.Selections.ScopeApplicationSets) > 0 {

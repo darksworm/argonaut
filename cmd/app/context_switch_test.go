@@ -211,6 +211,32 @@ func TestContextSwitchPreservedFields(t *testing.T) {
 	}
 }
 
+// TestContextSwitch_UpstreamCleanupCalledOnce verifies that the upstream HTTP
+// SSE cleanup function is called exactly once during a context switch.
+// Before the fix, cleanupAppWatcher() called it and so did the explicit
+// m.watchCleanup() below it — doubling the call.
+func TestContextSwitch_UpstreamCleanupCalledOnce(t *testing.T) {
+	m := NewModel(nil)
+	m.state.Server = &model.Server{BaseURL: "https://old.example.com", Token: "old"}
+	m.ready = true
+
+	cleanupCount := 0
+	upstreamCleanup := func() { cleanupCount++ }
+
+	// Wire up exactly as the real watchStartedMsg handler does.
+	m.watchCleanup = upstreamCleanup
+	m.appWatchCleanup = func() { upstreamCleanup() }
+
+	_, _ = m.handleContextSwitchResult(model.ContextSwitchResultMsg{
+		Server:      &model.Server{BaseURL: "https://new.example.com", Token: "new"},
+		ContextName: "new-context",
+	})
+
+	if cleanupCount != 1 {
+		t.Errorf("expected upstreamCleanup called 1 time, got %d", cleanupCount)
+	}
+}
+
 // TestContextSwitchSameContextNoOp verifies that switching to the same context
 // produces a status message without teardown.
 func TestContextSwitchSameContextNoOp(t *testing.T) {
