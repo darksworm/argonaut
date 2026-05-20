@@ -50,6 +50,12 @@ brew install darksworm/tap/argonaut
 ```bash
 yay -S argonaut-bin
 ```
+
+Or, to track the latest commit on `main` (rebuilt from source on install):
+
+```bash
+yay -S argonaut-git
+```
 </details>
 
 <details>
