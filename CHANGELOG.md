@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.1](https://github.com/darksworm/argonaut/compare/v2.17.0...v2.17.1) (2026-05-21)
+
+
+### Bug Fixes
+
+* apps-view filter is no longer forgotten when returning from resources/k9s views ([8a241ed](https://github.com/darksworm/argonaut/commit/8a241ed2285136ca26b5f03bfe4709d2a7f5250d))
+* resolve race conditions and goroutine leaks in tea.Cmd closures ([#232](https://github.com/darksworm/argonaut/issues/232)) ([ed488ae](https://github.com/darksworm/argonaut/commit/ed488ae41a17725ddc5f351362c6a6492cfe4ec3))
+* save navigation state on sync/rollback watch tree open ([90bae46](https://github.com/darksworm/argonaut/commit/90bae46b22203f0af1163494a484f87ff6406c95))
+
 ## [2.17.0](https://github.com/darksworm/argonaut/compare/v2.16.0...v2.17.0) (2026-04-29)
 
 
