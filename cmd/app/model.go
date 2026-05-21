@@ -844,6 +844,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
 					appObj = *found
 				}
+				m.state.SaveNavigationState()
 				m.state.Navigation.View = model.ViewTree
 				m.setTreeApp(appObj)
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
@@ -1333,6 +1334,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
 					appObj = *found
 				}
+				m.state.SaveNavigationState()
 				m.state.Navigation.View = model.ViewTree
 				m.setTreeApp(appObj)
 				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
