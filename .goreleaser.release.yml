@@ -99,6 +99,10 @@ homebrew_casks:
 release:
   # Keep as draft; the workflow publishes after assets upload successfully.
   draft: true
+  # release-please creates the draft first (with force-tag-creation). Without
+  # this, goreleaser can't see the draft via the tag-lookup API and creates a
+  # second one, which produced the v2.17.1 split-release bug.
+  use_existing_draft: true
   prerelease: auto
   name_template: "{{ .Tag }}"
 
