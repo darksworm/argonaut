@@ -307,8 +307,19 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 				return nil
 			}
 		case <-done:
-			cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
-			return nil
+			// done and a buffered event can be ready at the same time (a
+			// stream that emits and then ends); select picks randomly, so
+			// drain the channel before treating the watch as finished.
+			select {
+			case ev, ok = <-ch:
+				if !ok {
+					cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan closed")
+					return nil
+				}
+			default:
+				cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
+				return nil
+			}
 		}
 
 		result := classifyWatchEvent(ev, epoch)

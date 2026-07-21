@@ -244,6 +244,40 @@ func TestConsumeWatchEvents_TimerFlushes(t *testing.T) {
 	}
 }
 
+// A stream that delivers an event and then ends (EOF) leaves the event
+// buffered in watchChan while watchDone is already closed. The consumer
+// must drain the buffered event instead of racing the done signal —
+// otherwise the last update of a stream is silently lost.
+func TestConsumeWatchEvents_DeliversBufferedEventWhenWatchAlreadyEnded(t *testing.T) {
+	oldDrain := watchBatchDrain
+	watchBatchDrain = time.Millisecond
+	t.Cleanup(func() { watchBatchDrain = oldDrain })
+
+	// The select between watchChan and watchDone picks randomly when both
+	// are ready, so a single run can pass by luck; require every run to
+	// deliver.
+	for i := 0; i < 50; i++ {
+		ch := make(chan services.ArgoApiEvent, 1)
+		done := make(chan struct{})
+		ch <- services.ArgoApiEvent{
+			Type: "app-updated",
+			App:  &model.App{Name: "demo", Sync: "OutOfSync"},
+		}
+		close(done)
+
+		m := &Model{watchChan: ch, watchDone: done}
+		msg := m.consumeWatchEvents()()
+
+		batch, ok := msg.(model.AppsBatchUpdateMsg)
+		if !ok {
+			t.Fatalf("iteration %d: buffered event dropped, got %T", i, msg)
+		}
+		if len(batch.Updates) != 1 || batch.Updates[0].App.Sync != "OutOfSync" {
+			t.Fatalf("iteration %d: unexpected batch %+v", i, batch)
+		}
+	}
+}
+
 func TestConsumeWatchEvents_NilChannel(t *testing.T) {
 	m := &Model{watchChan: nil}
 
