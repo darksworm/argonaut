@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
@@ -53,6 +54,9 @@ type Model struct {
 	watchChan chan services.ArgoApiEvent
 	// Closed when the current app watch forwarder stops.
 	watchDone chan struct{}
+	// True when the current watch forwarder stopped because the upstream
+	// stream ended (as opposed to an intentional stop via cleanup).
+	watchStreamEnded *atomic.Bool
 	// Cleanup callback for active applications watcher
 	appWatchCleanup func()
 
@@ -372,8 +376,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Set up the watch channel with proper forwarding.
 		outCh := make(chan services.ArgoApiEvent, 100)
 		done := make(chan struct{})
+		streamEnded := new(atomic.Bool)
 		m.watchChan = outCh
 		m.watchDone = done
+		m.watchStreamEnded = streamEnded
 		stopForwarding := make(chan struct{})
 		var stopOnce sync.Once
 		upstreamCleanup := msg.cleanup
@@ -400,6 +406,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case ev, ok := <-msg.eventChan:
 					if !ok {
 						cblog.With("component", "watch").Debug("watchStartedMsg: eventChan closed")
+						streamEnded.Store(true)
 						return
 					}
 					eventCount++
@@ -417,6 +424,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}()
 		// Start consuming events (batched)
 		return m, m.consumeWatchEvents()
+
+	case watchEndedMsg:
+		// Only the still-current watch's end warrants a reconnect; ends of
+		// superseded or other-context streams are expected and ignored.
+		if msg.switchEpoch != m.switchEpoch || msg.startSequenceNum != m.watchStartSequence {
+			return m, nil
+		}
+		cblog.With("component", "watch").Info("watch stream ended, scheduling reconnect",
+			"delay", watchReconnectDelay)
+		return m, tea.Tick(watchReconnectDelay, func(time.Time) tea.Msg {
+			return watchReconnectMsg{startSequenceNum: msg.startSequenceNum, switchEpoch: msg.switchEpoch}
+		})
+
+	case watchReconnectMsg:
+		if msg.switchEpoch != m.switchEpoch || msg.startSequenceNum != m.watchStartSequence {
+			return m, nil
+		}
+		return m, m.startWatchingApplications()
 
 	// API Event messages
 	case model.AppsLoadedMsg:

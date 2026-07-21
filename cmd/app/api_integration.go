@@ -34,7 +34,7 @@ func (m *Model) startLoadingApplications() tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "api_integration").Info("startLoadingApplications: executing load")
@@ -112,6 +112,33 @@ var watchBatchDrain = func() time.Duration {
 type watchScopeDebounceMsg struct {
 	version int
 }
+
+// watchEndedMsg indicates the watch stream ended (EOF) with no replacement
+// pending. Carries the identity of the ended watch so receivers can ignore
+// ends from superseded streams (ADR-0003).
+type watchEndedMsg struct {
+	startSequenceNum int
+	switchEpoch      int
+}
+
+// watchReconnectMsg fires after watchReconnectDelay to restart an ended
+// watch. Carries the ended watch's identity for staleness gating.
+type watchReconnectMsg struct {
+	startSequenceNum int
+	switchEpoch      int
+}
+
+// watchReconnectDelay is the pause before reconnecting an ended watch
+// stream, so a server that instantly closes streams can't drive a hot
+// reconnect loop. Overridable via ARGONAUT_WATCH_RECONNECT_DELAY for tests.
+var watchReconnectDelay = func() time.Duration {
+	if v := os.Getenv("ARGONAUT_WATCH_RECONNECT_DELAY"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
+	}
+	return time.Second
+}()
 
 // startWatchingApplications starts the real-time watch stream
 func (m *Model) startWatchingApplications() tea.Cmd {
@@ -284,10 +311,12 @@ func classifyWatchEvent(ev services.ArgoApiEvent, epoch int) eventResult {
 // batch tagged with the old generation. The handler checks the generation to avoid
 // spawning duplicate consumers for the new channel.
 func (m *Model) consumeWatchEvents() tea.Cmd {
-	ch := m.watchChan        // capture at call time
-	gen := m.watchGeneration // capture at call time
-	done := m.watchDone      // capture at call time
-	epoch := m.switchEpoch   // capture at call time
+	ch := m.watchChan                 // capture at call time
+	gen := m.watchGeneration          // capture at call time
+	done := m.watchDone               // capture at call time
+	epoch := m.switchEpoch            // capture at call time
+	seq := m.watchStartSequence       // capture at call time
+	streamEnded := m.watchStreamEnded // capture at call time
 	return func() tea.Msg {
 		if ch == nil {
 			cblog.With("component", "watch").Debug("consumeWatchEvents: watchChan is nil")
@@ -318,6 +347,10 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 				}
 			default:
 				cblog.With("component", "watch").Debug("consumeWatchEvents: watchDone signaled")
+				if streamEnded != nil && streamEnded.Load() {
+					return watchEndedMsg{startSequenceNum: seq, switchEpoch: epoch}
+				}
+				// Intentional stop (cleanup) — no reconnect.
 				return nil
 			}
 		}
@@ -463,7 +496,7 @@ func (m *Model) startDiffSession(appName string, appNamespace *string) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
 	}
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
@@ -548,7 +581,7 @@ func (m *Model) startResourceDiffSession(res ResourceIdentifier) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
 	}
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
@@ -662,7 +695,7 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 	}
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -708,8 +741,8 @@ func (m *Model) startWatchingResourceTree(app model.App) tea.Cmd {
 	if m.state.Server == nil {
 		return nil
 	}
-	server := m.state.Server       // capture at call time
-	done := m.treeStreamDone       // capture at call time
+	server := m.state.Server // capture at call time
+	done := m.treeStreamDone // capture at call time
 	return func() tea.Msg {
 		ctx := context.Background()
 		apiService := services.NewArgoApiService(server)
@@ -784,7 +817,7 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		apiService := services.NewEnhancedArgoApiService(server)
@@ -833,7 +866,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -887,7 +920,7 @@ func (m *Model) syncSingleApplication(appName string, appNamespace *string, prun
 		}
 	}
 
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -934,7 +967,7 @@ func (m *Model) refreshSingleApplication(appName string, appNamespace *string, h
 		}
 	}
 
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -1086,7 +1119,7 @@ func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.C
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
 	}
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 30*time.Second)
@@ -1166,7 +1199,7 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
 	}
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 60*time.Second)
@@ -1206,7 +1239,7 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 			return model.ApiErrorMsg{Message: "No server configured", SwitchEpoch: epoch}
 		}
 	}
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 45*time.Second)
@@ -1385,7 +1418,7 @@ func (m *Model) deleteSingleApplication(params AppDeleteParams) tea.Cmd {
 		}
 	}
 
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -1552,7 +1585,7 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 		appNames = append(appNames, name)
 	}
 
-	epoch := m.switchEpoch  // capture at call time
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "resource-sync").Info("Starting resource sync",

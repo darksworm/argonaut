@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -275,6 +276,133 @@ func TestConsumeWatchEvents_DeliversBufferedEventWhenWatchAlreadyEnded(t *testin
 		if len(batch.Updates) != 1 || batch.Updates[0].App.Sync != "OutOfSync" {
 			t.Fatalf("iteration %d: unexpected batch %+v", i, batch)
 		}
+	}
+}
+
+// When the stream ends and nothing is left buffered, the consumer must
+// report the end of the watch instead of letting the chain die silently —
+// the model needs that signal to reconnect.
+func TestConsumeWatchEvents_ReportsWatchEndWhenStreamEnds(t *testing.T) {
+	ch := make(chan services.ArgoApiEvent, 1)
+	done := make(chan struct{})
+	close(done)
+	streamEnded := new(atomic.Bool)
+	streamEnded.Store(true)
+
+	m := &Model{
+		watchChan:          ch,
+		watchDone:          done,
+		watchStreamEnded:   streamEnded,
+		watchStartSequence: 3,
+		switchEpoch:        2,
+	}
+	msg := m.consumeWatchEvents()()
+
+	ended, ok := msg.(watchEndedMsg)
+	if !ok {
+		t.Fatalf("expected watchEndedMsg, got %T", msg)
+	}
+	if ended.startSequenceNum != 3 {
+		t.Errorf("expected start sequence 3, got %d", ended.startSequenceNum)
+	}
+	if ended.switchEpoch != 2 {
+		t.Errorf("expected epoch 2, got %d", ended.switchEpoch)
+	}
+}
+
+// An intentional stop (cleanup during restart or context switch) is not a
+// stream end and must not be reported as one.
+func TestConsumeWatchEvents_StaysSilentWhenWatchStoppedIntentionally(t *testing.T) {
+	ch := make(chan services.ArgoApiEvent, 1)
+	done := make(chan struct{})
+	close(done)
+
+	m := &Model{
+		watchChan:        ch,
+		watchDone:        done,
+		watchStreamEnded: new(atomic.Bool), // never set: forwarder was stopped, stream did not end
+	}
+	msg := m.consumeWatchEvents()()
+
+	if msg != nil {
+		t.Fatalf("expected nil for intentionally stopped watch, got %T", msg)
+	}
+}
+
+// The end of the current watch must lead to a fresh watch start (after the
+// reconnect delay) so live updates survive a dropped stream.
+func TestWatchEndedMsg_ReconnectsCurrentWatch(t *testing.T) {
+	oldDelay := watchReconnectDelay
+	watchReconnectDelay = time.Millisecond
+	t.Cleanup(func() { watchReconnectDelay = oldDelay })
+
+	m := &Model{
+		state:              model.NewAppState(),
+		watchStartSequence: 3,
+	}
+	m.state.Server = &model.Server{BaseURL: "https://example.com", Token: "x"}
+
+	_, cmd := m.Update(watchEndedMsg{startSequenceNum: 3, switchEpoch: 0})
+	if cmd == nil {
+		t.Fatal("expected a reconnect command for the current watch's end")
+	}
+
+	// Let the delayed reconnect fire and feed it back into Update.
+	_, cmd = m.Update(cmd())
+	if cmd == nil {
+		t.Fatal("expected a watch start command after the reconnect delay")
+	}
+	if m.watchStartSequence != 4 {
+		t.Fatalf("expected a new watch start (sequence 4), got %d", m.watchStartSequence)
+	}
+}
+
+// Ends of superseded watches are routine (every restart ends the old
+// stream) and must not trigger reconnects.
+func TestWatchEndedMsg_IgnoresSupersededWatch(t *testing.T) {
+	m := &Model{
+		state:              model.NewAppState(),
+		watchStartSequence: 5,
+	}
+	m.state.Server = &model.Server{BaseURL: "https://example.com", Token: "x"}
+
+	_, cmd := m.Update(watchEndedMsg{startSequenceNum: 4, switchEpoch: 0})
+	if cmd != nil {
+		t.Fatal("expected no reconnect for a superseded watch's end")
+	}
+}
+
+// After a context switch the old context's watch end is irrelevant — the
+// new context manages its own watch.
+func TestWatchEndedMsg_IgnoresPreviousContext(t *testing.T) {
+	m := &Model{
+		state:              model.NewAppState(),
+		watchStartSequence: 5,
+		switchEpoch:        2,
+	}
+	m.state.Server = &model.Server{BaseURL: "https://example.com", Token: "x"}
+
+	_, cmd := m.Update(watchEndedMsg{startSequenceNum: 5, switchEpoch: 1})
+	if cmd != nil {
+		t.Fatal("expected no reconnect for a previous context's watch end")
+	}
+}
+
+// The reconnect tick itself re-checks currency: if the watch was replaced
+// during the delay, the tick must not start another stream.
+func TestWatchReconnectMsg_IgnoresStaleReconnect(t *testing.T) {
+	m := &Model{
+		state:              model.NewAppState(),
+		watchStartSequence: 6,
+	}
+	m.state.Server = &model.Server{BaseURL: "https://example.com", Token: "x"}
+
+	_, cmd := m.Update(watchReconnectMsg{startSequenceNum: 5, switchEpoch: 0})
+	if cmd != nil {
+		t.Fatal("expected no watch start for a stale reconnect tick")
+	}
+	if m.watchStartSequence != 6 {
+		t.Fatalf("expected sequence unchanged, got %d", m.watchStartSequence)
 	}
 }
 
