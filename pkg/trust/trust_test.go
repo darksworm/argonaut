@@ -16,16 +16,22 @@ import (
 	"time"
 )
 
-// poolHasCustomCerts reports whether pool contains certificates beyond the
-// system roots. LoadPool starts from the system pool, so comparing against a
-// fresh system pool detects the certs the test added.
-func poolHasCustomCerts(t *testing.T, pool *x509.CertPool) bool {
+// poolContainsCert reports whether pool can verify the given self-signed CA
+// certificate — i.e. whether LoadPool actually picked it up. Comparing against
+// a fresh x509.SystemCertPool would be order-dependent: it also honors
+// SSL_CERT_DIR, which several tests manipulate.
+func poolContainsCert(t *testing.T, pool *x509.CertPool, certPEM []byte) bool {
 	t.Helper()
-	base, err := x509.SystemCertPool()
-	if err != nil || base == nil {
-		base = x509.NewCertPool()
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		t.Fatal("failed to decode certificate PEM")
 	}
-	return !pool.Equal(base)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse certificate: %v", err)
+	}
+	_, err = cert.Verify(x509.VerifyOptions{Roots: pool})
+	return err == nil
 }
 
 // testCA creates a test CA certificate for testing
@@ -120,7 +126,7 @@ func TestLoadPool_ValidCertFile(t *testing.T) {
 	}
 
 	// Should have at least one certificate (our test cert)
-	if !poolHasCustomCerts(t, pool) {
+	if !poolContainsCert(t, pool, certPEM) {
 		t.Fatal("Pool should contain at least the test certificate")
 	}
 }
@@ -206,7 +212,7 @@ func TestLoadPool_ValidCertDir(t *testing.T) {
 	}
 
 	// Should have certificates
-	if !poolHasCustomCerts(t, pool) {
+	if !poolContainsCert(t, pool, certPEM) {
 		t.Fatal("Pool should contain certificates from directory")
 	}
 }
@@ -366,7 +372,7 @@ func TestLoadPool_ColonSeparatedCertDir(t *testing.T) {
 	}
 
 	// Should have certificates from both directories
-	if !poolHasCustomCerts(t, pool) {
+	if !poolContainsCert(t, pool, certPEM) {
 		t.Fatal("Pool should contain certificates from both directories")
 	}
 }
@@ -412,7 +418,7 @@ func TestLoadPool_ColonSeparatedCertDirWithSpaces(t *testing.T) {
 	}
 
 	// Should have certificate from the valid directory
-	if !poolHasCustomCerts(t, pool) {
+	if !poolContainsCert(t, pool, certPEM) {
 		t.Fatal("Pool should contain certificate from valid directory")
 	}
 }
@@ -462,7 +468,7 @@ func TestLoadPool_FlagWithColonSeparatedDirs(t *testing.T) {
 	}
 
 	// Should have certificates from both directories
-	if !poolHasCustomCerts(t, pool) {
+	if !poolContainsCert(t, pool, certPEM) {
 		t.Fatal("Pool should contain certificates from both flag directories")
 	}
 }
@@ -502,7 +508,7 @@ func TestLoadPool_FlagWithColonSeparatedDirsOneNonExistent(t *testing.T) {
 	}
 
 	// Should have certificate from the existing directory
-	if !poolHasCustomCerts(t, pool) {
+	if !poolContainsCert(t, pool, certPEM) {
 		t.Fatal("Pool should contain certificate from existing flag directory")
 	}
 }
