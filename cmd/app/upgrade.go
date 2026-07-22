@@ -85,11 +85,6 @@ func (m *Model) executeUpgrade() tea.Cmd {
 			"to", updateInfo.LatestVersion,
 			"install_method", updateInfo.InstallMethod)
 
-		// Show progress for downloading
-		go func() {
-			time.Sleep(100 * time.Millisecond) // Small delay to ensure UI updates
-		}()
-
 		// Handle different install methods
 		switch updateInfo.InstallMethod {
 		case model.InstallMethodBrew:
@@ -245,46 +240,5 @@ func (m *Model) scheduleInitialUpdateCheck() tea.Cmd {
 			UpdateInfo: updateInfo,
 			Error:      nil,
 		}
-	}
-}
-
-// schedulePeriodicUpdateCheck starts a background goroutine for periodic update checks
-func (m *Model) schedulePeriodicUpdateCheck() tea.Cmd {
-	if !m.config.IsUpdateCheckEnabled() {
-		return nil
-	}
-	return func() tea.Msg {
-		// Wait before first check to not interfere with app startup
-		time.Sleep(30 * time.Second)
-
-		// Start periodic checking
-		ticker := time.NewTicker(1 * time.Hour)
-		go func() {
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					logger := cblog.With("component", "update")
-					logger.Debug("Performing periodic update check")
-
-					updateInfo, err := m.updateService.CheckForUpdates(appVersion)
-					if err != nil {
-						logger.Debug("Periodic update check failed", "err", err)
-						continue
-					}
-
-					if updateInfo.Available {
-						logger.Info("Update available during periodic check",
-							"current", updateInfo.CurrentVersion,
-							"latest", updateInfo.LatestVersion)
-						// Send update info to UI
-						// Note: In a real implementation, we'd need a way to send this back to the UI
-						// For now, just log it
-					}
-				}
-			}
-		}()
-
-		return nil
 	}
 }
