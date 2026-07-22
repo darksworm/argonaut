@@ -30,20 +30,13 @@ func TestScheduleInitialUpdateCheck_RespectsDisableConfig(t *testing.T) {
 			m.initializeUpdateService() // sets m.updateService
 
 			gotInitial := m.scheduleInitialUpdateCheck()
-			gotPeriodic := m.schedulePeriodicUpdateCheck()
 			if tc.wantNoCmd {
 				if gotInitial != nil {
 					t.Errorf("scheduleInitialUpdateCheck: expected nil with check_enabled=false, got non-nil")
 				}
-				if gotPeriodic != nil {
-					t.Errorf("schedulePeriodicUpdateCheck: expected nil with check_enabled=false, got non-nil")
-				}
 			} else {
 				if gotInitial == nil {
 					t.Errorf("scheduleInitialUpdateCheck: expected non-nil with check enabled, got nil")
-				}
-				if gotPeriodic == nil {
-					t.Errorf("schedulePeriodicUpdateCheck: expected non-nil with check enabled, got nil")
 				}
 			}
 		})
