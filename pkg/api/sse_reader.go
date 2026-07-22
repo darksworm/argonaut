@@ -71,23 +71,36 @@ type SSEMetrics struct {
 	EventsProcessed  int
 }
 
-// Buffer pool for reducing GC pressure
+// Buffer pool for reducing GC pressure. Holds *[]byte rather than []byte so
+// Get/Put circulate a pointer instead of boxing the slice header on every Put
+// (staticcheck SA6002).
 var bufferPool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, DefaultInitialBufferV2)
+		buffer := make([]byte, DefaultInitialBufferV2)
+		return &buffer
 	},
 }
 
 // AccumulatingSSEReader reads SSE events without data loss on buffer overflow
 type AccumulatingSSEReader struct {
-	stream      io.ReadCloser
-	buffer      []byte // Current read buffer
-	accumulated []byte // Partial event accumulator
-	bufferSize  int    // Current buffer size
-	config      *SSEConfig
-	metrics     *SSEMetrics
-	bufReader   *bufio.Reader // Unified reader for both scanning and direct reads
-	useScanner  bool          // Whether to use scanner mode
+	stream       io.ReadCloser
+	buffer       []byte  // Current read buffer
+	pooledBuffer *[]byte // Pool pointer buffer was obtained under; nil once returned
+	accumulated  []byte  // Partial event accumulator
+	bufferSize   int     // Current buffer size
+	config       *SSEConfig
+	metrics      *SSEMetrics
+	bufReader    *bufio.Reader // Unified reader for both scanning and direct reads
+	useScanner   bool          // Whether to use scanner mode
+}
+
+// releaseBufferToPool returns the pooled buffer, if any, and marks it returned
+// so a later grow or double Close cannot hand the same buffer out twice.
+func (r *AccumulatingSSEReader) releaseBufferToPool() {
+	if r.pooledBuffer != nil {
+		bufferPool.Put(r.pooledBuffer)
+		r.pooledBuffer = nil
+	}
 }
 
 // NewAccumulatingSSEReader creates a new SSE reader that handles large events gracefully
@@ -98,18 +111,21 @@ func NewAccumulatingSSEReader(stream io.ReadCloser, config *SSEConfig) *Accumula
 
 	// Get buffer from pool if it matches default size
 	var buffer []byte
+	var pooledBuffer *[]byte
 	if config.InitialBuffer == DefaultInitialBufferV2 {
-		buffer = bufferPool.Get().([]byte)
+		pooledBuffer = bufferPool.Get().(*[]byte)
+		buffer = *pooledBuffer
 	} else {
 		buffer = make([]byte, config.InitialBuffer)
 	}
 
 	reader := &AccumulatingSSEReader{
-		stream:      stream,
-		buffer:      buffer,
-		accumulated: make([]byte, 0, config.InitialBuffer),
-		bufferSize:  config.InitialBuffer,
-		config:      config,
+		stream:       stream,
+		buffer:       buffer,
+		pooledBuffer: pooledBuffer,
+		accumulated:  make([]byte, 0, config.InitialBuffer),
+		bufferSize:   config.InitialBuffer,
+		config:       config,
 		metrics: &SSEMetrics{
 			CurrentBuffer: config.InitialBuffer,
 		},
@@ -155,10 +171,7 @@ func (r *AccumulatingSSEReader) growBuffer() error {
 
 	newSize := r.calculateNextBufferSize()
 
-	// Return old buffer to pool if it was default size
-	if len(r.buffer) == DefaultInitialBufferV2 {
-		bufferPool.Put(r.buffer)
-	}
+	r.releaseBufferToPool()
 
 	r.buffer = make([]byte, newSize)
 	r.bufferSize = newSize
@@ -331,9 +344,7 @@ func (r *AccumulatingSSEReader) ReadLine() (string, error) {
 
 // Close closes the underlying stream and returns buffer to pool
 func (r *AccumulatingSSEReader) Close() error {
-	if len(r.buffer) == DefaultInitialBufferV2 {
-		bufferPool.Put(r.buffer)
-	}
+	r.releaseBufferToPool()
 	if r.stream != nil {
 		return r.stream.Close()
 	}
