@@ -759,15 +759,10 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 
 // GetUserInfo validates user authentication by checking session info
 func (s *ApplicationService) GetUserInfo(ctx context.Context) error {
-	resp, err := s.client.Get(ctx, "/api/v1/session/userinfo")
-	if err != nil {
+	// A successful response is all we need — it proves the user is authenticated
+	if _, err := s.client.Get(ctx, "/api/v1/session/userinfo"); err != nil {
 		return fmt.Errorf("failed to get user info: %w", err)
 	}
-
-	// We don't need to parse the response, just verify it's successful
-	// The existence of a successful response indicates the user is authenticated
-	_ = resp // Acknowledge we received the response
-
 	return nil
 }
 

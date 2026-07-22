@@ -36,12 +36,10 @@ type UserAction struct {
 
 // ErrorHandlerImpl provides a concrete implementation of ErrorHandler
 type ErrorHandlerImpl struct {
-	logger       *log.Logger
-	logFile      *os.File
-	errorHistory []ArgonautError
-	historyMu    sync.RWMutex
-	maxHistory   int
-	notifyFunc   func(*ArgonautError) // Callback for UI notifications
+	logger     *log.Logger
+	logFile    *os.File
+	maxHistory int
+	notifyFunc func(*ArgonautError) // Callback for UI notifications
 }
 
 // ErrorHandlerConfig configures the error handler

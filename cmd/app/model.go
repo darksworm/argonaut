@@ -434,7 +434,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cblog.With("component", "watch").Info("watch stream ended, scheduling reconnect",
 			"delay", watchReconnectDelay)
 		return m, tea.Tick(watchReconnectDelay, func(time.Time) tea.Msg {
-			return watchReconnectMsg{startSequenceNum: msg.startSequenceNum, switchEpoch: msg.switchEpoch}
+			return watchReconnectMsg(msg)
 		})
 
 	case watchReconnectMsg:

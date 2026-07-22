@@ -224,12 +224,6 @@ func (m *Model) renderAppRow(app model.App, isCursor bool) string {
 	}
 	active := isCursor || isSelected
 
-	// Get project name (for future use)
-	_ = "default"
-	if app.Project != nil {
-		_ = *app.Project
-	}
-
 	// Prepare texts and widths using same responsive logic as header
 	syncIcon := m.getSyncIcon(app.Sync)
 	healthIcon := m.getHealthIcon(app.Health)

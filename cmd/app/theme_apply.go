@@ -15,8 +15,6 @@ var (
 
 	// Background colors for special use cases
 	mutedBG color.Color
-	shadeBG color.Color
-	darkBG  color.Color
 
 	// Derived foreground colors for themed backgrounds
 	textOnSelected       color.Color
@@ -27,7 +25,6 @@ var (
 
 	// Modal-specific colors
 	keycapBG   color.Color
-	spinnerBG  color.Color
 	neutralBG  color.Color
 	inactiveBG color.Color
 
@@ -72,7 +69,6 @@ func applyTheme(p theme.Palette) {
 	unknownColor = p.Unknown
 	cyanBright = p.Info
 	whiteBright = p.Text
-	white = whiteBright
 	redColor = outOfSyncColor
 
 	// Update help colors
@@ -85,8 +81,6 @@ func applyTheme(p theme.Palette) {
 
 	// Store background colors
 	mutedBG = p.MutedBG
-	shadeBG = p.ShadeBG
-	darkBG = p.DarkBG
 
 	// Calculate high-contrast foregrounds for key backgrounds
 	textOnSelected = ensureContrastingForeground(p.SelectedBG, p.Text)
@@ -94,7 +88,6 @@ func applyTheme(p theme.Palette) {
 
 	// Update modal colors
 	keycapBG = p.MutedBG
-	spinnerBG = p.DarkBG
 	neutralBG = p.ShadeBG
 	inactiveBG = p.MutedBG
 

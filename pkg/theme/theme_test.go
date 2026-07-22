@@ -10,11 +10,6 @@ import (
 )
 
 // Helper function to compare colors by creating them with lipgloss.Color
-func colorsEqual(a, b interface{}, expected string) bool {
-	expectedColor := lipgloss.Color(expected)
-	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", expectedColor)
-}
-
 func TestAllPresetsHaveRequiredColors(t *testing.T) {
 	themeNames := Names()
 	if len(themeNames) == 0 {
