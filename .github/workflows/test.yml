@@ -38,6 +38,9 @@ jobs:
             exit 1
           fi
 
+      - name: Run staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
+
       - name: Run tests (unit + e2e)
         # Match parallelism to the runner's core count — full CPU
         # utilisation, no oversubscription. Anything higher introduces

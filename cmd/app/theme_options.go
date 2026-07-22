@@ -4,8 +4,6 @@ import (
 	"github.com/darksworm/argonaut/pkg/theme"
 )
 
-const warningIndicator = "⚠"
-
 type themeOption struct {
 	Name           string
 	Display        string

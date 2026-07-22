@@ -47,11 +47,9 @@ func (m *Model) openK9s(params K9sResourceParams) tea.Cmd {
 		}
 
 		// Map the kind to k9s resource alias
-		resourceAlias := params.Kind
+		resourceAlias := strings.ToLower(params.Kind)
 		if alias, ok := k9sResourceMap[params.Kind]; ok {
 			resourceAlias = alias
-		} else {
-			resourceAlias = strings.ToLower(params.Kind)
 		}
 
 		// Build args - include filter if name is provided

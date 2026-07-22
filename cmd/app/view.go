@@ -30,9 +30,7 @@ var (
 	whiteBright    = lipgloss.Color("15") // Bright white
 
 	// Additional colors for modals
-	black    = lipgloss.Color("0")  // Black
-	white    = lipgloss.Color("15") // White (alias for whiteBright)
-	redColor = lipgloss.Color("9")  // Red
+	redColor = lipgloss.Color("9") // Red
 )
 
 // HighlightLogLine applies syntax highlighting to a single log line
@@ -434,13 +432,8 @@ var bgColorRE = regexp.MustCompile("\x1b\\[(?:[0-9;]*;)?(?:4[0-7]|10[0-7]|48;[25
 func segmentHasBgColor(seg string) bool {
 	sgrs := ansiRE.FindAllString(seg, -1)
 	for _, sgr := range sgrs {
-		inner := sgr
-		if strings.HasPrefix(inner, "\x1b[") {
-			inner = inner[2:]
-		}
-		if strings.HasSuffix(inner, "m") {
-			inner = inner[:len(inner)-1]
-		}
+		inner := strings.TrimPrefix(sgr, "\x1b[")
+		inner = strings.TrimSuffix(inner, "m")
 		if inner == "" {
 			continue
 		}
@@ -986,7 +979,7 @@ func (m *Model) renderErrorView() string {
 		if errorTitle == "" {
 			errorTitle = "Error"
 		}
-		errorContent += titleStyle.Render(strings.Title(strings.ReplaceAll(errorTitle, "_", " "))) + "\n\n"
+		errorContent += titleStyle.Render(titleWords(strings.ReplaceAll(errorTitle, "_", " "))) + "\n\n"
 
 		// Error code/type
 		if err.Code != "" {
@@ -1011,7 +1004,7 @@ func (m *Model) renderErrorView() string {
 		}
 
 		// Additional context (if available) - but filter out redundant info
-		if err.Context != nil && len(err.Context) > 0 {
+		if len(err.Context) > 0 {
 			contextStyle := lipgloss.NewStyle().Foreground(unknownColor)
 			errorContent += "\nContext:\n"
 			for key, value := range err.Context {
@@ -1379,4 +1372,15 @@ func (m *Model) renderRollbackConfirmation(rollback *model.RollbackState, innerH
 	content += bottomBlock.String()
 
 	return content
+}
+
+// titleWords upper-cases the first letter of each space-separated word.
+// Error categories are ASCII identifiers, so this replaces the deprecated
+// strings.Title without pulling in x/text.
+func titleWords(s string) string {
+	words := strings.Fields(s)
+	for i, w := range words {
+		words[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	return strings.Join(words, " ")
 }

@@ -810,14 +810,6 @@ func (v *TreeView) VisibleLineCount() int {
 	return len(v.order) + roots
 }
 
-func padRight(s string, width int) string {
-	w := lipgloss.Width(s)
-	if w >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-w)
-}
-
 func padRightWithBG(s string, width int, bg color.Color) string {
 	w := lipgloss.Width(s)
 	if w >= width {

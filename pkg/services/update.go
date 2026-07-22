@@ -537,7 +537,7 @@ func (u *UpdateServiceImpl) extractTarGz(reader io.Reader, destDir string) error
 		}
 
 		switch header.Typeflag {
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			// Regular file
 			file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
