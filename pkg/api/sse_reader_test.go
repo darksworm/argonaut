@@ -11,8 +11,9 @@ import (
 
 // mockReadCloser implements io.ReadCloser for testing
 type mockReadCloser struct {
-	reader io.Reader
-	closed bool
+	reader     io.Reader
+	closed     bool
+	closeCount int
 }
 
 func (m *mockReadCloser) Read(p []byte) (n int, err error) {
@@ -24,7 +25,53 @@ func (m *mockReadCloser) Read(p []byte) (n int, err error) {
 
 func (m *mockReadCloser) Close() error {
 	m.closed = true
+	m.closeCount++
 	return nil
+}
+
+func TestAccumulatingSSEReader_CloseIsIdempotent(t *testing.T) {
+	stream := &mockReadCloser{reader: strings.NewReader("")}
+	reader := NewAccumulatingSSEReader(stream, nil)
+
+	if err := reader.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+
+	if stream.closeCount != 1 {
+		t.Errorf("underlying stream closed %d times, want 1", stream.closeCount)
+	}
+}
+
+func TestAccumulatingSSEReader_ReturnsPooledBufferOnlyOnce(t *testing.T) {
+	stream := &mockReadCloser{reader: strings.NewReader("")}
+	reader := NewAccumulatingSSEReader(stream, nil)
+
+	if reader.pooledBuffer == nil {
+		t.Fatal("default-size reader should borrow its buffer from the pool")
+	}
+
+	_ = reader.Close()
+	if reader.pooledBuffer != nil {
+		t.Error("pooled buffer not marked returned after Close")
+	}
+	_ = reader.Close()
+	if reader.pooledBuffer != nil {
+		t.Error("second Close must not borrow or return again")
+	}
+}
+
+func TestAccumulatingSSEReader_CustomBufferSizeDoesNotUsePool(t *testing.T) {
+	config := DefaultSSEConfig()
+	config.InitialBuffer = 512 * KB
+	stream := &mockReadCloser{reader: strings.NewReader("")}
+	reader := NewAccumulatingSSEReader(stream, config)
+
+	if reader.pooledBuffer != nil {
+		t.Error("custom-size reader must not borrow from the pool")
+	}
 }
 
 // slowReader simulates a slow stream that sends data in chunks
