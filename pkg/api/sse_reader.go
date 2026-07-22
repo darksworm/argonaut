@@ -346,7 +346,9 @@ func (r *AccumulatingSSEReader) ReadLine() (string, error) {
 func (r *AccumulatingSSEReader) Close() error {
 	r.releaseBufferToPool()
 	if r.stream != nil {
-		return r.stream.Close()
+		stream := r.stream
+		r.stream = nil
+		return stream.Close()
 	}
 	return nil
 }
