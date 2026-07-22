@@ -11,14 +11,14 @@ func TestSetRequestTimeout(t *testing.T) {
 	originalTimeouts := DefaultTimeouts
 
 	tests := []struct {
-		name              string
-		timeout           time.Duration
-		expectAPI         time.Duration
-		expectSync        time.Duration
-		expectResource    time.Duration
-		expectAuth        time.Duration
-		expectUI          time.Duration // Should remain unchanged
-		expectStream      time.Duration // Should remain unchanged
+		name           string
+		timeout        time.Duration
+		expectAPI      time.Duration
+		expectSync     time.Duration
+		expectResource time.Duration
+		expectAuth     time.Duration
+		expectUI       time.Duration // Should remain unchanged
+		expectStream   time.Duration // Should remain unchanged
 	}{
 		{
 			name:           "set 30 second timeout",
@@ -28,7 +28,7 @@ func TestSetRequestTimeout(t *testing.T) {
 			expectResource: 30 * time.Second,
 			expectAuth:     30 * time.Second,
 			expectUI:       2 * time.Second, // Should not change
-			expectStream:   0,                // Should not change
+			expectStream:   0,               // Should not change
 		},
 		{
 			name:           "set 1 minute timeout",
@@ -38,7 +38,7 @@ func TestSetRequestTimeout(t *testing.T) {
 			expectResource: 1 * time.Minute,
 			expectAuth:     1 * time.Minute,
 			expectUI:       2 * time.Second, // Should not change
-			expectStream:   0,                // Should not change
+			expectStream:   0,               // Should not change
 		},
 		{
 			name:           "set 5 second timeout",
@@ -48,7 +48,7 @@ func TestSetRequestTimeout(t *testing.T) {
 			expectResource: 5 * time.Second,
 			expectAuth:     5 * time.Second,
 			expectUI:       2 * time.Second, // Should not change
-			expectStream:   0,                // Should not change
+			expectStream:   0,               // Should not change
 		},
 	}
 
@@ -94,38 +94,38 @@ func TestTimeoutOperations(t *testing.T) {
 	SetRequestTimeout(15 * time.Second)
 
 	tests := []struct {
-		name      string
-		opType    OperationType
+		name          string
+		opType        OperationType
 		expectTimeout time.Duration
 	}{
 		{
-			name:      "API operation uses configured timeout",
-			opType:    OpAPI,
+			name:          "API operation uses configured timeout",
+			opType:        OpAPI,
 			expectTimeout: 15 * time.Second,
 		},
 		{
-			name:      "Sync operation uses configured timeout",
-			opType:    OpSync,
+			name:          "Sync operation uses configured timeout",
+			opType:        OpSync,
 			expectTimeout: 15 * time.Second,
 		},
 		{
-			name:      "Resource operation uses configured timeout",
-			opType:    OpResource,
+			name:          "Resource operation uses configured timeout",
+			opType:        OpResource,
 			expectTimeout: 15 * time.Second,
 		},
 		{
-			name:      "Auth operation uses configured timeout",
-			opType:    OpAuth,
+			name:          "Auth operation uses configured timeout",
+			opType:        OpAuth,
 			expectTimeout: 15 * time.Second,
 		},
 		{
-			name:      "UI operation keeps its own timeout",
-			opType:    OpUI,
+			name:          "UI operation keeps its own timeout",
+			opType:        OpUI,
 			expectTimeout: 2 * time.Second,
 		},
 		{
-			name:      "Stream operation has no timeout",
-			opType:    OpStream,
+			name:          "Stream operation has no timeout",
+			opType:        OpStream,
 			expectTimeout: 0,
 		},
 	}

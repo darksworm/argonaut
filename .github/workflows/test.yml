@@ -29,6 +29,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Files not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
       - name: Run tests (unit + e2e)
         # Match parallelism to the runner's core count — full CPU
         # utilisation, no oversubscription. Anything higher introduces

@@ -173,13 +173,13 @@ func TestBuildStatusBarSequence(t *testing.T) {
 			namespace: "default",
 			context:   "minikube",
 			wantContains: []string{
-				"\x1b7",           // Save cursor
-				"\x1b[24;1H",      // Move to row 24
-				"\x1b[2K",         // Clear line
-				"Argonaut",        // App name
-				"k9s",             // k9s identifier
-				":q to return",    // Help text
-				"\x1b8",           // Restore cursor
+				"\x1b7",        // Save cursor
+				"\x1b[24;1H",   // Move to row 24
+				"\x1b[2K",      // Clear line
+				"Argonaut",     // App name
+				"k9s",          // k9s identifier
+				":q to return", // Help text
+				"\x1b8",        // Restore cursor
 			},
 		},
 		{
@@ -233,31 +233,31 @@ func TestBuildStatusBarSequence(t *testing.T) {
 func TestK9sResourceMapCoverage(t *testing.T) {
 	// Expected mappings based on k9s conventions
 	expectedMappings := map[string]string{
-		"Pod":                      "pod",
-		"Deployment":               "deploy",
-		"Service":                  "svc",
-		"Ingress":                  "ing",
-		"ConfigMap":                "cm",
-		"Secret":                   "secret",
-		"ReplicaSet":               "rs",
-		"StatefulSet":              "sts",
-		"DaemonSet":                "ds",
-		"Job":                      "job",
-		"CronJob":                  "cj",
-		"PersistentVolumeClaim":    "pvc",
-		"PersistentVolume":         "pv",
-		"ServiceAccount":           "sa",
-		"Namespace":                "ns",
-		"Node":                     "node",
-		"Event":                    "event",
-		"Endpoints":                "ep",
-		"HorizontalPodAutoscaler":  "hpa",
-		"NetworkPolicy":            "netpol",
-		"Role":                     "role",
-		"RoleBinding":              "rolebinding",
-		"ClusterRole":              "clusterrole",
-		"ClusterRoleBinding":       "clusterrolebinding",
-		"Application":              "applications.argoproj.io",
+		"Pod":                     "pod",
+		"Deployment":              "deploy",
+		"Service":                 "svc",
+		"Ingress":                 "ing",
+		"ConfigMap":               "cm",
+		"Secret":                  "secret",
+		"ReplicaSet":              "rs",
+		"StatefulSet":             "sts",
+		"DaemonSet":               "ds",
+		"Job":                     "job",
+		"CronJob":                 "cj",
+		"PersistentVolumeClaim":   "pvc",
+		"PersistentVolume":        "pv",
+		"ServiceAccount":          "sa",
+		"Namespace":               "ns",
+		"Node":                    "node",
+		"Event":                   "event",
+		"Endpoints":               "ep",
+		"HorizontalPodAutoscaler": "hpa",
+		"NetworkPolicy":           "netpol",
+		"Role":                    "role",
+		"RoleBinding":             "rolebinding",
+		"ClusterRole":             "clusterrole",
+		"ClusterRoleBinding":      "clusterrolebinding",
+		"Application":             "applications.argoproj.io",
 	}
 
 	for kind, expectedAlias := range expectedMappings {
@@ -345,5 +345,3 @@ users:
 		t.Fatal("findK9sContext('unknown-cluster') should return error, got nil")
 	}
 }
-
-

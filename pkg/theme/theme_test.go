@@ -288,9 +288,9 @@ func TestApplyOverrides_UnknownKeysIgnored(t *testing.T) {
 	originalAccent := base.Accent
 
 	overrides := map[string]string{
-		"invalid_key":     "#ff0000",
-		"unknown_color":   "#00ff00",
-		"nonexistent":     "#0000ff",
+		"invalid_key":   "#ff0000",
+		"unknown_color": "#00ff00",
+		"nonexistent":   "#0000ff",
 	}
 
 	result := applyOverrides(base, overrides)

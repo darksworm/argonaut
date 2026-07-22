@@ -83,20 +83,20 @@ func isSpecialCase(cmd string) bool {
 	// These are command variants that are handled in compound case statements
 	// and don't need separate autocomplete entries
 	specialCases := map[string]bool{
-		"del":         true, // alias for delete
-		"res":         true, // alias for resources
-		"r":           true, // alias for resources
-		"q!":          true, // alias for quit
-		"wq":          true, // alias for quit
-		"wq!":         true, // alias for quit
-		"clusters":    true, // alias for cluster
-		"cls":         true, // alias for cluster
-		"namespaces":  true, // alias for namespace
-		"ns":          true, // alias for namespace
-		"projects":    true, // alias for project
-		"proj":        true, // alias for project
-		"apps":        true, // alias for app
-		"update":      true, // alias for upgrade
+		"del":        true, // alias for delete
+		"res":        true, // alias for resources
+		"r":          true, // alias for resources
+		"q!":         true, // alias for quit
+		"wq":         true, // alias for quit
+		"wq!":        true, // alias for quit
+		"clusters":   true, // alias for cluster
+		"cls":        true, // alias for cluster
+		"namespaces": true, // alias for namespace
+		"ns":         true, // alias for namespace
+		"projects":   true, // alias for project
+		"proj":       true, // alias for project
+		"apps":       true, // alias for app
+		"update":     true, // alias for upgrade
 	}
 
 	return specialCases[cmd]

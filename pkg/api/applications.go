@@ -370,19 +370,19 @@ func (s *ApplicationService) WatchApplicationsWithOptions(ctx context.Context, e
 		return fmt.Errorf("failed to start watch stream: %w", err)
 	}
 	cblog.With("component", "api").Info("WatchApplications: stream established successfully")
-	
+
 	// Create AccumulatingSSEReader for reliable event processing
 	sseConfig := DefaultSSEConfig()
 	sseReader := NewAccumulatingSSEReader(streamResp.Body, sseConfig)
 	defer sseReader.Close()
 
-	cblog.With("component", "api").Info("WatchApplications: configured AccumulatingSSEReader", 
-		"initialBuffer", sseConfig.InitialBuffer, 
+	cblog.With("component", "api").Info("WatchApplications: configured AccumulatingSSEReader",
+		"initialBuffer", sseConfig.InitialBuffer,
 		"maxBuffer", sseConfig.MaxBuffer,
 		"maxAccumulated", sseConfig.MaxAccumulated)
-	
+
 	cblog.With("component", "api").Info("WatchApplications: starting to read from stream")
-	
+
 	for {
 		if ctx.Err() != nil {
 			cblog.With("component", "api").Debug("WatchApplications: context cancelled")
@@ -397,7 +397,7 @@ func (s *ApplicationService) WatchApplicationsWithOptions(ctx context.Context, e
 				cblog.With("component", "api").Debug("WatchApplications: stream ended normally")
 				return nil
 			}
-			
+
 			// Check for event too large error
 			if errors.Is(err, ErrEventTooLarge) {
 				metrics := sseReader.Metrics()
@@ -407,14 +407,14 @@ func (s *ApplicationService) WatchApplicationsWithOptions(ctx context.Context, e
 					"error", err)
 				return fmt.Errorf("SSE event exceeds maximum size: %w", err)
 			}
-			
+
 			return fmt.Errorf("error reading SSE event: %w", err)
 		}
-		
+
 		if len(eventData) == 0 {
 			continue
 		}
-		
+
 		// Process SSE event lines
 		lines := strings.Split(string(eventData), "\n")
 		for _, line := range lines {
@@ -429,7 +429,7 @@ func (s *ApplicationService) WatchApplicationsWithOptions(ctx context.Context, e
 			// Handle Server-Sent Events format (lines starting with "data: ")
 			if strings.HasPrefix(line, "data: ") {
 				dataLine := strings.TrimPrefix(line, "data: ")
-				
+
 				var eventResult WatchEventResult
 				if err := json.Unmarshal([]byte(dataLine), &eventResult); err != nil {
 					cblog.With("component", "api").Warn("WatchApplications: failed to unmarshal event", "error", err, "line", dataLine)
@@ -672,7 +672,7 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 		cblog.With("component", "api").Error("Failed to start resource tree watch", "err", err, "app", appName)
 		return fmt.Errorf("failed to start resource tree watch: %w", err)
 	}
-	
+
 	// Create AccumulatingSSEReader for reliable event processing
 	sseConfig := DefaultSSEConfig()
 	sseReader := NewAccumulatingSSEReader(streamResp.Body, sseConfig)
@@ -684,15 +684,15 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 		"initialBuffer", sseConfig.InitialBuffer,
 		"maxBuffer", sseConfig.MaxBuffer,
 		"maxAccumulated", sseConfig.MaxAccumulated)
-	
+
 	eventCount := 0
-	
+
 	for {
 		if ctx.Err() != nil {
 			cblog.With("component", "api").Debug("Context cancelled, stopping tree watch", "app", appName)
 			return ctx.Err()
 		}
-		
+
 		// Read next SSE event
 		eventData, err := sseReader.ReadEvent()
 		if err != nil {
@@ -701,7 +701,7 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 				cblog.With("component", "api").Debug("WatchResourceTree: stream ended normally", "app", appName)
 				return nil
 			}
-			
+
 			// Check for event too large error
 			if errors.Is(err, ErrEventTooLarge) {
 				metrics := sseReader.Metrics()
@@ -712,14 +712,14 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 					"error", err)
 				return fmt.Errorf("resource tree SSE event exceeds maximum size: %w", err)
 			}
-			
+
 			return fmt.Errorf("error reading SSE event: %w", err)
 		}
-		
+
 		if len(eventData) == 0 {
 			continue
 		}
-		
+
 		// Process SSE event lines
 		lines := strings.Split(string(eventData), "\n")
 		for _, line := range lines {

@@ -70,11 +70,11 @@ func TestSelection_Finalize(t *testing.T) {
 
 func TestSelection_Normalize(t *testing.T) {
 	tests := []struct {
-		name     string
-		start    Position
-		end      Position
-		wantS    Position
-		wantE    Position
+		name  string
+		start Position
+		end   Position
+		wantS Position
+		wantE Position
 	}{
 		{
 			name:  "already normalized",
@@ -147,11 +147,11 @@ func TestSelection_Contains(t *testing.T) {
 
 func TestSelection_ExtractText(t *testing.T) {
 	tests := []struct {
-		name   string
-		lines  []string
-		start  Position
-		end    Position
-		want   string
+		name  string
+		lines []string
+		start Position
+		end   Position
+		want  string
 	}{
 		{
 			name:  "single line partial",

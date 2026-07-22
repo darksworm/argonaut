@@ -80,7 +80,7 @@ func (m *Model) handleContextSwitchResult(msg model.ContextSwitchResultMsg) (tea
 
 	// 4. Transfer ONLY what must survive (narrowly defined, test-locked)
 	newM.program = m.program                   // BubbleTea program pointer
-	newM.state.Terminal = m.state.Terminal      // Current terminal size
+	newM.state.Terminal = m.state.Terminal     // Current terminal size
 	newM.ready = true                          // Already have terminal size
 	newM.argoConfigPath = m.argoConfigPath     // For future switches
 	newM.currentContextName = msg.ContextName  // New context name

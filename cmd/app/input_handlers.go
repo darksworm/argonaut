@@ -1478,7 +1478,6 @@ func firstResourceActionMatch(actions []string, prefix string) int {
 	return -1
 }
 
-
 // handleAuthRequiredModeKeys handles input when authentication is required
 func (m *Model) handleAuthRequiredModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {

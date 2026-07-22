@@ -31,14 +31,14 @@ type AppDeleteError struct {
 
 // AppDeleteModalState manages the state of the application delete confirmation modal
 type AppDeleteModalState struct {
-	Active           bool
-	AppName          string
-	AppNamespace     *string
-	ConfirmationKey  string // Track what user has typed
-	Loading          bool
-	Error            *AppDeleteError
-	Options          AppDeleteOptions
-	ConfirmSelected  int // 0 = Delete, 1 = Cancel
+	Active          bool
+	AppName         string
+	AppNamespace    *string
+	ConfirmationKey string // Track what user has typed
+	Loading         bool
+	Error           *AppDeleteError
+	Options         AppDeleteOptions
+	ConfirmSelected int // 0 = Delete, 1 = Cancel
 }
 
 // AppDeleteOptions configures the application deletion behavior

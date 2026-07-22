@@ -245,7 +245,7 @@ func TestSort_HealthTiebreakByNameDesc(t *testing.T) {
 func TestSort_EmptyStatusTreatedAsUnknown(t *testing.T) {
 	items := []testItem{
 		{health: "Healthy", name: "a"},
-		{health: "", name: "b"},       // empty → ranks as Unknown (4)
+		{health: "", name: "b"},        // empty → ranks as Unknown (4)
 		{health: "Unknown", name: "c"}, // explicit Unknown (4)
 		{health: "Degraded", name: "d"},
 	}

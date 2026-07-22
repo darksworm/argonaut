@@ -13,8 +13,8 @@ import (
 	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/autocomplete"
-	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/config"
+	appcontext "github.com/darksworm/argonaut/pkg/context"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/services"
 	"github.com/darksworm/argonaut/pkg/tui/clipboard"
@@ -71,31 +71,31 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 	}
 
 	return &Model{
-		state:              state,
-		argoService:        services.NewArgoApiService(nil),
-		navigationService:  services.NewNavigationService(),
-		statusService:      services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
-		updateService:      updateService,
-		config:             cfg,
-		inputComponents:    NewInputComponents(),
-		autocompleteEngine: autocomplete.NewAutocompleteEngine(),
-		ready:              false,
-		err:                nil,
-		spinner:            s,
-		appsTable:          appsTable,
-		clustersTable:      clustersTable,
-		namespacesTable:    namespacesTable,
-		projectsTable:      projectsTable,
-		program:            nil,
-		inPager:            false,
-		treeView:           treeview.NewTreeView(0, 0),
-		treeStream:         make(chan model.ResourceTreeStreamMsg, 64),
-		treeStreamDone:     make(chan struct{}),
-		listNav:            listnav.New(),
-		treeNav:            listnav.New(),
-		themeNav:           listnav.New(),
-		rollbackNav:            listnav.New(),
-		selection:              selection.New(),
+		state:                   state,
+		argoService:             services.NewArgoApiService(nil),
+		navigationService:       services.NewNavigationService(),
+		statusService:           services.NewStatusService(services.StatusServiceConfig{Handler: createFileStatusHandler(), DebugEnabled: true}),
+		updateService:           updateService,
+		config:                  cfg,
+		inputComponents:         NewInputComponents(),
+		autocompleteEngine:      autocomplete.NewAutocompleteEngine(),
+		ready:                   false,
+		err:                     nil,
+		spinner:                 s,
+		appsTable:               appsTable,
+		clustersTable:           clustersTable,
+		namespacesTable:         namespacesTable,
+		projectsTable:           projectsTable,
+		program:                 nil,
+		inPager:                 false,
+		treeView:                treeview.NewTreeView(0, 0),
+		treeStream:              make(chan model.ResourceTreeStreamMsg, 64),
+		treeStreamDone:          make(chan struct{}),
+		listNav:                 listnav.New(),
+		treeNav:                 listnav.New(),
+		themeNav:                listnav.New(),
+		rollbackNav:             listnav.New(),
+		selection:               selection.New(),
 		pendingDefaultViewScope: pendingDefaultViewScope,
 	}
 }
@@ -174,9 +174,9 @@ var _ tea.Msg
 
 // Init implements tea.Model.Init
 func (m *Model) Init() tea.Cmd {
-    // Initialize with terminal size request and startup commands
-    var cmds []tea.Cmd
-    cmds = append(cmds, m.spinner.Tick)
+	// Initialize with terminal size request and startup commands
+	var cmds []tea.Cmd
+	cmds = append(cmds, m.spinner.Tick)
 
 	// Configure clipboard from config
 	if copyCmd := m.config.GetClipboardCopyCommand(); copyCmd != "" {
@@ -204,9 +204,9 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) validateAuthentication() tea.Cmd {
-	epoch := m.switchEpoch           // capture at call time
-	server := m.state.Server         // capture at call time
-	currentMode := m.state.Mode      // capture at call time
+	epoch := m.switchEpoch      // capture at call time
+	server := m.state.Server    // capture at call time
+	currentMode := m.state.Mode // capture at call time
 	return func() tea.Msg {
 		if server == nil {
 			// Check if we're already in core detected mode (set during config loading)

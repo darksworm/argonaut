@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"unicode/utf8"
 	"time"
+	"unicode/utf8"
 	"unsafe"
 
 	tea "charm.land/bubbletea/v2"
@@ -290,9 +290,9 @@ func buildStatusBarSequence(rows, cols int, params K9sResourceParams) []byte {
 	var buf bytes.Buffer
 
 	// Save cursor, move to last row, clear line
-	buf.WriteString("\x1b7")                      // Save cursor
+	buf.WriteString("\x1b7")                         // Save cursor
 	buf.WriteString(fmt.Sprintf("\x1b[%d;1H", rows)) // Move to last row
-	buf.WriteString("\x1b[2K")                    // Clear line
+	buf.WriteString("\x1b[2K")                       // Clear line
 
 	// Build status bar content
 	left := " Argonaut » k9s"

@@ -47,15 +47,15 @@ type Manager struct {
 	serverName string
 	targetPort int
 
-	mu              sync.RWMutex
-	cmd             *exec.Cmd
-	localPort       int
-	running         bool
-	stopCh          chan struct{}
-	monitorDone     chan struct{} // closed when monitor goroutine exits
-	reconnectCount  int
-	onReconnect     func(port int)
-	onDisconnect    func(err error)
+	mu             sync.RWMutex
+	cmd            *exec.Cmd
+	localPort      int
+	running        bool
+	stopCh         chan struct{}
+	monitorDone    chan struct{} // closed when monitor goroutine exits
+	reconnectCount int
+	onReconnect    func(port int)
+	onDisconnect   func(err error)
 }
 
 // Options configures the port-forward manager

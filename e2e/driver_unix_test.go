@@ -186,10 +186,10 @@ func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 		return err
 	}
 	configPath := filepath.Join(configDir, "config.toml")
-	
+
 	// Create a mock clipboard file for all tests (even if they don't use it)
 	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
-	
+
 	// Create test config with both timeout and clipboard settings.
 	// Extra config is prepended so top-level keys appear before TOML sections.
 	testConfig := ""
@@ -281,10 +281,10 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 		return err
 	}
 	configPath := filepath.Join(configDir, "config.toml")
-	
+
 	// Create a mock clipboard file for all tests (even if they don't use it)
 	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
-	
+
 	// Create test config with both timeout and clipboard settings.
 	// Extra config is prepended so top-level keys appear before TOML sections.
 	testConfig := ""
@@ -1302,9 +1302,9 @@ func MockArgoServerWithInCluster() (*httptest.Server, error) {
 
 // MockKubectlOptions configures mock kubectl behavior for port-forward testing
 type MockKubectlOptions struct {
-	PodName       string        // Pod name to return from "kubectl get pods" (empty = no pods found)
-	LocalPort     int           // Port to report in port-forward output
-	PFExitAfter   time.Duration // Duration before port-forward exits (0 = run until killed)
+	PodName     string        // Pod name to return from "kubectl get pods" (empty = no pods found)
+	LocalPort   int           // Port to report in port-forward output
+	PFExitAfter time.Duration // Duration before port-forward exits (0 = run until killed)
 }
 
 // DefaultMockKubectlOptions returns sensible defaults for happy path testing
