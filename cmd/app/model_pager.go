@@ -120,37 +120,42 @@ func (m *Model) runDiffFormatterWithTitle(diffText string, resourceName string) 
 
 	// Post-process delta's output to clean up the header if we have a resource name
 	if usingDelta && resourceName != "" {
-		output := string(out)
-		lines := strings.Split(output, "\n")
-
-		// Look for the delta header line (contains the file paths)
-		for i, line := range lines {
-			// Delta's header typically contains "Δ" and the file paths
-			if strings.Contains(line, "Δ") && strings.Contains(line, "/var/folders/") {
-				// Extract ANSI codes to preserve colors
-				// Delta typically uses color codes at the start and resets at the end
-				ansiPrefix := ""
-				if idx := strings.Index(line, "Δ"); idx > 0 {
-					ansiPrefix = line[:idx]
-				}
-
-				// Check if line ends with ANSI reset code
-				ansiSuffix := ""
-				if strings.HasSuffix(line, "\x1b[0m") || strings.HasSuffix(line, "[0m") {
-					// Line already has reset code, we'll add it back
-					ansiSuffix = "\x1b[0m"
-				}
-
-				// Replace with clean header
-				lines[i] = fmt.Sprintf("%sΔ %s: Live ⟶ Desired%s", ansiPrefix, resourceName, ansiSuffix)
-				break
-			}
-		}
-
-		return strings.Join(lines, "\n"), nil
+		return rewriteDeltaHeader(string(out), resourceName), nil
 	}
 
 	return string(out), nil
+}
+
+// rewriteDeltaHeader replaces delta's temp-file-path header line with a clean
+// "<resource>: Live ⟶ Desired" header, preserving surrounding ANSI codes.
+func rewriteDeltaHeader(output, resourceName string) string {
+	lines := strings.Split(output, "\n")
+
+	// Look for the delta header line (contains the file paths)
+	for i, line := range lines {
+		// Delta's header typically contains "Δ" and the file paths
+		if strings.Contains(line, "Δ") && strings.Contains(line, os.TempDir()) {
+			// Extract ANSI codes to preserve colors
+			// Delta typically uses color codes at the start and resets at the end
+			ansiPrefix := ""
+			if idx := strings.Index(line, "Δ"); idx > 0 {
+				ansiPrefix = line[:idx]
+			}
+
+			// Check if line ends with ANSI reset code
+			ansiSuffix := ""
+			if strings.HasSuffix(line, "\x1b[0m") || strings.HasSuffix(line, "[0m") {
+				// Line already has reset code, we'll add it back
+				ansiSuffix = "\x1b[0m"
+			}
+
+			// Replace with clean header
+			lines[i] = fmt.Sprintf("%sΔ %s: Live ⟶ Desired%s", ansiPrefix, resourceName, ansiSuffix)
+			break
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func inPath(name string) bool {
