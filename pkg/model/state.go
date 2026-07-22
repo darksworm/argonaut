@@ -138,8 +138,8 @@ type UIState struct {
 type ModalState struct {
 	ConfirmTarget          *string `json:"confirmTarget,omitempty"`
 	ConfirmTargetNamespace *string `json:"confirmTargetNamespace,omitempty"`
-	ConfirmSyncPrune bool    `json:"confirmSyncPrune"`
-	ConfirmSyncWatch bool    `json:"confirmSyncWatch"`
+	ConfirmSyncPrune       bool    `json:"confirmSyncPrune"`
+	ConfirmSyncWatch       bool    `json:"confirmSyncWatch"`
 	// Which button is selected in confirm modal: 0 = Yes, 1 = Cancel
 	ConfirmSyncSelected int `json:"confirmSyncSelected"`
 	// When true, show a small syncing overlay instead of the confirm UI
@@ -190,15 +190,15 @@ type ModalState struct {
 
 // AppState represents the complete application state for Bubbletea
 type AppState struct {
-	Mode       Mode            `json:"mode"`
-	Terminal   TerminalState   `json:"terminal"`
-	Navigation NavigationState `json:"navigation"`
-	Selections SelectionState  `json:"selections"`
-	UI         UIState         `json:"ui"`
-	Modals     ModalState      `json:"modals"`
-	Server     *Server         `json:"server,omitempty"`
-	Apps       []App           `json:"apps"`
-	Index      *AppIndex       `json:"-"` // Pre-computed index, rebuilt on mutation
+	Mode         Mode            `json:"mode"`
+	Terminal     TerminalState   `json:"terminal"`
+	Navigation   NavigationState `json:"navigation"`
+	Selections   SelectionState  `json:"selections"`
+	UI           UIState         `json:"ui"`
+	Modals       ModalState      `json:"modals"`
+	Server       *Server         `json:"server,omitempty"`
+	Apps         []App           `json:"apps"`
+	Index        *AppIndex       `json:"-"` // Pre-computed index, rebuilt on mutation
 	APIVersion   string          `json:"apiVersion"`
 	ContextNames []string        `json:"contextNames,omitempty"`
 	// Note: AbortController equivalent will use context.Context in Go services
@@ -206,7 +206,7 @@ type AppState struct {
 	Rollback *RollbackState `json:"rollback,omitempty"`
 	// Store previous navigation state as a stack for app-of-apps drill-down
 	SavedNavigation []NavigationState `json:"savedNavigation,omitempty"`
-	SavedSelections *SelectionState  `json:"savedSelections,omitempty"`
+	SavedSelections *SelectionState   `json:"savedSelections,omitempty"`
 	// Store current error information for error screen display
 	CurrentError *ApiError   `json:"currentError,omitempty"` // DEPRECATED: Use ErrorState
 	ErrorState   *ErrorState `json:"errorState,omitempty"`

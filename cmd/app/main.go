@@ -12,8 +12,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	cblog "github.com/charmbracelet/log"
 	"charm.land/lipgloss/v2"
+	cblog "github.com/charmbracelet/log"
 	"github.com/darksworm/argonaut/pkg/api"
 	"github.com/darksworm/argonaut/pkg/config"
 	appcontext "github.com/darksworm/argonaut/pkg/context"
@@ -363,9 +363,9 @@ func main() {
 	m.state.Apps = []model.App{}
 
 	// Create the Bubbletea program
-    p := tea.NewProgram(
-        m,
-    )
+	p := tea.NewProgram(
+		m,
+	)
 
 	// Store program pointer for terminal hand-off (pager integration)
 	m.SetProgram(p)
@@ -489,13 +489,13 @@ func setupTLSTrust(cfg TLSConfig) {
 	}
 
 	// Load certificate pool
-    pool, err := trust.LoadPool(opts)
-    if err != nil {
-        cblog.With("component", "tls").Error("Failed to load certificate pool", "err", err)
-        // Print hint in the same line to avoid race with PTY readers in CI
-        fmt.Fprintf(os.Stderr, "TLS configuration failed: %v. Hint: Use --ca-cert or --ca-path to add trusted CAs, or install your CA in the OS trust store\n", err)
-        os.Exit(1)
-    }
+	pool, err := trust.LoadPool(opts)
+	if err != nil {
+		cblog.With("component", "tls").Error("Failed to load certificate pool", "err", err)
+		// Print hint in the same line to avoid race with PTY readers in CI
+		fmt.Fprintf(os.Stderr, "TLS configuration failed: %v. Hint: Use --ca-cert or --ca-path to add trusted CAs, or install your CA in the OS trust store\n", err)
+		os.Exit(1)
+	}
 
 	// Load client certificate if provided
 	var clientCert *tls.Certificate
@@ -505,12 +505,12 @@ func setupTLSTrust(cfg TLSConfig) {
 			"cert", cfg.ClientCertFile, "key", cfg.ClientKeyFile)
 		var err error
 		clientCert, err = trust.LoadClientCertificate(cfg.ClientCertFile, cfg.ClientKeyFile)
-        if err != nil {
-            cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
-            // Include hint inline to avoid PTY read races
-            fmt.Fprintf(os.Stderr, "Client certificate configuration failed: %v. Hint: Ensure --client-cert and --client-cert-key point to valid certificate files\n", err)
-            os.Exit(1)
-        }
+		if err != nil {
+			cblog.With("component", "tls").Error("Failed to load client certificate", "err", err)
+			// Include hint inline to avoid PTY read races
+			fmt.Fprintf(os.Stderr, "Client certificate configuration failed: %v. Hint: Ensure --client-cert and --client-cert-key point to valid certificate files\n", err)
+			os.Exit(1)
+		}
 		cblog.With("component", "tls").Info("Client certificate loaded successfully")
 	} else if cfg.ClientCertFile != "" || cfg.ClientKeyFile != "" {
 		cblog.With("component", "tls").Warn("Incomplete client certificate configuration - both --client-cert and --client-cert-key are required")

@@ -35,7 +35,7 @@ func TestGetArgonautConfigPath(t *testing.T) {
 		{
 			name: "XDG_CONFIG_HOME on Unix",
 			envVars: map[string]string{
-				"ARGONAUT_CONFIG":  "",
+				"ARGONAUT_CONFIG": "",
 				"XDG_CONFIG_HOME": "/home/user/.config",
 			},
 			expected: func() string {
@@ -49,7 +49,7 @@ func TestGetArgonautConfigPath(t *testing.T) {
 		{
 			name: "Default Unix path",
 			envVars: map[string]string{
-				"ARGONAUT_CONFIG":  "",
+				"ARGONAUT_CONFIG": "",
 				"XDG_CONFIG_HOME": "",
 			},
 			expected: func() string {
@@ -230,10 +230,10 @@ func TestEnsureArgonautConfigDir(t *testing.T) {
 
 func TestK9sConfigGetters(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *ArgonautConfig
-		expectCommand  string
-		expectContext  string
+		name          string
+		config        *ArgonautConfig
+		expectCommand string
+		expectContext string
 	}{
 		{
 			name:          "empty config returns defaults",
@@ -527,12 +527,12 @@ func TestHTTPTimeoutConfigGetters(t *testing.T) {
 
 func TestParseDefaultView(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		wantView   string
-		wantScope  string
-		wantValue  string
-		wantErr    bool
+		name      string
+		input     string
+		wantView  string
+		wantScope string
+		wantValue string
+		wantErr   bool
 	}{
 		// Empty / zero
 		{name: "empty string", input: "", wantView: "", wantScope: "", wantValue: ""},

@@ -32,9 +32,9 @@ var (
 	inactiveBG color.Color
 
 	// Table colors
-	tableBorderColor  color.Color
-	tableSelectedFG   color.Color
-	tableSelectedBG   color.Color
+	tableBorderColor color.Color
+	tableSelectedFG  color.Color
+	tableSelectedBG  color.Color
 )
 
 // applyTheme updates global color variables and derived styles used

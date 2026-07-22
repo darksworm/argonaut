@@ -163,7 +163,8 @@ func WithMinAPITimeout(parent context.Context, minTimeout time.Duration) (contex
 //   - timeout: The duration to set for all request-related operations. Should be positive.
 //
 // Example:
-//   SetRequestTimeout(30 * time.Second) // Sets all request timeouts to 30 seconds
+//
+//	SetRequestTimeout(30 * time.Second) // Sets all request timeouts to 30 seconds
 func SetRequestTimeout(timeout time.Duration) {
 	DefaultTimeouts.API = timeout
 	DefaultTimeouts.Auth = timeout

@@ -539,7 +539,6 @@ func TestRenderResourceActionModal_TypingHint(t *testing.T) {
 	}
 }
 
-
 // The "no actions available" overlay was bumped from a dim border to the
 // same bright green border the "no differences" modal uses, so it catches
 // the eye. Compare the leading ANSI escape on the top-border row of both

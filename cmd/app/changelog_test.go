@@ -7,58 +7,58 @@ import (
 
 func TestFormatChangelog(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		contains []string
+		name        string
+		input       string
+		contains    []string
 		notContains []string
 	}{
 		{
-			name: "formats h1 header",
-			input: "# Changelog",
+			name:     "formats h1 header",
+			input:    "# Changelog",
 			contains: []string{"Changelog"},
 		},
 		{
-			name: "formats h2 version header",
-			input: "## [2.7.0](https://github.com/example/repo/compare/v2.6.1...v2.7.0) (2025-11-14)",
+			name:     "formats h2 version header",
+			input:    "## [2.7.0](https://github.com/example/repo/compare/v2.6.1...v2.7.0) (2025-11-14)",
 			contains: []string{"2.7.0", "2025-11-14"},
 			// URL should be stripped from display
 			notContains: []string{"https://github.com"},
 		},
 		{
-			name: "formats h3 section header",
-			input: "### Features",
+			name:     "formats h3 section header",
+			input:    "### Features",
 			contains: []string{"Features"},
 		},
 		{
-			name: "formats bullet points",
-			input: "* add ArgoCD core mode detection",
+			name:     "formats bullet points",
+			input:    "* add ArgoCD core mode detection",
 			contains: []string{"•", "add ArgoCD core mode detection"},
 		},
 		{
-			name: "formats dash bullet points",
-			input: "- fix edge case in config loading",
+			name:     "formats dash bullet points",
+			input:    "- fix edge case in config loading",
 			contains: []string{"•", "fix edge case in config loading"},
 		},
 		{
-			name: "extracts link text and hides URL",
+			name:  "extracts link text and hides URL",
 			input: "* see [the docs](https://example.com) for details",
 			// Note: "the docs" will have ANSI styling applied, so we check for individual parts
-			contains: []string{"see", "for details"},
+			contains:    []string{"see", "for details"},
 			notContains: []string{"https://example.com"},
 		},
 		{
-			name: "handles inline code",
-			input: "* fix issue with `config.toml` file",
+			name:     "handles inline code",
+			input:    "* fix issue with `config.toml` file",
 			contains: []string{"config.toml"},
 		},
 		{
-			name: "handles bold text",
-			input: "* **breaking change**: removed old API",
+			name:     "handles bold text",
+			input:    "* **breaking change**: removed old API",
 			contains: []string{"breaking change", "removed old API"},
 		},
 		{
-			name: "handles empty lines",
-			input: "\n\n",
+			name:     "handles empty lines",
+			input:    "\n\n",
 			contains: []string{"\n"},
 		},
 		{

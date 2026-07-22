@@ -429,7 +429,9 @@ func TestRender_TreeUnderModal_AllThemes_NoStatusColorLeak(t *testing.T) {
 
 			out := m.renderMainLayout()
 
-			toSGR := func(c interface{ RGBA() (uint32, uint32, uint32, uint32) }) string {
+			toSGR := func(c interface {
+				RGBA() (uint32, uint32, uint32, uint32)
+			}) string {
 				r, g, b, _ := c.RGBA()
 				// Match the truecolor fg payload anywhere in an SGR run:
 				// standalone (`\x1b[38;2;R;G;Bm`), preceded by attrs

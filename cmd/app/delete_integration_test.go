@@ -237,11 +237,11 @@ func TestDeleteIntegration_InputValidation(t *testing.T) {
 	m.state.Modals.DeleteAppName = &appName
 
 	testCases := []struct {
-		name           string
-		inputRune      rune
-		expectedKey    string
-		shouldTrigger  bool
-		description    string
+		name          string
+		inputRune     rune
+		expectedKey   string
+		shouldTrigger bool
+		description   string
 	}{
 		{"type_y", 'y', "y", true, "typing 'y' should trigger delete"},
 		{"type_Y", 'Y', "Y", true, "typing 'Y' should trigger delete"},

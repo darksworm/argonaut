@@ -96,7 +96,6 @@ type HTTPTimeoutConfig struct {
 	RequestTimeout string `toml:"request_timeout,omitempty"`
 }
 
-
 // GetArgonautConfigPath returns the path to the Argonaut configuration file
 func GetArgonautConfigPath() string {
 	if configPath := os.Getenv("ARGONAUT_CONFIG"); configPath != "" {
@@ -338,18 +337,18 @@ func (c *ArgonautConfig) GetRequestTimeout() time.Duration {
 	if c.HTTPTimeouts.RequestTimeout == "" {
 		return 10 * time.Second
 	}
-	
+
 	duration, err := time.ParseDuration(c.HTTPTimeouts.RequestTimeout)
 	if err != nil {
 		// If parsing fails, return default
 		return 10 * time.Second
 	}
-	
+
 	// Validate that timeout is positive
 	if duration <= 0 {
 		// Log warning and return default for zero or negative durations
 		return 10 * time.Second
 	}
-	
+
 	return duration
 }

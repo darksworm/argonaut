@@ -16,9 +16,9 @@ import (
 // renderMainLayout (which does the actual composition) and row
 // renderers via willDesaturateBase consult the same function.
 type overlaySpec struct {
-	modal       string           // primary modal content; centered on screen
+	modal       string            // primary modal content; centered on screen
 	extraLayers []*lipgloss.Layer // any additional layers below the modal (e.g. a corner badge)
-	desaturate  bool             // whether the base view should be dimmed under the modal
+	desaturate  bool              // whether the base view should be dimmed under the modal
 }
 
 // activeOverlay returns the overlay currently shown above the base

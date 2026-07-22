@@ -946,4 +946,3 @@ func TestK9s_KeyboardInputForwarded(t *testing.T) {
 		t.Errorf("expected k9s to receive 'hello', got: %q", input)
 	}
 }
-

@@ -103,11 +103,11 @@ func TestResourcesJSONMarshal(t *testing.T) {
 // as done in model.go AppUpdatedMsg and ResourceTreeLoadedMsg handlers
 func TestResourcesJSONUnmarshal(t *testing.T) {
 	tests := []struct {
-		name       string
-		jsonData   []byte
-		wantLen    int
-		wantErr    bool
-		wantFirst  *api.ResourceStatus // Expected first resource (nil to skip check)
+		name      string
+		jsonData  []byte
+		wantLen   int
+		wantErr   bool
+		wantFirst *api.ResourceStatus // Expected first resource (nil to skip check)
 	}{
 		{
 			name:     "unmarshal valid single resource",

@@ -170,11 +170,11 @@ func TestAppDeleteService_HandleAPIErrors(t *testing.T) {
 
 func TestAppDeleteService_DeleteApplication(t *testing.T) {
 	tests := []struct {
-		name       string
-		req        AppDeleteRequest
-		mockFunc   func(ctx context.Context, req api.DeleteRequest) error
-		wantResp   *AppDeleteResponse
-		wantErr    bool
+		name     string
+		req      AppDeleteRequest
+		mockFunc func(ctx context.Context, req api.DeleteRequest) error
+		wantResp *AppDeleteResponse
+		wantErr  bool
 	}{
 		{
 			name: "Successful deletion",

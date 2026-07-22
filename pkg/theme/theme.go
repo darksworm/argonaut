@@ -51,21 +51,21 @@ func NewPalette(
 	return Palette{
 		Accent:           accent,
 		Warning:          warning,
-		Dim:             dim,
-		Success:         success,
-		Danger:          danger,
-		Progress:        progress,
-		Unknown:         unknown,
-		Info:            info,
-		Text:            text,
-		Gray:            gray,
-		SelectedBG:      selectedBG,
+		Dim:              dim,
+		Success:          success,
+		Danger:           danger,
+		Progress:         progress,
+		Unknown:          unknown,
+		Info:             info,
+		Text:             text,
+		Gray:             gray,
+		SelectedBG:       selectedBG,
 		CursorSelectedBG: cursorSelectedBG,
-		CursorBG:        cursorBG,
-		Border:          border,
-		MutedBG:         mutedBG,
-		ShadeBG:         shadeBG,
-		DarkBG:          darkBG,
+		CursorBG:         cursorBG,
+		Border:           border,
+		MutedBG:          mutedBG,
+		ShadeBG:          shadeBG,
+		DarkBG:           darkBG,
 	}
 }
 
@@ -96,7 +96,6 @@ func FromConfig(cfg *config.ArgonautConfig) Palette {
 
 	return base
 }
-
 
 // applyOverrides applies color overrides to a palette
 func applyOverrides(base Palette, overrides map[string]string) Palette {
@@ -147,4 +146,3 @@ func applyOverrides(base Palette, overrides map[string]string) Palette {
 func GetAvailableThemes() []string {
 	return Names()
 }
-
