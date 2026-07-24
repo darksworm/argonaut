@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.17.2](https://github.com/darksworm/argonaut/compare/v2.17.1...v2.17.2) (2026-07-22)
+
+
+### Bug Fixes
+
+* **ci:** goreleaser uploads to existing draft instead of creating a duplicate ([68c7dce](https://github.com/darksworm/argonaut/commit/68c7dce03f2f90a61040a841dabdc0c7d3f90415))
+* deliver buffered watch event when stream ends ([0e30518](https://github.com/darksworm/argonaut/commit/0e3051815e1164c603dc1e0291c54643820377a9))
+* make SSE reader Close idempotent ([f8a0111](https://github.com/darksworm/argonaut/commit/f8a0111cc66b979cbaf33b76b53b31c2cfd12565))
+* reconnect watch stream after it ends ([fb5ec35](https://github.com/darksworm/argonaut/commit/fb5ec35ce3983990e6f36421bbc7e7e35a01e92a))
+* rewrite delta diff header on all platforms, not just macOS ([8e4d258](https://github.com/darksworm/argonaut/commit/8e4d258dd30bbcd8800351e2ed5bcbf2e5c04356))
+
+
+### Performance Improvements
+
+* pool SSE buffers by pointer to avoid boxing on Put ([e79a207](https://github.com/darksworm/argonaut/commit/e79a207d854a711cc3e8ea397998551563b1ddb7))
+
 ## [2.17.1](https://github.com/darksworm/argonaut/compare/v2.17.0...v2.17.1) (2026-05-21)
 
 
