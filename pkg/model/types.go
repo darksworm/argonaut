@@ -68,6 +68,27 @@ func (a App) SortKey() SortKey {
 	return SortKey{Health: a.Health, Sync: a.Sync, Name: a.Name}
 }
 
+// AppKey identifies an application per ADR-0004: (Name, AppNamespace), never
+// Name alone. A nil AppNamespace normalizes to "".
+type AppKey struct {
+	Name         string
+	AppNamespace string
+}
+
+// Key returns the app's identity key.
+func (a App) Key() AppKey {
+	return AppKeyFor(a.Name, a.AppNamespace)
+}
+
+// AppKeyFor builds an AppKey from a name and optional ArgoCD CR namespace.
+func AppKeyFor(name string, appNamespace *string) AppKey {
+	k := AppKey{Name: name}
+	if appNamespace != nil {
+		k.AppNamespace = *appNamespace
+	}
+	return k
+}
+
 // Server represents an ArgoCD server configuration
 type Server struct {
 	BaseURL         string `json:"baseUrl"`

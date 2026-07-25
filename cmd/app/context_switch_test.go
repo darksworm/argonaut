@@ -65,7 +65,7 @@ func TestStaleAppsBatchUpdateMsgDiscarded(t *testing.T) {
 		Updates: []model.AppUpdatedMsg{
 			{App: model.App{Name: "stale-update"}},
 		},
-		Deletes:     []string{"existing"},
+		Deletes:     []model.AppDeletedMsg{{AppName: "existing"}},
 		SwitchEpoch: 3, // old epoch
 		Generation:  0,
 	}

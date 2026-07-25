@@ -232,9 +232,9 @@ func (m *Model) fetchAPIVersion() tea.Cmd {
 
 // eventResult holds the classification of a single watch event
 type eventResult struct {
-	update     *model.AppUpdatedMsg // non-nil for app-updated events
-	deleteName string               // non-empty for app-deleted events
-	immediate  tea.Msg              // non-nil for non-batchable events (auth-error, api-error, etc.)
+	update    *model.AppUpdatedMsg // non-nil for app-updated events
+	delete    *model.AppDeletedMsg // non-nil for app-deleted events
+	immediate tea.Msg              // non-nil for non-batchable events (auth-error, api-error, etc.)
 }
 
 func (r eventResult) toBatchOperation() (model.AppBatchOperation, bool) {
@@ -244,17 +244,17 @@ func (r eventResult) toBatchOperation() (model.AppBatchOperation, bool) {
 			Update: r.update,
 		}, true
 	}
-	if r.deleteName != "" {
+	if r.delete != nil {
 		return model.AppBatchOperation{
 			Type:   model.AppBatchOperationDelete,
-			Delete: r.deleteName,
+			Delete: r.delete,
 		}, true
 	}
 	return model.AppBatchOperation{}, false
 }
 
 // classifyWatchEvent converts a service event into an eventResult for batching.
-// Batchable events (app-updated, app-deleted) are returned via update/deleteName fields.
+// Batchable events (app-updated, app-deleted) are returned via update/delete fields.
 // Non-batchable events (auth-error, api-error, etc.) are returned via immediate field.
 // epoch is included in all immediate messages so they pass epoch gating when re-dispatched.
 func classifyWatchEvent(ev services.ArgoApiEvent, epoch int) eventResult {
@@ -269,7 +269,7 @@ func classifyWatchEvent(ev services.ArgoApiEvent, epoch int) eventResult {
 		}
 	case "app-deleted":
 		if ev.AppName != "" {
-			return eventResult{deleteName: ev.AppName}
+			return eventResult{delete: &model.AppDeletedMsg{AppName: ev.AppName, AppNamespace: ev.AppNamespace}}
 		}
 	case "apps-loaded":
 		if ev.Apps != nil {
@@ -369,13 +369,13 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 
 		// Start batching
 		var updates []model.AppUpdatedMsg
-		var deletes []string
+		var deletes []model.AppDeletedMsg
 		var operations []model.AppBatchOperation
 		if result.update != nil {
 			updates = append(updates, *result.update)
 		}
-		if result.deleteName != "" {
-			deletes = append(deletes, result.deleteName)
+		if result.delete != nil {
+			deletes = append(deletes, *result.delete)
 		}
 		if op, ok := result.toBatchOperation(); ok {
 			operations = append(operations, op)
@@ -402,8 +402,8 @@ func (m *Model) consumeWatchEvents() tea.Cmd {
 				if result.update != nil {
 					updates = append(updates, *result.update)
 				}
-				if result.deleteName != "" {
-					deletes = append(deletes, result.deleteName)
+				if result.delete != nil {
+					deletes = append(deletes, *result.delete)
 				}
 				if op, ok := result.toBatchOperation(); ok {
 					operations = append(operations, op)
@@ -908,7 +908,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 		}
 
 		cblog.With("component", "app-delete").Info("Delete completed", "app", req.AppName)
-		return model.AppDeleteSuccessMsg{AppName: req.AppName, SwitchEpoch: epoch}
+		return model.AppDeleteSuccessMsg{AppName: req.AppName, AppNamespace: req.AppNamespace, SwitchEpoch: epoch}
 	}
 }
 
@@ -1433,7 +1433,7 @@ func (m *Model) deleteSingleApplication(params AppDeleteParams) tea.Cmd {
 			}
 		}
 
-		return model.AppDeleteSuccessMsg{AppName: params.AppName, SwitchEpoch: epoch}
+		return model.AppDeleteSuccessMsg{AppName: params.AppName, AppNamespace: params.Namespace, SwitchEpoch: epoch}
 	}
 }
 

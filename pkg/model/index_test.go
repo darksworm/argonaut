@@ -15,8 +15,8 @@ func TestBuildAppIndex_Empty(t *testing.T) {
 	if len(idx.Clusters) != 0 {
 		t.Errorf("expected 0 clusters, got %d", len(idx.Clusters))
 	}
-	if len(idx.NameToIndex) != 0 {
-		t.Errorf("expected empty NameToIndex, got %d entries", len(idx.NameToIndex))
+	if len(idx.ByIdentity) != 0 {
+		t.Errorf("expected empty ByIdentity, got %d entries", len(idx.ByIdentity))
 	}
 }
 
@@ -41,8 +41,8 @@ func TestBuildAppIndex_SingleApp(t *testing.T) {
 	if !reflect.DeepEqual(idx.ApplicationSets, []string{"web-set"}) {
 		t.Errorf("ApplicationSets = %v, want [web-set]", idx.ApplicationSets)
 	}
-	if i, ok := idx.NameToIndex["web"]; !ok || i != 0 {
-		t.Errorf("NameToIndex[web] = %d, %v; want 0, true", i, ok)
+	if i, ok := idx.ByIdentity[AppKey{Name: "web"}]; !ok || i != 0 {
+		t.Errorf("ByIdentity[web] = %d, %v; want 0, true", i, ok)
 	}
 }
 
@@ -67,8 +67,8 @@ func TestBuildAppIndex_NilFields(t *testing.T) {
 	if len(idx.ApplicationSets) != 0 {
 		t.Errorf("expected 0 appsets for nil ApplicationSet, got %v", idx.ApplicationSets)
 	}
-	if _, ok := idx.NameToIndex["bare"]; !ok {
-		t.Error("expected NameToIndex to contain 'bare'")
+	if _, ok := idx.ByIdentity[AppKey{Name: "bare"}]; !ok {
+		t.Error("expected ByIdentity to contain 'bare'")
 	}
 }
 
@@ -102,10 +102,10 @@ func TestBuildAppIndex_MultipleApps_SortedUnique(t *testing.T) {
 	if !reflect.DeepEqual(idx.ByCluster["staging"], []int{1}) {
 		t.Errorf("ByCluster[staging] = %v, want [1]", idx.ByCluster["staging"])
 	}
-	// NameToIndex
+	// ByIdentity
 	for i, app := range apps {
-		if idx.NameToIndex[app.Name] != i {
-			t.Errorf("NameToIndex[%s] = %d, want %d", app.Name, idx.NameToIndex[app.Name], i)
+		if idx.ByIdentity[app.Key()] != i {
+			t.Errorf("ByIdentity[%s] = %d, want %d", app.Name, idx.ByIdentity[app.Key()], i)
 		}
 	}
 }
@@ -260,5 +260,28 @@ func TestScopedApps_NilIndex(t *testing.T) {
 	result := idx.ScopedApps(apps, sel)
 	if len(result) != 1 {
 		t.Errorf("expected passthrough from nil index, got %d apps", len(result))
+	}
+}
+
+func TestBuildAppIndex_SameNameDifferentNamespace_IndexesBoth(t *testing.T) {
+	apps := []App{
+		{Name: "my-app", AppNamespace: strPtr("argocd")},
+		{Name: "my-app", AppNamespace: strPtr("team-a")},
+	}
+	idx := BuildAppIndex(apps)
+
+	if i, ok := idx.ByIdentity[AppKey{Name: "my-app", AppNamespace: "argocd"}]; !ok || i != 0 {
+		t.Errorf("ByIdentity[my-app/argocd] = %d, %v; want 0, true", i, ok)
+	}
+	if i, ok := idx.ByIdentity[AppKey{Name: "my-app", AppNamespace: "team-a"}]; !ok || i != 1 {
+		t.Errorf("ByIdentity[my-app/team-a] = %d, %v; want 1, true", i, ok)
+	}
+}
+
+func TestAppKey_NilNamespaceEqualsEmpty(t *testing.T) {
+	withNil := App{Name: "app"}
+	withEmpty := App{Name: "app", AppNamespace: strPtr("")}
+	if withNil.Key() != withEmpty.Key() {
+		t.Errorf("nil and empty AppNamespace should produce the same key: %v vs %v", withNil.Key(), withEmpty.Key())
 	}
 }

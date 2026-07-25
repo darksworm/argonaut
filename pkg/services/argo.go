@@ -59,13 +59,16 @@ type ArgoApiService interface {
 
 // ArgoApiEvent represents events from the ArgoCD API
 type ArgoApiEvent struct {
-	Type      string               `json:"type"`
-	Apps      []model.App          `json:"apps,omitempty"`
-	App       *model.App           `json:"app,omitempty"`
-	AppName   string               `json:"appName,omitempty"`
-	Error     error                `json:"error,omitempty"`
-	Status    string               `json:"status,omitempty"`
-	Resources []api.ResourceStatus `json:"resources,omitempty"` // Resource sync statuses for tree view
+	Type    string      `json:"type"`
+	Apps    []model.App `json:"apps,omitempty"`
+	App     *model.App  `json:"app,omitempty"`
+	AppName string      `json:"appName,omitempty"`
+	// AppNamespace is the ArgoCD Application CR namespace for app-deleted
+	// events (ADR-0004); app-updated events carry it inside App.
+	AppNamespace *string              `json:"appNamespace,omitempty"`
+	Error        error                `json:"error,omitempty"`
+	Status       string               `json:"status,omitempty"`
+	Resources    []api.ResourceStatus `json:"resources,omitempty"` // Resource sync statuses for tree view
 }
 
 // ResourceDiff represents a resource difference
@@ -406,9 +409,14 @@ func (s *ArgoApiServiceImpl) handleWatchEvent(event api.ApplicationWatchEvent, e
 
 	switch event.Type {
 	case "DELETED":
+		var appNamespace *string
+		if ns := event.Application.Metadata.Namespace; ns != "" {
+			appNamespace = &ns
+		}
 		eventChan <- ArgoApiEvent{
-			Type:    "app-deleted",
-			AppName: appName,
+			Type:         "app-deleted",
+			AppName:      appName,
+			AppNamespace: appNamespace,
 		}
 	default:
 		// Convert to our model

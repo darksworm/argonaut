@@ -168,9 +168,12 @@ type AppUpdatedMsg struct {
 	ResourcesJSON []byte // JSON encoded []api.ResourceStatus for sync status updates
 }
 
-// AppDeletedMsg is sent when an app is deleted (from watch stream)
+// AppDeletedMsg is sent when an app is deleted (from watch stream).
+// AppNamespace disambiguates same-named apps per ADR-0004; nil means the
+// producer could not determine it and matching falls back to name-only.
 type AppDeletedMsg struct {
-	AppName string
+	AppName      string
+	AppNamespace *string
 }
 
 // AppsBatchUpdateMsg is sent when multiple app updates/deletes are batched together
@@ -178,7 +181,7 @@ type AppDeletedMsg struct {
 // Matches ArgoCD web UI's 500ms event batching strategy.
 type AppsBatchUpdateMsg struct {
 	Updates     []AppUpdatedMsg
-	Deletes     []string
+	Deletes     []AppDeletedMsg
 	Operations  []AppBatchOperation // Ordered stream operations (preserves update/delete ordering)
 	Immediate   tea.Msg             // Non-batchable event encountered during batching (auth-error, api-error, etc.)
 	Generation  int                 // Watch generation that produced this batch (for safe watch restarts)
@@ -197,7 +200,7 @@ const (
 type AppBatchOperation struct {
 	Type   AppBatchOperationType
 	Update *AppUpdatedMsg
-	Delete string
+	Delete *AppDeletedMsg
 }
 
 // AppDeleteRequestMsg represents a request to delete an application
@@ -210,8 +213,9 @@ type AppDeleteRequestMsg struct {
 
 // AppDeleteSuccessMsg represents a successful application deletion
 type AppDeleteSuccessMsg struct {
-	AppName     string
-	SwitchEpoch int // Context switch epoch for stale message gating
+	AppName      string
+	AppNamespace *string
+	SwitchEpoch  int // Context switch epoch for stale message gating
 }
 
 // AppDeleteErrorMsg represents an application deletion error

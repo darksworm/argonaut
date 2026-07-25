@@ -24,8 +24,8 @@ func TestClassifyWatchEvent_AppUpdated(t *testing.T) {
 	if result.immediate != nil {
 		t.Error("expected immediate to be nil for batchable event")
 	}
-	if result.deleteName != "" {
-		t.Error("expected deleteName to be empty")
+	if result.delete != nil {
+		t.Error("expected delete to be nil")
 	}
 }
 
@@ -33,8 +33,8 @@ func TestClassifyWatchEvent_AppDeleted(t *testing.T) {
 	ev := services.ArgoApiEvent{Type: "app-deleted", AppName: "removed-app"}
 	result := classifyWatchEvent(ev, 0)
 
-	if result.deleteName != "removed-app" {
-		t.Errorf("expected deleteName 'removed-app', got %q", result.deleteName)
+	if result.delete == nil || result.delete.AppName != "removed-app" {
+		t.Errorf("expected delete of 'removed-app', got %+v", result.delete)
 	}
 	if result.update != nil {
 		t.Error("expected update to be nil")
@@ -54,7 +54,7 @@ func TestClassifyWatchEvent_AuthError(t *testing.T) {
 	if _, ok := result.immediate.(model.AuthErrorMsg); !ok {
 		t.Errorf("expected AuthErrorMsg, got %T", result.immediate)
 	}
-	if result.update != nil || result.deleteName != "" {
+	if result.update != nil || result.delete != nil {
 		t.Error("expected update/delete fields to be empty for non-batchable event")
 	}
 }
@@ -135,8 +135,8 @@ func TestConsumeWatchEvents_MixedUpdatesAndDeletes(t *testing.T) {
 	if len(batch.Deletes) != 1 {
 		t.Errorf("expected 1 delete, got %d", len(batch.Deletes))
 	}
-	if batch.Deletes[0] != "app-2" {
-		t.Errorf("expected delete of 'app-2', got %q", batch.Deletes[0])
+	if batch.Deletes[0].AppName != "app-2" {
+		t.Errorf("expected delete of 'app-2', got %q", batch.Deletes[0].AppName)
 	}
 	if len(batch.Operations) != 3 {
 		t.Fatalf("expected 3 ordered operations, got %d", len(batch.Operations))
@@ -144,7 +144,7 @@ func TestConsumeWatchEvents_MixedUpdatesAndDeletes(t *testing.T) {
 	if batch.Operations[0].Type != model.AppBatchOperationUpdate || batch.Operations[0].Update == nil || batch.Operations[0].Update.App.Name != "app-1" {
 		t.Fatalf("unexpected operation[0]: %#v", batch.Operations[0])
 	}
-	if batch.Operations[1].Type != model.AppBatchOperationDelete || batch.Operations[1].Delete != "app-2" {
+	if batch.Operations[1].Type != model.AppBatchOperationDelete || batch.Operations[1].Delete == nil || batch.Operations[1].Delete.AppName != "app-2" {
 		t.Fatalf("unexpected operation[1]: %#v", batch.Operations[1])
 	}
 	if batch.Operations[2].Type != model.AppBatchOperationUpdate || batch.Operations[2].Update == nil || batch.Operations[2].Update.App.Name != "app-3" {
@@ -671,7 +671,7 @@ func TestAppsBatchUpdateMsg_PreservesDeleteThenUpdateOrder(t *testing.T) {
 
 	msg := model.AppsBatchUpdateMsg{
 		Operations: []model.AppBatchOperation{
-			{Type: model.AppBatchOperationDelete, Delete: "app-a"},
+			{Type: model.AppBatchOperationDelete, Delete: &model.AppDeletedMsg{AppName: "app-a"}},
 			{Type: model.AppBatchOperationUpdate, Update: &model.AppUpdatedMsg{App: model.App{Name: "app-a", Health: "New"}}},
 		},
 		Generation: 0,
@@ -695,7 +695,7 @@ func TestAppsBatchUpdateMsg_PreservesUpdateThenDeleteOrder(t *testing.T) {
 	msg := model.AppsBatchUpdateMsg{
 		Operations: []model.AppBatchOperation{
 			{Type: model.AppBatchOperationUpdate, Update: &model.AppUpdatedMsg{App: model.App{Name: "app-a", Health: "New"}}},
-			{Type: model.AppBatchOperationDelete, Delete: "app-a"},
+			{Type: model.AppBatchOperationDelete, Delete: &model.AppDeletedMsg{AppName: "app-a"}},
 		},
 		Generation: 0,
 	}

@@ -504,7 +504,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.applyBatchAppUpdate(*op.Update)
 					}
 				case model.AppBatchOperationDelete:
-					if op.Delete != "" && m.applyBatchAppDelete(op.Delete) {
+					if op.Delete != nil && m.applyBatchAppDelete(*op.Delete) {
 						deletesApplied++
 					}
 				}
@@ -514,8 +514,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, upd := range msg.Updates {
 				m.applyBatchAppUpdate(upd)
 			}
-			for _, name := range msg.Deletes {
-				if m.applyBatchAppDelete(name) {
+			for _, del := range msg.Deletes {
+				if m.applyBatchAppDelete(del) {
 					deletesApplied++
 				}
 			}
@@ -898,27 +898,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle successful application deletion
 		m.statusService.Set(fmt.Sprintf("Application %s deleted successfully", msg.AppName))
 
-		// Remove app from local state using index for O(1) lookup
-		if idx := m.state.Index; idx != nil {
-			if i, ok := idx.NameToIndex[msg.AppName]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == msg.AppName {
-				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-			} else {
-				// Index stale — fall through to linear scan
-				for i, app := range m.state.Apps {
-					if app.Name == msg.AppName {
-						m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-						break
-					}
-				}
-			}
-		} else {
-			for i, app := range m.state.Apps {
-				if app.Name == msg.AppName {
-					m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-					break
-				}
-			}
-		}
+		// Remove app from local state, matching full identity (ADR-0004)
+		m.applyBatchAppDelete(model.AppDeletedMsg{AppName: msg.AppName, AppNamespace: msg.AppNamespace})
 		m.state.Index = model.BuildAppIndex(m.state.Apps)
 
 		// Clear modal state and return to normal mode
@@ -1554,9 +1535,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
+	key := upd.App.Key()
 	found := false
 	if idx := m.state.Index; idx != nil {
-		if i, ok := idx.NameToIndex[upd.App.Name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == upd.App.Name {
+		if i, ok := idx.ByIdentity[key]; ok && i < len(m.state.Apps) && m.state.Apps[i].Key() == key {
 			m.state.Apps[i] = upd.App
 			found = true
 		}
@@ -1564,7 +1546,7 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 	if !found {
 		// Fallback to linear scan (index may be stale during in-batch mutations)
 		for i, a := range m.state.Apps {
-			if a.Name == upd.App.Name {
+			if a.Key() == key {
 				m.state.Apps[i] = upd.App
 				found = true
 				break
@@ -1626,18 +1608,30 @@ func (m *Model) resolveActionRefreshApp(msg model.ResourceActionExecutedMsg) *mo
 	return &model.App{Name: msg.AppName, AppNamespace: msg.Target.AppNamespace}
 }
 
-func (m *Model) applyBatchAppDelete(name string) bool {
-	if name == "" {
+func (m *Model) applyBatchAppDelete(del model.AppDeletedMsg) bool {
+	if del.AppName == "" {
 		return false
 	}
-	if idx := m.state.Index; idx != nil {
-		if i, ok := idx.NameToIndex[name]; ok && i < len(m.state.Apps) && m.state.Apps[i].Name == name {
-			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
-			return true
+	// Producers that don't know the CR namespace (AppNamespace == nil) fall
+	// back to name-only matching; with it we match full identity (ADR-0004).
+	if del.AppNamespace != nil {
+		key := model.AppKeyFor(del.AppName, del.AppNamespace)
+		if idx := m.state.Index; idx != nil {
+			if i, ok := idx.ByIdentity[key]; ok && i < len(m.state.Apps) && m.state.Apps[i].Key() == key {
+				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+				return true
+			}
 		}
+		for i, a := range m.state.Apps {
+			if a.Key() == key {
+				m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
+				return true
+			}
+		}
+		return false
 	}
 	for i, a := range m.state.Apps {
-		if a.Name == name {
+		if a.Name == del.AppName {
 			m.state.Apps = append(m.state.Apps[:i], m.state.Apps[i+1:]...)
 			return true
 		}
