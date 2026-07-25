@@ -17,6 +17,9 @@ func UpdateAppErrorState(state *model.AppState, err *apperrors.ArgonautError) {
 	}
 
 	state.ErrorState.Current = err
+	// Clear any pending auto-hide from a previous low-severity error so it
+	// can't hide the error we're recording now.
+	state.ErrorState.AutoHideAt = nil
 
 	if err != nil {
 		state.ErrorState.History = append(state.ErrorState.History, *err)
