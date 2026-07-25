@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	cblog "github.com/charmbracelet/log"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
-	"github.com/darksworm/argonaut/pkg/logging"
 )
 
 // RetryConfig configures retry behavior
@@ -69,7 +69,7 @@ type RetryFunc func(attempt int) error
 
 // RetryWithBackoff executes a function with exponential backoff retry logic
 func RetryWithBackoff(ctx context.Context, config RetryConfig, fn RetryFunc) error {
-	logger := logging.GetDefaultLogger().WithComponent("retry")
+	logger := cblog.With("component", "retry")
 
 	var lastErr error
 
@@ -80,7 +80,7 @@ func RetryWithBackoff(ctx context.Context, config RetryConfig, fn RetryFunc) err
 
 		if err == nil {
 			if attempt > 1 {
-				logger.Info("Operation succeeded after %d attempts (took %v)", attempt, duration)
+				logger.Info("Operation succeeded", "attempts", attempt, "took", duration)
 			}
 			return nil
 		}
@@ -97,12 +97,12 @@ func RetryWithBackoff(ctx context.Context, config RetryConfig, fn RetryFunc) err
 		}
 
 		// Log the attempt
-		logger.Warn("Attempt %d/%d failed (took %v): %s",
-			attempt, config.MaxAttempts, duration, argErr.Error())
+		logger.Warn("Attempt failed",
+			"attempt", attempt, "maxAttempts", config.MaxAttempts, "took", duration, "err", argErr.Error())
 
 		// Check if we should retry
 		if !config.ShouldRetry(argErr) {
-			logger.Info("Not retrying due to error type: %s", argErr.Category)
+			logger.Info("Not retrying due to error type", "category", argErr.Category)
 			// Return the original error to preserve its message/details
 			return err
 		}
@@ -120,7 +120,7 @@ func RetryWithBackoff(ctx context.Context, config RetryConfig, fn RetryFunc) err
 
 		// Calculate delay for next attempt
 		delay := calculateDelay(attempt, config)
-		logger.Debug("Waiting %v before attempt %d", delay, attempt+1)
+		logger.Debug("Waiting before next attempt", "delay", delay, "nextAttempt", attempt+1)
 
 		// Wait with context cancellation support
 		select {
@@ -219,7 +219,7 @@ func APIShouldRetry(err *apperrors.ArgonautError) bool {
 type RetryableOperation struct {
 	Name    string
 	Config  RetryConfig
-	Logger  logging.Logger
+	Logger  *cblog.Logger
 	Context context.Context
 }
 
@@ -228,7 +228,7 @@ func NewRetryableOperation(name string, config RetryConfig) *RetryableOperation 
 	return &RetryableOperation{
 		Name:    name,
 		Config:  config,
-		Logger:  logging.GetDefaultLogger().WithOperation(name),
+		Logger:  cblog.With("component", "retry", "operation", name),
 		Context: context.Background(),
 	}
 }
@@ -241,16 +241,16 @@ func (ro *RetryableOperation) WithContext(ctx context.Context) *RetryableOperati
 
 // Execute executes the operation with retry logic
 func (ro *RetryableOperation) Execute(fn RetryFunc) error {
-	ro.Logger.Info("Starting retryable operation: %s", ro.Name)
+	ro.Logger.Debug("Starting retryable operation")
 
 	startTime := time.Now()
 	err := RetryWithBackoff(ro.Context, ro.Config, fn)
 	duration := time.Since(startTime)
 
 	if err != nil {
-		ro.Logger.Error("Operation %s failed after %v: %v", ro.Name, duration, err)
+		ro.Logger.Error("Operation failed", "took", duration, "err", err)
 	} else {
-		ro.Logger.Info("Operation %s completed successfully in %v", ro.Name, duration)
+		ro.Logger.Debug("Operation completed", "took", duration)
 	}
 
 	return err

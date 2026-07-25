@@ -820,7 +820,7 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
-		apiService := services.NewEnhancedArgoApiService(server)
+		apiService := services.NewArgoApiService(server)
 
 		for _, appName := range selectedApps {
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -926,7 +926,7 @@ func (m *Model) syncSingleApplication(appName string, appNamespace *string, prun
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
 		defer cancel()
 
-		apiService := services.NewEnhancedArgoApiService(server)
+		apiService := services.NewArgoApiService(server)
 
 		cblog.With("component", "api").Info("Starting sync", "app", appName)
 		err := apiService.SyncApplication(ctx, server, appName, appNamespace, prune)
