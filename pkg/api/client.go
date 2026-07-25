@@ -173,43 +173,24 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 	return result, err
 }
 
-// Post performs a POST request with retry logic.
+// Post performs a POST request without retries: a network error can occur
+// after the server has already executed the request, so re-sending could
+// run a sync/rollback/delete twice.
 // See Get for timeout responsibility.
 func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	var result []byte
-	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("POST %s", path), func(attempt int) error {
-		var opErr error
-		result, opErr = c.request(ctx, "POST", path, body)
-		return opErr
-	})
-
-	return result, err
+	return c.request(ctx, "POST", path, body)
 }
 
-// Put performs a PUT request with retry logic.
+// Put performs a PUT request without retries; see Post.
 // See Get for timeout responsibility.
 func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	var result []byte
-	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("PUT %s", path), func(attempt int) error {
-		var opErr error
-		result, opErr = c.request(ctx, "PUT", path, body)
-		return opErr
-	})
-
-	return result, err
+	return c.request(ctx, "PUT", path, body)
 }
 
-// Delete performs a DELETE request with retry logic.
+// Delete performs a DELETE request without retries; see Post.
 // See Get for timeout responsibility.
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
-	var result []byte
-	err := retry.RetryNetworkOperation(ctx, fmt.Sprintf("DELETE %s", path), func(attempt int) error {
-		var opErr error
-		result, opErr = c.request(ctx, "DELETE", path, nil)
-		return opErr
-	})
-
-	return result, err
+	return c.request(ctx, "DELETE", path, nil)
 }
 
 // Stream performs a streaming GET request for Server-Sent Events
