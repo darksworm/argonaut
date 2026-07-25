@@ -94,12 +94,39 @@ func TestFilterPersistsAfterResourcesAndK9s(t *testing.T) {
 	}
 
 	// Mock k9s exits after ~0.2s. Wait for argonaut to regain input routing
-	// (confirmed by being able to open the command bar) before sending Esc.
-	if err := tf.OpenCommand(); err != nil {
-		t.Fatalf("argonaut input not restored after k9s: %v", err)
+	// (confirmed by the command bar opening) before sending Esc. OpenCommand
+	// is not usable here: it scans the cumulative output ring, which already
+	// contains a command-bar frame from line 55, so it can return before the
+	// app is actually accepting input again. Poll the live screen instead.
+	// Keystrokes sent before the PTY handoff completes are dropped, so keep
+	// re-sending ":" until the bar shows up. Extra ":" presses once the bar
+	// is open just type into it and are discarded by the Esc below.
+	openDeadline := time.Now().Add(10 * time.Second)
+	for {
+		_ = tf.Send(":")
+		time.Sleep(100 * time.Millisecond)
+		if strings.Contains(tf.Screen(), "│ > ") {
+			break
+		}
+		if time.Now().After(openDeadline) {
+			t.Log(tf.Screen())
+			t.Fatal("argonaut input not restored after k9s: command bar not on live screen")
+		}
 	}
 	_ = tf.Send("\x1b") // close command bar
-	// Global 100ms esc debounce — wait it out before the next esc.
+
+	// The app debounces esc presses 100ms apart by *its* clock, so sleeping
+	// between sends is only safe once we've seen the app process the first
+	// esc. Wait for the command bar to disappear from the live screen, then
+	// the debounce window is anchored: the app handled esc #1 no later than
+	// the frame we just observed.
+	closeDeadline := time.Now().Add(10 * time.Second)
+	for strings.Contains(tf.Screen(), "│ > ") {
+		if time.Now().After(closeDeadline) {
+			t.Fatal("command bar did not close after esc")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 	time.Sleep(150 * time.Millisecond)
 
 	// Esc back to apps view.
@@ -107,8 +134,8 @@ func TestFilterPersistsAfterResourcesAndK9s(t *testing.T) {
 
 	// We're back in apps view AND filter should still be applied.
 	// WaitForPlain scans the cumulative output ring, which includes stale
-	// "<apps:dem>" frames from before the tree view. Re-render by toggling
-	// search mode briefly, then assert against the live screen.
+	// "<apps:dem>" frames from before the tree view, so assert against the
+	// live screen instead.
 	deadline := time.Now().Add(3 * time.Second)
 	var screen string
 	for time.Now().Before(deadline) {

@@ -6,11 +6,13 @@
 	argocd-git-daemon argocd-git-daemon-stop \
 	argocd-password argocd-login
 
-# Default parallelism for tests. 16 matches the typical core count and
-# fully saturates the box for the e2e suite (~3.3s wall-clock). Higher
-# numbers risk port/process contention with mock servers. Override
-# via `make e2e PARALLEL=N`.
-PARALLEL ?= 16
+# Default parallelism for tests. Race-instrumented tests (all targets below)
+# cost several times the CPU of a plain build, so one test per core
+# oversubscribes the box and the PTY-driven e2e suite starts missing its
+# timing budgets. Half the cores keeps the box saturated with enough
+# headroom (measured: 12/12 green at cores/2, ~1 in 4 runs flaky at
+# 1×cores). Override via `make e2e PARALLEL=N`.
+PARALLEL ?= $(shell n=$$(nproc); echo $$(( n > 1 ? n / 2 : 1 )))
 
 # k3d/ArgoCD defaults
 K3D_CLUSTER ?= argocd-demo
@@ -26,15 +28,15 @@ GIT_DAEMON_BASE_PATH ?= $(abspath $(CURDIR)/..)
 
 # Run all tests, including e2e (unix-only), with parallelism and no cache.
 test:
-	go test -tags e2e ./... -v -count=1 -parallel $(PARALLEL)
+	go test -race -tags e2e ./... -v -count=1 -parallel $(PARALLEL)
 
 # Run only unit tests (no e2e).
 unit:
-	go test ./... -v -count=1 -parallel $(PARALLEL)
+	go test -race ./... -v -count=1 -parallel $(PARALLEL)
 
 # Run only e2e tests.
 e2e:
-	go test -tags e2e ./e2e -v -count=1 -parallel $(PARALLEL)
+	go test -race -tags e2e ./e2e -v -count=1 -parallel $(PARALLEL)
 
 # Regenerate golden snapshots for app tests.
 goldens:

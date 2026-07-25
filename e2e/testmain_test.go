@@ -20,7 +20,9 @@ func TestMain(m *testing.M) {
 	}
 	binPath = e2eDir + "/a9s_e2e"
 
-	// Build the TUI binary from cmd/app
+	// The app binary is deliberately built WITHOUT -race: the ~10x slowdown
+	// blows the suite's timing budgets and causes flakes. The race detector
+	// still covers the test harness itself (and all unit tests via make).
 	fmt.Println("Building a9s test binary…")
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/app")
 	cmd.Dir = ".."

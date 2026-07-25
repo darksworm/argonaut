@@ -42,13 +42,10 @@ jobs:
         run: go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
 
       - name: Run tests (unit + e2e)
-        # Match parallelism to the runner's core count — full CPU
-        # utilisation, no oversubscription. Anything higher introduces
-        # "command bar not ready" flakes because the PTY subprocesses +
-        # mock servers + go test framework contend for CPU. GitHub bumped
-        # the default runner from 2 to 4 cores in 2024, so $(nproc) is
-        # the right call rather than hardcoding a number.
-        run: make test PARALLEL="$(nproc)"
+        # The Makefile defaults PARALLEL to nproc/2: tests run under -race,
+        # whose CPU overhead makes one-test-per-core oversubscription and
+        # causes "command bar not ready" flakes in the PTY-driven e2e suite.
+        run: make test
 
       - name: Upload e2e test snapshots
         if: failure()

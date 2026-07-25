@@ -96,33 +96,6 @@ func NewTUITest(t *testing.T) *TUITestFramework {
 	return &TUITestFramework{t: t, buf: make([]byte, ringSize)}
 }
 
-// ensureBinary builds the app test binary if it doesn't exist yet.
-func ensureBinary(t *testing.T) error {
-	t.Helper()
-	// Resolve absolute binPath under e2e dir
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	p := binPath
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(cwd, p)
-	}
-	// Already exists?
-	if st, err := os.Stat(p); err == nil && st.Mode().IsRegular() {
-		binPath = p
-		return nil
-	}
-	// Build it
-	cmd := exec.Command("go", "build", "-o", p, "./cmd/app")
-	cmd.Dir = ".."
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("build failed: %v\n%s", err, string(out))
-	}
-	binPath = p
-	return nil
-}
-
 // Workspace returns the isolated workspace directory for this test
 func (tf *TUITestFramework) Workspace() string {
 	return tf.workspace
@@ -165,9 +138,6 @@ func (tf *TUITestFramework) SetupWorkspace() (string, error) {
 // StartApp runs the compiled binary under a PTY
 func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
 	tf.t.Helper()
-	if err := ensureBinary(tf.t); err != nil {
-		return err
-	}
 	tf.cmd = exec.Command(binPath)
 	p, t, err := pty.Open()
 	if err != nil {
@@ -262,9 +232,6 @@ check_enabled = false`
 // StartAppArgs starts the app with explicit CLI args and optional env
 func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) error {
 	tf.t.Helper()
-	if err := ensureBinary(tf.t); err != nil {
-		return err
-	}
 	tf.cmd = exec.Command(binPath, args...)
 	p, t, err := pty.Open()
 	if err != nil {
@@ -521,13 +488,13 @@ func (tf *TUITestFramework) Cleanup() {
 		tf.saveFailureSnapshot()
 	}
 
+	// Close only — do not nil the fields: readLoop still dereferences tf.pty
+	// concurrently (closing makes its Read return an error and exit).
 	if tf.pty != nil {
 		_ = tf.pty.Close()
-		tf.pty = nil
 	}
 	if tf.tty != nil {
 		_ = tf.tty.Close()
-		tf.tty = nil
 	}
 	if tf.cmd != nil && tf.cmd.Process != nil {
 		_ = tf.cmd.Process.Kill()
