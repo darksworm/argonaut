@@ -8,7 +8,6 @@ import (
 	appcontext "github.com/darksworm/argonaut/pkg/context"
 	apperrors "github.com/darksworm/argonaut/pkg/errors"
 	"github.com/darksworm/argonaut/pkg/model"
-	"github.com/darksworm/argonaut/pkg/retry"
 )
 
 // EnhancedArgoApiService provides enhanced ArgoApiService with recovery and degradation
@@ -71,10 +70,9 @@ func (s *EnhancedArgoApiService) SyncApplication(ctx context.Context, server *mo
 		AppNamespace: ns,
 	}
 
-	// Use retry mechanism for sync operations
-	err := retry.RetryAPIOperation(ctx, "SyncApplication", func(attempt int) error {
-		return s.appService.SyncApplication(ctx, appName, opts)
-	})
+	// No retries: a network error can occur after the server has already
+	// started the sync, so re-sending could run it twice.
+	err := s.appService.SyncApplication(ctx, appName, opts)
 
 	if err != nil {
 		// Report API health status
