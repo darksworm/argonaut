@@ -5,19 +5,11 @@
 
 ### Bug Fixes
 
-* **ci:** goreleaser uploads to existing draft instead of creating a duplicate ([68c7dce](https://github.com/darksworm/argonaut/commit/68c7dce03f2f90a61040a841dabdc0c7d3f90415))
-* clear pending auto-hide deadline when recording a new error ([ad8a3cc](https://github.com/darksworm/argonaut/commit/ad8a3cc4fefb414bbbc530dff4126e730a77a924))
-* deliver buffered watch event when stream ends ([0e30518](https://github.com/darksworm/argonaut/commit/0e3051815e1164c603dc1e0291c54643820377a9))
-* make SSE reader Close idempotent ([f8a0111](https://github.com/darksworm/argonaut/commit/f8a0111cc66b979cbaf33b76b53b31c2cfd12565))
-* reconnect watch stream after it ends ([fb5ec35](https://github.com/darksworm/argonaut/commit/fb5ec35ce3983990e6f36421bbc7e7e35a01e92a))
-* rewrite delta diff header on all platforms, not just macOS ([8e4d258](https://github.com/darksworm/argonaut/commit/8e4d258dd30bbcd8800351e2ed5bcbf2e5c04356))
-* stop retrying application sync at the service layer ([4c2667e](https://github.com/darksworm/argonaut/commit/4c2667e70feaba45882b4ec3f8150cb0a41ec2e0))
-* stop retrying POST/PUT/DELETE requests on network errors ([693c409](https://github.com/darksworm/argonaut/commit/693c40952e9ca2374e5e56041cc29cd4a1e1fdb2))
-
-
-### Performance Improvements
-
-* pool SSE buffers by pointer to avoid boxing on Put ([e79a207](https://github.com/darksworm/argonaut/commit/e79a207d854a711cc3e8ea397998551563b1ddb7))
+* fixed a bug where some errors would be hidden immediately ([ad8a3cc](https://github.com/darksworm/argonaut/commit/ad8a3cc4fefb414bbbc530dff4126e730a77a924))
+* apps with the same name in different namespaces are no longer conflated ([4aae1b6](https://github.com/darksworm/argonaut/commit/4aae1b6))
+* argonaut will now reconnect to the Argo CD event stream if it closes, and no longer drops the last event when it does ([fb5ec35](https://github.com/darksworm/argonaut/commit/fb5ec35ce3983990e6f36421bbc7e7e35a01e92a))
+* the delta diff header now displays proper file names all platforms, not just macOS ([8e4d258](https://github.com/darksworm/argonaut/commit/8e4d258dd30bbcd8800351e2ed5bcbf2e5c04356))
+* sync and other actions are no longer retried on network errors, so they can't run twice ([693c409](https://github.com/darksworm/argonaut/commit/693c40952e9ca2374e5e56041cc29cd4a1e1fdb2), [4c2667e](https://github.com/darksworm/argonaut/commit/4c2667e70feaba45882b4ec3f8150cb0a41ec2e0))
 
 ## [2.17.1](https://github.com/darksworm/argonaut/compare/v2.17.0...v2.17.1) (2026-05-21)
 
