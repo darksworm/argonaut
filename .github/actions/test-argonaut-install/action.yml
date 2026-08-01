@@ -52,7 +52,7 @@ runs:
             yum install -y -q curl ca-certificates util-linux which
             echo "✅ Installed dependencies via yum"
           elif command -v pacman >/dev/null 2>&1; then
-            pacman -Sy --noconfirm --quiet curl ca-certificates
+            pacman -Syu --noconfirm --quiet curl ca-certificates
             echo "✅ Installed dependencies via pacman"
           else
             echo "❌ ERROR: No supported package manager found"
