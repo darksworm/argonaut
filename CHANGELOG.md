@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.17.2](https://github.com/darksworm/argonaut/compare/v2.17.1...v2.17.2) (2026-07-25)
+
+
+### Bug Fixes
+
+* fixed a bug where some errors would be hidden immediately ([ad8a3cc](https://github.com/darksworm/argonaut/commit/ad8a3cc4fefb414bbbc530dff4126e730a77a924))
+* apps with the same name in different namespaces are no longer conflated ([4aae1b6](https://github.com/darksworm/argonaut/commit/4aae1b6))
+* argonaut will now reconnect to the Argo CD event stream if it closes, and no longer drops the last event when it does ([fb5ec35](https://github.com/darksworm/argonaut/commit/fb5ec35ce3983990e6f36421bbc7e7e35a01e92a))
+* the delta diff header now displays proper file names all platforms, not just macOS ([8e4d258](https://github.com/darksworm/argonaut/commit/8e4d258dd30bbcd8800351e2ed5bcbf2e5c04356))
+* sync and other actions are no longer retried on network errors, so they can't run twice ([693c409](https://github.com/darksworm/argonaut/commit/693c40952e9ca2374e5e56041cc29cd4a1e1fdb2), [4c2667e](https://github.com/darksworm/argonaut/commit/4c2667e70feaba45882b4ec3f8150cb0a41ec2e0))
+
 ## [2.17.1](https://github.com/darksworm/argonaut/compare/v2.17.0...v2.17.1) (2026-05-21)
 
 
