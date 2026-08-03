@@ -1061,16 +1061,26 @@ func (m *Model) handleResourceSync() (tea.Model, tea.Cmd) {
 	// Get selected resources
 	selections := m.treeView.GetSelectedResources()
 
-	// If no selections, check if we're on the Application root node
+	// Without explicit resource selections, an Application row represents an
+	// application sync. A child Application must target that child rather than
+	// falling back to the synthetic root app that owns the resource tree.
 	if len(selections) == 0 {
-		// On Application root - trigger full app sync instead
-		// Get the app name from the tree view
 		appName := m.treeView.GetAppName()
+		var appNamespace *string
+
+		_, kind, selectedNamespace, selectedName, ok := m.treeView.SelectedResource()
+		if ok && kind == "Application" && !m.treeView.IsSelectedSyntheticRoot() {
+			appName = selectedName
+			if selectedNamespace != "" {
+				appNamespace = &selectedNamespace
+			}
+		} else if m.state.UI.TreeApp != nil {
+			appNamespace = m.state.UI.TreeApp.AppNamespace
+		}
+
 		if appName != "" {
 			m.state.Modals.ConfirmTarget = &appName
-			if m.state.UI.TreeApp != nil {
-				m.state.Modals.ConfirmTargetNamespace = m.state.UI.TreeApp.AppNamespace
-			}
+			m.state.Modals.ConfirmTargetNamespace = appNamespace
 			m.state.Modals.ConfirmSyncSelected = 0 // default to Yes
 			m.state.Mode = model.ModeConfirmSync
 			return m, nil
