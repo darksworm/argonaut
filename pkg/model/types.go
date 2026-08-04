@@ -48,7 +48,6 @@ const (
 	ModeDefaultViewWarning    Mode = "default-view-warning"
 	ModeResourceAction        Mode = "resource-action"
 	ModeEvents                Mode = "events"
-	ModeSyncStatus            Mode = "sync-status"
 )
 
 // SyncOpSummary summarizes an application's last sync operation for the

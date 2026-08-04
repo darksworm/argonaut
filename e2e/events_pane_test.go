@@ -126,7 +126,7 @@ func TestEventsPane_ShowsResourceEvents(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	_ = tf.Send("e")
 
-	if !tf.WaitForPlain("Events · Pod nginx-pod-xyz789", 5*time.Second) {
+	if !tf.WaitForPlain("─ Pod nginx-pod-xyz789 ", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("events pane title not shown")
 	}
@@ -143,14 +143,16 @@ func TestEventsPane_ShowsResourceEvents(t *testing.T) {
 	_ = tf.Escape()
 	if !waitUntil(t, func() bool {
 		s := tf.SnapshotPlain()
-		return strings.Contains(s, "Application [demo]") && !strings.Contains(tf.Screen(), "Events ·")
+		return strings.Contains(s, "Application [demo]") && !strings.Contains(tf.Screen(), "esc: close")
 	}, 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("esc did not land back on the tree")
 	}
 }
 
-func TestSyncStatusPane_ShowsOperationState(t *testing.T) {
+// Opening the pane on the application row shows the last operation's status
+// block above the app's events — one lens for both.
+func TestEventsPane_AppRow_ShowsOperationStateAboveEvents(t *testing.T) {
 	t.Parallel()
 	tf := NewTUITest(t)
 	t.Cleanup(tf.Cleanup)
@@ -174,29 +176,33 @@ func TestSyncStatusPane_ShowsOperationState(t *testing.T) {
 
 	openDemoTree(t, tf)
 
-	_ = tf.Send("S")
+	_ = tf.Send("e") // cursor starts on the application root
 
-	if !tf.WaitForPlain("Sync Status · demo", 5*time.Second) {
+	if !tf.WaitForPlain("─ Application demo ", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
-		t.Fatal("sync status pane title not shown")
+		t.Fatal("app lens title not shown")
 	}
 	if !tf.WaitForPlain("Phase         Failed", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("operation phase not shown")
 	}
-	if !tf.WaitForPlain("a1b2c3d", 2*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("resolved revision not shown")
-	}
 	if !tf.WaitForPlain("SyncFailed", 2*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("per-resource result not shown")
+	}
+	if !tf.WaitForPlain("EVENTS", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("events section not shown below the status block")
+	}
+	if !tf.WaitForPlain("OperationCompleted", 2*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("application events not shown")
 	}
 
 	_ = tf.Escape()
 	if !waitUntil(t, func() bool {
 		s := tf.SnapshotPlain()
-		return strings.Contains(s, "Application [demo]") && !strings.Contains(tf.Screen(), "Sync Status ·")
+		return strings.Contains(s, "Application [demo]") && !strings.Contains(tf.Screen(), "esc: close")
 	}, 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
 		t.Fatal("esc did not land back on the tree")

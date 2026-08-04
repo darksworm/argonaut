@@ -1,4 +1,4 @@
-╭─ Events · Application demo-app ────────────────╮
+╭─ Pod web-6f7d9b-x4k2m ─────────────────────────╮
 │                                                │
 │ Loading events…                                │
 │                                                │
@@ -10,7 +10,7 @@
 │                                                │
 ╰────────────────────────────────────────────────╯
 
-╭─ Events · Application demo-app ────────────────╮
+╭─ Pod web-6f7d9b-x4k2m ─────────────────────────╮
 │                                                │
 │ No events.                                     │
 │                                                │
@@ -22,7 +22,7 @@
 │                                                │
 ╰────────────────────────────────────────────────╯
 
-╭─ Events · Application demo-app ────────────────╮
+╭─ Pod web-6f7d9b-x4k2m ─────────────────────────╮
 │                                                │
 │ connection refused: dial tcp 10.0.0.1:443      │
 │                                                │

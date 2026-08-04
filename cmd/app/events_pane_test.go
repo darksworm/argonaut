@@ -53,29 +53,55 @@ func TestTreeKeyE_OnSyntheticRoot_OpensApplicationEvents(t *testing.T) {
 	}
 }
 
-func TestTreeKeyS_OpensSyncStatusFromAnyRow(t *testing.T) {
+// An application row is one lens: the pane loads the sync details for the
+// status block on top of the events.
+func TestEventsPane_OnApplicationRow_AlsoLoadsSyncDetails(t *testing.T) {
 	m := buildEventsPaneTestModel()
-	m.treeView.SetSelectedIndex(1) // resource row: S still targets the app
+	m.treeView.SetSelectedIndex(0) // synthetic root
+
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
+	mm := teaModel.(*Model)
+
+	st := mm.state.Events
+	if st == nil || !st.Loading || !st.DetailsLoading {
+		t.Fatalf("expected both the events and the sync details to load, got %+v", st)
+	}
+	if cmd == nil {
+		t.Fatal("expected fetch commands")
+	}
+	// The fixture has no server: both producers report errors, one per fetch
+	msgs := collectMsgs(t, cmd)
+	var gotEvents, gotDetails bool
+	for _, msg := range msgs {
+		switch msg.(type) {
+		case model.EventsErrorMsg:
+			gotEvents = true
+		case model.SyncStatusErrorMsg:
+			gotDetails = true
+		}
+	}
+	if !gotEvents || !gotDetails {
+		t.Errorf("expected an events fetch and a details fetch, got %#v", msgs)
+	}
+}
+
+func TestEventsPane_OnResourceRow_DoesNotLoadSyncDetails(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	if m.state.Events.DetailsLoading || m.state.Events.Details != nil {
+		t.Errorf("resource rows show events only, got %+v", m.state.Events)
+	}
+}
+
+// S lost its binding when the sync-status pane merged into the events lens.
+func TestTreeKeyS_DoesNothing(t *testing.T) {
+	m := buildEventsPaneTestModel()
 
 	teaModel, cmd := m.handleKeyMsg(testKeyMsg("S"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeSyncStatus {
-		t.Fatalf("expected ModeSyncStatus, got %s", mm.state.Mode)
-	}
-	st := mm.state.SyncStatus
-	if st == nil {
-		t.Fatal("expected SyncStatusState to be set")
-	}
-	want := model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"}
-	if st.Target != want {
-		t.Errorf("expected target %+v, got %+v", want, st.Target)
-	}
-	if !st.Loading {
-		t.Error("expected the pane to open in loading state")
-	}
-	if cmd == nil {
-		t.Error("expected a command to fetch the sync status")
+	if mm.state.Mode != model.ModeNormal || mm.state.Events != nil || cmd != nil {
+		t.Errorf("expected S to do nothing in tree view, got mode %s", mm.state.Mode)
 	}
 }
 
@@ -135,8 +161,6 @@ func TestTreeKeyEnter_OnChildApplicationRow_KeepsDrillIn(t *testing.T) {
 	}
 }
 
-// A Missing resource was never created in the cluster: its node has no UID,
-// so resource events cannot exist — the pane must not open onto a dead end.
 // A Missing resource was never created in the cluster, so it cannot have
 // events — the pane opens as a lens with an inline notice, no fetch.
 func TestTreeKeyE_OnMissingResource_OpensWithNotice(t *testing.T) {
@@ -160,6 +184,23 @@ func TestTreeKeyE_OnMissingResource_OpensWithNotice(t *testing.T) {
 	if cmd != nil {
 		t.Error("expected no fetch command for a UID-less resource")
 	}
+}
+
+// collectMsgs executes a command, flattening tea.Batch into its messages.
+func collectMsgs(t *testing.T, cmd tea.Cmd) []tea.Msg {
+	t.Helper()
+	if cmd == nil {
+		return nil
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		var out []tea.Msg
+		for _, c := range batch {
+			out = append(out, collectMsgs(t, c)...)
+		}
+		return out
+	}
+	return []tea.Msg{msg}
 }
 
 func openEventsPane(t *testing.T, m *Model) *Model {
@@ -269,25 +310,25 @@ func TestEventsErrorMsg_FromSupersededLoad_IsDropped(t *testing.T) {
 
 func TestSyncStatusLoadedMsg_FromSupersededLoad_IsDropped(t *testing.T) {
 	m := buildEventsPaneTestModel()
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
+	m.treeView.SetSelectedIndex(0)
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e"))
 	m = teaModel.(*Model)
-	staleTarget := m.state.SyncStatus.Target
-	staleSeq := m.state.SyncStatus.LoadSeq
+	staleSeq := m.state.Events.LoadSeq
 
 	teaModel, _ = m.handleKeyMsg(testKeyMsg("esc"))
-	teaModel, _ = teaModel.(*Model).handleKeyMsg(testKeyMsg("S"))
+	teaModel, _ = teaModel.(*Model).handleKeyMsg(testKeyMsg("e")) // reopen, same target
 	m = teaModel.(*Model)
 
 	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
-		Target:      staleTarget,
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
 		Details:     &model.SyncStatusDetails{Phase: "Failed"},
 		SwitchEpoch: m.switchEpoch,
 		LoadSeq:     staleSeq,
 	})
 	mm := teaModel.(*Model)
 
-	if mm.state.SyncStatus.Details != nil {
-		t.Error("a superseded load's result must be dropped")
+	if mm.state.Events.Details != nil {
+		t.Error("a superseded load's details must be dropped")
 	}
 }
 
@@ -311,40 +352,43 @@ func TestEventsErrorMsg_ShowsInlineError(t *testing.T) {
 	}
 }
 
-func TestSyncStatusLoadedMsg_FillsThePane(t *testing.T) {
+func TestSyncStatusLoadedMsg_FillsThePaneDetails(t *testing.T) {
 	m := buildEventsPaneTestModel()
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
+	m.treeView.SetSelectedIndex(0)
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e"))
 	m = teaModel.(*Model)
 
 	details := &model.SyncStatusDetails{Phase: "Failed", Revision: "a1b2c3d"}
 	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
-		Target:      m.state.SyncStatus.Target,
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
 		Details:     details,
 		SwitchEpoch: m.switchEpoch,
-		LoadSeq:     m.state.SyncStatus.LoadSeq,
+		LoadSeq:     m.state.Events.LoadSeq,
 	})
 	mm := teaModel.(*Model)
 
-	st := mm.state.SyncStatus
-	if st.Loading || st.Details == nil || st.Details.Phase != "Failed" {
-		t.Errorf("expected loaded details in the pane, got %+v", st)
+	st := mm.state.Events
+	if st.DetailsLoading || st.Details == nil || st.Details.Phase != "Failed" {
+		t.Errorf("expected the loaded details in the pane, got %+v", st)
 	}
 }
 
 func TestSyncStatusErrorMsg_StaleEpoch_IsDropped(t *testing.T) {
 	m := buildEventsPaneTestModel()
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
+	m.treeView.SetSelectedIndex(0)
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e"))
 	m = teaModel.(*Model)
 
 	teaModel, _ = m.Update(model.SyncStatusErrorMsg{
-		Target:      m.state.SyncStatus.Target,
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
 		Error:       "boom",
 		SwitchEpoch: m.switchEpoch - 1,
+		LoadSeq:     m.state.Events.LoadSeq,
 	})
 	mm := teaModel.(*Model)
 
-	if mm.state.SyncStatus.Error != "" || !mm.state.SyncStatus.Loading {
-		t.Errorf("stale-epoch error must not touch the pane, got %+v", mm.state.SyncStatus)
+	if mm.state.Events.DetailsError != "" || !mm.state.Events.DetailsLoading {
+		t.Errorf("stale-epoch error must not touch the pane, got %+v", mm.state.Events)
 	}
 }
 
@@ -393,45 +437,6 @@ func TestEventsPane_ActionKeysAreSwallowed(t *testing.T) {
 	}
 }
 
-func TestEventsPane_SSwitchesToSyncStatus(t *testing.T) {
-	m := openEventsPane(t, buildEventsPaneTestModel())
-
-	teaModel, cmd := m.handleKeyMsg(testKeyMsg("S"))
-	mm := teaModel.(*Model)
-
-	if mm.state.Mode != model.ModeSyncStatus {
-		t.Fatalf("expected S to switch to the sync-status pane, got %s", mm.state.Mode)
-	}
-	if mm.state.Events != nil {
-		t.Error("expected events state to be cleared on switch")
-	}
-	if mm.state.SyncStatus == nil || cmd == nil {
-		t.Error("expected sync-status state and a fetch command")
-	}
-}
-
-func TestSyncStatusPane_ESwitchesToEvents(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	m.treeView.SetSelectedIndex(1)
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
-	m = teaModel.(*Model)
-
-	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
-	mm := teaModel.(*Model)
-
-	if mm.state.Mode != model.ModeEvents {
-		t.Fatalf("expected e to switch to the events pane, got %s", mm.state.Mode)
-	}
-	if mm.state.SyncStatus != nil {
-		t.Error("expected sync-status state to be cleared on switch")
-	}
-	if mm.state.Events == nil || cmd == nil {
-		t.Error("expected events state and a fetch command")
-	}
-}
-
-// The pane is a lens: j/k keep navigating the tree and the pane follows
-// the selection with a debounced refetch.
 func TestEventsPane_JKNavigateTheTreeAndRetargetThePane(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel()) // opened on the Pod row (index 1)
 	if m.state.Events.Target.Resource.UID != "pod-uid" {
@@ -499,33 +504,36 @@ func TestEventsPane_PaneFetchDue_DispatchesOnlyForCurrentSeq(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected the due fetch to dispatch")
 	}
-	msg := cmd() // fixture has no server, so the producer errors — with the gating fields intact
-	errMsg, ok := msg.(model.EventsErrorMsg)
-	if !ok {
-		t.Fatalf("expected EventsErrorMsg, got %T", msg)
+	// The fixture has no server, so the producers error — with gating intact
+	var found bool
+	for _, msg := range collectMsgs(t, cmd) {
+		if errMsg, ok := msg.(model.EventsErrorMsg); ok {
+			found = true
+			if errMsg.Target != m.state.Events.Target || errMsg.LoadSeq != seq {
+				t.Errorf("expected the fetch to carry the current target and seq, got %+v", errMsg)
+			}
+		}
 	}
-	if errMsg.Target != m.state.Events.Target || errMsg.LoadSeq != seq {
-		t.Errorf("expected the fetch to carry the current target and seq, got %+v", errMsg)
+	if !found {
+		t.Error("expected an events fetch to dispatch")
 	}
 }
 
 func TestEventsPane_RetargetSkipsWhenTargetUnchanged(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S")) // app-scoped pane
-	m = teaModel.(*Model)
-	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
-		Target:      m.state.SyncStatus.Target,
-		Details:     &model.SyncStatusDetails{Phase: "Succeeded"},
+	m := openEventsPane(t, buildEventsPaneTestModel()) // pod is the last row
+	teaModel, _ := m.Update(model.EventsLoadedMsg{
+		Target:      m.state.Events.Target,
+		Items:       []model.ResourceEvent{{Reason: "BackOff"}},
 		SwitchEpoch: m.switchEpoch,
-		LoadSeq:     m.state.SyncStatus.LoadSeq,
+		LoadSeq:     m.state.Events.LoadSeq,
 	})
 	m = teaModel.(*Model)
 
-	teaModel, cmd := m.handleKeyMsg(testKeyMsg("j")) // same app, target unchanged
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("j")) // cursor cannot move further
 	mm := teaModel.(*Model)
 
-	if mm.state.SyncStatus.Loading || mm.state.SyncStatus.Details == nil {
-		t.Errorf("expected no refetch when the target is unchanged, got %+v", mm.state.SyncStatus)
+	if mm.state.Events.Loading || len(mm.state.Events.Items) != 1 {
+		t.Errorf("expected no refetch when the selection did not change, got %+v", mm.state.Events)
 	}
 	if cmd != nil {
 		t.Error("expected no fetch command when the target is unchanged")
@@ -602,19 +610,6 @@ func TestEventsCommand_InTreeView_OpensEventsPane(t *testing.T) {
 	}
 	if m.state.Events == nil || m.state.Events.Target.Resource.UID != "pod-uid" {
 		t.Errorf("expected events for the selected row, got %+v", m.state.Events)
-	}
-}
-
-func TestSyncStatusCommand_InTreeView_OpensSyncStatusPane(t *testing.T) {
-	m := buildEventsPaneTestModel()
-
-	m = runCommand(t, m, "syncstatus")
-
-	if m.state.Mode != model.ModeSyncStatus {
-		t.Fatalf("expected :syncstatus to open the sync-status pane, got mode %s", m.state.Mode)
-	}
-	if m.state.SyncStatus == nil || m.state.SyncStatus.Target.AppName != "test-app" {
-		t.Errorf("expected sync status for the tree app, got %+v", m.state.SyncStatus)
 	}
 }
 
@@ -724,6 +719,8 @@ func TestResourceTreeLoaded_SetsSyncSummaryFromAppList(t *testing.T) {
 
 // Two apps share a name in different ArgoCD namespaces; the pane target must
 // use the tree-scoped app's namespace, not the first name-match in the list.
+// Two apps share a name in different ArgoCD namespaces; the pane target must
+// use the tree-scoped app's namespace, not the first name-match in the list.
 func TestPaneTargets_DisambiguateAppByNamespace(t *testing.T) {
 	m := buildEventsPaneTestModel()
 	nsArgocd := "argocd"
@@ -739,15 +736,8 @@ func TestPaneTargets_DisambiguateAppByNamespace(t *testing.T) {
 		{UID: "d1", Kind: "Deployment", Name: "web"},
 	}})
 
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e"))
 	mm := teaModel.(*Model)
-	if got := mm.state.SyncStatus.Target.AppNamespace; got != nsTeamA {
-		t.Errorf("sync-status target should use the tree app's namespace %q, got %q", nsTeamA, got)
-	}
-
-	mm.closePanes()
-	teaModel, _ = mm.handleKeyMsg(testKeyMsg("e"))
-	mm = teaModel.(*Model)
 	if got := mm.state.Events.Target.AppNamespace; got != nsTeamA {
 		t.Errorf("events target should use the tree app's namespace %q, got %q", nsTeamA, got)
 	}

@@ -1,5 +1,5 @@
  Context: argo.example.com                                                           Argonaut dev   
- ╭──────────────────────────────────────────────╮╭─ Events · Pod web-6f7d9b-x4k2m ────────────────╮ 
+ ╭──────────────────────────────────────────────╮╭─ Pod web-6f7d9b-x4k2m ─────────────────────────╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
  │ ├── Deployment [demo/web] (Degraded)         ││ BackOff                          x412 · 2m ago │ 
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││   Back-off restarting failed container web in  │ 

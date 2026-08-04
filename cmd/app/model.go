@@ -1063,10 +1063,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Fetch only if this debounce tick still matches the pane's load —
 		// a newer retarget or a close supersedes it.
 		if st := m.state.Events; st != nil && st.LoadSeq == msg.LoadSeq && st.Loading {
-			return m, m.loadEvents(st.Target, st.LoadSeq)
-		}
-		if st := m.state.SyncStatus; st != nil && st.LoadSeq == msg.LoadSeq && st.Loading {
-			return m, m.loadSyncStatus(st.Target, st.LoadSeq)
+			return m, m.paneFetchCmds()
 		}
 		return m, nil
 
@@ -1098,11 +1095,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.SwitchEpoch != m.switchEpoch {
 			return m, nil
 		}
-		st := m.state.SyncStatus
-		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.LoadSeq ||
+			st.Target.AppName != msg.Target.AppName || st.Target.AppNamespace != msg.Target.AppNamespace {
 			return m, nil
 		}
-		st.Loading = false
+		st.DetailsLoading = false
 		st.Details = msg.Details
 		return m, nil
 
@@ -1110,12 +1108,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.SwitchEpoch != m.switchEpoch {
 			return m, nil
 		}
-		st := m.state.SyncStatus
-		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.LoadSeq ||
+			st.Target.AppName != msg.Target.AppName || st.Target.AppNamespace != msg.Target.AppNamespace {
 			return m, nil
 		}
-		st.Loading = false
-		st.Error = msg.Error
+		st.DetailsLoading = false
+		st.DetailsError = msg.Error
 		return m, nil
 
 	case model.ResourceActionsLoadedMsg:

@@ -1672,7 +1672,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
-	case model.ModeEvents, model.ModeSyncStatus:
+	case model.ModeEvents:
 		return m.handlePaneModeKeys(msg)
 	case model.ModeAuthRequired:
 		return m.handleAuthRequiredModeKeys(msg)
@@ -1762,9 +1762,6 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "e":
 			// Open the events pane for the selected row
 			return m.handleShowEvents()
-		case "S":
-			// Open the sync-status pane for the app
-			return m.handleShowSyncStatus()
 		case "K":
 			// Open k9s for the selected resource
 			return m.handleOpenK9s()

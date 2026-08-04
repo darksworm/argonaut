@@ -204,9 +204,8 @@ type AppState struct {
 	// Note: AbortController equivalent will use context.Context in Go services
 	Diff     *DiffState     `json:"diff,omitempty"`
 	Rollback *RollbackState `json:"rollback,omitempty"`
-	// Tree-view side panes; presence = open (see ModeEvents / ModeSyncStatus)
-	Events     *EventsState     `json:"events,omitempty"`
-	SyncStatus *SyncStatusState `json:"syncStatus,omitempty"`
+	// Tree-view side pane; presence = open (see ModeEvents)
+	Events *EventsState `json:"events,omitempty"`
 	// Store previous navigation state as a stack for app-of-apps drill-down
 	SavedNavigation []NavigationState `json:"savedNavigation,omitempty"`
 	SavedSelections *SelectionState   `json:"savedSelections,omitempty"`

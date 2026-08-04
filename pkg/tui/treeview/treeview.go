@@ -911,7 +911,7 @@ func (v *TreeView) renderSyncSummaryLine(s *model.SyncOpSummary) string {
 	} else if s.Automated {
 		segments = append(segments, "auto")
 	}
-	segments = append(segments, "S for details")
+	segments = append(segments, "enter for details")
 
 	return dim.Render("last sync: ") +
 		phaseStyle.Render(glyph+" "+s.Phase) +

@@ -1,12 +1,12 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Application [demo-app] (Degraded, Synced)                                                      │
-│ last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · S for details                              │
+│ last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · enter for details                          │
 │ ├── Deployment [demo/web] (Degraded)                                                           │
 │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degraded)                                                 │
 │ └── Service [demo/web] (Healthy)                                                               │
 │                                                                                                │
 │ Application [other-app] (Healthy, Synced)                                                      │
-│ last sync: ◌ Running · 30s ago · auto · S for details                                          │
+│ last sync: ◌ Running · 30s ago · auto · enter for details                                      │
 │ └── Service [api]                                                                              │
 │                                                                                                │
 │                                                                                                │

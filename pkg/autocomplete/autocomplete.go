@@ -102,14 +102,7 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 		{
 			Command:     "events",
 			Aliases:     []string{"events", "event"},
-			Description: "Show events for the selected resource or application",
-			TakesArg:    false,
-			ArgType:     "",
-		},
-		{
-			Command:     "syncstatus",
-			Aliases:     []string{"syncstatus", "ss"},
-			Description: "Show the last sync operation's status",
+			Description: "Show events (and sync status) for the selected row",
 			TakesArg:    false,
 			ArgType:     "",
 		},

@@ -100,7 +100,10 @@ func TestGolden_EventsPane_LoadingEmptyError(t *testing.T) {
 	l := m.paneLayout(10)
 
 	m.state.Events = &model.EventsState{
-		Target:  model.EventsTarget{AppName: "demo-app"},
+		Target: model.EventsTarget{
+			AppName:  "demo-app",
+			Resource: model.EventsResource{Kind: "Pod", Namespace: "demo", Name: "web-6f7d9b-x4k2m", UID: "pod-1"},
+		},
 		Loading: true,
 	}
 	out := stripANSI(m.renderSidePane(l))
@@ -114,11 +117,11 @@ func TestGolden_EventsPane_LoadingEmptyError(t *testing.T) {
 	compareWithGolden(t, "pane_events_loading_empty_error", out)
 }
 
-func TestGolden_SyncStatusPane_FailedSync(t *testing.T) {
-	m := buildPaneGoldenModel(100, 24)
-	m.state.Mode = model.ModeSyncStatus
-	m.state.SyncStatus = &model.SyncStatusState{
-		Target: model.SyncStatusTarget{AppName: "demo-app"},
+func TestGolden_EventsPane_AppRow_StatusBlockAboveEvents(t *testing.T) {
+	m := buildPaneGoldenModel(100, 30)
+	m.state.Mode = model.ModeEvents
+	m.state.Events = &model.EventsState{
+		Target: model.EventsTarget{AppName: "demo-app"},
 		Details: &model.SyncStatusDetails{
 			Phase:       "Failed",
 			Message:     "one or more objects failed to apply",
@@ -132,17 +135,34 @@ func TestGolden_SyncStatusPane_FailedSync(t *testing.T) {
 					Message: "Deployment.apps \"web\" is invalid: spec.template.spec.containers[0].image: Required value"},
 			},
 		},
+		Items: []model.ResourceEvent{
+			{
+				Type:     "Warning",
+				Reason:   "OperationCompleted",
+				Message:  "Sync operation to a1b2c3d failed: one or more objects failed to apply",
+				Count:    1,
+				LastSeen: time.Date(2026, 8, 4, 12, 0, 6, 0, time.UTC),
+			},
+			{
+				Type:     "Normal",
+				Reason:   "OperationStarted",
+				Message:  "admin initiated sync to HEAD",
+				Count:    1,
+				LastSeen: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+			},
+		},
 	}
-	compareWithGolden(t, "pane_syncstatus_failed_100x24", stripANSI(m.renderMainLayout()))
+	compareWithGolden(t, "pane_approw_status_and_events_100x30", stripANSI(m.renderMainLayout()))
 }
 
-func TestGolden_SyncStatusPane_NeverSynced(t *testing.T) {
+func TestGolden_EventsPane_AppRow_NeverSynced(t *testing.T) {
 	m := buildPaneGoldenModel(100, 24)
-	m.state.Mode = model.ModeSyncStatus
-	m.state.SyncStatus = &model.SyncStatusState{
-		Target: model.SyncStatusTarget{AppName: "demo-app"},
+	m.state.Mode = model.ModeEvents
+	m.state.Events = &model.EventsState{
+		Target: model.EventsTarget{AppName: "demo-app"},
+		Items:  samplePodEvents()[3:], // just the Scheduled event
 	}
-	compareWithGolden(t, "pane_syncstatus_never_synced", stripANSI(m.renderSidePane(m.paneLayout(10))))
+	compareWithGolden(t, "pane_approw_never_synced", stripANSI(m.renderSidePane(m.paneLayout(12))))
 }
 
 func TestGolden_TreeView_SyncSummaryVariants(t *testing.T) {

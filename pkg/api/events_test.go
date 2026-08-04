@@ -85,6 +85,37 @@ func TestListEvents_ResourceScoped_SendsAllResourceParams(t *testing.T) {
 	}
 }
 
+// Cluster-scoped resources (Namespace, ClusterRole, …) have no namespace;
+// the server accepts uid+name with an empty resourceNamespace (verified
+// against a live Argo CD).
+func TestListEvents_ClusterScopedResource_SendsEmptyNamespace(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("resourceUID"); got != "ns-uid" {
+			t.Errorf("expected resourceUID=ns-uid, got %q", got)
+		}
+		if got := q.Get("resourceName"); got != "argonaut-demo" {
+			t.Errorf("expected resourceName=argonaut-demo, got %q", got)
+		}
+		if !q.Has("resourceNamespace") || q.Get("resourceNamespace") != "" {
+			t.Errorf("expected an empty resourceNamespace param, got %q", q.Get("resourceNamespace"))
+		}
+		w.Write([]byte(`{"items":[]}`))
+	}))
+	defer server.Close()
+
+	svc := NewApplicationService(&model.Server{BaseURL: server.URL, Token: "test-token"})
+
+	_, err := svc.ListEvents(context.Background(), ListEventsParams{
+		AppName:      "rollout-bluegreen",
+		ResourceUID:  "ns-uid",
+		ResourceName: "argonaut-demo",
+	})
+	if err != nil {
+		t.Fatalf("expected cluster-scoped resource events to be fetchable, got %v", err)
+	}
+}
+
 func TestListEvents_PartialResourceParams_FailsWithoutRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Errorf("expected no HTTP request for partial resource params, got %s %s", r.Method, r.URL)

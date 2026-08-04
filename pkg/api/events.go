@@ -68,13 +68,13 @@ type ListEventsParams struct {
 // ListEvents fetches Kubernetes events for an application or one of its
 // resources, normalized and sorted newest-first.
 func (s *ApplicationService) ListEvents(ctx context.Context, params ListEventsParams) ([]model.ResourceEvent, error) {
-	// The ArgoCD API rejects partial resource identification with
-	// InvalidArgument: either all three fields scope to one resource,
-	// or none of them for application-level events.
-	scoped := params.ResourceUID != "" && params.ResourceName != "" && params.ResourceNamespace != ""
+	// The ArgoCD API resolves a resource by uid+name; the namespace may be
+	// empty for cluster-scoped resources (verified against a live server).
+	// A uid or name alone is rejected upstream, so catch it before HTTP.
+	scoped := params.ResourceUID != "" && params.ResourceName != ""
 	unscoped := params.ResourceUID == "" && params.ResourceName == "" && params.ResourceNamespace == ""
 	if !scoped && !unscoped {
-		return nil, fmt.Errorf("resource events require uid, name and namespace together (got uid=%q name=%q namespace=%q)",
+		return nil, fmt.Errorf("resource events require uid and name (got uid=%q name=%q namespace=%q)",
 			params.ResourceUID, params.ResourceName, params.ResourceNamespace)
 	}
 

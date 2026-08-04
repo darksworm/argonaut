@@ -172,11 +172,14 @@ var AppListFields = []string{
 	"items.spec",
 	"items.status.sync.status",
 	"items.status.health",
+	// Only leaf fields directly under operationState project through the
+	// server's field selection (verified against a live Argo CD): deeper
+	// paths like operation.sync.revision or syncResult.revision return
+	// nothing. The summary therefore starts with phase + timestamps; the
+	// watch stream (no field selection) fills in revision/initiator.
 	"items.status.operationState.phase",
 	"items.status.operationState.finishedAt",
 	"items.status.operationState.startedAt",
-	"items.status.operationState.operation",
-	"items.status.operationState.syncResult.revision",
 }
 
 // AppWatchFields is intentionally empty — the stream endpoint does not support

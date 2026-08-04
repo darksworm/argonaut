@@ -196,73 +196,70 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	return lines
 }
 
-// paneOpen reports whether a side pane (events or sync status) is open.
+// paneOpen reports whether the side pane is open.
 func (m *Model) paneOpen() bool {
-	return m.state.Events != nil || m.state.SyncStatus != nil
+	return m.state.Events != nil
 }
 
-// renderSidePane renders whichever pane is open at the given geometry,
-// clamping its scroll offset to the content (the diff pager pattern).
+// renderSidePane renders the open pane at the given geometry, clamping its
+// scroll offset to the content (the diff pager pattern). Application rows
+// show the last sync operation's status block above the events.
 func (m *Model) renderSidePane(l paneLayout) string {
+	st := m.state.Events
+	if st == nil {
+		return ""
+	}
 	dim := lipgloss.NewStyle().Foreground(currentPalette.Dim)
 	danger := lipgloss.NewStyle().Foreground(currentPalette.Danger)
+	wrapWith := func(body []string, text string, style lipgloss.Style) []string {
+		for _, part := range wrapAnsiToWidth(text, max(1, l.paneBodyWidth)) {
+			body = append(body, style.Render(part))
+		}
+		return body
+	}
 
-	var title string
+	appLevel := st.Target.Resource == (model.EventsResource{})
+	title := "Application " + st.Target.AppName
+	if !appLevel {
+		title = fmt.Sprintf("%s %s", st.Target.Resource.Kind, st.Target.Resource.Name)
+	}
+
 	var body []string
-	var offset *int
-	switch {
-	case m.state.Events != nil:
-		st := m.state.Events
-		offset = &st.Offset
-		title = "Events · Application " + st.Target.AppName
-		if st.Target.Resource != (model.EventsResource{}) {
-			title = fmt.Sprintf("Events · %s %s", st.Target.Resource.Kind, st.Target.Resource.Name)
-		}
+	if appLevel {
 		switch {
-		case st.Notice != "":
-			for _, part := range wrapAnsiToWidth(st.Notice, max(1, l.paneBodyWidth)) {
-				body = append(body, dim.Render(part))
-			}
-		case st.Loading:
-			body = []string{dim.Render("Loading events…")}
-		case st.Error != "":
-			for _, part := range wrapAnsiToWidth(st.Error, max(1, l.paneBodyWidth)) {
-				body = append(body, danger.Render(part))
-			}
-		case len(st.Items) == 0:
-			body = []string{dim.Render("No events.")}
-		default:
-			body = renderEventCards(st.Items, l.paneBodyWidth, m.now())
-		}
-	case m.state.SyncStatus != nil:
-		st := m.state.SyncStatus
-		offset = &st.Offset
-		title = "Sync Status · " + st.Target.AppName
-		switch {
-		case st.Loading:
-			body = []string{dim.Render("Loading sync status…")}
-		case st.Error != "":
-			for _, part := range wrapAnsiToWidth(st.Error, max(1, l.paneBodyWidth)) {
-				body = append(body, danger.Render(part))
-			}
+		case st.DetailsLoading:
+			body = append(body, dim.Render("Loading sync status…"))
+		case st.DetailsError != "":
+			body = wrapWith(body, st.DetailsError, danger)
 		case st.Details == nil:
-			body = []string{dim.Render("This application has never been synced.")}
+			body = append(body, dim.Render("This application has never been synced."))
 		default:
-			body = renderSyncStatusBody(st.Details, l.paneBodyWidth, m.now())
+			body = append(body, renderSyncStatusBody(st.Details, l.paneBodyWidth, m.now())...)
 		}
+		body = append(body, "", dim.Render("EVENTS"))
+	}
+	switch {
+	case st.Notice != "":
+		body = wrapWith(body, st.Notice, dim)
+	case st.Loading:
+		body = append(body, dim.Render("Loading events…"))
+	case st.Error != "":
+		body = wrapWith(body, st.Error, danger)
+	case len(st.Items) == 0:
+		body = append(body, dim.Render("No events."))
 	default:
-		return ""
+		body = append(body, renderEventCards(st.Items, l.paneBodyWidth, m.now())...)
 	}
 
 	capacity := l.paneContentRows()
-	*offset = min(max(0, *offset), max(0, len(body)-capacity))
-	visible := body[*offset:min(*offset+capacity, len(body))]
+	st.Offset = min(max(0, st.Offset), max(0, len(body)-capacity))
+	visible := body[st.Offset:min(st.Offset+capacity, len(body))]
 	return renderPaneFrame(paneFrame{
 		Title:     title,
 		Width:     l.paneBoxWidth,
 		BodyRows:  l.paneBodyRows,
-		MoreAbove: *offset > 0,
-		MoreBelow: *offset+capacity < len(body),
+		MoreAbove: st.Offset > 0,
+		MoreBelow: st.Offset+capacity < len(body),
 	}, visible)
 }
 

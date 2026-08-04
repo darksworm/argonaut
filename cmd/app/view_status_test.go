@@ -13,8 +13,8 @@ func TestStatusLine_TreeView_AdvertisesPaneHotkeys(t *testing.T) {
 
 	line := stripANSI(m.renderStatusLine())
 
-	if !strings.Contains(line, "e: events • S: sync status") {
-		t.Errorf("expected the tree status line to advertise the pane hotkeys, got %q", line)
+	if !strings.Contains(line, "enter: details") {
+		t.Errorf("expected the tree status line to advertise the pane hotkey, got %q", line)
 	}
 	if !strings.Contains(line, "Ready") {
 		t.Errorf("expected Ready to remain in the status line, got %q", line)
@@ -34,21 +34,6 @@ func TestStatusLine_EventsPane_ShowsModeAndScrollHints(t *testing.T) {
 	}
 	if strings.Contains(line, "e: events") {
 		t.Errorf("tree hints must yield while the pane is open, got %q", line)
-	}
-}
-
-func TestStatusLine_SyncStatusPane_ShowsModeSegment(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
-	m = teaModel.(*Model)
-
-	line := stripANSI(m.renderStatusLine())
-
-	if !strings.Contains(line, "<sync-status>") {
-		t.Errorf("expected the mode segment <sync-status>, got %q", line)
-	}
-	if !strings.Contains(line, "j/k: select • J/K: scroll • esc: close") {
-		t.Errorf("expected the pane hints, got %q", line)
 	}
 }
 

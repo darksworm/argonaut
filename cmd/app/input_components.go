@@ -655,9 +655,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 
 		// A command that isn't a pane command closes any open side pane —
 		// the pane never outlives a jump elsewhere.
-		if canonical != "events" && canonical != "syncstatus" {
+		if canonical != "events" {
 			m.state.Events = nil
-			m.state.SyncStatus = nil
 		}
 
 		// IMPORTANT: When adding new commands here, also add them to pkg/autocomplete/autocomplete.go
@@ -670,13 +669,6 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				}
 			}
 			return m.handleShowEvents()
-		case "syncstatus":
-			if m.state.Navigation.View != model.ViewTree {
-				return m, func() tea.Msg {
-					return model.StatusChangeMsg{Status: "Navigate to resources view first to view sync status"}
-				}
-			}
-			return m.handleShowSyncStatus()
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.

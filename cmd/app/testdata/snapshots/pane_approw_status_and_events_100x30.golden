@@ -1,5 +1,5 @@
  Context: argo.example.com                                                           Argonaut dev   
- ╭──────────────────────────────────────────────╮╭─ Sync Status · demo-app ───────────────────────╮ 
+ ╭──────────────────────────────────────────────╮╭─ Application demo-app ─────────────────────────╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
  │ ├── Deployment [demo/web] (Degraded)         ││ Operation     Sync                             │ 
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Phase         Failed                           │ 
@@ -17,7 +17,13 @@
  │                                              ││   Deployment.apps "web" is invalid: spec.templ │ 
  │                                              ││   ate.spec.containers[0].image: Required value │ 
  │                                              ││                                                │ 
+ │                                              ││ EVENTS                                         │ 
+ │                                              ││ OperationCompleted                 x1 · 1m ago │ 
+ │                                              ││   Sync operation to a1b2c3d failed: one or mor │ 
+ │                                              ││   e objects failed to apply                    │ 
  │                                              ││                                                │ 
+ │                                              ││ OperationStarted                   x1 · 2m ago │ 
+ │                                              ││   admin initiated sync to HEAD                 │ 
  │                                              ││                                                │ 
  ╰──────────────────────────────────────────────╯╰────────────────────────────────────────────────╯ 
- <sync-status>                                               j/k: select • J/K: scroll • esc: close 
+ <events>                                                    j/k: select • J/K: scroll • esc: close 

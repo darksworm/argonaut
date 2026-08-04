@@ -538,7 +538,7 @@ func TestRender_AppWithSyncSummary_ShowsSummaryLineUnderRoot(t *testing.T) {
 	if len(lines) < 3 {
 		t.Fatalf("expected root + summary + resource lines, got %d:\n%s", len(lines), strings.Join(lines, "\n"))
 	}
-	want := "last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · S for details"
+	want := "last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · enter for details"
 	if lines[1] != want {
 		t.Errorf("expected summary line %q, got %q", want, lines[1])
 	}

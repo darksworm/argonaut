@@ -60,34 +60,25 @@ func (m *Model) schedulePaneFetch(loadSeq int) tea.Cmd {
 // retargetOpenPane points the open pane at the current tree selection,
 // scheduling a debounced fetch when the target actually changed.
 func (m *Model) retargetOpenPane() tea.Cmd {
-	switch {
-	case m.state.Events != nil:
-		target, notice := m.eventsTargetForSelection()
-		if target == m.state.Events.Target {
-			return nil
-		}
-		m.paneLoadSeq++
-		m.state.Events = &model.EventsState{
-			Target:  target,
-			Notice:  notice,
-			Loading: notice == "",
-			LoadSeq: m.paneLoadSeq,
-		}
-		if notice != "" {
-			return nil
-		}
-		return m.schedulePaneFetch(m.paneLoadSeq)
-	case m.state.SyncStatus != nil:
-		appName := m.treeView.SelectedNodeApp()
-		target := model.SyncStatusTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
-		if target == m.state.SyncStatus.Target {
-			return nil
-		}
-		m.paneLoadSeq++
-		m.state.SyncStatus = &model.SyncStatusState{Target: target, Loading: true, LoadSeq: m.paneLoadSeq}
-		return m.schedulePaneFetch(m.paneLoadSeq)
+	if m.state.Events == nil {
+		return nil
 	}
-	return nil
+	target, notice := m.eventsTargetForSelection()
+	if target == m.state.Events.Target {
+		return nil
+	}
+	m.paneLoadSeq++
+	m.state.Events = &model.EventsState{
+		Target:         target,
+		Notice:         notice,
+		Loading:        notice == "",
+		DetailsLoading: notice == "" && target.Resource == (model.EventsResource{}),
+		LoadSeq:        m.paneLoadSeq,
+	}
+	if notice != "" {
+		return nil
+	}
+	return m.schedulePaneFetch(m.paneLoadSeq)
 }
 
 // modeBehindCommandBar returns the mode a dismissed command bar falls back
@@ -96,16 +87,12 @@ func (m *Model) modeBehindCommandBar() model.Mode {
 	if m.state.Events != nil {
 		return model.ModeEvents
 	}
-	if m.state.SyncStatus != nil {
-		return model.ModeSyncStatus
-	}
 	return model.ModeNormal
 }
 
-// closePanes closes whichever side pane is open and returns input to the tree.
+// closePanes closes the side pane and returns input to the tree.
 func (m *Model) closePanes() {
 	m.state.Events = nil
-	m.state.SyncStatus = nil
 	m.state.Mode = model.ModeNormal
 }
 
@@ -131,49 +118,20 @@ func (m *Model) handlePaneModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "J", "shift+down":
 		if st := m.state.Events; st != nil {
 			st.Offset++
-		} else if st := m.state.SyncStatus; st != nil {
-			st.Offset++
 		}
 		return m, nil
 	case "K", "shift+up":
 		if st := m.state.Events; st != nil {
-			st.Offset = max(0, st.Offset-1)
-		} else if st := m.state.SyncStatus; st != nil {
 			st.Offset = max(0, st.Offset-1)
 		}
 		return m, nil
 	case "esc", "q":
 		m.closePanes()
 		return m, nil
-	case "e":
-		if m.state.Mode == model.ModeSyncStatus {
-			return m.handleShowEvents()
-		}
-		return m, nil
-	case "S":
-		if m.state.Mode == model.ModeEvents {
-			return m.handleShowSyncStatus()
-		}
-		return m, nil
 	case ":":
 		return m.handleEnterCommandMode()
 	}
 	return m, nil
-}
-
-// handleShowSyncStatus opens the sync-status pane for the app that owns the
-// selected tree row; unlike events it is app-scoped from any row.
-func (m *Model) handleShowSyncStatus() (tea.Model, tea.Cmd) {
-	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
-		return m, nil
-	}
-	appName := m.treeView.SelectedNodeApp()
-	target := model.SyncStatusTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
-	m.paneLoadSeq++
-	m.state.Mode = model.ModeSyncStatus
-	m.state.Events = nil
-	m.state.SyncStatus = &model.SyncStatusState{Target: target, Loading: true, LoadSeq: m.paneLoadSeq}
-	return m, m.loadSyncStatus(target, m.paneLoadSeq)
 }
 
 // handleShowEvents opens the events pane for the selected tree row: the
@@ -185,17 +143,32 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	target, notice := m.eventsTargetForSelection()
+	appLevel := target.Resource == (model.EventsResource{})
 	m.paneLoadSeq++
 	m.state.Mode = model.ModeEvents
-	m.state.SyncStatus = nil
 	m.state.Events = &model.EventsState{
-		Target:  target,
-		Notice:  notice,
-		Loading: notice == "",
-		LoadSeq: m.paneLoadSeq,
+		Target:         target,
+		Notice:         notice,
+		Loading:        notice == "",
+		DetailsLoading: notice == "" && appLevel,
+		LoadSeq:        m.paneLoadSeq,
 	}
 	if notice != "" {
 		return m, nil
 	}
-	return m, m.loadEvents(target, m.paneLoadSeq)
+	return m, m.paneFetchCmds()
+}
+
+// paneFetchCmds returns the fetches the open pane needs: events always, the
+// sync details too when the pane sits on an application row.
+func (m *Model) paneFetchCmds() tea.Cmd {
+	st := m.state.Events
+	cmds := []tea.Cmd{m.loadEvents(st.Target, st.LoadSeq)}
+	if st.DetailsLoading {
+		cmds = append(cmds, m.loadSyncStatus(model.SyncStatusTarget{
+			AppName:      st.Target.AppName,
+			AppNamespace: st.Target.AppNamespace,
+		}, st.LoadSeq))
+	}
+	return tea.Batch(cmds...)
 }

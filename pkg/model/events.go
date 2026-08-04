@@ -41,23 +41,17 @@ type EventsState struct {
 	Error   string          `json:"error"`
 	// Notice explains why this target can have no events (e.g. the resource
 	// is Missing from the cluster) — informational, unlike Error
-	Notice  string `json:"notice,omitempty"`
-	LoadSeq int    `json:"-"`
+	Notice string `json:"notice,omitempty"`
+	// Application rows also show the last sync operation above the events
+	Details        *SyncStatusDetails `json:"details,omitempty"`
+	DetailsLoading bool               `json:"detailsLoading,omitempty"`
+	DetailsError   string             `json:"detailsError,omitempty"`
+	LoadSeq        int                `json:"-"`
 }
 
-// SyncStatusTarget identifies the application whose sync status the pane shows.
+// SyncStatusTarget identifies the application whose sync details are being
+// fetched for the events pane's status block.
 type SyncStatusTarget struct {
 	AppName      string `json:"appName"`
 	AppNamespace string `json:"appNamespace"`
-}
-
-// SyncStatusState holds the state of the sync-status side pane; its presence
-// on AppState is the "pane is open" signal. See EventsState for LoadSeq.
-type SyncStatusState struct {
-	Target  SyncStatusTarget   `json:"target"`
-	Details *SyncStatusDetails `json:"details"` // nil after load = never synced
-	Offset  int                `json:"offset"`
-	Loading bool               `json:"loading"`
-	Error   string             `json:"error"`
-	LoadSeq int                `json:"-"`
 }
