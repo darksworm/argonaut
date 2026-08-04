@@ -56,6 +56,33 @@ func (m *Model) eventsTargetForSelection() (model.EventsTarget, string, *model.R
 	return target, "", nil
 }
 
+// schedulePaneRefresh arms the auto-refresh interval for the given load;
+// nil when auto-refresh is disabled.
+func (m *Model) schedulePaneRefresh(loadSeq int) tea.Cmd {
+	interval := m.config.GetEventsRefreshInterval()
+	if interval <= 0 {
+		return nil
+	}
+	epoch := m.switchEpoch
+	return tea.Tick(interval, func(time.Time) tea.Msg {
+		return model.PaneRefreshDueMsg{SwitchEpoch: epoch, LoadSeq: loadSeq}
+	})
+}
+
+// paneRefreshCmds returns the background refetches for the open pane:
+// details always, events unless the target cannot have any.
+func (m *Model) paneRefreshCmds() tea.Cmd {
+	st := m.state.Events
+	cmds := []tea.Cmd{m.loadSyncStatus(model.SyncStatusTarget{
+		AppName:      st.Target.AppName,
+		AppNamespace: st.Target.AppNamespace,
+	}, st.LoadSeq)}
+	if st.Notice == "" {
+		cmds = append(cmds, m.loadEvents(st.Target, st.LoadSeq))
+	}
+	return tea.Batch(cmds...)
+}
+
 // schedulePaneFetch arms the retarget debounce for the given load.
 func (m *Model) schedulePaneFetch(loadSeq int) tea.Cmd {
 	epoch := m.switchEpoch
@@ -93,9 +120,9 @@ func (m *Model) retargetOpenPane() tea.Cmd {
 	}
 	m.state.Events = st
 	if !st.Loading && !st.DetailsLoading {
-		return nil
+		return m.schedulePaneRefresh(m.paneLoadSeq)
 	}
-	return m.schedulePaneFetch(m.paneLoadSeq)
+	return tea.Batch(m.schedulePaneFetch(m.paneLoadSeq), m.schedulePaneRefresh(m.paneLoadSeq))
 }
 
 // modeBehindCommandBar returns the mode a dismissed command bar falls back
@@ -113,12 +140,11 @@ func (m *Model) closePanes() {
 	m.state.Mode = model.ModeNormal
 }
 
-// handlePaneModeKeys handles input while the events or sync-status pane is
-// open. The pane is a lens over the tree: navigation keys keep moving the
-// tree selection (the pane follows it), the shifted variants scroll the
-// pane, esc/q close it, e/S switch panes, ':' opens the command bar.
-// Everything else is swallowed — the pane is a reading surface, not an
-// action surface.
+// handlePaneModeKeys handles input while the side pane is open. The pane is
+// a lens over the tree: navigation keys keep moving the tree selection (the
+// pane follows it), the shifted variants scroll the pane, esc/q close it,
+// ':' opens the command bar — and any other tree hotkey closes the lens and
+// acts on the selected row as if the pane were not there.
 func (m *Model) handlePaneModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k", "down", "j", "pgup", "pgdown", "g", "G":
@@ -148,7 +174,10 @@ func (m *Model) handlePaneModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case ":":
 		return m.handleEnterCommandMode()
 	}
-	return m, nil
+	// Anything else is a tree hotkey: the lens closes and the key acts on
+	// the selected row as if the pane were not there.
+	m.closePanes()
+	return m.handleTreeViewKeys(msg)
 }
 
 // handleShowEvents opens the events pane for the selected tree row: the
@@ -170,7 +199,7 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 		ResourceStatus: resourceStatus,
 		LoadSeq:        m.paneLoadSeq,
 	}
-	return m, m.paneFetchCmds()
+	return m, tea.Batch(m.paneFetchCmds(), m.schedulePaneRefresh(m.paneLoadSeq))
 }
 
 // paneFetchCmds returns the fetches the open pane still needs.

@@ -319,15 +319,25 @@ func (m *Model) renderSidePane(l paneLayout) string {
 		body = append(body, renderEventCards(st.Items, l.paneBodyWidth, m.now())...)
 	}
 
+	frameStatus := ""
+	if interval := m.config.GetEventsRefreshInterval(); interval > 0 {
+		frameStatus = "⟳ " + interval.String()
+		if st.Refreshing {
+			frameStatus = "⟳ refreshing"
+		}
+	}
+
 	capacity := l.paneContentRows()
 	st.Offset = min(max(0, st.Offset), max(0, len(body)-capacity))
 	visible := body[st.Offset:min(st.Offset+capacity, len(body))]
 	return renderPaneFrame(paneFrame{
-		Title:     title,
-		Width:     l.paneBoxWidth,
-		BodyRows:  l.paneBodyRows,
-		MoreAbove: st.Offset > 0,
-		MoreBelow: st.Offset+capacity < len(body),
+		Title:        title,
+		Width:        l.paneBoxWidth,
+		BodyRows:     l.paneBodyRows,
+		MoreAbove:    st.Offset > 0,
+		MoreBelow:    st.Offset+capacity < len(body),
+		Status:       frameStatus,
+		StatusActive: st.Refreshing,
 	}, visible)
 }
 
@@ -338,6 +348,10 @@ type paneFrame struct {
 	BodyRows  int // body rows to render (padded with blanks)
 	MoreAbove bool
 	MoreBelow bool
+	// Status is anchored at the bottom border's left edge (auto-refresh
+	// cadence / activity); StatusActive brightens it while work is in flight
+	Status       string
+	StatusActive bool
 }
 
 // renderPaneFrame draws a manually-composed rounded frame: the title lives
@@ -383,14 +397,25 @@ func renderPaneFrame(f paneFrame, body []string) string {
 		b.WriteString("\n")
 	}
 
-	// Bottom border: ╰────[ ▼ more below ─]╯
+	// Bottom border: ╰[─ status ]────[ ▼ more below ─]╯
 	bottomFill := f.Width - 2
+	bottomLeft := ""
+	if f.Status != "" {
+		statusStyle := lipgloss.NewStyle().Foreground(currentPalette.Dim)
+		if f.StatusActive {
+			statusStyle = markerStyle
+		}
+		bottomFill -= lipgloss.Width("─ " + f.Status + " ")
+		bottomLeft = borderStyle.Render("─ ") + statusStyle.Render(f.Status) + borderStyle.Render(" ")
+	}
 	bottomRight := ""
 	if f.MoreBelow {
 		bottomFill -= lipgloss.Width(" ▼ more below ─")
 		bottomRight = markerStyle.Render(" ▼ more below ") + borderStyle.Render("─")
 	}
-	b.WriteString(borderStyle.Render("╰" + strings.Repeat("─", max(0, bottomFill))))
+	b.WriteString(borderStyle.Render("╰"))
+	b.WriteString(bottomLeft)
+	b.WriteString(borderStyle.Render(strings.Repeat("─", max(0, bottomFill))))
 	b.WriteString(bottomRight)
 	b.WriteString(borderStyle.Render("╯"))
 	return b.String()

@@ -19,5 +19,5 @@
  │ BackOff                                                      x412 · 2m ago │ 
  │   Back-off restarting failed container web in pod web-6f7d9b-x4k2m_demo(a1 │ 
  │   b2c3d)                                                                   │ 
- ╰───────────────────────────────────────────────────────────── ▼ more below ─╯ 
+ ╰─ ⟳ 10s ───────────────────────────────────────────────────── ▼ more below ─╯ 
  <events>                                j/k: select • J/K: scroll • esc: close 

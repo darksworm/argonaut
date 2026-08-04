@@ -1,6 +1,7 @@
 package config
 
 import (
+	"time"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -705,6 +706,28 @@ func TestSaveAndLoadUpdatesConfig(t *testing.T) {
 			set := loaded.Updates.CheckEnabled != nil
 			if set != tc.wantSb {
 				t.Errorf("CheckEnabled pointer set = %v, want %v", set, tc.wantSb)
+			}
+		})
+	}
+}
+
+func TestGetEventsRefreshInterval(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want time.Duration
+	}{
+		{"default when unset", "", 10 * time.Second},
+		{"custom interval", "30s", 30 * time.Second},
+		{"zero disables", "0", 0},
+		{"negative disables", "-5s", 0},
+		{"garbage falls back to default", "soon", 10 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &ArgonautConfig{Events: EventsConfig{RefreshInterval: tt.raw}}
+			if got := c.GetEventsRefreshInterval(); got != tt.want {
+				t.Errorf("GetEventsRefreshInterval(%q) = %v, want %v", tt.raw, got, tt.want)
 			}
 		})
 	}

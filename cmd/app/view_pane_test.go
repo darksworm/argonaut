@@ -426,6 +426,24 @@ func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
 	}
 }
 
+func TestRenderPaneFrame_StatusAnchorsInBottomBorder(t *testing.T) {
+	frame := paneFrame{Title: "Events", Width: 40, BodyRows: 1, Status: "⟳ 10s", MoreBelow: true}
+
+	out := stripANSI(renderPaneFrame(frame, []string{"x"}))
+	lines := strings.Split(out, "\n")
+	bottom := lines[len(lines)-1]
+
+	if !strings.HasPrefix(bottom, "╰─ ⟳ 10s ") {
+		t.Errorf("expected the status anchored at the bottom border's left edge, got %q", bottom)
+	}
+	if !strings.HasSuffix(bottom, "▼ more below ─╯") {
+		t.Errorf("expected the status to coexist with the scroll marker, got %q", bottom)
+	}
+	if w := len([]rune(bottom)); w != 40 {
+		t.Errorf("expected the bottom border to span exactly 40 cells, got %d", w)
+	}
+}
+
 func TestRenderPaneFrame_ScrollMarkersAnchorInBorders(t *testing.T) {
 	frame := paneFrame{Title: "Events", Width: 40, BodyRows: 1, MoreAbove: true, MoreBelow: true}
 

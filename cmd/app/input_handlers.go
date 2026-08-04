@@ -1699,6 +1699,16 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Tree view keys when in normal mode.
 	// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
 	if m.state.Navigation.View == model.ViewTree {
+		return m.handleTreeViewKeys(msg)
+	}
+
+	return m.handleNormalModeGlobalKeys(msg)
+}
+
+// handleTreeViewKeys handles the tree view's hotkeys — also delegated to by
+// the side pane, which passes through anything it does not own.
+func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	{
 		switch msg.String() {
 		case "q":
 			// Clear filter, drop any app-of-apps back stack, and return to apps list
@@ -1801,9 +1811,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
+}
 
-	// Normal-mode global keys.
-	// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
+// handleNormalModeGlobalKeys handles the list views' global hotkeys.
+// Navigation keys (up/k, down/j, pgup, pgdown, g, G) are handled by the centralized router.
+func (m *Model) handleNormalModeGlobalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, func() tea.Msg { return model.QuitMsg{} }

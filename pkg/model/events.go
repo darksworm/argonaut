@@ -59,7 +59,9 @@ type EventsState struct {
 	Details        *SyncStatusDetails `json:"details,omitempty"`
 	DetailsLoading bool               `json:"detailsLoading,omitempty"`
 	DetailsError   string             `json:"detailsError,omitempty"`
-	LoadSeq        int                `json:"-"`
+	// Refreshing marks an interval refetch in flight (content stays visible)
+	Refreshing bool `json:"-"`
+	LoadSeq    int  `json:"-"`
 }
 
 // SyncStatusTarget identifies the application whose sync details are being

@@ -1067,6 +1067,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case model.PaneRefreshDueMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.LoadSeq {
+			return m, nil
+		}
+		// An initial or retarget fetch is still in flight: just keep the
+		// interval ticking
+		if st.Loading || st.DetailsLoading {
+			return m, m.schedulePaneRefresh(st.LoadSeq)
+		}
+		st.Refreshing = true
+		return m, tea.Batch(m.paneRefreshCmds(), m.schedulePaneRefresh(st.LoadSeq))
+
 	case model.EventsLoadedMsg:
 		if msg.SwitchEpoch != m.switchEpoch {
 			return m, nil
@@ -1076,6 +1092,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st.Loading = false
+		st.Refreshing = false
 		st.Items = msg.Items
 		return m, nil
 
@@ -1088,6 +1105,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st.Loading = false
+		st.Refreshing = false
 		st.Error = msg.Error
 		return m, nil
 

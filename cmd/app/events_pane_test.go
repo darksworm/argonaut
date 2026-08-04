@@ -18,6 +18,7 @@ import (
 // (AppNamespace "test-namespace") with a single Pod row under the root.
 func buildEventsPaneTestModel() *Model {
 	m := buildDeleteTestModel(120, 40)
+	m.config.Events.RefreshInterval = "0" // no auto-refresh ticks in unit tests
 	m.state.Navigation.View = model.ViewTree
 	ns := "test-namespace"
 	m.state.UI.TreeApp = &model.TreeAppInfo{Name: "test-app", AppNamespace: &ns}
@@ -457,19 +458,33 @@ func TestEventsPane_QCloses(t *testing.T) {
 	}
 }
 
-func TestEventsPane_ActionKeysAreSwallowed(t *testing.T) {
-	for _, key := range []string{"d", "s", "a", "ctrl+d", " ", "K"} {
-		m := openEventsPane(t, buildEventsPaneTestModel())
+// The pane is a lens, not a modal: action hotkeys close it and act on the
+// selected tree row as if the pane were not there.
+func TestEventsPane_ActionKeysCloseThePaneAndAct(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
 
-		teaModel, cmd := m.handleKeyMsg(testKeyMsg(key))
-		mm := teaModel.(*Model)
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("d")) // diff the selected resource
+	mm := teaModel.(*Model)
 
-		if mm.state.Mode != model.ModeEvents || mm.state.Events == nil {
-			t.Errorf("key %q must be swallowed by the pane, got mode %s", key, mm.state.Mode)
-		}
-		if cmd != nil {
-			t.Errorf("key %q must not trigger a command from the pane", key)
-		}
+	if mm.state.Events != nil {
+		t.Error("expected the pane to close when an action key fires")
+	}
+	if mm.state.Diff == nil || !mm.state.Diff.Loading || cmd == nil {
+		t.Errorf("expected d to start the resource diff, got %+v", mm.state.Diff)
+	}
+}
+
+func TestEventsPane_CtrlDOpensDeleteConfirmation(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("ctrl+d"))
+	mm := teaModel.(*Model)
+
+	if mm.state.Events != nil {
+		t.Error("expected the pane to close when an action key fires")
+	}
+	if mm.state.Mode != model.ModeConfirmResourceDelete {
+		t.Fatalf("expected the delete confirmation, got mode %s", mm.state.Mode)
 	}
 }
 
@@ -601,6 +616,74 @@ func TestEventsPane_CursorOntoMissingResource_ShowsNotice(t *testing.T) {
 	}
 	if !st.DetailsLoading || cmd == nil {
 		t.Error("expected the details fetch to still run for a Missing resource")
+	}
+}
+
+// While the pane is open it refetches on the configured interval — silently,
+// without flipping into the loading placeholder.
+func TestPaneRefreshDue_RefetchesInBackground(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.config.Events.RefreshInterval = "10s"
+	teaModel, _ := m.Update(model.EventsLoadedMsg{
+		Target:      m.state.Events.Target,
+		Items:       []model.ResourceEvent{{Reason: "BackOff"}},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
+		Details:     &model.SyncStatusDetails{Phase: "Succeeded"},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+
+	teaModel, cmd := m.Update(model.PaneRefreshDueMsg{SwitchEpoch: m.switchEpoch, LoadSeq: m.state.Events.LoadSeq})
+	mm := teaModel.(*Model)
+
+	st := mm.state.Events
+	if !st.Refreshing {
+		t.Error("expected the pane to mark itself refreshing")
+	}
+	if st.Loading || len(st.Items) != 1 {
+		t.Errorf("a background refresh must not blank the pane, got %+v", st)
+	}
+	if cmd == nil {
+		t.Fatal("expected the refresh fetches (and the next tick) to be scheduled")
+	}
+}
+
+func TestPaneRefreshDue_StaleSeq_IsDropped(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.config.Events.RefreshInterval = "10s"
+
+	teaModel, cmd := m.Update(model.PaneRefreshDueMsg{SwitchEpoch: m.switchEpoch, LoadSeq: m.state.Events.LoadSeq - 1})
+	mm := teaModel.(*Model)
+
+	if mm.state.Events.Refreshing || cmd != nil {
+		t.Error("a stale refresh tick must be dropped")
+	}
+}
+
+func TestEventsLoadedMsg_ClearsRefreshing(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.state.Events.Refreshing = true
+	m.state.Events.Loading = false
+
+	teaModel, _ := m.Update(model.EventsLoadedMsg{
+		Target:      m.state.Events.Target,
+		Items:       []model.ResourceEvent{{Reason: "Pulled"}},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	mm := teaModel.(*Model)
+
+	if mm.state.Events.Refreshing {
+		t.Error("expected a landed refresh to clear the indicator")
+	}
+	if mm.state.Events.Items[0].Reason != "Pulled" {
+		t.Error("expected the refreshed events to replace the stale ones")
 	}
 }
 

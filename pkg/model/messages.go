@@ -582,6 +582,13 @@ type PaneFetchDueMsg struct {
 	LoadSeq     int
 }
 
+// PaneRefreshDueMsg fires on the pane's auto-refresh interval: the open pane
+// refetches in the background as long as LoadSeq still matches.
+type PaneRefreshDueMsg struct {
+	SwitchEpoch int
+	LoadSeq     int
+}
+
 // SyncStatusLoadedMsg is sent when the sync-status pane's details have loaded
 type SyncStatusLoadedMsg struct {
 	Target      SyncStatusTarget
