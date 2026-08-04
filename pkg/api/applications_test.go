@@ -171,6 +171,31 @@ func TestConvertOperationState_HookResource_ShowsHookPhase(t *testing.T) {
 	}
 }
 
+func TestConvertOperationState_PendingHookWithoutPhase_FallsBackToStatus(t *testing.T) {
+	argoApp := ArgoApplication{
+		Metadata: ApplicationMetadata{Name: "demo-app"},
+		Status: ApplicationStatus{
+			OperationState: OperationState{
+				Phase: "Running",
+				SyncResult: &SyncOperationResult{
+					Resources: []ResourceResult{{
+						Kind:     "Job",
+						Name:     "db-migrate",
+						HookType: "PreSync",
+						Status:   "Running", // hook recorded, phase not reported yet
+					}},
+				},
+			},
+		},
+	}
+
+	details := ConvertOperationState(argoApp)
+
+	if details.Resources[0].Status != "Running" {
+		t.Errorf("expected fallback to the sync status while the hook phase is empty, got %q", details.Resources[0].Status)
+	}
+}
+
 func TestConvertToApp_WithApplicationSet(t *testing.T) {
 	svc := &ApplicationService{}
 

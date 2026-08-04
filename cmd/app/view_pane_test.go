@@ -145,6 +145,37 @@ func TestRenderSyncStatusBody_LongResourceName_TruncatesNameNotStatus(t *testing
 	}
 }
 
+func TestRenderSyncStatusBody_LongKind_TruncatesKindNotStatus(t *testing.T) {
+	details := &model.SyncStatusDetails{
+		Phase:     "Failed",
+		StartedAt: paneNow,
+		Resources: []model.SyncResourceResult{
+			// A CRD-length kind: longer than the row can absorb by
+			// truncating the name alone
+			{Kind: "SomeVeryLongCustomResourceDefinitionKind", Namespace: "default", Name: "web", Status: "SyncFailed"},
+		},
+	}
+
+	lines := renderSyncStatusBody(details, 46, paneNow)
+
+	var row string
+	for _, l := range lines {
+		if strings.Contains(stripANSI(l), "SomeVeryLong") {
+			row = stripANSI(l)
+			break
+		}
+	}
+	if row == "" {
+		t.Fatal("result row not found")
+	}
+	if !strings.HasSuffix(row, "SyncFailed") {
+		t.Errorf("the status must survive at the row's end, got %q", row)
+	}
+	if w := len([]rune(row)); w > 46 {
+		t.Errorf("the row must fit the pane width 46, got %d: %q", w, row)
+	}
+}
+
 func TestRenderSyncStatusBody_RunningOperationDurationTicksFromNow(t *testing.T) {
 	details := &model.SyncStatusDetails{
 		Phase:     "Running",
@@ -204,6 +235,44 @@ func TestPaneLayout_BottomPane_ClampsToMinimumRows(t *testing.T) {
 
 	if l.paneBodyRows != 3 {
 		t.Errorf("expected the pane to clamp at 3 body rows, got %d", l.paneBodyRows)
+	}
+}
+
+func TestPaneLayout_TinyBudgets_NeverGoNegative(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	for _, cols := range []int{80, 120} {
+		m.state.Terminal.Cols = cols
+		for budget := 0; budget <= 4; budget++ {
+			l := m.paneLayout(budget)
+			if l.paneBodyRows < 0 || l.treeBodyRows < 0 {
+				t.Errorf("at %d cols budget %d: paneBodyRows=%d treeBodyRows=%d must not be negative",
+					cols, budget, l.paneBodyRows, l.treeBodyRows)
+			}
+		}
+	}
+}
+
+func TestRenderSidePane_ZeroRowBudget_DoesNotPanic(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel()) // 120 cols → side layout
+	m.state.Events.Loading = false
+	m.state.Events.Items = []model.ResourceEvent{{Reason: "BackOff", Message: "x", Count: 1, LastSeen: paneNow}}
+
+	_ = m.renderSidePane(m.paneLayout(0))
+}
+
+func TestRenderPaneFrame_MoreAboveMarker_LeavesRoomForTitleByCells(t *testing.T) {
+	// 29-cell title in a 50-cell frame: with the 15-cell marker it fits
+	// exactly; measuring the marker in bytes truncated it wrongly.
+	title := "Events · Pod web-6f7d9b-x4k2m"
+	frame := paneFrame{Title: title, Width: 50, BodyRows: 1, MoreAbove: true}
+
+	top := strings.Split(stripANSI(renderPaneFrame(frame, []string{"x"})), "\n")[0]
+
+	if !strings.Contains(top, title) {
+		t.Errorf("expected the full title to remain visible, got %q", top)
+	}
+	if w := len([]rune(top)); w != 50 {
+		t.Errorf("expected the top border to span exactly 50 cells, got %d", w)
 	}
 }
 

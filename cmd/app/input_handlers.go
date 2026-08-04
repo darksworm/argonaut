@@ -47,7 +47,10 @@ func (m *Model) handleNavigationDown() (tea.Model, tea.Cmd) {
 
 // treeViewportHeight computes the number of rows available to render the
 // tree panel body, mirroring the layout math in renderMainLayout/renderTreePanel.
-func (m *Model) treeViewportHeight() int {
+// viewportRowBudget returns the rows available to the content box after the
+// banner, bars and status line — the budget paneLayout splits when a pane
+// is open.
+func (m *Model) viewportRowBudget() int {
 	const (
 		BORDER_LINES       = 2
 		TABLE_HEADER_LINES = 0
@@ -65,13 +68,17 @@ func (m *Model) treeViewportHeight() int {
 		commandLines = 1 // command bar is single-line
 	}
 	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
+	return max(0, m.state.Terminal.Rows-overhead)
+}
+
+func (m *Model) treeViewportHeight() int {
+	budget := m.viewportRowBudget()
 	if m.paneOpen() {
 		// A bottom pane spends tree rows; derive from the same geometry
 		// the renderer uses so scroll math cannot drift.
-		return m.paneLayout(availableRows).treeBodyRows
+		return m.paneLayout(budget).treeBodyRows
 	}
-	return max(0, availableRows)
+	return budget
 }
 
 // listViewportHeight computes the number of visible rows in the list view,

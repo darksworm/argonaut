@@ -44,7 +44,7 @@ func (m *Model) paneLayout(availableRows int) paneLayout {
 			paneBoxWidth:  paneSideBoxWidth,
 			paneBodyWidth: paneSideBoxWidth - 4, // borders + one space padding each side
 			treeBoxWidth:  (cols - 2) - paneSideBoxWidth,
-			paneBodyRows:  availableRows - 1, // frame total == tree box total height
+			paneBodyRows:  max(0, availableRows-1), // frame total == tree box total height
 			treeBodyRows:  availableRows,
 		}
 	}
@@ -156,15 +156,20 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 			if r.Namespace != "" {
 				name = r.Namespace + "/" + r.Name
 			}
-			// The status must survive at the row's end; the name yields
-			maxName := width - lipgloss.Width(fmt.Sprintf("%s %-13s", glyph, r.Kind)) - lipgloss.Width(r.Status) - 1
+			// The status must survive at the row's end; the kind stays in
+			// its 13-cell column and the name yields the rest
+			kind := r.Kind
+			if lipgloss.Width(kind) > 13 {
+				kind = clipAnsiToWidth(kind, 12) + "…"
+			}
+			maxName := width - lipgloss.Width(fmt.Sprintf("%s %-13s", glyph, kind)) - lipgloss.Width(r.Status) - 1
 			if lipgloss.Width(name) > maxName {
 				name = clipAnsiToWidth(name, max(0, maxName-1)) + "…"
 			}
-			left := fmt.Sprintf("%s %-13s%s", glyph, r.Kind, name)
+			left := fmt.Sprintf("%s %-13s%s", glyph, kind, name)
 			gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(r.Status))
 			lines = append(lines,
-				glyphStyle.Render(glyph)+" "+text.Render(fmt.Sprintf("%-13s", r.Kind))+dim.Render(name)+
+				glyphStyle.Render(glyph)+" "+text.Render(fmt.Sprintf("%-13s", kind))+dim.Render(name)+
 					strings.Repeat(" ", gap)+glyphStyle.Render(r.Status))
 			for _, part := range wrapAnsiToWidth(r.Message, max(1, width-2)) {
 				if part != "" {
@@ -263,7 +268,7 @@ func renderPaneFrame(f paneFrame, body []string) string {
 	title := f.Title
 	maxTitle := f.Width - 6 // "╭─ " + " " + filler + "╮"
 	if f.MoreAbove {
-		maxTitle -= len(" ▲ more above ─")
+		maxTitle -= lipgloss.Width(" ▲ more above ─")
 	}
 	if lipgloss.Width(title) > maxTitle {
 		title = clipAnsiToWidth(title, max(0, maxTitle-1)) + "…"

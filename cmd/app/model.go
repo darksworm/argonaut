@@ -53,6 +53,11 @@ type Model struct {
 	// Time source for relative timestamps; overridable for deterministic tests
 	now func() time.Time
 
+	// Monotonic counter identifying each side-pane fetch; a reopened pane
+	// shares epoch and target with the load it superseded, so this is what
+	// gates late completions (see EventsState.LoadSeq)
+	paneLoadSeq int
+
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 	// Closed when the current app watch forwarder stops.
@@ -572,7 +577,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
 				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
 				m.treeView.UpsertAppTree(msg.AppName, &tree)
-				if app := m.findAppByNameAndNamespace(msg.AppName, ""); app != nil {
+				// Prefer the tree-scoped app's namespace (ADR-0004): a
+				// name-only scan can pick a same-named app elsewhere.
+				if app := m.findAppByNameAndNamespace(msg.AppName, m.resolveAppNamespace(msg.AppName)); app != nil {
 					m.treeView.SetAppSyncSummary(msg.AppName, app.SyncOp)
 				}
 
@@ -1054,7 +1061,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st := m.state.Events
-		if st == nil || st.Target != msg.Target {
+		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
 			return m, nil
 		}
 		st.Loading = false
@@ -1066,7 +1073,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st := m.state.Events
-		if st == nil || st.Target != msg.Target {
+		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
 			return m, nil
 		}
 		st.Loading = false
@@ -1078,7 +1085,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st := m.state.SyncStatus
-		if st == nil || st.Target != msg.Target {
+		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
 			return m, nil
 		}
 		st.Loading = false
@@ -1090,7 +1097,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st := m.state.SyncStatus
-		if st == nil || st.Target != msg.Target {
+		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
 			return m, nil
 		}
 		st.Loading = false

@@ -563,6 +563,7 @@ type EventsLoadedMsg struct {
 	Target      EventsTarget
 	Items       []ResourceEvent
 	SwitchEpoch int
+	LoadSeq     int
 }
 
 // EventsErrorMsg is sent when loading events for the events pane fails
@@ -570,6 +571,7 @@ type EventsErrorMsg struct {
 	Target      EventsTarget
 	Error       string
 	SwitchEpoch int
+	LoadSeq     int
 }
 
 // SyncStatusLoadedMsg is sent when the sync-status pane's details have loaded
@@ -577,6 +579,7 @@ type SyncStatusLoadedMsg struct {
 	Target      SyncStatusTarget
 	Details     *SyncStatusDetails
 	SwitchEpoch int
+	LoadSeq     int
 }
 
 // SyncStatusErrorMsg is sent when loading the sync-status pane fails
@@ -584,6 +587,7 @@ type SyncStatusErrorMsg struct {
 	Target      SyncStatusTarget
 	Error       string
 	SwitchEpoch int
+	LoadSeq     int
 }
 
 // AuthValidationResultMsg is the result of validateAuthentication,

@@ -30,13 +30,16 @@ type EventsTarget struct {
 }
 
 // EventsState holds the state of the events side pane; its presence on
-// AppState is the "pane is open" signal.
+// AppState is the "pane is open" signal. LoadSeq identifies the fetch this
+// pane is waiting for — a reopened pane shares epoch and target with the
+// load it superseded, so those alone cannot gate late completions.
 type EventsState struct {
 	Target  EventsTarget    `json:"target"`
 	Items   []ResourceEvent `json:"items"`
 	Offset  int             `json:"offset"`
 	Loading bool            `json:"loading"`
 	Error   string          `json:"error"`
+	LoadSeq int             `json:"-"`
 }
 
 // SyncStatusTarget identifies the application whose sync status the pane shows.
@@ -46,11 +49,12 @@ type SyncStatusTarget struct {
 }
 
 // SyncStatusState holds the state of the sync-status side pane; its presence
-// on AppState is the "pane is open" signal.
+// on AppState is the "pane is open" signal. See EventsState for LoadSeq.
 type SyncStatusState struct {
 	Target  SyncStatusTarget   `json:"target"`
 	Details *SyncStatusDetails `json:"details"` // nil after load = never synced
 	Offset  int                `json:"offset"`
 	Loading bool               `json:"loading"`
 	Error   string             `json:"error"`
+	LoadSeq int                `json:"-"`
 }

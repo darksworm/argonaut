@@ -154,6 +154,7 @@ func TestEventsLoadedMsg_FillsThePane(t *testing.T) {
 		Target:      m.state.Events.Target,
 		Items:       items,
 		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
 	})
 	mm := teaModel.(*Model)
 
@@ -212,6 +213,57 @@ func TestEventsLoadedMsg_PaneAlreadyClosed_IsIgnored(t *testing.T) {
 	}
 }
 
+// Close + reopen the same target: the first request's late completion (e.g.
+// a timeout error) carries the same epoch and target but must not paint
+// over the fresh load.
+func TestEventsErrorMsg_FromSupersededLoad_IsDropped(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	staleTarget := m.state.Events.Target
+	staleSeq := m.state.Events.LoadSeq
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("esc"))
+	m = openEventsPane(t, teaModel.(*Model))
+
+	teaModel, _ = m.Update(model.EventsErrorMsg{
+		Target:      staleTarget,
+		Error:       "context deadline exceeded",
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     staleSeq,
+	})
+	mm := teaModel.(*Model)
+
+	if mm.state.Events.Error != "" {
+		t.Errorf("a superseded load's error must be dropped, got %q", mm.state.Events.Error)
+	}
+	if !mm.state.Events.Loading {
+		t.Error("the fresh load must still be pending")
+	}
+}
+
+func TestSyncStatusLoadedMsg_FromSupersededLoad_IsDropped(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("S"))
+	m = teaModel.(*Model)
+	staleTarget := m.state.SyncStatus.Target
+	staleSeq := m.state.SyncStatus.LoadSeq
+
+	teaModel, _ = m.handleKeyMsg(testKeyMsg("esc"))
+	teaModel, _ = teaModel.(*Model).handleKeyMsg(testKeyMsg("S"))
+	m = teaModel.(*Model)
+
+	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
+		Target:      staleTarget,
+		Details:     &model.SyncStatusDetails{Phase: "Failed"},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     staleSeq,
+	})
+	mm := teaModel.(*Model)
+
+	if mm.state.SyncStatus.Details != nil {
+		t.Error("a superseded load's result must be dropped")
+	}
+}
+
 func TestEventsErrorMsg_ShowsInlineError(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
@@ -219,6 +271,7 @@ func TestEventsErrorMsg_ShowsInlineError(t *testing.T) {
 		Target:      m.state.Events.Target,
 		Error:       "connection refused",
 		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
 	})
 	mm := teaModel.(*Model)
 
@@ -241,6 +294,7 @@ func TestSyncStatusLoadedMsg_FillsThePane(t *testing.T) {
 		Target:      m.state.SyncStatus.Target,
 		Details:     details,
 		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.SyncStatus.LoadSeq,
 	})
 	mm := teaModel.(*Model)
 
@@ -371,6 +425,19 @@ func TestEventsPane_JKScrollTheViewport(t *testing.T) {
 	}
 }
 
+func TestEventsPane_PgDownScrollsByPaneBodyHeight(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	m.state.Terminal.Cols, m.state.Terminal.Rows = 80, 24 // bottom layout: pane shows at most 12 rows
+	m = openEventsPane(t, m)
+
+	teaModel, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	mm := teaModel.(*Model)
+
+	if got := mm.state.Events.Offset; got == 0 || got > 12 {
+		t.Errorf("pgdown must scroll by the pane's visible rows (1..12), got offset %d", got)
+	}
+}
+
 func TestEventsPane_ColonOpensCommandAndEscReturnsToPane(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
@@ -465,6 +532,47 @@ func TestAppsBatchUpdate_RefreshesTreeSyncSummaryLive(t *testing.T) {
 	}
 }
 
+// Two apps share a name; the summary under the tree root must come from the
+// tree-scoped app, not the first name-match in the list.
+func TestResourceTreeLoaded_SyncSummary_DisambiguatesAppByNamespace(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	nsArgocd := "argocd"
+	nsTeamA := "team-a"
+	m.state.Apps = []model.App{
+		{Name: "my-app", AppNamespace: &nsArgocd, SyncOp: &model.SyncOpSummary{
+			Phase: "Failed", FinishedAt: time.Now().Add(-time.Hour),
+		}},
+		{Name: "my-app", AppNamespace: &nsTeamA, SyncOp: &model.SyncOpSummary{
+			Phase: "Succeeded", FinishedAt: time.Now().Add(-time.Minute),
+		}},
+	}
+	m.state.UI.TreeApp = &model.TreeAppInfo{Name: "my-app", AppNamespace: &nsTeamA}
+	m.treeView = treeview.NewTreeView(100, 30)
+	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "d1", Kind: "Deployment", Name: "web"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teaModel, _ := m.Update(model.ResourceTreeLoadedMsg{
+		AppName:     "my-app",
+		Health:      "Healthy",
+		Sync:        "Synced",
+		TreeJSON:    treeJSON,
+		SwitchEpoch: m.switchEpoch,
+	})
+	mm := teaModel.(*Model)
+
+	rendered := mm.treeView.Render()
+	if !strings.Contains(rendered, "Succeeded") {
+		t.Error("expected the tree-scoped app's summary (Succeeded)")
+	}
+	if strings.Contains(rendered, "Failed") {
+		t.Error("the same-named app from another namespace must not leak its summary")
+	}
+}
+
 func TestResourceTreeLoaded_SetsSyncSummaryFromAppList(t *testing.T) {
 	m := buildEventsPaneTestModel()
 	m.state.Apps[0].SyncOp = &model.SyncOpSummary{
@@ -536,13 +644,13 @@ func TestLoadEvents_ProducesGatedMessageWithData(t *testing.T) {
 	m.state.Server = &model.Server{BaseURL: server.URL, Token: "test-token"}
 	target := model.EventsTarget{AppName: "test-app", AppNamespace: "test-namespace"}
 
-	msg := m.loadEvents(target)()
+	msg := m.loadEvents(target, 1)()
 
 	loaded, ok := msg.(model.EventsLoadedMsg)
 	if !ok {
 		t.Fatalf("expected EventsLoadedMsg, got %T: %+v", msg, msg)
 	}
-	if loaded.Target != target || loaded.SwitchEpoch != m.switchEpoch {
+	if loaded.Target != target || loaded.SwitchEpoch != m.switchEpoch || loaded.LoadSeq != 1 {
 		t.Errorf("expected gating fields carried through, got %+v", loaded)
 	}
 	if len(loaded.Items) != 1 || loaded.Items[0].Reason != "BackOff" {
@@ -572,7 +680,7 @@ func TestLoadSyncStatus_FetchesFullOperationState(t *testing.T) {
 	m.state.Server = &model.Server{BaseURL: server.URL, Token: "test-token"}
 	target := model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"}
 
-	msg := m.loadSyncStatus(target)()
+	msg := m.loadSyncStatus(target, 1)()
 
 	loaded, ok := msg.(model.SyncStatusLoadedMsg)
 	if !ok {

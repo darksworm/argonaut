@@ -23,10 +23,10 @@ func (m *Model) resolveAppNamespace(appName string) string {
 	return ""
 }
 
-// panePageSize returns the number of rows a page scroll moves in a side pane.
+// panePageSize returns the number of rows a page scroll moves in a side
+// pane — its rendered body height, from the same geometry the renderer uses.
 func (m *Model) panePageSize() int {
-	overhead := 8 // context line, pane borders, status line
-	return max(1, m.state.Terminal.Rows-overhead)
+	return max(1, m.paneLayout(m.viewportRowBudget()).paneBodyRows)
 }
 
 // modeBehindCommandBar returns the mode a dismissed command bar falls back
@@ -81,10 +81,11 @@ func (m *Model) handleShowSyncStatus() (tea.Model, tea.Cmd) {
 	}
 	appName := m.treeView.SelectedNodeApp()
 	target := model.SyncStatusTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
+	m.paneLoadSeq++
 	m.state.Mode = model.ModeSyncStatus
 	m.state.Events = nil
-	m.state.SyncStatus = &model.SyncStatusState{Target: target, Loading: true}
-	return m, m.loadSyncStatus(target)
+	m.state.SyncStatus = &model.SyncStatusState{Target: target, Loading: true, LoadSeq: m.paneLoadSeq}
+	return m, m.loadSyncStatus(target, m.paneLoadSeq)
 }
 
 // handleShowEvents opens the events pane for the selected tree row: the
@@ -104,8 +105,9 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 			UID:       detail.UID,
 		}
 	}
+	m.paneLoadSeq++
 	m.state.Mode = model.ModeEvents
 	m.state.SyncStatus = nil
-	m.state.Events = &model.EventsState{Target: target, Loading: true}
-	return m, m.loadEvents(target)
+	m.state.Events = &model.EventsState{Target: target, Loading: true, LoadSeq: m.paneLoadSeq}
+	return m, m.loadEvents(target, m.paneLoadSeq)
 }

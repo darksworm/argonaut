@@ -619,9 +619,10 @@ func ConvertOperationState(argoApp ArgoApplication) *model.SyncStatusDetails {
 	var resources []model.SyncResourceResult
 	if opState.SyncResult != nil {
 		for _, r := range opState.SyncResult.Resources {
-			// Hooks report an operation phase instead of a sync result code
+			// Hooks report an operation phase instead of a sync result
+			// code, but a pending hook may not have a phase yet
 			status := r.Status
-			if r.HookType != "" {
+			if r.HookType != "" && r.HookPhase != "" {
 				status = r.HookPhase
 			}
 			resources = append(resources, model.SyncResourceResult{
