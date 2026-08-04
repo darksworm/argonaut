@@ -641,6 +641,7 @@ func TestLoadEvents_ProducesGatedMessageWithData(t *testing.T) {
 	defer server.Close()
 
 	m := buildEventsPaneTestModel()
+	m.switchEpoch = 42 // nonzero so an omitted SwitchEpoch cannot pass vacuously
 	m.state.Server = &model.Server{BaseURL: server.URL, Token: "test-token"}
 	target := model.EventsTarget{AppName: "test-app", AppNamespace: "test-namespace"}
 
@@ -677,6 +678,7 @@ func TestLoadSyncStatus_FetchesFullOperationState(t *testing.T) {
 	defer server.Close()
 
 	m := buildEventsPaneTestModel()
+	m.switchEpoch = 42 // nonzero so an omitted SwitchEpoch cannot pass vacuously
 	m.state.Server = &model.Server{BaseURL: server.URL, Token: "test-token"}
 	target := model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"}
 
@@ -686,7 +688,11 @@ func TestLoadSyncStatus_FetchesFullOperationState(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected SyncStatusLoadedMsg, got %T: %+v", msg, msg)
 	}
-	if loaded.Details == nil || loaded.Details.Phase != "Failed" || len(loaded.Details.Resources) != 1 {
+	if loaded.Target != target || loaded.SwitchEpoch != m.switchEpoch || loaded.LoadSeq != 1 {
+		t.Errorf("expected gating fields carried through, got %+v", loaded)
+	}
+	if loaded.Details == nil || loaded.Details.Phase != "Failed" ||
+		loaded.Details.Revision != "a1b2c3d" || len(loaded.Details.Resources) != 1 {
 		t.Errorf("expected full operation state with resource results, got %+v", loaded.Details)
 	}
 }
