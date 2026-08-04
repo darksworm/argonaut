@@ -29,7 +29,7 @@ func TestStatusLine_EventsPane_ShowsModeAndScrollHints(t *testing.T) {
 	if !strings.Contains(line, "<events>") {
 		t.Errorf("expected the mode segment <events>, got %q", line)
 	}
-	if !strings.Contains(line, "j/k: select • J/K: scroll • esc: close") {
+	if !strings.Contains(line, "j/k: select • ⇧↑/⇧↓: scroll • esc: close") {
 		t.Errorf("expected the pane hints, got %q", line)
 	}
 	if strings.Contains(line, "e: events") {

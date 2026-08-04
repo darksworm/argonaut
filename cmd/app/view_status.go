@@ -12,9 +12,9 @@ import (
 
 // renderStatusLine - 1:1 mapping from MainLayout status Box
 func (m *Model) renderStatusLine() string {
-	// The side pane owns the input: the mode segment and hints flip with it.
-	if m.state.Mode == model.ModeEvents {
-		return m.renderStatusBarLine("<events>", "j/k: select • J/K: scroll • esc: close")
+	// An open side pane flips the mode segment and hints.
+	if m.state.Mode == model.ModeNormal && m.paneOpen() {
+		return m.renderStatusBarLine("<events>", "j/k: select • ⇧↑/⇧↓: scroll • esc: close")
 	}
 
 	visibleItems := m.getVisibleItems()

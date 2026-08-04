@@ -47,7 +47,6 @@ const (
 	ModeConfirmResourceSync   Mode = "confirm-resource-sync"
 	ModeDefaultViewWarning    Mode = "default-view-warning"
 	ModeResourceAction        Mode = "resource-action"
-	ModeEvents                Mode = "events"
 )
 
 // SyncOpSummary summarizes an application's last sync operation for the

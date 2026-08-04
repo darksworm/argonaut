@@ -41,8 +41,8 @@ func TestTreeKeyE_OnSyntheticRoot_OpensApplicationEvents(t *testing.T) {
 	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeEvents {
-		t.Fatalf("expected ModeEvents, got %s", mm.state.Mode)
+	if mm.state.Mode != model.ModeNormal {
+		t.Fatalf("expected the pane to open without a mode change, got %s", mm.state.Mode)
 	}
 	st := mm.state.Events
 	if st == nil {
@@ -147,8 +147,8 @@ func TestTreeKeyEnter_OnResourceRow_OpensResourceEvents(t *testing.T) {
 	teaModel, _ := m.handleKeyMsg(testKeyMsg("enter"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeEvents {
-		t.Fatalf("expected enter on a resource row to open events, got mode %s", mm.state.Mode)
+	if mm.state.Events == nil {
+		t.Fatal("expected enter on a resource row to open events")
 	}
 	if mm.state.Events == nil || mm.state.Events.Target.Resource.UID != "pod-uid" {
 		t.Errorf("expected resource-scoped events target, got %+v", mm.state.Events)
@@ -162,8 +162,8 @@ func TestTreeKeyEnter_OnSyntheticRoot_OpensApplicationEvents(t *testing.T) {
 	teaModel, _ := m.handleKeyMsg(testKeyMsg("enter"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeEvents {
-		t.Fatalf("expected enter on the root to open app events, got mode %s", mm.state.Mode)
+	if mm.state.Events == nil {
+		t.Fatal("expected enter on the root to open app events")
 	}
 	if mm.state.Events == nil || mm.state.Events.Target.Resource != (model.EventsResource{}) {
 		t.Errorf("expected app-level events target, got %+v", mm.state.Events)
@@ -209,8 +209,8 @@ func TestTreeKeyE_OnMissingResource_OpensWithNotice(t *testing.T) {
 	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeEvents || mm.state.Events == nil {
-		t.Fatalf("expected the pane to open as a lens, got mode %s", mm.state.Mode)
+	if mm.state.Events == nil {
+		t.Fatal("expected the pane to open as a lens")
 	}
 	st := mm.state.Events
 	if st.Notice == "" || st.Loading || st.Error != "" {
@@ -384,8 +384,8 @@ func TestEventsErrorMsg_ShowsInlineError(t *testing.T) {
 	if st == nil || st.Error != "connection refused" || st.Loading {
 		t.Errorf("expected a pane-scoped inline error, got %+v", st)
 	}
-	if mm.state.Mode != model.ModeEvents {
-		t.Errorf("a failed fetch must not yank the user off the pane, got mode %s", mm.state.Mode)
+	if mm.state.Events == nil {
+		t.Error("a failed fetch must not close the pane")
 	}
 }
 
@@ -458,33 +458,53 @@ func TestEventsPane_QCloses(t *testing.T) {
 	}
 }
 
-// The pane is a lens, not a modal: action hotkeys close it and act on the
-// selected tree row as if the pane were not there.
-func TestEventsPane_ActionKeysCloseThePaneAndAct(t *testing.T) {
+// The pane is a lens, not a modal: action hotkeys act on the selected tree
+// row and the pane stays open through the flow.
+func TestEventsPane_ActionKeysActWithThePaneOpen(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	teaModel, cmd := m.handleKeyMsg(testKeyMsg("d")) // diff the selected resource
 	mm := teaModel.(*Model)
 
-	if mm.state.Events != nil {
-		t.Error("expected the pane to close when an action key fires")
+	if mm.state.Events == nil {
+		t.Error("expected the pane to stay open")
 	}
 	if mm.state.Diff == nil || !mm.state.Diff.Loading || cmd == nil {
 		t.Errorf("expected d to start the resource diff, got %+v", mm.state.Diff)
 	}
 }
 
-func TestEventsPane_CtrlDOpensDeleteConfirmation(t *testing.T) {
+func TestEventsPane_CtrlDOpensDeleteConfirmationOverThePane(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	teaModel, _ := m.handleKeyMsg(testKeyMsg("ctrl+d"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Events != nil {
-		t.Error("expected the pane to close when an action key fires")
+	if mm.state.Events == nil {
+		t.Error("expected the pane to stay open behind the modal")
 	}
 	if mm.state.Mode != model.ModeConfirmResourceDelete {
 		t.Fatalf("expected the delete confirmation, got mode %s", mm.state.Mode)
+	}
+}
+
+func TestEventsPane_SyncConfirmationOverThePane(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("s"))
+	mm := teaModel.(*Model)
+
+	if mm.state.Events == nil {
+		t.Error("expected the pane to stay open behind the sync confirmation")
+	}
+	if mm.state.Mode != model.ModeConfirmResourceSync {
+		t.Fatalf("expected the sync confirmation, got mode %s", mm.state.Mode)
+	}
+	// Cancelling the modal lands back on the tree with the pane intact
+	teaModel, _ = mm.handleKeyMsg(testKeyMsg("esc"))
+	mm = teaModel.(*Model)
+	if mm.state.Mode != model.ModeNormal || mm.state.Events == nil {
+		t.Errorf("expected the pane to survive the modal round trip, got mode %s", mm.state.Mode)
 	}
 }
 
@@ -521,12 +541,12 @@ func TestEventsPane_ShiftedKeysScrollTheViewport(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	for _, tc := range []struct {
-		key    tea.KeyMsg
-		want   int
-		label  string
+		key   tea.KeyMsg
+		want  int
+		label string
 	}{
-		{testKeyMsg("J"), 1, "J scrolls down"},
-		{testKeyMsg("K"), 0, "K scrolls up"},
+		{tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl}, 1, "ctrl+e scrolls down"},
+		{tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}, 0, "ctrl+y scrolls up"},
 		{tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift}, 1, "shift+down scrolls down"},
 		{tea.KeyPressMsg{Code: tea.KeyUp, Mod: tea.ModShift}, 0, "shift+up scrolls up"},
 	} {
@@ -696,8 +716,8 @@ func TestEventsPane_ColonOpensCommandAndEscReturnsToPane(t *testing.T) {
 
 	teaModel, _ = mm.handleKeyMsg(testKeyMsg("esc"))
 	mm = teaModel.(*Model)
-	if mm.state.Mode != model.ModeEvents {
-		t.Fatalf("expected esc to return to the events pane, got %s", mm.state.Mode)
+	if mm.state.Mode != model.ModeNormal {
+		t.Fatalf("expected esc to land back on the tree, got %s", mm.state.Mode)
 	}
 	if mm.state.Events == nil {
 		t.Error("expected the pane state to survive the command-mode round trip")
@@ -719,9 +739,6 @@ func TestEventsCommand_InTreeView_OpensEventsPane(t *testing.T) {
 
 	m = runCommand(t, m, "events")
 
-	if m.state.Mode != model.ModeEvents {
-		t.Fatalf("expected :events to open the events pane, got mode %s", m.state.Mode)
-	}
 	if m.state.Events == nil || m.state.Events.Target.Resource.UID != "pod-uid" {
 		t.Errorf("expected events for the selected row, got %+v", m.state.Events)
 	}
@@ -736,9 +753,6 @@ func TestViewJumpingCommand_ClosesTheOpenPane(t *testing.T) {
 
 	if m.state.Events != nil {
 		t.Error("expected a view-jumping command to close the events pane")
-	}
-	if m.state.Mode == model.ModeEvents {
-		t.Errorf("expected to leave the pane mode, got %s", m.state.Mode)
 	}
 }
 
@@ -930,8 +944,8 @@ func TestTreeKeyE_OnResourceRow_OpensResourceEvents(t *testing.T) {
 	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeEvents {
-		t.Fatalf("expected ModeEvents, got %s", mm.state.Mode)
+	if mm.state.Mode != model.ModeNormal {
+		t.Fatalf("expected the pane to open without a mode change, got %s", mm.state.Mode)
 	}
 	st := mm.state.Events
 	if st == nil {

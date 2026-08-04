@@ -25,6 +25,10 @@ type NavigatorContext struct {
 	// The 'changed' parameter indicates whether the cursor actually moved
 	OnNavigate func(changed bool)
 
+	// AfterNavigate optionally returns a follow-up command (e.g. the side
+	// pane's debounced refetch when the selection changed)
+	AfterNavigate func(changed bool) tea.Cmd
+
 	// Whether this context supports navigation (false for Search, Command, Help modes)
 	SupportsNavigation bool
 
@@ -50,6 +54,10 @@ func (m *Model) treeNavigatorContext() *NavigatorContext {
 	if m.treeView == nil {
 		return &NavigatorContext{SupportsNavigation: false}
 	}
+	// The selection may have been set outside the navigator (search jumps,
+	// direct SetSelectedIndex) — start from where the tree actually is
+	m.treeNav.SetItemCount(m.treeView.VisibleCount())
+	m.treeNav.SetCursor(m.treeView.SelectedIndex())
 	return &NavigatorContext{
 		Navigator:         m.treeNav,
 		GetItemCount:      func() int { return m.treeView.VisibleCount() },
@@ -58,6 +66,13 @@ func (m *Model) treeNavigatorContext() *NavigatorContext {
 			if changed {
 				m.treeView.SetSelectedIndex(m.treeNav.Cursor())
 			}
+		},
+		AfterNavigate: func(changed bool) tea.Cmd {
+			if changed {
+				// The side pane is a lens over the selection
+				return m.retargetOpenPane()
+			}
+			return nil
 		},
 		SupportsNavigation: true,
 	}
@@ -111,10 +126,6 @@ func (m *Model) getNavigatorContext() *NavigatorContext {
 			DirectOffset:       &m.state.Diff.Offset,
 			PageSize:           m.diffPageSize,
 		}
-
-	// ModeEvents/ModeSyncStatus fall through to the default: the panes are
-	// lenses — their key handler navigates the tree underneath and scrolls
-	// the pane with the shifted variants.
 
 	case model.ModeNormal:
 		// Check for tree view first
@@ -186,6 +197,9 @@ func (m *Model) executeNavigation(ctx *NavigatorContext, msg tea.KeyMsg) (tea.Mo
 	// Invoke post-navigation callback for side effects
 	if ctx.OnNavigate != nil {
 		ctx.OnNavigate(changed)
+	}
+	if ctx.AfterNavigate != nil {
+		return m, ctx.AfterNavigate(changed)
 	}
 
 	return m, nil

@@ -1672,8 +1672,6 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
-	case model.ModeEvents:
-		return m.handlePaneModeKeys(msg)
 	case model.ModeAuthRequired:
 		return m.handleAuthRequiredModeKeys(msg)
 	case model.ModeError:
@@ -1710,7 +1708,26 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	{
 		switch msg.String() {
+		case "ctrl+e", "shift+down":
+			// Scroll the side pane (vim's scroll-line-down)
+			if st := m.state.Events; st != nil {
+				st.Offset++
+			}
+			return m, nil
+		case "ctrl+y", "shift+up":
+			if st := m.state.Events; st != nil {
+				st.Offset = max(0, st.Offset-1)
+			}
+			return m, nil
+		case "K":
+			// Open k9s for the selected resource
+			return m.handleOpenK9s()
 		case "q":
+			// An open pane absorbs the first q/esc; the second leaves the tree
+			if m.state.Events != nil {
+				m.closePane()
+				return m, nil
+			}
 			// Clear filter, drop any app-of-apps back stack, and return to apps list
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
@@ -1724,6 +1741,10 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			)
 			return m, nil
 		case "esc":
+			if m.state.Events != nil {
+				m.closePane()
+				return m, nil
+			}
 			// Delegate to handleEscape which handles app-of-apps back-navigation
 			return m.handleEscape()
 		case "/":
@@ -1772,9 +1793,6 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "e":
 			// Open the events pane for the selected row
 			return m.handleShowEvents()
-		case "K":
-			// Open k9s for the selected resource
-			return m.handleOpenK9s()
 		case "d":
 			// Show diff for the selected resource
 			return m.handleResourceDiff()

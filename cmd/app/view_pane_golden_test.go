@@ -65,7 +65,6 @@ func samplePodEvents() []model.ResourceEvent {
 }
 
 func openGoldenEventsPane(m *Model) {
-	m.state.Mode = model.ModeEvents
 	m.state.Events = &model.EventsState{
 		Target: model.EventsTarget{
 			AppName:  "demo-app",
@@ -132,7 +131,6 @@ func TestGolden_EventsPane_LoadingEmptyError(t *testing.T) {
 
 func TestGolden_EventsPane_AppRow_StatusBlockAboveEvents(t *testing.T) {
 	m := buildPaneGoldenModel(100, 30)
-	m.state.Mode = model.ModeEvents
 	m.state.Events = &model.EventsState{
 		Target: model.EventsTarget{AppName: "demo-app"},
 		Details: &model.SyncStatusDetails{
@@ -170,7 +168,6 @@ func TestGolden_EventsPane_AppRow_StatusBlockAboveEvents(t *testing.T) {
 
 func TestGolden_EventsPane_AppRow_NeverSynced(t *testing.T) {
 	m := buildPaneGoldenModel(100, 24)
-	m.state.Mode = model.ModeEvents
 	m.state.Events = &model.EventsState{
 		Target: model.EventsTarget{AppName: "demo-app"},
 		Items:  samplePodEvents()[3:], // just the Scheduled event

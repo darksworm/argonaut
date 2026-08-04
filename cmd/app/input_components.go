@@ -517,14 +517,14 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		// Treat Ctrl+C as closing the input (do not quit app)
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearCommandInput()
-		m.state.Mode = m.modeBehindCommandBar()
+		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
 		m.state.UI.CommandInvalid = false
 		return m, nil
 	case "esc":
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearCommandInput()
-		m.state.Mode = m.modeBehindCommandBar()
+		m.state.Mode = model.ModeNormal
 		m.state.UI.Command = ""
 		m.state.UI.CommandInvalid = false
 		return m, nil

@@ -144,59 +144,10 @@ func (m *Model) retargetOpenPane() tea.Cmd {
 	return tea.Batch(m.schedulePaneFetch(m.paneLoadSeq), m.schedulePaneRefresh(m.paneLoadSeq), m.schedulePaneAgeTick(m.paneLoadSeq))
 }
 
-// modeBehindCommandBar returns the mode a dismissed command bar falls back
-// to — a live side pane resumes owning the input.
-func (m *Model) modeBehindCommandBar() model.Mode {
-	if m.state.Events != nil {
-		return model.ModeEvents
-	}
-	return model.ModeNormal
-}
-
-// closePanes closes the side pane and returns input to the tree.
-func (m *Model) closePanes() {
+// closePane closes the side pane; the tree keeps the input focus it already
+// had — the pane is state, not a mode.
+func (m *Model) closePane() {
 	m.state.Events = nil
-	m.state.Mode = model.ModeNormal
-}
-
-// handlePaneModeKeys handles input while the side pane is open. The pane is
-// a lens over the tree: navigation keys keep moving the tree selection (the
-// pane follows it), the shifted variants scroll the pane, esc/q close it,
-// ':' opens the command bar — and any other tree hotkey closes the lens and
-// acts on the selected row as if the pane were not there.
-func (m *Model) handlePaneModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "up", "k", "down", "j", "pgup", "pgdown", "g", "G":
-		ctx := m.treeNavigatorContext()
-		if !ctx.SupportsNavigation {
-			return m, nil
-		}
-		// The selection may have been set outside the navigator (search
-		// jumps, direct SetSelectedIndex) — start from where the tree is
-		m.treeNav.SetItemCount(m.treeView.VisibleCount())
-		m.treeNav.SetCursor(m.treeView.SelectedIndex())
-		_, _ = m.executeNavigation(ctx, msg)
-		return m, m.retargetOpenPane()
-	case "J", "shift+down":
-		if st := m.state.Events; st != nil {
-			st.Offset++
-		}
-		return m, nil
-	case "K", "shift+up":
-		if st := m.state.Events; st != nil {
-			st.Offset = max(0, st.Offset-1)
-		}
-		return m, nil
-	case "esc", "q":
-		m.closePanes()
-		return m, nil
-	case ":":
-		return m.handleEnterCommandMode()
-	}
-	// Anything else is a tree hotkey: the lens closes and the key acts on
-	// the selected row as if the pane were not there.
-	m.closePanes()
-	return m.handleTreeViewKeys(msg)
 }
 
 // handleShowEvents opens the events pane for the selected tree row: the
@@ -209,7 +160,6 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 	}
 	target, notice, resourceStatus := m.eventsTargetForSelection()
 	m.paneLoadSeq++
-	m.state.Mode = model.ModeEvents
 	m.state.Events = &model.EventsState{
 		Target:         target,
 		Notice:         notice,
