@@ -39,11 +39,15 @@ type paneLayout struct {
 func (m *Model) paneLayout(availableRows int) paneLayout {
 	cols := m.state.Terminal.Cols
 	if cols >= paneSideMinCols {
+		// renderTreePanel renders 2 cells narrower than the width it is
+		// given (the full-width call passes cols and renders cols-2), so
+		// the tree box gets cols-50 for a rendered row of exactly cols-2 —
+		// flush with the status line and command bar.
 		return paneLayout{
 			side:          true,
 			paneBoxWidth:  paneSideBoxWidth,
 			paneBodyWidth: paneSideBoxWidth - 4, // borders + one space padding each side
-			treeBoxWidth:  (cols - 2) - paneSideBoxWidth,
+			treeBoxWidth:  cols - paneSideBoxWidth,
 			paneBodyRows:  max(0, availableRows-1), // frame total == tree box total height
 			treeBodyRows:  availableRows,
 		}

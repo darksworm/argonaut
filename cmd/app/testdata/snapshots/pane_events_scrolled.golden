@@ -1,13 +1,13 @@
   argo.example.com                                                                   Argonaut dev   
- ╭────────────────────────────────────────────╮╭─ Events · Pod web-6f7d9b-x4k2m ─ ▲ more above ─╮   
- │ Application [demo-app] (Degraded, Synced)  ││   Pulled                         x413 · 2m ago │   
- │ ├── Deployment [demo/web] (Degraded)       ││   Container image "web:1.4.2" already present  │   
- │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degr… ││   on machine                                   │   
- │ └── Service [demo/web] (Healthy)           ││                                                │   
- │                                            ││ ! Unhealthy                       x38 · 5m ago │   
- │                                            ││   Readiness probe failed: Get "http://10.0.3.1 │   
- │                                            ││   2:8080/healthz": connection refused          │   
- │                                            ││                                                │   
- │                                            ││   Scheduled                        x1 · 1h ago │   
- ╰────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯   
+ ╭──────────────────────────────────────────────╮╭─ Events · Pod web-6f7d9b-x4k2m ─ ▲ more above ─╮ 
+ │ Application [demo-app] (Degraded, Synced)    ││   Pulled                         x413 · 2m ago │ 
+ │ ├── Deployment [demo/web] (Degraded)         ││   Container image "web:1.4.2" already present  │ 
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││   on machine                                   │ 
+ │ └── Service [demo/web] (Healthy)             ││                                                │ 
+ │                                              ││ ! Unhealthy                       x38 · 5m ago │ 
+ │                                              ││   Readiness probe failed: Get "http://10.0.3.1 │ 
+ │                                              ││   2:8080/healthz": connection refused          │ 
+ │                                              ││                                                │ 
+ │                                              ││   Scheduled                        x1 · 1h ago │ 
+ ╰──────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯ 
  <events>                                                                  j/k: scroll • esc: close 

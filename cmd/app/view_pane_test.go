@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
@@ -201,8 +202,10 @@ func TestPaneLayout_WideTerminal_SplitsSideBySide(t *testing.T) {
 	if l.paneBoxWidth != 50 {
 		t.Errorf("expected pane box width 50, got %d", l.paneBoxWidth)
 	}
-	if l.treeBoxWidth != 48 {
-		t.Errorf("expected tree box width 48 at 100 cols, got %d", l.treeBoxWidth)
+	// renderTreePanel renders 2 narrower than given: 50 → the 48-wide box
+	// of the design mock, flush against the 50-wide pane
+	if l.treeBoxWidth != 50 {
+		t.Errorf("expected tree box width 50 at 100 cols, got %d", l.treeBoxWidth)
 	}
 	if l.paneBodyWidth != 46 {
 		t.Errorf("expected pane body width 46, got %d", l.paneBodyWidth)
@@ -249,6 +252,24 @@ func TestPaneLayout_TinyBudgets_NeverGoNegative(t *testing.T) {
 					cols, budget, l.paneBodyRows, l.treeBodyRows)
 			}
 		}
+	}
+}
+
+// The side-by-side row must end flush with the other full-width elements
+// (status line, command bar, the pane-closed tree box) — no right-edge gap.
+func TestSideBySideLayout_FillsTheFullContentWidth(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel()) // 120 cols → side layout
+	m.state.Events.Loading = false
+	m.state.Events.Items = []model.ResourceEvent{{Reason: "BackOff", Message: "x", Count: 1, LastSeen: paneNow}}
+
+	fullWidth := lipgloss.Width(m.renderTreePanel(10, m.state.Terminal.Cols)) // pane-closed box width
+
+	l := m.paneLayout(10)
+	row := lipgloss.JoinHorizontal(lipgloss.Top,
+		m.renderTreePanel(l.treeBodyRows, l.treeBoxWidth), m.renderSidePane(l))
+
+	if got := lipgloss.Width(row); got != fullWidth {
+		t.Errorf("side-by-side row is %d cells wide, want %d (flush with the full-width box)", got, fullWidth)
 	}
 }
 
