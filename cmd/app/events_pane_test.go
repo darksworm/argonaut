@@ -137,7 +137,9 @@ func TestTreeKeyEnter_OnChildApplicationRow_KeepsDrillIn(t *testing.T) {
 
 // A Missing resource was never created in the cluster: its node has no UID,
 // so resource events cannot exist — the pane must not open onto a dead end.
-func TestTreeKeyE_OnMissingResource_ExplainsInsteadOfOpening(t *testing.T) {
+// A Missing resource was never created in the cluster, so it cannot have
+// events — the pane opens as a lens with an inline notice, no fetch.
+func TestTreeKeyE_OnMissingResource_OpensWithNotice(t *testing.T) {
 	m := buildEventsPaneTestModel()
 	ns := "argonaut-demo"
 	m.treeView.UpsertAppTree("test-app", &api.ResourceTree{Nodes: []api.ResourceNode{
@@ -148,15 +150,15 @@ func TestTreeKeyE_OnMissingResource_ExplainsInsteadOfOpening(t *testing.T) {
 	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeNormal || mm.state.Events != nil {
-		t.Fatalf("expected the pane not to open for a UID-less resource, got mode %s events %+v",
-			mm.state.Mode, mm.state.Events)
+	if mm.state.Mode != model.ModeEvents || mm.state.Events == nil {
+		t.Fatalf("expected the pane to open as a lens, got mode %s", mm.state.Mode)
 	}
-	if cmd == nil {
-		t.Fatal("expected a status message explaining why")
+	st := mm.state.Events
+	if st.Notice == "" || st.Loading || st.Error != "" {
+		t.Errorf("expected an inline notice and no fetch, got %+v", st)
 	}
-	if _, ok := cmd().(model.StatusChangeMsg); !ok {
-		t.Errorf("expected a StatusChangeMsg, got %T", cmd())
+	if cmd != nil {
+		t.Error("expected no fetch command for a UID-less resource")
 	}
 }
 
@@ -428,38 +430,133 @@ func TestSyncStatusPane_ESwitchesToEvents(t *testing.T) {
 	}
 }
 
-func TestEventsPane_JKScrollTheViewport(t *testing.T) {
-	m := openEventsPane(t, buildEventsPaneTestModel())
+// The pane is a lens: j/k keep navigating the tree and the pane follows
+// the selection with a debounced refetch.
+func TestEventsPane_JKNavigateTheTreeAndRetargetThePane(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel()) // opened on the Pod row (index 1)
+	if m.state.Events.Target.Resource.UID != "pod-uid" {
+		t.Fatalf("setup: expected the pod target, got %+v", m.state.Events.Target)
+	}
 
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("j"))
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("k"))
 	mm := teaModel.(*Model)
-	if mm.state.Events.Offset != 1 {
-		t.Fatalf("expected j to scroll down to offset 1, got %d", mm.state.Events.Offset)
+
+	if mm.treeView.SelectedIndex() != 0 {
+		t.Fatalf("expected k to move the tree cursor to the root, got %d", mm.treeView.SelectedIndex())
+	}
+	if got := mm.state.Events.Target.Resource; got != (model.EventsResource{}) {
+		t.Errorf("expected the pane to retarget to app-level events, got %+v", got)
+	}
+	if !mm.state.Events.Loading {
+		t.Error("expected the retargeted pane to be loading")
+	}
+	if cmd == nil {
+		t.Error("expected a debounced fetch to be scheduled")
 	}
 
-	teaModel, _ = mm.handleKeyMsg(testKeyMsg("k"))
+	teaModel, _ = mm.handleKeyMsg(testKeyMsg("j"))
 	mm = teaModel.(*Model)
-	if mm.state.Events.Offset != 0 {
-		t.Fatalf("expected k to scroll back to offset 0, got %d", mm.state.Events.Offset)
-	}
-
-	teaModel, _ = mm.handleKeyMsg(testKeyMsg("G"))
-	mm = teaModel.(*Model)
-	if mm.state.Events.Offset == 0 {
-		t.Error("expected G to jump towards the bottom (clamped at render time)")
+	if mm.state.Events.Target.Resource.UID != "pod-uid" {
+		t.Errorf("expected j to retarget back to the pod, got %+v", mm.state.Events.Target)
 	}
 }
 
-func TestEventsPane_PgDownScrollsByPaneBodyHeight(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	m.state.Terminal.Cols, m.state.Terminal.Rows = 80, 24 // bottom layout: pane shows at most 12 rows
-	m = openEventsPane(t, m)
+func TestEventsPane_ShiftedKeysScrollTheViewport(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
 
-	teaModel, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	for _, tc := range []struct {
+		key    tea.KeyMsg
+		want   int
+		label  string
+	}{
+		{testKeyMsg("J"), 1, "J scrolls down"},
+		{testKeyMsg("K"), 0, "K scrolls up"},
+		{tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift}, 1, "shift+down scrolls down"},
+		{tea.KeyPressMsg{Code: tea.KeyUp, Mod: tea.ModShift}, 0, "shift+up scrolls up"},
+	} {
+		teaModel, _ := m.handleKeyMsg(tc.key)
+		m = teaModel.(*Model)
+		if m.state.Events.Offset != tc.want {
+			t.Fatalf("%s: expected offset %d, got %d", tc.label, tc.want, m.state.Events.Offset)
+		}
+	}
+}
+
+func TestEventsPane_PaneFetchDue_DispatchesOnlyForCurrentSeq(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("k")) // retarget to the root
+	m = teaModel.(*Model)
+	seq := m.state.Events.LoadSeq
+
+	// A stale tick (an earlier, superseded retarget) must not fetch
+	_, cmd := m.Update(model.PaneFetchDueMsg{SwitchEpoch: m.switchEpoch, LoadSeq: seq - 1})
+	if cmd != nil {
+		t.Error("expected a stale fetch tick to be dropped")
+	}
+
+	// The current tick dispatches the fetch for the pane's target
+	_, cmd = m.Update(model.PaneFetchDueMsg{SwitchEpoch: m.switchEpoch, LoadSeq: seq})
+	if cmd == nil {
+		t.Fatal("expected the due fetch to dispatch")
+	}
+	msg := cmd() // fixture has no server, so the producer errors — with the gating fields intact
+	errMsg, ok := msg.(model.EventsErrorMsg)
+	if !ok {
+		t.Fatalf("expected EventsErrorMsg, got %T", msg)
+	}
+	if errMsg.Target != m.state.Events.Target || errMsg.LoadSeq != seq {
+		t.Errorf("expected the fetch to carry the current target and seq, got %+v", errMsg)
+	}
+}
+
+func TestEventsPane_RetargetSkipsWhenTargetUnchanged(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("S")) // app-scoped pane
+	m = teaModel.(*Model)
+	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
+		Target:      m.state.SyncStatus.Target,
+		Details:     &model.SyncStatusDetails{Phase: "Succeeded"},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.SyncStatus.LoadSeq,
+	})
+	m = teaModel.(*Model)
+
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("j")) // same app, target unchanged
 	mm := teaModel.(*Model)
 
-	if got := mm.state.Events.Offset; got == 0 || got > 12 {
-		t.Errorf("pgdown must scroll by the pane's visible rows (1..12), got offset %d", got)
+	if mm.state.SyncStatus.Loading || mm.state.SyncStatus.Details == nil {
+		t.Errorf("expected no refetch when the target is unchanged, got %+v", mm.state.SyncStatus)
+	}
+	if cmd != nil {
+		t.Error("expected no fetch command when the target is unchanged")
+	}
+}
+
+func TestEventsPane_CursorOntoMissingResource_ShowsNotice(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	ns := "argonaut-demo"
+	m.treeView.UpsertAppTree("test-app", &api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "pod-uid", Version: "v1", Kind: "Pod", Name: "web-1", Namespace: &ns},
+		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Rollout", Name: "bluegreen-demo", Namespace: &ns},
+	}})
+	// Siblings sort by name: index 1 = Rollout (no UID), index 2 = Pod.
+	// Open on the Pod, then move up onto the UID-less Rollout row.
+	m.treeView.SetSelectedIndex(2)
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e"))
+	m = teaModel.(*Model)
+	if m.state.Events.Target.Resource.UID != "pod-uid" {
+		t.Fatalf("setup: expected to open on the pod, got %+v", m.state.Events.Target)
+	}
+
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("k"))
+	mm := teaModel.(*Model)
+
+	st := mm.state.Events
+	if st.Notice == "" || st.Loading {
+		t.Errorf("expected an inline notice without a fetch, got %+v", st)
+	}
+	if cmd != nil {
+		t.Error("expected no fetch for a resource that cannot have events")
 	}
 }
 

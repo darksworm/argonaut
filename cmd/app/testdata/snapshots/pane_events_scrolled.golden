@@ -10,4 +10,4 @@
  │                                              ││   2:8080/healthz": connection refused          │ 
  │                                              ││                                                │ 
  ╰──────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯ 
- <events>                                                                  j/k: scroll • esc: close 
+ <events>                                                    j/k: select • J/K: scroll • esc: close 

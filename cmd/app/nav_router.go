@@ -44,6 +44,25 @@ func isNavigationKey(msg tea.KeyMsg) bool {
 	}
 }
 
+// treeNavigatorContext is the tree view's navigation wiring, shared by
+// normal mode and the side panes (which navigate the tree beneath them).
+func (m *Model) treeNavigatorContext() *NavigatorContext {
+	if m.treeView == nil {
+		return &NavigatorContext{SupportsNavigation: false}
+	}
+	return &NavigatorContext{
+		Navigator:         m.treeNav,
+		GetItemCount:      func() int { return m.treeView.VisibleCount() },
+		GetViewportHeight: m.treeViewportHeight,
+		OnNavigate: func(changed bool) {
+			if changed {
+				m.treeView.SetSelectedIndex(m.treeNav.Cursor())
+			}
+		},
+		SupportsNavigation: true,
+	}
+}
+
 // getNavigatorContext returns the appropriate NavigatorContext based on current mode and view.
 // This is the single source of truth for "which navigator handles navigation in this state".
 func (m *Model) getNavigatorContext() *NavigatorContext {
@@ -93,43 +112,14 @@ func (m *Model) getNavigatorContext() *NavigatorContext {
 			PageSize:           m.diffPageSize,
 		}
 
-	case model.ModeEvents:
-		if m.state.Events == nil {
-			return &NavigatorContext{SupportsNavigation: false}
-		}
-		return &NavigatorContext{
-			SupportsNavigation: true,
-			DirectOffset:       &m.state.Events.Offset,
-			PageSize:           m.panePageSize,
-		}
-
-	case model.ModeSyncStatus:
-		if m.state.SyncStatus == nil {
-			return &NavigatorContext{SupportsNavigation: false}
-		}
-		return &NavigatorContext{
-			SupportsNavigation: true,
-			DirectOffset:       &m.state.SyncStatus.Offset,
-			PageSize:           m.panePageSize,
-		}
+	// ModeEvents/ModeSyncStatus fall through to the default: the panes are
+	// lenses — their key handler navigates the tree underneath and scrolls
+	// the pane with the shifted variants.
 
 	case model.ModeNormal:
 		// Check for tree view first
 		if m.state.Navigation.View == model.ViewTree {
-			if m.treeView == nil {
-				return &NavigatorContext{SupportsNavigation: false}
-			}
-			return &NavigatorContext{
-				Navigator:         m.treeNav,
-				GetItemCount:      func() int { return m.treeView.VisibleCount() },
-				GetViewportHeight: m.treeViewportHeight,
-				OnNavigate: func(changed bool) {
-					if changed {
-						m.treeView.SetSelectedIndex(m.treeNav.Cursor())
-					}
-				},
-				SupportsNavigation: true,
-			}
+			return m.treeNavigatorContext()
 		}
 		// Default: list navigation (apps, clusters, namespaces, projects)
 		return &NavigatorContext{

@@ -220,6 +220,10 @@ func (m *Model) renderSidePane(l paneLayout) string {
 			title = fmt.Sprintf("Events · %s %s", st.Target.Resource.Kind, st.Target.Resource.Name)
 		}
 		switch {
+		case st.Notice != "":
+			for _, part := range wrapAnsiToWidth(st.Notice, max(1, l.paneBodyWidth)) {
+				body = append(body, dim.Render(part))
+			}
 		case st.Loading:
 			body = []string{dim.Render("Loading events…")}
 		case st.Error != "":

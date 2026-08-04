@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/darksworm/argonaut/pkg/model"
 )
@@ -23,10 +25,69 @@ func (m *Model) resolveAppNamespace(appName string) string {
 	return ""
 }
 
-// panePageSize returns the number of rows a page scroll moves in a side
-// pane — its visible content height, from the same geometry the renderer uses.
-func (m *Model) panePageSize() int {
-	return max(1, m.paneLayout(m.viewportRowBudget()).paneContentRows())
+// paneFetchDebounce is how long the pane waits after a retarget before
+// fetching, so holding j/k fetches once for the row the user settles on.
+const paneFetchDebounce = 200 * time.Millisecond
+
+// eventsTargetForSelection derives the events target from the tree cursor:
+// app-level on the synthetic root, resource-scoped otherwise. A non-empty
+// notice means the target cannot have events (resource Missing → no UID).
+func (m *Model) eventsTargetForSelection() (model.EventsTarget, string) {
+	appName := m.treeView.SelectedNodeApp()
+	target := model.EventsTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
+	if detail, ok := m.treeView.SelectedResourceDetail(); ok {
+		target.Resource = model.EventsResource{
+			Kind:      detail.Kind,
+			Namespace: detail.Namespace,
+			Name:      detail.Name,
+			UID:       detail.UID,
+		}
+		if detail.UID == "" {
+			return target, "No events: resource does not exist in the cluster."
+		}
+	}
+	return target, ""
+}
+
+// schedulePaneFetch arms the retarget debounce for the given load.
+func (m *Model) schedulePaneFetch(loadSeq int) tea.Cmd {
+	epoch := m.switchEpoch
+	return tea.Tick(paneFetchDebounce, func(time.Time) tea.Msg {
+		return model.PaneFetchDueMsg{SwitchEpoch: epoch, LoadSeq: loadSeq}
+	})
+}
+
+// retargetOpenPane points the open pane at the current tree selection,
+// scheduling a debounced fetch when the target actually changed.
+func (m *Model) retargetOpenPane() tea.Cmd {
+	switch {
+	case m.state.Events != nil:
+		target, notice := m.eventsTargetForSelection()
+		if target == m.state.Events.Target {
+			return nil
+		}
+		m.paneLoadSeq++
+		m.state.Events = &model.EventsState{
+			Target:  target,
+			Notice:  notice,
+			Loading: notice == "",
+			LoadSeq: m.paneLoadSeq,
+		}
+		if notice != "" {
+			return nil
+		}
+		return m.schedulePaneFetch(m.paneLoadSeq)
+	case m.state.SyncStatus != nil:
+		appName := m.treeView.SelectedNodeApp()
+		target := model.SyncStatusTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
+		if target == m.state.SyncStatus.Target {
+			return nil
+		}
+		m.paneLoadSeq++
+		m.state.SyncStatus = &model.SyncStatusState{Target: target, Loading: true, LoadSeq: m.paneLoadSeq}
+		return m.schedulePaneFetch(m.paneLoadSeq)
+	}
+	return nil
 }
 
 // modeBehindCommandBar returns the mode a dismissed command bar falls back
@@ -49,11 +110,38 @@ func (m *Model) closePanes() {
 }
 
 // handlePaneModeKeys handles input while the events or sync-status pane is
-// open. The pane owns the input: close (esc/q), pane switch (e/S), command
-// mode (:) and scroll (nav router) are recognized; everything else is
-// swallowed — the pane is a reading surface, not an action surface.
+// open. The pane is a lens over the tree: navigation keys keep moving the
+// tree selection (the pane follows it), the shifted variants scroll the
+// pane, esc/q close it, e/S switch panes, ':' opens the command bar.
+// Everything else is swallowed — the pane is a reading surface, not an
+// action surface.
 func (m *Model) handlePaneModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
+	case "up", "k", "down", "j", "pgup", "pgdown", "g", "G":
+		ctx := m.treeNavigatorContext()
+		if !ctx.SupportsNavigation {
+			return m, nil
+		}
+		// The selection may have been set outside the navigator (search
+		// jumps, direct SetSelectedIndex) — start from where the tree is
+		m.treeNav.SetItemCount(m.treeView.VisibleCount())
+		m.treeNav.SetCursor(m.treeView.SelectedIndex())
+		_, _ = m.executeNavigation(ctx, msg)
+		return m, m.retargetOpenPane()
+	case "J", "shift+down":
+		if st := m.state.Events; st != nil {
+			st.Offset++
+		} else if st := m.state.SyncStatus; st != nil {
+			st.Offset++
+		}
+		return m, nil
+	case "K", "shift+up":
+		if st := m.state.Events; st != nil {
+			st.Offset = max(0, st.Offset-1)
+		} else if st := m.state.SyncStatus; st != nil {
+			st.Offset = max(0, st.Offset-1)
+		}
+		return m, nil
 	case "esc", "q":
 		m.closePanes()
 		return m, nil
@@ -90,31 +178,24 @@ func (m *Model) handleShowSyncStatus() (tea.Model, tea.Cmd) {
 
 // handleShowEvents opens the events pane for the selected tree row: the
 // application's own events on the synthetic root, the resource's events
-// otherwise.
+// otherwise. A Missing resource opens with an inline notice instead of a
+// fetch — the lens must show something wherever the cursor lands.
 func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
 		return m, nil
 	}
-	appName := m.treeView.SelectedNodeApp()
-	target := model.EventsTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
-	if detail, ok := m.treeView.SelectedResourceDetail(); ok {
-		// A resource without a UID was never created in the cluster
-		// (Missing) — it cannot have events, so don't open a dead-end pane
-		if detail.UID == "" {
-			return m, func() tea.Msg {
-				return model.StatusChangeMsg{Status: "No events: resource does not exist in the cluster"}
-			}
-		}
-		target.Resource = model.EventsResource{
-			Kind:      detail.Kind,
-			Namespace: detail.Namespace,
-			Name:      detail.Name,
-			UID:       detail.UID,
-		}
-	}
+	target, notice := m.eventsTargetForSelection()
 	m.paneLoadSeq++
 	m.state.Mode = model.ModeEvents
 	m.state.SyncStatus = nil
-	m.state.Events = &model.EventsState{Target: target, Loading: true, LoadSeq: m.paneLoadSeq}
+	m.state.Events = &model.EventsState{
+		Target:  target,
+		Notice:  notice,
+		Loading: notice == "",
+		LoadSeq: m.paneLoadSeq,
+	}
+	if notice != "" {
+		return m, nil
+	}
 	return m, m.loadEvents(target, m.paneLoadSeq)
 }

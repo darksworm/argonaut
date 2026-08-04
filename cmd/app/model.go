@@ -1056,6 +1056,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep modal open to show error
 		return m, nil
 
+	case model.PaneFetchDueMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		// Fetch only if this debounce tick still matches the pane's load —
+		// a newer retarget or a close supersedes it.
+		if st := m.state.Events; st != nil && st.LoadSeq == msg.LoadSeq && st.Loading {
+			return m, m.loadEvents(st.Target, st.LoadSeq)
+		}
+		if st := m.state.SyncStatus; st != nil && st.LoadSeq == msg.LoadSeq && st.Loading {
+			return m, m.loadSyncStatus(st.Target, st.LoadSeq)
+		}
+		return m, nil
+
 	case model.EventsLoadedMsg:
 		if msg.SwitchEpoch != m.switchEpoch {
 			return m, nil

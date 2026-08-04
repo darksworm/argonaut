@@ -18,7 +18,7 @@ func (m *Model) renderStatusLine() string {
 		if m.state.Mode == model.ModeSyncStatus {
 			leftText = "<sync-status>"
 		}
-		return m.renderStatusBarLine(leftText, "j/k: scroll • esc: close")
+		return m.renderStatusBarLine(leftText, "j/k: select • J/K: scroll • esc: close")
 	}
 
 	visibleItems := m.getVisibleItems()

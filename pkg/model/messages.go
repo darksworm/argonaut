@@ -574,6 +574,14 @@ type EventsErrorMsg struct {
 	LoadSeq     int
 }
 
+// PaneFetchDueMsg fires after the pane-retarget debounce window: the fetch
+// runs only if LoadSeq still matches the pane, so scrolling quickly through
+// rows fetches once for the row the user settles on.
+type PaneFetchDueMsg struct {
+	SwitchEpoch int
+	LoadSeq     int
+}
+
 // SyncStatusLoadedMsg is sent when the sync-status pane's details have loaded
 type SyncStatusLoadedMsg struct {
 	Target      SyncStatusTarget

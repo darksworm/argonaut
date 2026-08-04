@@ -39,7 +39,10 @@ type EventsState struct {
 	Offset  int             `json:"offset"`
 	Loading bool            `json:"loading"`
 	Error   string          `json:"error"`
-	LoadSeq int             `json:"-"`
+	// Notice explains why this target can have no events (e.g. the resource
+	// is Missing from the cluster) — informational, unlike Error
+	Notice  string `json:"notice,omitempty"`
+	LoadSeq int    `json:"-"`
 }
 
 // SyncStatusTarget identifies the application whose sync status the pane shows.
