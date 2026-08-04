@@ -98,6 +98,13 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 	appName := m.treeView.SelectedNodeApp()
 	target := model.EventsTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
 	if detail, ok := m.treeView.SelectedResourceDetail(); ok {
+		// A resource without a UID was never created in the cluster
+		// (Missing) — it cannot have events, so don't open a dead-end pane
+		if detail.UID == "" {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "No events: resource does not exist in the cluster"}
+			}
+		}
 		target.Resource = model.EventsResource{
 			Kind:      detail.Kind,
 			Namespace: detail.Namespace,

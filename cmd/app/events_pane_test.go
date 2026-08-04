@@ -135,6 +135,31 @@ func TestTreeKeyEnter_OnChildApplicationRow_KeepsDrillIn(t *testing.T) {
 	}
 }
 
+// A Missing resource was never created in the cluster: its node has no UID,
+// so resource events cannot exist — the pane must not open onto a dead end.
+func TestTreeKeyE_OnMissingResource_ExplainsInsteadOfOpening(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	ns := "argonaut-demo"
+	m.treeView.UpsertAppTree("test-app", &api.ResourceTree{Nodes: []api.ResourceNode{
+		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Rollout", Name: "bluegreen-demo", Namespace: &ns},
+	}})
+	m.treeView.SetSelectedIndex(1)
+
+	teaModel, cmd := m.handleKeyMsg(testKeyMsg("e"))
+	mm := teaModel.(*Model)
+
+	if mm.state.Mode != model.ModeNormal || mm.state.Events != nil {
+		t.Fatalf("expected the pane not to open for a UID-less resource, got mode %s events %+v",
+			mm.state.Mode, mm.state.Events)
+	}
+	if cmd == nil {
+		t.Fatal("expected a status message explaining why")
+	}
+	if _, ok := cmd().(model.StatusChangeMsg); !ok {
+		t.Errorf("expected a StatusChangeMsg, got %T", cmd())
+	}
+}
+
 func openEventsPane(t *testing.T, m *Model) *Model {
 	t.Helper()
 	m.treeView.SetSelectedIndex(1)
