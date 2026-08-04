@@ -1,0 +1,23 @@
+ Context: argo.example.com                                                           Argonaut dev   
+ ╭────────────────────────────────────────────╮╭─ Sync Status · demo-app ───────────────────────╮   
+ │ Application [demo-app] (Degraded, Synced)  ││ Operation     Sync                             │   
+ │ ├── Deployment [demo/web] (Degraded)       ││ Phase         Failed                           │   
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degr… ││ Started       2 minutes ago                    │   
+ │ └── Service [demo/web] (Healthy)           ││ Duration      6s                               │   
+ │                                            ││ Revision      a1b2c3d                          │   
+ │                                            ││ Initiated by  alice                            │   
+ │                                            ││ Message       one or more objects failed to ap │   
+ │                                            ││               ply                              │   
+ │                                            ││                                                │   
+ │                                            ││ RESULT                                         │   
+ │                                            ││ ✔ Service      demo/web                 Synced │   
+ │                                            ││   service/web unchanged                        │   
+ │                                            ││ ✖ Deployment   demo/web             SyncFailed │   
+ │                                            ││   Deployment.apps "web" is invalid: spec.templ │   
+ │                                            ││   ate.spec.containers[0].image: Required value │   
+ │                                            ││                                                │   
+ │                                            ││                                                │   
+ │                                            ││                                                │   
+ │                                            ││                                                │   
+ ╰────────────────────────────────────────────╯╰────────────────────────────────────────────────╯   
+ <sync-status>                                                             j/k: scroll • esc: close 

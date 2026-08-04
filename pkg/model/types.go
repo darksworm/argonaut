@@ -47,20 +47,56 @@ const (
 	ModeConfirmResourceSync   Mode = "confirm-resource-sync"
 	ModeDefaultViewWarning    Mode = "default-view-warning"
 	ModeResourceAction        Mode = "resource-action"
+	ModeEvents                Mode = "events"
+	ModeSyncStatus            Mode = "sync-status"
 )
+
+// SyncOpSummary summarizes an application's last sync operation for the
+// one-line display under the tree root; full per-resource results are
+// fetched on demand when the sync-status pane opens.
+type SyncOpSummary struct {
+	Phase       string    `json:"phase"`
+	StartedAt   time.Time `json:"startedAt"`
+	FinishedAt  time.Time `json:"finishedAt"` // zero while the operation is running
+	Revision    string    `json:"revision"`
+	InitiatedBy string    `json:"initiatedBy"`
+	Automated   bool      `json:"automated"`
+}
+
+// SyncResourceResult is one row of a sync operation's RESULT table.
+type SyncResourceResult struct {
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Status    string `json:"status"` // hook phase for hooks, result code otherwise
+	Message   string `json:"message"`
+}
+
+// SyncStatusDetails is the full last-operation state shown in the
+// sync-status pane, including per-resource results.
+type SyncStatusDetails struct {
+	Phase       string               `json:"phase"`
+	Message     string               `json:"message"`
+	StartedAt   time.Time            `json:"startedAt"`
+	FinishedAt  time.Time            `json:"finishedAt"` // zero while the operation is running
+	Revision    string               `json:"revision"`
+	InitiatedBy string               `json:"initiatedBy"`
+	Automated   bool                 `json:"automated"`
+	Resources   []SyncResourceResult `json:"resources"`
+}
 
 // App represents an ArgoCD application
 type App struct {
-	Name           string     `json:"name"`
-	Sync           string     `json:"sync"`
-	Health         string     `json:"health"`
-	LastSyncAt     *time.Time `json:"lastSyncAt,omitempty"`
-	Project        *string    `json:"project,omitempty"`
-	ClusterID      *string    `json:"clusterId,omitempty"`
-	ClusterLabel   *string    `json:"clusterLabel,omitempty"`
-	Namespace      *string    `json:"namespace,omitempty"`
-	AppNamespace   *string    `json:"appNamespace,omitempty"`
-	ApplicationSet *string    `json:"applicationSet,omitempty"`
+	Name           string         `json:"name"`
+	Sync           string         `json:"sync"`
+	Health         string         `json:"health"`
+	SyncOp         *SyncOpSummary `json:"syncOp,omitempty"`
+	Project        *string        `json:"project,omitempty"`
+	ClusterID      *string        `json:"clusterId,omitempty"`
+	ClusterLabel   *string        `json:"clusterLabel,omitempty"`
+	Namespace      *string        `json:"namespace,omitempty"`
+	AppNamespace   *string        `json:"appNamespace,omitempty"`
+	ApplicationSet *string        `json:"applicationSet,omitempty"`
 }
 
 // SortKey returns the values used for semantic ordering of apps.

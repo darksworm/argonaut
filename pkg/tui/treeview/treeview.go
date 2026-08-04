@@ -5,10 +5,12 @@ import (
 	"image/color"
 	"sort"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/humantime"
 	model "github.com/darksworm/argonaut/pkg/model"
 	pkgsort "github.com/darksworm/argonaut/pkg/sort"
 	"github.com/darksworm/argonaut/pkg/theme"
@@ -59,6 +61,11 @@ type TreeView struct {
 
 	// Sort configuration for ordering siblings in the tree
 	sortConfig *model.SortConfig
+
+	// Last-sync-operation summaries rendered under each app root
+	syncSummaries map[string]*model.SyncOpSummary
+	// Time source for relative timestamps; overridable for deterministic tests
+	now func() time.Time
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -69,6 +76,7 @@ type ResourceSelection struct {
 	Kind      string
 	Namespace string
 	Name      string
+	UID       string // Kubernetes object UID (without the treeview's appName:: prefix)
 	Status    string // Sync status (e.g., "Synced", "OutOfSync", "Missing")
 	Health    string // Health status (e.g., "Healthy", "Degraded", "Missing")
 }
@@ -242,6 +250,7 @@ func NewTreeView(width, height int) *TreeView {
 		appMeta:      make(map[string]struct{ health, sync string }),
 		palette:      theme.Default(), // Start with default theme
 		selectedUIDs: make(map[string]bool),
+		now:          time.Now,
 	}
 	tv.Model = tv // self
 	return tv
@@ -481,7 +490,7 @@ func (v *TreeView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		case "right", "l", "enter":
+		case "right", "l":
 			if v.selIdx >= 0 && v.selIdx < len(v.order) {
 				cur := v.order[v.selIdx]
 				if len(cur.children) > 0 {
@@ -664,6 +673,12 @@ func (v *TreeView) Render() string {
 			}
 		}
 		b.WriteString(line)
+		if n.parent == nil {
+			if s := v.syncSummaries[n.name]; s != nil {
+				b.WriteString("\n")
+				b.WriteString(v.renderSyncSummaryLine(s))
+			}
+		}
 		if i < len(v.order)-1 {
 			b.WriteString("\n")
 		}
@@ -776,9 +791,14 @@ func (v *TreeView) SetSelectedIndex(idx int) {
 // VisibleCount returns the number of currently visible nodes in DFS order.
 func (v *TreeView) VisibleCount() int { return len(v.order) }
 
+// hasSyncSummary reports whether a root node renders a summary line under it.
+func (v *TreeView) hasSyncSummary(n *treeNode) bool {
+	return n.parent == nil && v.syncSummaries[n.name] != nil
+}
+
 // SelectedLineIndex returns the index of the selected line in the rendered
 // output, accounting for the blank separator lines inserted between app
-// roots in View().
+// roots and the sync-summary lines inserted under them in View().
 func (v *TreeView) SelectedLineIndex() int {
 	if v.selIdx <= 0 || v.selIdx >= len(v.order) {
 		if v.selIdx < 0 {
@@ -786,28 +806,38 @@ func (v *TreeView) SelectedLineIndex() int {
 		}
 		return min(v.selIdx, max(0, len(v.order)-1))
 	}
-	gaps := 0
+	extras := 0
+	if v.hasSyncSummary(v.order[0]) {
+		extras++
+	}
 	for i := 1; i <= v.selIdx && i < len(v.order); i++ {
 		if v.order[i].parent == nil {
-			gaps++
+			extras++ // blank separator before this root
+			if v.hasSyncSummary(v.order[i]) {
+				extras++
+			}
 		}
 	}
-	return v.selIdx + gaps
+	return v.selIdx + extras
 }
 
-// VisibleLineCount returns the number of lines produced by View(), which is
-// the number of visible nodes plus the number of blank separators (roots-1).
+// VisibleLineCount returns the number of lines produced by View(): visible
+// nodes plus blank separators (roots-1) plus sync-summary lines.
 func (v *TreeView) VisibleLineCount() int {
+	extras := 0
 	roots := 0
 	for _, n := range v.order {
 		if n.parent == nil {
 			roots++
+			if v.hasSyncSummary(n) {
+				extras++
+			}
 		}
 	}
 	if roots > 0 {
 		roots--
 	}
-	return len(v.order) + roots
+	return len(v.order) + roots + extras
 }
 
 func padRightWithBG(s string, width int, bg color.Color) string {
@@ -817,6 +847,75 @@ func padRightWithBG(s string, width int, bg color.Color) string {
 	}
 	padding := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width-w))
 	return s + padding
+}
+
+// SetClock overrides the time source used for relative timestamps (tests).
+func (v *TreeView) SetClock(now func() time.Time) {
+	v.now = now
+}
+
+// SetAppSyncSummary sets (or clears, with nil) the last-sync-operation
+// summary rendered as a one-line annotation under the app's root row.
+func (v *TreeView) SetAppSyncSummary(appName string, summary *model.SyncOpSummary) {
+	if v.syncSummaries == nil {
+		v.syncSummaries = make(map[string]*model.SyncOpSummary)
+	}
+	if summary == nil {
+		delete(v.syncSummaries, appName)
+		return
+	}
+	v.syncSummaries[appName] = summary
+}
+
+// phaseGlyph maps an operation phase to its status glyph.
+func phaseGlyph(phase string) string {
+	switch phase {
+	case "Failed", "Error", "Terminating":
+		return "✖"
+	case "Running":
+		return "◌"
+	default: // Succeeded
+		return "✔"
+	}
+}
+
+// renderSyncSummaryLine formats the one-line last-sync annotation:
+// "last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · S for details"
+func (v *TreeView) renderSyncSummaryLine(s *model.SyncOpSummary) string {
+	dim := lipgloss.NewStyle().Foreground(v.palette.Dim)
+
+	glyph := phaseGlyph(s.Phase)
+	phaseColor := v.palette.Success
+	switch glyph {
+	case "✖":
+		phaseColor = v.palette.Danger
+	case "◌":
+		phaseColor = v.palette.Progress
+	}
+	phaseStyle := lipgloss.NewStyle().Foreground(phaseColor)
+
+	at := s.FinishedAt
+	if at.IsZero() {
+		at = s.StartedAt
+	}
+	segments := []string{humantime.Ago(at, v.now())}
+	if s.Revision != "" {
+		revision := s.Revision
+		if len(revision) > 7 {
+			revision = revision[:7]
+		}
+		segments = append(segments, revision)
+	}
+	if s.InitiatedBy != "" {
+		segments = append(segments, "by "+s.InitiatedBy)
+	} else if s.Automated {
+		segments = append(segments, "auto")
+	}
+	segments = append(segments, "S for details")
+
+	return dim.Render("last sync: ") +
+		phaseStyle.Render(glyph+" "+s.Phase) +
+		dim.Render(" · "+strings.Join(segments, " · "))
 }
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node
@@ -976,6 +1075,36 @@ func (v *TreeView) SelectedResource() (group, kind, namespace, name string, ok b
 		return "", "", "", "", false
 	}
 	return node.group, node.kind, node.namespace, node.name, true
+}
+
+// SelectedResourceDetail returns the full selection details of the cursor
+// row. ok is false when the cursor is not on a real Kubernetes resource
+// (e.g. the synthetic application root).
+func (v *TreeView) SelectedResourceDetail() (ResourceSelection, bool) {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return ResourceSelection{}, false
+	}
+	node := v.order[v.selIdx]
+	if node == nil || strings.HasSuffix(node.uid, "::__app_root__") {
+		return ResourceSelection{}, false
+	}
+	appName := v.appName
+	uid := node.uid
+	if idx := strings.Index(node.uid, "::"); idx > 0 {
+		appName = node.uid[:idx]
+		uid = node.uid[idx+2:]
+	}
+	return ResourceSelection{
+		AppName:   appName,
+		Group:     node.group,
+		Version:   node.version,
+		Kind:      node.kind,
+		Namespace: node.namespace,
+		Name:      node.name,
+		UID:       uid,
+		Status:    node.status,
+		Health:    node.health,
+	}, true
 }
 
 // GetAppName returns the name of the application being displayed.

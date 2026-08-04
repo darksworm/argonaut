@@ -517,14 +517,14 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		// Treat Ctrl+C as closing the input (do not quit app)
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearCommandInput()
-		m.state.Mode = model.ModeNormal
+		m.state.Mode = m.modeBehindCommandBar()
 		m.state.UI.Command = ""
 		m.state.UI.CommandInvalid = false
 		return m, nil
 	case "esc":
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearCommandInput()
-		m.state.Mode = model.ModeNormal
+		m.state.Mode = m.modeBehindCommandBar()
 		m.state.UI.Command = ""
 		m.state.UI.CommandInvalid = false
 		return m, nil
@@ -653,9 +653,30 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
 
+		// A command that isn't a pane command closes any open side pane —
+		// the pane never outlives a jump elsewhere.
+		if canonical != "events" && canonical != "syncstatus" {
+			m.state.Events = nil
+			m.state.SyncStatus = nil
+		}
+
 		// IMPORTANT: When adding new commands here, also add them to pkg/autocomplete/autocomplete.go
 		// to ensure they appear in autocomplete and validation works correctly.
 		switch canonical {
+		case "events":
+			if m.state.Navigation.View != model.ViewTree {
+				return m, func() tea.Msg {
+					return model.StatusChangeMsg{Status: "Navigate to resources view first to view events"}
+				}
+			}
+			return m.handleShowEvents()
+		case "syncstatus":
+			if m.state.Navigation.View != model.ViewTree {
+				return m, func() tea.Msg {
+					return model.StatusChangeMsg{Status: "Navigate to resources view first to view sync status"}
+				}
+			}
+			return m.handleShowSyncStatus()
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.

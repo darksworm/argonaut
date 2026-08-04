@@ -12,6 +12,15 @@ import (
 
 // renderStatusLine - 1:1 mapping from MainLayout status Box
 func (m *Model) renderStatusLine() string {
+	// A side pane owns the input: the mode segment and hints flip with it.
+	if m.state.Mode == model.ModeEvents || m.state.Mode == model.ModeSyncStatus {
+		leftText := "<events>"
+		if m.state.Mode == model.ModeSyncStatus {
+			leftText = "<sync-status>"
+		}
+		return m.renderStatusBarLine(leftText, "j/k: scroll • esc: close")
+	}
+
 	visibleItems := m.getVisibleItems()
 
 	// Left side: view and filter info (matches MainLayout left Box)
@@ -135,10 +144,22 @@ func (m *Model) renderStatusLine() string {
 		statusText += fmt.Sprintf(" • %s", position)
 	}
 
-	// Combine the full right side text
-	fullRightText := rightText + statusText
+	// Advertise the side-pane hotkeys in the plain tree view. The hint
+	// yields to upgrade/changelog notices and to narrow terminals.
+	if m.state.Navigation.View == model.ViewTree && m.state.Mode == model.ModeNormal && rightText == "" {
+		const hints = "e: events • S: sync status"
+		available := max(0, m.state.Terminal.Cols-2)
+		if lipgloss.Width(leftText)+len(hints)+lipgloss.Width(statusText)+len(" • ")+2 <= available {
+			statusText = hints + " • " + statusText
+		}
+	}
 
-	// Layout matching MainLayout justifyContent="space-between"
+	return m.renderStatusBarLine(leftText, rightText+statusText)
+}
+
+// renderStatusBarLine lays out the status line's two sides with
+// space-between justification, padded/clipped to the container width.
+func (m *Model) renderStatusBarLine(leftText, fullRightText string) string {
 	leftStyled := statusStyle.Render(leftText)
 	rightStyled := statusStyle.Render(fullRightText)
 

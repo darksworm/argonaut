@@ -22,7 +22,7 @@ func TestGolden_TreeView_SelectionStyle(t *testing.T) {
 	m.treeView.SetData(&tree)
 
 	// Render only the bordered tree panel area; default selection is the synthetic root (Application)
-	out := m.renderTreePanel(12)
+	out := m.renderTreePanel(12, m.state.Terminal.Cols)
 	// Keep ANSI to capture highlight background codes in golden
 	compareWithGolden(t, "tree_view_selection", out)
 }
@@ -148,7 +148,7 @@ func TestGolden_TreeView_CtrlD_HighlightPreserved(t *testing.T) {
 
 	// Render tree panel only with desaturate mode enabled (as it would be during delete modal)
 	m.treeView.SetDesaturateMode(true)
-	out := m.renderTreePanel(12)
+	out := m.renderTreePanel(12, m.state.Terminal.Cols)
 	// Keep ANSI to verify highlight styling is preserved
 	compareWithGolden(t, "tree_view_ctrld_highlight_preserved", out)
 }

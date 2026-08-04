@@ -93,6 +93,26 @@ func (m *Model) getNavigatorContext() *NavigatorContext {
 			PageSize:           m.diffPageSize,
 		}
 
+	case model.ModeEvents:
+		if m.state.Events == nil {
+			return &NavigatorContext{SupportsNavigation: false}
+		}
+		return &NavigatorContext{
+			SupportsNavigation: true,
+			DirectOffset:       &m.state.Events.Offset,
+			PageSize:           m.panePageSize,
+		}
+
+	case model.ModeSyncStatus:
+		if m.state.SyncStatus == nil {
+			return &NavigatorContext{SupportsNavigation: false}
+		}
+		return &NavigatorContext{
+			SupportsNavigation: true,
+			DirectOffset:       &m.state.SyncStatus.Offset,
+			PageSize:           m.panePageSize,
+		}
+
 	case model.ModeNormal:
 		// Check for tree view first
 		if m.state.Navigation.View == model.ViewTree {

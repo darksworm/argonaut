@@ -3,6 +3,7 @@ package treeview
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/darksworm/argonaut/pkg/api"
 	model "github.com/darksworm/argonaut/pkg/model"
@@ -459,6 +460,122 @@ func TestUpsertAppTree_DifferentApplicationNodePreserved(t *testing.T) {
 	}
 	if !strings.Contains(plain, "child-app") {
 		t.Errorf("expected child-app in output:\n%s", plain)
+	}
+}
+
+func TestSelectedResourceDetail_ReturnsResourceWithRawUID(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Healthy", "Synced")
+
+	ns := "demo"
+	v.UpsertAppTree("my-app", &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: &ns},
+		},
+	})
+
+	// Row 0 is the synthetic root; row 1 is the deployment
+	v.SetSelectedIndex(1)
+
+	detail, ok := v.SelectedResourceDetail()
+	if !ok {
+		t.Fatal("expected ok for a resource row")
+	}
+	want := ResourceSelection{
+		AppName:   "my-app",
+		Group:     "apps",
+		Version:   "v1",
+		Kind:      "Deployment",
+		Namespace: "demo",
+		Name:      "web",
+		UID:       "deploy-uid",
+	}
+	if detail != want {
+		t.Errorf("expected %+v, got %+v", want, detail)
+	}
+}
+
+func TestSelectedResourceDetail_SyntheticRootIsNotAResource(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Healthy", "Synced")
+
+	v.UpsertAppTree("my-app", &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+		},
+	})
+
+	v.SetSelectedIndex(0) // synthetic app root
+
+	if _, ok := v.SelectedResourceDetail(); ok {
+		t.Error("expected ok=false on the synthetic application root")
+	}
+}
+
+func TestRender_AppWithSyncSummary_ShowsSummaryLineUnderRoot(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Degraded", "Synced")
+	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
+
+	v.UpsertAppTree("my-app", &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+		},
+	})
+	v.SetAppSyncSummary("my-app", &model.SyncOpSummary{
+		Phase:       "Failed",
+		StartedAt:   time.Date(2026, 8, 4, 11, 59, 54, 0, time.UTC),
+		FinishedAt:  time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+		Revision:    "a1b2c3d4e5f6789",
+		InitiatedBy: "alice",
+	})
+
+	lines := strings.Split(stripANSI(v.Render()), "\n")
+
+	if len(lines) < 3 {
+		t.Fatalf("expected root + summary + resource lines, got %d:\n%s", len(lines), strings.Join(lines, "\n"))
+	}
+	want := "last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · S for details"
+	if lines[1] != want {
+		t.Errorf("expected summary line %q, got %q", want, lines[1])
+	}
+	if !strings.Contains(lines[2], "Deployment") {
+		t.Errorf("expected the resource row after the summary line, got %q", lines[2])
+	}
+}
+
+func TestLineAccounting_CountsSummaryLinesLikeSeparators(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
+
+	for _, app := range []string{"app-a", "app-b"} {
+		v.SetAppMeta(app, "Healthy", "Synced")
+		v.UpsertAppTree(app, &api.ResourceTree{
+			Nodes: []api.ResourceNode{
+				{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+			},
+		})
+	}
+	// Only the first app has a summary line
+	v.SetAppSyncSummary("app-a", &model.SyncOpSummary{
+		Phase:      "Succeeded",
+		FinishedAt: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+	})
+
+	renderedLines := len(strings.Split(stripANSI(v.Render()), "\n"))
+	if got := v.VisibleLineCount(); got != renderedLines {
+		t.Errorf("VisibleLineCount() = %d, but Render() produced %d lines", got, renderedLines)
+	}
+
+	// Cursor on app-b's deployment (order: rootA, deployA, rootB, deployB).
+	// Rendered: rootA(0), summary(1), deployA(2), blank(3), rootB(4), deployB(5).
+	v.SetSelectedIndex(3)
+	if got := v.SelectedLineIndex(); got != 5 {
+		t.Errorf("SelectedLineIndex() = %d, want 5", got)
 	}
 }
 

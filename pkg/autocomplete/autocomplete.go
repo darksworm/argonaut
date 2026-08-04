@@ -100,6 +100,20 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "app",
 		},
 		{
+			Command:     "events",
+			Aliases:     []string{"events", "event"},
+			Description: "Show events for the selected resource or application",
+			TakesArg:    false,
+			ArgType:     "",
+		},
+		{
+			Command:     "syncstatus",
+			Aliases:     []string{"syncstatus", "ss"},
+			Description: "Show the last sync operation's status",
+			TakesArg:    false,
+			ArgType:     "",
+		},
+		{
 			Command:     "logs",
 			Aliases:     []string{"logs", "log", "l"},
 			Description: "Show application logs",

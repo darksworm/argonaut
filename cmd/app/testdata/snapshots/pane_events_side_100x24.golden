@@ -1,0 +1,23 @@
+ Context: argo.example.com                                                           Argonaut dev   
+ ╭────────────────────────────────────────────╮╭─ Events · Pod web-6f7d9b-x4k2m ────────────────╮   
+ │ Application [demo-app] (Degraded, Synced)  ││ ! BackOff                        x412 · 2m ago │   
+ │ ├── Deployment [demo/web] (Degraded)       ││   Back-off restarting failed container web in  │   
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degr… ││   pod web-6f7d9b-x4k2m_demo(a1b2c3d)           │   
+ │ └── Service [demo/web] (Healthy)           ││                                                │   
+ │                                            ││   Pulled                         x413 · 2m ago │   
+ │                                            ││   Container image "web:1.4.2" already present  │   
+ │                                            ││   on machine                                   │   
+ │                                            ││                                                │   
+ │                                            ││ ! Unhealthy                       x38 · 5m ago │   
+ │                                            ││   Readiness probe failed: Get "http://10.0.3.1 │   
+ │                                            ││   2:8080/healthz": connection refused          │   
+ │                                            ││                                                │   
+ │                                            ││   Scheduled                        x1 · 1h ago │   
+ │                                            ││   Successfully assigned demo/web-6f7d9b-x4k2m  │   
+ │                                            ││   to node-2                                    │   
+ │                                            ││                                                │   
+ │                                            ││                                                │   
+ │                                            ││                                                │   
+ │                                            ││                                                │   
+ ╰────────────────────────────────────────────╯╰────────────────────────────────────────────────╯   
+ <events>                                                                  j/k: scroll • esc: close 

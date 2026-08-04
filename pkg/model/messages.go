@@ -556,6 +556,36 @@ type ContextSwitchResultMsg struct {
 	Error        error
 }
 
+// Events / Sync-status pane messages
+
+// EventsLoadedMsg is sent when events for the events pane have loaded
+type EventsLoadedMsg struct {
+	Target      EventsTarget
+	Items       []ResourceEvent
+	SwitchEpoch int
+}
+
+// EventsErrorMsg is sent when loading events for the events pane fails
+type EventsErrorMsg struct {
+	Target      EventsTarget
+	Error       string
+	SwitchEpoch int
+}
+
+// SyncStatusLoadedMsg is sent when the sync-status pane's details have loaded
+type SyncStatusLoadedMsg struct {
+	Target      SyncStatusTarget
+	Details     *SyncStatusDetails
+	SwitchEpoch int
+}
+
+// SyncStatusErrorMsg is sent when loading the sync-status pane fails
+type SyncStatusErrorMsg struct {
+	Target      SyncStatusTarget
+	Error       string
+	SwitchEpoch int
+}
+
 // AuthValidationResultMsg is the result of validateAuthentication,
 // replacing SetModeMsg for auth validation to allow epoch gating
 // without globally gating SetModeMsg which is used by many flows.

@@ -66,6 +66,11 @@ func (m *Model) treeViewportHeight() int {
 	}
 	overhead := BORDER_LINES + headerLines + searchLines + commandLines + TABLE_HEADER_LINES + TAG_LINE + STATUS_LINES
 	availableRows := max(0, m.state.Terminal.Rows-overhead)
+	if m.paneOpen() {
+		// A bottom pane spends tree rows; derive from the same geometry
+		// the renderer uses so scroll math cannot drift.
+		return m.paneLayout(availableRows).treeBodyRows
+	}
 	return max(0, availableRows)
 }
 
@@ -1660,6 +1665,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:
 		return m.handleDiffModeKeys(msg)
+	case model.ModeEvents, model.ModeSyncStatus:
+		return m.handlePaneModeKeys(msg)
 	case model.ModeAuthRequired:
 		return m.handleAuthRequiredModeKeys(msg)
 	case model.ModeError:
@@ -1719,15 +1726,19 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.treeNav.SetCursor(m.treeView.SelectedIndex())
 			}
 			return m, nil
-		case "left", "h", "right", "l", "enter":
+		case "enter":
+			if m.treeView == nil {
+				return m, nil
+			}
+			// Enter on a child Application node navigates to that app;
+			// everywhere else it opens the events pane (root row → app events).
+			_, kind, childNamespace, childName, ok := m.treeView.SelectedResource()
+			if ok && kind == "Application" && !m.treeView.IsSelectedSyntheticRoot() {
+				return m.handleNavigateToChildApp(childName, childNamespace)
+			}
+			return m.handleShowEvents()
+		case "left", "h", "right", "l":
 			if m.treeView != nil {
-				// Enter on a child Application node navigates to that app
-				if msg.String() == "enter" {
-					_, kind, childNamespace, childName, ok := m.treeView.SelectedResource()
-					if ok && kind == "Application" && !m.treeView.IsSelectedSyntheticRoot() {
-						return m.handleNavigateToChildApp(childName, childNamespace)
-					}
-				}
 				// Expand/collapse handled by tree view, then sync treeNav
 				updatedModel, _ := m.treeView.Update(msg)
 				m.treeView = updatedModel.(*treeview.TreeView)
@@ -1741,6 +1752,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.treeNav.SetCursor(newLine)
 			}
 			return m, nil
+		case "e":
+			// Open the events pane for the selected row
+			return m.handleShowEvents()
+		case "S":
+			// Open the sync-status pane for the app
+			return m.handleShowSyncStatus()
 		case "K":
 			// Open k9s for the selected resource
 			return m.handleOpenK9s()

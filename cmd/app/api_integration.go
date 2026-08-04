@@ -1646,6 +1646,72 @@ func (m *Model) syncSelectedResources(targets []model.ResourceSyncTarget, prune,
 }
 
 // loadResourceActions lists the custom actions available for a resource via ArgoCD
+// loadEvents fetches events for the events pane, application- or
+// resource-scoped depending on the target.
+func (m *Model) loadEvents(target model.EventsTarget) tea.Cmd {
+	epoch := m.switchEpoch
+	server := m.state.Server
+	if server == nil {
+		return func() tea.Msg {
+			return model.EventsErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
+		}
+	}
+
+	return func() tea.Msg {
+		appService := api.NewApplicationService(server)
+
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
+		defer cancel()
+
+		events, err := appService.ListEvents(ctx, api.ListEventsParams{
+			AppName:           target.AppName,
+			AppNamespace:      target.AppNamespace,
+			ResourceUID:       target.Resource.UID,
+			ResourceName:      target.Resource.Name,
+			ResourceNamespace: target.Resource.Namespace,
+		})
+		if err != nil {
+			errMsg := extractUserFriendlyError(err)
+			cblog.With("component", "events").Error("Failed to list events",
+				"app", target.AppName, "kind", target.Resource.Kind, "name", target.Resource.Name, "err", err)
+			return model.EventsErrorMsg{Target: target, Error: errMsg, SwitchEpoch: epoch}
+		}
+		return model.EventsLoadedMsg{Target: target, Items: events, SwitchEpoch: epoch}
+	}
+}
+
+// loadSyncStatus fetches the full application (unprojected, so the complete
+// syncResult is present) and converts its operation state for the pane.
+func (m *Model) loadSyncStatus(target model.SyncStatusTarget) tea.Cmd {
+	epoch := m.switchEpoch
+	server := m.state.Server
+	if server == nil {
+		return func() tea.Msg {
+			return model.SyncStatusErrorMsg{Target: target, Error: "No server configured", SwitchEpoch: epoch}
+		}
+	}
+
+	return func() tea.Msg {
+		appService := api.NewApplicationService(server)
+
+		ctx, cancel := appcontext.WithAPITimeout(context.Background())
+		defer cancel()
+
+		var appNamespace *string
+		if target.AppNamespace != "" {
+			appNamespace = &target.AppNamespace
+		}
+		argoApp, err := appService.GetApplication(ctx, target.AppName, appNamespace)
+		if err != nil {
+			errMsg := extractUserFriendlyError(err)
+			cblog.With("component", "sync-status").Error("Failed to get application",
+				"app", target.AppName, "err", err)
+			return model.SyncStatusErrorMsg{Target: target, Error: errMsg, SwitchEpoch: epoch}
+		}
+		return model.SyncStatusLoadedMsg{Target: target, Details: api.ConvertOperationState(*argoApp), SwitchEpoch: epoch}
+	}
+}
+
 func (m *Model) loadResourceActions(target model.ResourceActionTarget) tea.Cmd {
 	epoch := m.switchEpoch
 	server := m.state.Server

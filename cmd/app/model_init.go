@@ -81,6 +81,7 @@ func NewModel(cfg *config.ArgonautConfig) *Model {
 		autocompleteEngine:      autocomplete.NewAutocompleteEngine(),
 		ready:                   false,
 		err:                     nil,
+		now:                     time.Now,
 		spinner:                 s,
 		appsTable:               appsTable,
 		clustersTable:           clustersTable,

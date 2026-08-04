@@ -50,6 +50,9 @@ type Model struct {
 	ready bool
 	err   error
 
+	// Time source for relative timestamps; overridable for deterministic tests
+	now func() time.Time
+
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 	// Closed when the current app watch forwarder stops.
@@ -569,6 +572,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
 				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
 				m.treeView.UpsertAppTree(msg.AppName, &tree)
+				if app := m.findAppByNameAndNamespace(msg.AppName, ""); app != nil {
+					m.treeView.SetAppSyncSummary(msg.AppName, app.SyncOp)
+				}
 
 				// Apply resource sync statuses from Application.status.resources
 				if len(msg.ResourcesJSON) > 0 {
@@ -1041,6 +1047,54 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.Modals.ResourceSyncError = &msg.Error
 		m.state.Modals.ResourceSyncLoading = false
 		// Keep modal open to show error
+		return m, nil
+
+	case model.EventsLoadedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.Target != msg.Target {
+			return m, nil
+		}
+		st.Loading = false
+		st.Items = msg.Items
+		return m, nil
+
+	case model.EventsErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.Target != msg.Target {
+			return m, nil
+		}
+		st.Loading = false
+		st.Error = msg.Error
+		return m, nil
+
+	case model.SyncStatusLoadedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.SyncStatus
+		if st == nil || st.Target != msg.Target {
+			return m, nil
+		}
+		st.Loading = false
+		st.Details = msg.Details
+		return m, nil
+
+	case model.SyncStatusErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.SyncStatus
+		if st == nil || st.Target != msg.Target {
+			return m, nil
+		}
+		st.Loading = false
+		st.Error = msg.Error
 		return m, nil
 
 	case model.ResourceActionsLoadedMsg:
@@ -1575,11 +1629,15 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 		m.state.Apps = append(m.state.Apps, upd.App)
 	}
 	// Update tree view sync statuses
-	if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
-		var resources []api.ResourceStatus
-		if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
-			m.treeView.SetResourceStatuses(upd.App.Name, resources)
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree {
+		if len(upd.ResourcesJSON) > 0 {
+			var resources []api.ResourceStatus
+			if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+				m.treeView.SetResourceStatuses(upd.App.Name, resources)
+			}
 		}
+		// The watch delivers full apps, so the summary line updates for free
+		m.treeView.SetAppSyncSummary(upd.App.Name, upd.App.SyncOp)
 	}
 }
 

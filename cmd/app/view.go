@@ -398,7 +398,8 @@ func normalizeLinesToWidth(s string, width int) string {
 		if w < width {
 			lines[i] = padRight(line, width)
 		} else if w > width {
-			lines[i] = clipAnsiToWidth(line, width)
+			// An ellipsis marks the clip so truncation is visible
+			lines[i] = clipAnsiToWidth(line, max(0, width-1)) + "…"
 		}
 	}
 	return strings.Join(lines, "\n")
