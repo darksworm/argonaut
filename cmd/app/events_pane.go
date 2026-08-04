@@ -32,7 +32,7 @@ const paneFetchDebounce = 200 * time.Millisecond
 // eventsTargetForSelection derives the events target from the tree cursor:
 // app-level on the synthetic root, resource-scoped otherwise. A non-empty
 // notice means the target cannot have events (resource Missing → no UID).
-func (m *Model) eventsTargetForSelection() (model.EventsTarget, string) {
+func (m *Model) eventsTargetForSelection() (model.EventsTarget, string, *model.ResourceStatusSummary) {
 	appName := m.treeView.SelectedNodeApp()
 	target := model.EventsTarget{AppName: appName, AppNamespace: m.resolveAppNamespace(appName)}
 	if detail, ok := m.treeView.SelectedResourceDetail(); ok {
@@ -42,11 +42,18 @@ func (m *Model) eventsTargetForSelection() (model.EventsTarget, string) {
 			Name:      detail.Name,
 			UID:       detail.UID,
 		}
-		if detail.UID == "" {
-			return target, "No events: resource does not exist in the cluster."
+		status := &model.ResourceStatusSummary{
+			Health:        detail.Health,
+			Sync:          detail.Status,
+			HealthMessage: detail.HealthMessage,
+			CreatedAt:     detail.CreatedAt,
 		}
+		if detail.UID == "" {
+			return target, "No events: resource does not exist in the cluster.", status
+		}
+		return target, "", status
 	}
-	return target, ""
+	return target, "", nil
 }
 
 // schedulePaneFetch arms the retarget debounce for the given load.
@@ -60,22 +67,32 @@ func (m *Model) schedulePaneFetch(loadSeq int) tea.Cmd {
 // retargetOpenPane points the open pane at the current tree selection,
 // scheduling a debounced fetch when the target actually changed.
 func (m *Model) retargetOpenPane() tea.Cmd {
-	if m.state.Events == nil {
+	prev := m.state.Events
+	if prev == nil {
 		return nil
 	}
-	target, notice := m.eventsTargetForSelection()
-	if target == m.state.Events.Target {
+	target, notice, resourceStatus := m.eventsTargetForSelection()
+	if target == prev.Target {
 		return nil
 	}
 	m.paneLoadSeq++
-	m.state.Events = &model.EventsState{
+	st := &model.EventsState{
 		Target:         target,
 		Notice:         notice,
 		Loading:        notice == "",
-		DetailsLoading: notice == "" && target.Resource == (model.EventsResource{}),
+		DetailsLoading: true,
+		ResourceStatus: resourceStatus,
 		LoadSeq:        m.paneLoadSeq,
 	}
-	if notice != "" {
+	// The app details are identical for every row of the same app —
+	// carry them over instead of refetching on each cursor move
+	if prev.Target.AppName == target.AppName && prev.Target.AppNamespace == target.AppNamespace &&
+		!prev.DetailsLoading && prev.DetailsError == "" {
+		st.Details = prev.Details
+		st.DetailsLoading = false
+	}
+	m.state.Events = st
+	if !st.Loading && !st.DetailsLoading {
 		return nil
 	}
 	return m.schedulePaneFetch(m.paneLoadSeq)
@@ -142,33 +159,35 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
 		return m, nil
 	}
-	target, notice := m.eventsTargetForSelection()
-	appLevel := target.Resource == (model.EventsResource{})
+	target, notice, resourceStatus := m.eventsTargetForSelection()
 	m.paneLoadSeq++
 	m.state.Mode = model.ModeEvents
 	m.state.Events = &model.EventsState{
 		Target:         target,
 		Notice:         notice,
 		Loading:        notice == "",
-		DetailsLoading: notice == "" && appLevel,
+		DetailsLoading: true,
+		ResourceStatus: resourceStatus,
 		LoadSeq:        m.paneLoadSeq,
-	}
-	if notice != "" {
-		return m, nil
 	}
 	return m, m.paneFetchCmds()
 }
 
-// paneFetchCmds returns the fetches the open pane needs: events always, the
-// sync details too when the pane sits on an application row.
+// paneFetchCmds returns the fetches the open pane still needs.
 func (m *Model) paneFetchCmds() tea.Cmd {
 	st := m.state.Events
-	cmds := []tea.Cmd{m.loadEvents(st.Target, st.LoadSeq)}
+	var cmds []tea.Cmd
+	if st.Loading {
+		cmds = append(cmds, m.loadEvents(st.Target, st.LoadSeq))
+	}
 	if st.DetailsLoading {
 		cmds = append(cmds, m.loadSyncStatus(model.SyncStatusTarget{
 			AppName:      st.Target.AppName,
 			AppNamespace: st.Target.AppNamespace,
 		}, st.LoadSeq))
+	}
+	if len(cmds) == 0 {
+		return nil
 	}
 	return tea.Batch(cmds...)
 }

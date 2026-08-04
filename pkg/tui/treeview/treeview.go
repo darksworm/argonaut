@@ -79,6 +79,10 @@ type ResourceSelection struct {
 	UID       string // Kubernetes object UID (without the treeview's appName:: prefix)
 	Status    string // Sync status (e.g., "Synced", "OutOfSync", "Missing")
 	Health    string // Health status (e.g., "Healthy", "Degraded", "Missing")
+	// HealthMessage is the controller's explanation of the health status
+	HealthMessage string
+	// CreatedAt is the resource's creation time; zero when unknown
+	CreatedAt time.Time
 }
 
 // IsMissing returns true if the resource has Missing status or health
@@ -97,6 +101,8 @@ type treeNode struct {
 	namespace string
 	status    string
 	health    string
+	healthMsg string
+	createdAt time.Time
 	parent    *treeNode
 	children  []*treeNode
 }
@@ -314,11 +320,21 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 			ns = *n.Namespace
 		}
 		health := ""
-		if n.Health != nil && n.Health.Status != nil {
-			health = *n.Health.Status
+		healthMsg := ""
+		if n.Health != nil {
+			if n.Health.Status != nil {
+				health = *n.Health.Status
+			}
+			if n.Health.Message != nil {
+				healthMsg = *n.Health.Message
+			}
+		}
+		createdAt := time.Time{}
+		if n.CreatedAt != nil {
+			createdAt = *n.CreatedAt
 		}
 		key := makeKey(n.UID)
-		tn := &treeNode{uid: key, group: n.Group, version: n.Version, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns}
+		tn := &treeNode{uid: key, group: n.Group, version: n.Version, kind: n.Kind, name: n.Name, status: n.Status, health: health, healthMsg: healthMsg, createdAt: createdAt, namespace: ns}
 		v.nodesByUID[key] = tn
 		nodesLocal[key] = tn
 		appKeys = append(appKeys, key)
@@ -1095,15 +1111,17 @@ func (v *TreeView) SelectedResourceDetail() (ResourceSelection, bool) {
 		uid = node.uid[idx+2:]
 	}
 	return ResourceSelection{
-		AppName:   appName,
-		Group:     node.group,
-		Version:   node.version,
-		Kind:      node.kind,
-		Namespace: node.namespace,
-		Name:      node.name,
-		UID:       uid,
-		Status:    node.status,
-		Health:    node.health,
+		AppName:       appName,
+		Group:         node.group,
+		Version:       node.version,
+		Kind:          node.kind,
+		Namespace:     node.namespace,
+		Name:          node.name,
+		UID:           uid,
+		Status:        node.status,
+		Health:        node.health,
+		HealthMessage: node.healthMsg,
+		CreatedAt:     node.createdAt,
 	}, true
 }
 

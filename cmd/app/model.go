@@ -1062,7 +1062,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Fetch only if this debounce tick still matches the pane's load —
 		// a newer retarget or a close supersedes it.
-		if st := m.state.Events; st != nil && st.LoadSeq == msg.LoadSeq && st.Loading {
+		if st := m.state.Events; st != nil && st.LoadSeq == msg.LoadSeq && (st.Loading || st.DetailsLoading) {
 			return m, m.paneFetchCmds()
 		}
 		return m, nil

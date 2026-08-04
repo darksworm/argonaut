@@ -29,6 +29,15 @@ type EventsTarget struct {
 	Resource     EventsResource `json:"resource"`
 }
 
+// ResourceStatusSummary is the tree's local knowledge about a resource,
+// snapshotted for the pane's status block when the lens targets it.
+type ResourceStatusSummary struct {
+	Health        string    `json:"health"`
+	Sync          string    `json:"sync"`
+	HealthMessage string    `json:"healthMessage"`
+	CreatedAt     time.Time `json:"createdAt"` // zero when unknown
+}
+
 // EventsState holds the state of the events side pane; its presence on
 // AppState is the "pane is open" signal. LoadSeq identifies the fetch this
 // pane is waiting for — a reopened pane shares epoch and target with the
@@ -42,7 +51,11 @@ type EventsState struct {
 	// Notice explains why this target can have no events (e.g. the resource
 	// is Missing from the cluster) — informational, unlike Error
 	Notice string `json:"notice,omitempty"`
-	// Application rows also show the last sync operation above the events
+	// ResourceStatus is the tree's snapshot of the targeted resource,
+	// shown as the status block on resource rows (nil on app rows)
+	ResourceStatus *ResourceStatusSummary `json:"resourceStatus,omitempty"`
+	// The app's last sync operation: rendered in full on application rows,
+	// and mined for the resource's own RESULT row on resource rows
 	Details        *SyncStatusDetails `json:"details,omitempty"`
 	DetailsLoading bool               `json:"detailsLoading,omitempty"`
 	DetailsError   string             `json:"detailsError,omitempty"`

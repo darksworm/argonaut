@@ -1,13 +1,13 @@
   argo.example.com                                                                   Argonaut dev   
  ╭──────────────────────────────────────────────╮╭─ Pod web-6f7d9b-x4k2m ────────── ▲ more above ─╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
- │ ├── Deployment [demo/web] (Degraded)         ││ Pulled                           x413 · 2m ago │ 
- │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││   Container image "web:1.4.2" already present  │ 
- │ └── Service [demo/web] (Healthy)             ││   on machine                                   │ 
+ │ ├── Deployment [demo/web] (Degraded)         ││               [web]                            │ 
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Last sync     SyncFailed                       │ 
+ │ └── Service [demo/web] (Healthy)             ││   pod spec invalid                             │ 
  │                                              ││                                                │ 
- │                                              ││ Unhealthy                         x38 · 5m ago │ 
- │                                              ││   Readiness probe failed: Get "http://10.0.3.1 │ 
- │                                              ││   2:8080/healthz": connection refused          │ 
- │                                              ││                                                │ 
+ │                                              ││ EVENTS                                         │ 
+ │                                              ││ BackOff                          x412 · 2m ago │ 
+ │                                              ││   Back-off restarting failed container web in  │ 
+ │                                              ││   pod web-6f7d9b-x4k2m_demo(a1b2c3d)           │ 
  ╰──────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯ 
  <events>                                                    j/k: select • J/K: scroll • esc: close 

@@ -49,6 +49,26 @@ func TestAgoLong(t *testing.T) {
 	}
 }
 
+func TestAge(t *testing.T) {
+	tests := []struct {
+		name string
+		at   time.Time
+		want string
+	}{
+		{"seconds", now.Add(-45 * time.Second), "45s"},
+		{"minutes", now.Add(-2 * time.Minute), "2m"},
+		{"hours", now.Add(-90 * time.Minute), "1h"},
+		{"days", now.Add(-72 * time.Hour), "3d"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Age(tt.at, now); got != tt.want {
+				t.Errorf("Age(%v) = %q, want %q", tt.at, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDuration(t *testing.T) {
 	tests := []struct {
 		name string

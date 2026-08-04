@@ -46,21 +46,26 @@ func Duration(d time.Duration) string {
 	}
 }
 
-// Ago formats how long before now t happened, in compact form: "2m ago".
-// Uses the largest whole unit (s/m/h/d); future times clamp to "0s ago".
-func Ago(t, now time.Time) string {
+// Age formats how long ago t was as a bare compact age: "3d", "2m".
+// Uses the largest whole unit (s/m/h/d); future times clamp to "0s".
+func Age(t, now time.Time) string {
 	elapsed := now.Sub(t)
 	if elapsed < 0 {
 		elapsed = 0
 	}
 	switch {
 	case elapsed >= 24*time.Hour:
-		return fmt.Sprintf("%dd ago", int(elapsed.Hours()/24))
+		return fmt.Sprintf("%dd", int(elapsed.Hours()/24))
 	case elapsed >= time.Hour:
-		return fmt.Sprintf("%dh ago", int(elapsed.Hours()))
+		return fmt.Sprintf("%dh", int(elapsed.Hours()))
 	case elapsed >= time.Minute:
-		return fmt.Sprintf("%dm ago", int(elapsed.Minutes()))
+		return fmt.Sprintf("%dm", int(elapsed.Minutes()))
 	default:
-		return fmt.Sprintf("%ds ago", int(elapsed.Seconds()))
+		return fmt.Sprintf("%ds", int(elapsed.Seconds()))
 	}
+}
+
+// Ago formats how long before now t happened, in compact form: "2m ago".
+func Ago(t, now time.Time) string {
+	return Age(t, now) + " ago"
 }

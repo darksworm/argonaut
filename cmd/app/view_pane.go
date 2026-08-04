@@ -196,6 +196,69 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	return lines
 }
 
+// severityColor mirrors the tree rows' status coloring for the pane's
+// status fields.
+func severityColor(s string) color.Color {
+	switch strings.ToLower(s) {
+	case "healthy", "running", "synced", "succeeded":
+		return currentPalette.Success
+	case "progressing", "pending":
+		return currentPalette.Progress
+	case "degraded", "error", "crashloop", "failed", "syncfailed":
+		return currentPalette.Danger
+	default:
+		return currentPalette.Unknown
+	}
+}
+
+// renderResourceStatusBody formats a resource row's status block: the tree's
+// local knowledge (health, sync, age, health message) plus the resource's
+// own row from the app's last sync RESULT. Unknown fields are skipped.
+func renderResourceStatusBody(status *model.ResourceStatusSummary, details *model.SyncStatusDetails, target model.EventsResource, width int, now time.Time) []string {
+	const labelWidth = 14
+	dim := lipgloss.NewStyle().Foreground(currentPalette.Dim)
+
+	var lines []string
+	field := func(name, value string, style lipgloss.Style) {
+		for i, part := range wrapAnsiToWidth(value, max(1, width-labelWidth)) {
+			if i == 0 {
+				lines = append(lines, dim.Render(fmt.Sprintf("%-*s", labelWidth, name))+style.Render(part))
+			} else {
+				lines = append(lines, strings.Repeat(" ", labelWidth)+style.Render(part))
+			}
+		}
+	}
+
+	if status != nil {
+		if status.Health != "" {
+			field("Health", status.Health, lipgloss.NewStyle().Foreground(severityColor(status.Health)))
+		}
+		if status.Sync != "" {
+			field("Sync", status.Sync, lipgloss.NewStyle().Foreground(severityColor(status.Sync)))
+		}
+		if !status.CreatedAt.IsZero() {
+			field("Age", humantime.Age(status.CreatedAt, now), lipgloss.NewStyle().Foreground(currentPalette.Text))
+		}
+		if status.HealthMessage != "" {
+			field("Message", status.HealthMessage, dim)
+		}
+	}
+	if details != nil {
+		for _, r := range details.Resources {
+			if r.Kind == target.Kind && r.Namespace == target.Namespace && r.Name == target.Name {
+				field("Last sync", r.Status, lipgloss.NewStyle().Foreground(severityColor(r.Status)))
+				for _, part := range wrapAnsiToWidth(r.Message, max(1, width-2)) {
+					if part != "" {
+						lines = append(lines, "  "+dim.Render(part))
+					}
+				}
+				break
+			}
+		}
+	}
+	return lines
+}
+
 // paneOpen reports whether the side pane is open.
 func (m *Model) paneOpen() bool {
 	return m.state.Events != nil
@@ -236,8 +299,13 @@ func (m *Model) renderSidePane(l paneLayout) string {
 		default:
 			body = append(body, renderSyncStatusBody(st.Details, l.paneBodyWidth, m.now())...)
 		}
-		body = append(body, "", dim.Render("EVENTS"))
+	} else {
+		body = append(body, renderResourceStatusBody(st.ResourceStatus, st.Details, st.Target.Resource, l.paneBodyWidth, m.now())...)
 	}
+	if len(body) > 0 {
+		body = append(body, "")
+	}
+	body = append(body, dim.Render("EVENTS"))
 	switch {
 	case st.Notice != "":
 		body = wrapWith(body, st.Notice, dim)

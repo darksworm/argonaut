@@ -71,6 +71,18 @@ func openGoldenEventsPane(m *Model) {
 			AppName:  "demo-app",
 			Resource: model.EventsResource{Kind: "Pod", Namespace: "demo", Name: "web-6f7d9b-x4k2m", UID: "pod-1"},
 		},
+		ResourceStatus: &model.ResourceStatusSummary{
+			Health:        "Degraded",
+			Sync:          "OutOfSync",
+			HealthMessage: "containers with unready status: [web]",
+			CreatedAt:     time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC),
+		},
+		Details: &model.SyncStatusDetails{
+			Phase: "Failed",
+			Resources: []model.SyncResourceResult{
+				{Kind: "Pod", Namespace: "demo", Name: "web-6f7d9b-x4k2m", Status: "SyncFailed", Message: "pod spec invalid"},
+			},
+		},
 		Items: samplePodEvents(),
 	}
 }

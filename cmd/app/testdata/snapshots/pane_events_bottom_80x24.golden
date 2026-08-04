@@ -8,16 +8,16 @@
  ╰────────────────────────────────────────────────────────────────────────────╯ 
  ╭─ Pod web-6f7d9b-x4k2m ─────────────────────────────────────────────────────╮ 
  │                                                                            │ 
+ │ Health        Degraded                                                     │ 
+ │ Sync          OutOfSync                                                    │ 
+ │ Age           3d                                                           │ 
+ │ Message       containers with unready status: [web]                        │ 
+ │ Last sync     SyncFailed                                                   │ 
+ │   pod spec invalid                                                         │ 
+ │                                                                            │ 
+ │ EVENTS                                                                     │ 
  │ BackOff                                                      x412 · 2m ago │ 
  │   Back-off restarting failed container web in pod web-6f7d9b-x4k2m_demo(a1 │ 
  │   b2c3d)                                                                   │ 
- │                                                                            │ 
- │ Pulled                                                       x413 · 2m ago │ 
- │   Container image "web:1.4.2" already present on machine                   │ 
- │                                                                            │ 
- │ Unhealthy                                                     x38 · 5m ago │ 
- │   Readiness probe failed: Get "http://10.0.3.12:8080/healthz": connection  │ 
- │   refused                                                                  │ 
- │                                                                            │ 
  ╰───────────────────────────────────────────────────────────── ▼ more below ─╯ 
  <events>                                j/k: select • J/K: scroll • esc: close 

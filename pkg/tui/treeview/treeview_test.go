@@ -469,9 +469,16 @@ func TestSelectedResourceDetail_ReturnsResourceWithRawUID(t *testing.T) {
 	v.SetAppMeta("my-app", "Healthy", "Synced")
 
 	ns := "demo"
+	degraded := "Degraded"
+	healthMsg := "Deployment does not have minimum availability"
+	createdAt := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
 	v.UpsertAppTree("my-app", &api.ResourceTree{
 		Nodes: []api.ResourceNode{
-			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: &ns},
+			{
+				UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: &ns,
+				Health:    &api.ResourceHealth{Status: &degraded, Message: &healthMsg},
+				CreatedAt: &createdAt,
+			},
 		},
 	})
 
@@ -483,13 +490,16 @@ func TestSelectedResourceDetail_ReturnsResourceWithRawUID(t *testing.T) {
 		t.Fatal("expected ok for a resource row")
 	}
 	want := ResourceSelection{
-		AppName:   "my-app",
-		Group:     "apps",
-		Version:   "v1",
-		Kind:      "Deployment",
-		Namespace: "demo",
-		Name:      "web",
-		UID:       "deploy-uid",
+		AppName:       "my-app",
+		Group:         "apps",
+		Version:       "v1",
+		Kind:          "Deployment",
+		Namespace:     "demo",
+		Name:          "web",
+		UID:           "deploy-uid",
+		Health:        "Degraded",
+		HealthMessage: "Deployment does not have minimum availability",
+		CreatedAt:     createdAt,
 	}
 	if detail != want {
 		t.Errorf("expected %+v, got %+v", want, detail)

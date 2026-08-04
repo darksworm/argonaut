@@ -68,6 +68,55 @@ func TestRenderEventCards_BlankLineBetweenCards(t *testing.T) {
 	}
 }
 
+func TestRenderResourceStatusBody_FieldsAndLastSyncResult(t *testing.T) {
+	status := &model.ResourceStatusSummary{
+		Health:        "Degraded",
+		Sync:          "OutOfSync",
+		HealthMessage: "Deployment does not have minimum availability",
+		CreatedAt:     paneNow.Add(-72 * time.Hour),
+	}
+	details := &model.SyncStatusDetails{Resources: []model.SyncResourceResult{
+		{Kind: "Service", Namespace: "demo", Name: "web", Status: "Synced", Message: "unchanged"},
+		{Kind: "Deployment", Namespace: "demo", Name: "web", Status: "SyncFailed", Message: "apply failed: image required"},
+	}}
+	target := model.EventsResource{Kind: "Deployment", Namespace: "demo", Name: "web", UID: "d1"}
+
+	lines := renderResourceStatusBody(status, details, target, 46, paneNow)
+	joined := stripANSI(strings.Join(lines, "\n"))
+
+	for _, want := range []string{
+		"Health        Degraded",
+		"Sync          OutOfSync",
+		"Age           3d",
+		"Deployment does not have minimum",
+		"Last sync     SyncFailed",
+		"  apply failed: image required",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected %q in the resource status block:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "unchanged") {
+		t.Errorf("only the targeted resource's RESULT row belongs in the block:\n%s", joined)
+	}
+}
+
+func TestRenderResourceStatusBody_SkipsAbsentFields(t *testing.T) {
+	status := &model.ResourceStatusSummary{Sync: "Synced"} // no health, no age, no message
+
+	lines := renderResourceStatusBody(status, nil, model.EventsResource{Kind: "ConfigMap", Name: "cfg"}, 46, paneNow)
+	joined := stripANSI(strings.Join(lines, "\n"))
+
+	for _, absent := range []string{"Health", "Age", "Message", "Last sync"} {
+		if strings.Contains(joined, absent) {
+			t.Errorf("expected %q to be skipped when unknown:\n%s", absent, joined)
+		}
+	}
+	if !strings.Contains(joined, "Sync          Synced") {
+		t.Errorf("expected the sync field:\n%s", joined)
+	}
+}
+
 func TestRenderSyncStatusBody_FieldsAndResults(t *testing.T) {
 	details := &model.SyncStatusDetails{
 		Phase:       "Failed",

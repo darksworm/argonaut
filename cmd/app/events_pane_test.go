@@ -24,8 +24,11 @@ func buildEventsPaneTestModel() *Model {
 	m.treeView = treeview.NewTreeView(100, 30)
 	m.treeView.SetAppMeta("test-app", "Healthy", "Synced")
 	demoNs := "demo"
+	degraded := "Degraded"
+	healthMsg := "Back-off restarting container"
 	m.treeView.UpsertAppTree("test-app", &api.ResourceTree{Nodes: []api.ResourceNode{
-		{UID: "pod-uid", Version: "v1", Kind: "Pod", Name: "web-1", Namespace: &demoNs},
+		{UID: "pod-uid", Version: "v1", Kind: "Pod", Name: "web-1", Namespace: &demoNs,
+			Health: &api.ResourceHealth{Status: &degraded, Message: &healthMsg}},
 	}})
 	return m
 }
@@ -85,11 +88,42 @@ func TestEventsPane_OnApplicationRow_AlsoLoadsSyncDetails(t *testing.T) {
 	}
 }
 
-func TestEventsPane_OnResourceRow_DoesNotLoadSyncDetails(t *testing.T) {
+// Resource rows fetch the app details too — their own row of the last sync
+// RESULT belongs in the status block — and snapshot the tree's health/sync.
+func TestEventsPane_OnResourceRow_SnapshotsStatusAndLoadsDetails(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
-	if m.state.Events.DetailsLoading || m.state.Events.Details != nil {
-		t.Errorf("resource rows show events only, got %+v", m.state.Events)
+	st := m.state.Events
+	if !st.DetailsLoading {
+		t.Error("expected the app details to load for the resource's last-sync result")
+	}
+	if st.ResourceStatus == nil || st.ResourceStatus.Health != "Degraded" {
+		t.Errorf("expected the resource status snapshot from the tree, got %+v", st.ResourceStatus)
+	}
+	if st.ResourceStatus.HealthMessage != "Back-off restarting container" {
+		t.Errorf("expected the health message in the snapshot, got %q", st.ResourceStatus.HealthMessage)
+	}
+}
+
+// Moving between rows of the same app must not refetch the app details —
+// they are identical for every row.
+func TestEventsPane_RetargetWithinApp_KeepsLoadedDetails(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	details := &model.SyncStatusDetails{Phase: "Succeeded"}
+	teaModel, _ := m.Update(model.SyncStatusLoadedMsg{
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
+		Details:     details,
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+
+	teaModel, _ = m.handleKeyMsg(testKeyMsg("k")) // onto the root: same app
+	mm := teaModel.(*Model)
+
+	st := mm.state.Events
+	if st.DetailsLoading || st.Details != details {
+		t.Errorf("expected the loaded details carried over within the app, got loading=%v", st.DetailsLoading)
 	}
 }
 
@@ -179,10 +213,12 @@ func TestTreeKeyE_OnMissingResource_OpensWithNotice(t *testing.T) {
 	}
 	st := mm.state.Events
 	if st.Notice == "" || st.Loading || st.Error != "" {
-		t.Errorf("expected an inline notice and no fetch, got %+v", st)
+		t.Errorf("expected an inline notice and no events fetch, got %+v", st)
 	}
-	if cmd != nil {
-		t.Error("expected no fetch command for a UID-less resource")
+	// The app details still load: a Missing resource often has a RESULT row
+	// explaining why (failed create, prune skipped)
+	if !st.DetailsLoading || cmd == nil {
+		t.Error("expected the details fetch to still run for a Missing resource")
 	}
 }
 
@@ -561,10 +597,10 @@ func TestEventsPane_CursorOntoMissingResource_ShowsNotice(t *testing.T) {
 
 	st := mm.state.Events
 	if st.Notice == "" || st.Loading {
-		t.Errorf("expected an inline notice without a fetch, got %+v", st)
+		t.Errorf("expected an inline notice without an events fetch, got %+v", st)
 	}
-	if cmd != nil {
-		t.Error("expected no fetch for a resource that cannot have events")
+	if !st.DetailsLoading || cmd == nil {
+		t.Error("expected the details fetch to still run for a Missing resource")
 	}
 }
 
