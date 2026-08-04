@@ -224,7 +224,8 @@ func (m *Model) validateAuthentication() tea.Cmd {
 		defer cancel()
 
 		// Validate user info (similar to TypeScript getUserInfo call)
-		if err := appService.GetUserInfo(ctx); err != nil {
+		username, err := appService.GetUserInfo(ctx)
+		if err != nil {
 			cblog.With("component", "auth").Error("Authentication validation failed", "err", err)
 
 			// Check if this is a connection error rather than authentication error
@@ -245,6 +246,6 @@ func (m *Model) validateAuthentication() tea.Cmd {
 		}
 
 		cblog.With("component", "auth").Info("Authentication validated successfully")
-		return model.AuthValidationResultMsg{Mode: model.ModeLoading, SwitchEpoch: epoch}
+		return model.AuthValidationResultMsg{Mode: model.ModeLoading, Username: username, SwitchEpoch: epoch}
 	}
 }

@@ -266,6 +266,32 @@ func TestListEvents_MultilineMessage_IsFlattenedToOneLine(t *testing.T) {
 	}
 }
 
+// Full git SHAs bloat event messages; they read fine at 8 characters.
+func TestListEvents_LongShasInMessages_AreShortened(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"items":[{
+			"type": "Normal",
+			"reason": "OperationStarted",
+			"message": "admin initiated sync to HEAD (4caae2c0e29c5ada8c840af6718bdcf3eeb57baa)",
+			"count": 1,
+			"lastTimestamp": "2026-08-04T12:00:00Z"
+		}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewApplicationService(&model.Server{BaseURL: server.URL, Token: "test-token"})
+
+	events, err := svc.ListEvents(context.Background(), ListEventsParams{AppName: "demo-app"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	want := "admin initiated sync to HEAD (4caae2c0)"
+	if events[0].Message != want {
+		t.Errorf("expected the sha shortened to 8 chars, want %q got %q", want, events[0].Message)
+	}
+}
+
 func TestSortEventsNewestFirst_OrdersByLastSeenDescending(t *testing.T) {
 	older := model.ResourceEvent{Reason: "Scheduled", LastSeen: time.Date(2026, 8, 4, 10, 0, 0, 0, time.UTC)}
 	newer := model.ResourceEvent{Reason: "BackOff", LastSeen: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)}

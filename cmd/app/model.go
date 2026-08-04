@@ -53,6 +53,9 @@ type Model struct {
 	// Time source for relative timestamps; overridable for deterministic tests
 	now func() time.Time
 
+	// The session's username (from userinfo), for "you" in event displays
+	currentUsername string
+
 	// Monotonic counter identifying each side-pane fetch; a reopened pane
 	// shares epoch and target with the load it superseded, so this is what
 	// gates late completions (see EventsState.LoadSeq)
@@ -1567,6 +1570,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cblog.With("component", "model").Debug("AuthValidationResultMsg: ignoring stale epoch",
 				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
 			return m, nil
+		}
+		if msg.Username != "" {
+			m.currentUsername = msg.Username
 		}
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
 

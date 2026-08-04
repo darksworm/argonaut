@@ -1,6 +1,6 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Application [demo-app] (Degraded, Synced)                                                      │
-│ last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · enter for details                          │
+│ last sync: ✖ Failed · 2m ago · a1b2c3d4 · by alice · enter for details                         │
 │ ├── Deployment [demo/web] (Degraded)                                                           │
 │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degraded)                                                 │
 │ └── Service [demo/web] (Healthy)                                                               │

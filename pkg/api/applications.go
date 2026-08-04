@@ -633,13 +633,13 @@ func ConvertOperationState(argoApp ArgoApplication) *model.SyncStatusDetails {
 				Namespace: r.Namespace,
 				Name:      r.Name,
 				Status:    status,
-				Message:   flattenWhitespace(r.Message),
+				Message:   shortenShas(flattenWhitespace(r.Message)),
 			})
 		}
 	}
 	return &model.SyncStatusDetails{
 		Phase:       opState.Phase,
-		Message:     flattenWhitespace(opState.Message),
+		Message:     shortenShas(flattenWhitespace(opState.Message)),
 		StartedAt:   opState.StartedAt,
 		FinishedAt:  opState.FinishedAt,
 		Revision:    opState.resolvedRevision(),
@@ -859,13 +859,18 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 	}
 }
 
-// GetUserInfo validates user authentication by checking session info
-func (s *ApplicationService) GetUserInfo(ctx context.Context) error {
-	// A successful response is all we need — it proves the user is authenticated
-	if _, err := s.client.Get(ctx, "/api/v1/session/userinfo"); err != nil {
-		return fmt.Errorf("failed to get user info: %w", err)
+// GetUserInfo validates user authentication by checking session info and
+// returns the session's username (empty if the server omits it).
+func (s *ApplicationService) GetUserInfo(ctx context.Context) (string, error) {
+	data, err := s.client.Get(ctx, "/api/v1/session/userinfo")
+	if err != nil {
+		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
-	return nil
+	var info struct {
+		Username string `json:"username"`
+	}
+	_ = json.Unmarshal(data, &info) // authentication already proven by the 200
+	return info.Username, nil
 }
 
 // GetApplication fetches a single application with full details including history

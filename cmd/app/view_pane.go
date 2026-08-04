@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"regexp"
 	"strings"
 	"time"
 
@@ -93,10 +94,42 @@ func statusGlyph(status string) (string, color.Color) {
 	}
 }
 
+// shortShaRE finds the 8-char shas the data layer shortened messages to.
+// The all-digits guard below avoids coloring date-like numbers.
+var shortShaRE = regexp.MustCompile(`\b[0-9a-f]{8}\b`)
+
+// styleMessageLine dims a wrapped message line, giving embedded shas their
+// identity color so repeats are spottable.
+func styleMessageLine(line string) string {
+	dim := lipgloss.NewStyle().Foreground(currentPalette.Dim)
+	var b strings.Builder
+	last := 0
+	for _, loc := range shortShaRE.FindAllStringIndex(line, -1) {
+		sha := line[loc[0]:loc[1]]
+		if !strings.ContainsAny(sha, "abcdef") {
+			continue // eight digits alone are more likely a number than a sha
+		}
+		b.WriteString(dim.Render(line[last:loc[0]]))
+		b.WriteString(lipgloss.NewStyle().Foreground(currentPalette.ShaColor(sha)).Render(sha))
+		last = loc[1]
+	}
+	b.WriteString(dim.Render(line[last:]))
+	return b.String()
+}
+
+// selfToYou rewrites "<selfUser> initiated …" as "you initiated …" when the
+// message names the session's own user.
+func selfToYou(message, selfUser string) string {
+	if selfUser == "" {
+		return message
+	}
+	return strings.ReplaceAll(message, selfUser+" initiated", "you initiated")
+}
+
 // renderEventCards formats normalized events as display lines: a header row
 // (warning marker + reason left, "xN · age" right) and the wrapped message
 // indented beneath, with a blank line between cards.
-func renderEventCards(events []model.ResourceEvent, width int, now time.Time) []string {
+func renderEventCards(events []model.ResourceEvent, width int, now time.Time, selfUser string) []string {
 	dim := lipgloss.NewStyle().Foreground(currentPalette.Dim)
 
 	var lines []string
@@ -112,8 +145,8 @@ func renderEventCards(events []model.ResourceEvent, width int, now time.Time) []
 		meta := fmt.Sprintf("x%d · %s", e.Count, humantime.Ago(e.LastSeen, now))
 		gap := max(1, width-lipgloss.Width(e.Reason)-lipgloss.Width(meta))
 		lines = append(lines, reasonStyle.Render(e.Reason)+strings.Repeat(" ", gap)+dim.Render(meta))
-		for _, part := range wrapAnsiToWidth(e.Message, max(1, width-2)) {
-			lines = append(lines, "  "+dim.Render(part))
+		for _, part := range wrapAnsiToWidth(selfToYou(e.Message, selfUser), max(1, width-2)) {
+			lines = append(lines, "  "+styleMessageLine(part))
 		}
 	}
 	return lines
@@ -121,7 +154,7 @@ func renderEventCards(events []model.ResourceEvent, width int, now time.Time) []
 
 // renderSyncStatusBody formats the last operation's state as display lines:
 // a label/value block followed by the per-resource RESULT rows.
-func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.Time) []string {
+func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.Time, selfUser string) []string {
 	const labelWidth = 14
 	dim := lipgloss.NewStyle().Foreground(currentPalette.Dim)
 	text := lipgloss.NewStyle().Foreground(currentPalette.Text)
@@ -148,14 +181,17 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	field("Duration", humantime.Duration(duration), text)
 	if details.Revision != "" {
 		revision := details.Revision
-		if len(revision) > 7 {
-			revision = revision[:7]
+		if len(revision) > 8 {
+			revision = revision[:8]
 		}
-		field("Revision", revision, text)
+		field("Revision", revision, lipgloss.NewStyle().Foreground(currentPalette.ShaColor(revision)))
 	}
-	if details.InitiatedBy != "" {
+	switch {
+	case details.InitiatedBy != "" && details.InitiatedBy == selfUser:
+		field("Initiated by", "you", text)
+	case details.InitiatedBy != "":
 		field("Initiated by", details.InitiatedBy, text)
-	} else if details.Automated {
+	case details.Automated:
 		field("Initiated by", "automated sync policy", text)
 	}
 	if details.Message != "" {
@@ -297,7 +333,7 @@ func (m *Model) renderSidePane(l paneLayout) string {
 		case st.Details == nil:
 			body = append(body, dim.Render("This application has never been synced."))
 		default:
-			body = append(body, renderSyncStatusBody(st.Details, l.paneBodyWidth, m.now())...)
+			body = append(body, renderSyncStatusBody(st.Details, l.paneBodyWidth, m.now(), m.currentUsername)...)
 		}
 	} else {
 		body = append(body, renderResourceStatusBody(st.ResourceStatus, st.Details, st.Target.Resource, l.paneBodyWidth, m.now())...)
@@ -316,7 +352,7 @@ func (m *Model) renderSidePane(l paneLayout) string {
 	case len(st.Items) == 0:
 		body = append(body, dim.Render("No events."))
 	default:
-		body = append(body, renderEventCards(st.Items, l.paneBodyWidth, m.now())...)
+		body = append(body, renderEventCards(st.Items, l.paneBodyWidth, m.now(), m.currentUsername)...)
 	}
 
 	frameStatus := ""

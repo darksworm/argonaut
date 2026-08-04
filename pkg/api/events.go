@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -34,6 +35,16 @@ func flattenWhitespace(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
+// fullShaRE matches full git object names (sha1/sha256) in message text.
+var fullShaRE = regexp.MustCompile(`\b[0-9a-f]{40}(?:[0-9a-f]{24})?\b`)
+
+// shortenShas cuts full git shas embedded in messages down to 8 characters.
+func shortenShas(s string) string {
+	return fullShaRE.ReplaceAllStringFunc(s, func(sha string) string {
+		return sha[:8]
+	})
+}
+
 func (e wireEvent) normalize() model.ResourceEvent {
 	lastSeen := e.LastTimestamp
 	if lastSeen.IsZero() {
@@ -49,7 +60,7 @@ func (e wireEvent) normalize() model.ResourceEvent {
 	return model.ResourceEvent{
 		Type:     e.Type,
 		Reason:   e.Reason,
-		Message:  flattenWhitespace(e.Message),
+		Message:  shortenShas(flattenWhitespace(e.Message)),
 		Count:    count,
 		LastSeen: lastSeen,
 	}

@@ -5,7 +5,7 @@
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Phase         Failed                           │ 
  │ └── Service [demo/web] (Healthy)             ││ Started       2 minutes ago                    │ 
  │                                              ││ Duration      6s                               │ 
- │                                              ││ Revision      a1b2c3d                          │ 
+ │                                              ││ Revision      a1b2c3d4                         │ 
  │                                              ││ Initiated by  alice                            │ 
  │                                              ││ Message       one or more objects failed to ap │ 
  │                                              ││               ply                              │ 

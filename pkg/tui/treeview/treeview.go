@@ -915,12 +915,9 @@ func (v *TreeView) renderSyncSummaryLine(s *model.SyncOpSummary) string {
 		at = s.StartedAt
 	}
 	segments := []string{humantime.Ago(at, v.now())}
-	if s.Revision != "" {
-		revision := s.Revision
-		if len(revision) > 7 {
-			revision = revision[:7]
-		}
-		segments = append(segments, revision)
+	revision := s.Revision
+	if len(revision) > 8 {
+		revision = revision[:8]
 	}
 	if s.InitiatedBy != "" {
 		segments = append(segments, "by "+s.InitiatedBy)
@@ -929,9 +926,15 @@ func (v *TreeView) renderSyncSummaryLine(s *model.SyncOpSummary) string {
 	}
 	segments = append(segments, "enter for details")
 
-	return dim.Render("last sync: ") +
+	line := dim.Render("last sync: ") +
 		phaseStyle.Render(glyph+" "+s.Phase) +
-		dim.Render(" · "+strings.Join(segments, " · "))
+		dim.Render(" · "+segments[0])
+	if revision != "" {
+		// The revision keeps its identity color so the same sha is
+		// spottable in the pane's status block and events
+		line += dim.Render(" · ") + lipgloss.NewStyle().Foreground(v.palette.ShaColor(revision)).Render(revision)
+	}
+	return line + dim.Render(" · "+strings.Join(segments[1:], " · "))
 }
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node

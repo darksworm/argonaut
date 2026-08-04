@@ -31,7 +31,7 @@ func TestRenderEventCards_ReasonsAreFlushLeft(t *testing.T) {
 		},
 	}
 
-	lines := renderEventCards(events, 46, paneNow)
+	lines := renderEventCards(events, 46, paneNow, "")
 
 	head := stripANSI(lines[0])
 	if !strings.HasPrefix(head, "BackOff") {
@@ -51,13 +51,59 @@ func TestRenderEventCards_ReasonsAreFlushLeft(t *testing.T) {
 	}
 }
 
+// The session's own username reads as "you" in event messages.
+func TestRenderEventCards_CurrentUserBecomesYou(t *testing.T) {
+	events := []model.ResourceEvent{{
+		Reason:   "OperationStarted",
+		Message:  "admin initiated sync to HEAD (4caae2c0)",
+		Count:    1,
+		LastSeen: paneNow,
+	}}
+
+	joined := stripANSI(strings.Join(renderEventCards(events, 46, paneNow, "admin"), "\n"))
+
+	if !strings.Contains(joined, "you initiated sync") {
+		t.Errorf("expected the current user replaced with 'you': %s", joined)
+	}
+	if strings.Contains(joined, "admin initiated") {
+		t.Errorf("expected the username gone from the message: %s", joined)
+	}
+}
+
+// Shas get their identity color so the same sha is spottable across cards.
+func TestRenderEventCards_ShasGetIdentityColors(t *testing.T) {
+	events := []model.ResourceEvent{{
+		Reason:   "OperationStarted",
+		Message:  "sync to 4caae2c0 done",
+		Count:    1,
+		LastSeen: paneNow,
+	}}
+
+	lines := renderEventCards(events, 46, paneNow, "")
+
+	shaStyled := lipgloss.NewStyle().Foreground(currentPalette.ShaColor("4caae2c0")).Render("4caae2c0")
+	if !strings.Contains(strings.Join(lines, "\n"), shaStyled) {
+		t.Errorf("expected the sha rendered in its identity color, got: %q", lines)
+	}
+}
+
+func TestRenderSyncStatusBody_CurrentUserBecomesYou(t *testing.T) {
+	details := &model.SyncStatusDetails{Phase: "Succeeded", StartedAt: paneNow, InitiatedBy: "admin"}
+
+	joined := stripANSI(strings.Join(renderSyncStatusBody(details, 46, paneNow, "admin"), "\n"))
+
+	if !strings.Contains(joined, "Initiated by  you") {
+		t.Errorf("expected 'Initiated by  you': %s", joined)
+	}
+}
+
 func TestRenderEventCards_BlankLineBetweenCards(t *testing.T) {
 	events := []model.ResourceEvent{
 		{Reason: "BackOff", Message: "a", Count: 1, LastSeen: paneNow},
 		{Reason: "Pulled", Message: "b", Count: 1, LastSeen: paneNow},
 	}
 
-	lines := renderEventCards(events, 46, paneNow)
+	lines := renderEventCards(events, 46, paneNow, "")
 
 	joined := stripANSI(strings.Join(lines, "\n"))
 	if !strings.Contains(joined, "a\n\n") {
@@ -131,7 +177,7 @@ func TestRenderSyncStatusBody_FieldsAndResults(t *testing.T) {
 		},
 	}
 
-	lines := renderSyncStatusBody(details, 46, paneNow)
+	lines := renderSyncStatusBody(details, 46, paneNow, "")
 	joined := stripANSI(strings.Join(lines, "\n"))
 
 	for _, want := range []string{
@@ -170,7 +216,7 @@ func TestRenderSyncStatusBody_LongResourceName_TruncatesNameNotStatus(t *testing
 		},
 	}
 
-	lines := renderSyncStatusBody(details, 46, paneNow)
+	lines := renderSyncStatusBody(details, 46, paneNow, "")
 
 	var row string
 	for _, l := range lines {
@@ -204,7 +250,7 @@ func TestRenderSyncStatusBody_LongKind_TruncatesKindNotStatus(t *testing.T) {
 		},
 	}
 
-	lines := renderSyncStatusBody(details, 46, paneNow)
+	lines := renderSyncStatusBody(details, 46, paneNow, "")
 
 	var row string
 	for _, l := range lines {
@@ -230,7 +276,7 @@ func TestRenderSyncStatusBody_RunningOperationDurationTicksFromNow(t *testing.T)
 		StartedAt: paneNow.Add(-42 * time.Second),
 	}
 
-	joined := stripANSI(strings.Join(renderSyncStatusBody(details, 46, paneNow), "\n"))
+	joined := stripANSI(strings.Join(renderSyncStatusBody(details, 46, paneNow, ""), "\n"))
 
 	if !strings.Contains(joined, "Duration      42s") {
 		t.Errorf("expected the running duration measured against now:\n%s", joined)

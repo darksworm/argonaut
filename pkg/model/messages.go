@@ -610,5 +610,6 @@ type SyncStatusErrorMsg struct {
 // without globally gating SetModeMsg which is used by many flows.
 type AuthValidationResultMsg struct {
 	Mode        Mode
+	Username    string // the session's user, for "you" in event displays
 	SwitchEpoch int
 }

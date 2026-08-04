@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
@@ -222,6 +225,26 @@ func TestConvertOperationState_MultilineMessages_AreFlattened(t *testing.T) {
 	}
 	if got := details.Resources[0].Message; got != "invalid: line 12:30 executing template" {
 		t.Errorf("expected the resource message flattened, got %q", got)
+	}
+}
+
+func TestGetUserInfo_ReturnsTheSessionUsername(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/session/userinfo" {
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+		w.Write([]byte(`{"loggedIn": true, "username": "admin"}`))
+	}))
+	defer server.Close()
+
+	svc := NewApplicationService(&model.Server{BaseURL: server.URL, Token: "test-token"})
+
+	username, err := svc.GetUserInfo(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if username != "admin" {
+		t.Errorf("expected username admin, got %q", username)
 	}
 }
 
