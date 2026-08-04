@@ -71,6 +71,7 @@ func openGoldenEventsPane(m *Model) {
 			AppName:  "demo-app",
 			Resource: model.EventsResource{Kind: "Pod", Namespace: "demo", Name: "web-6f7d9b-x4k2m", UID: "pod-1"},
 		},
+		LastRefreshed: time.Date(2026, 8, 4, 12, 1, 48, 0, time.UTC), // 12s before fixedNow
 		ResourceStatus: &model.ResourceStatusSummary{
 			Health:        "Degraded",
 			Sync:          "OutOfSync",

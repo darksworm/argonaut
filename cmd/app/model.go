@@ -1067,6 +1067,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case paneAgeTickMsg:
+		if msg.switchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		if st := m.state.Events; st != nil && st.LoadSeq == msg.loadSeq {
+			// The re-render happens by virtue of this Update cycle
+			return m, m.schedulePaneAgeTick(st.LoadSeq)
+		}
+		return m, nil
+
 	case model.PaneRefreshDueMsg:
 		if msg.SwitchEpoch != m.switchEpoch {
 			return m, nil
@@ -1080,7 +1090,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if st.Loading || st.DetailsLoading {
 			return m, m.schedulePaneRefresh(st.LoadSeq)
 		}
-		st.Refreshing = true
 		return m, tea.Batch(m.paneRefreshCmds(), m.schedulePaneRefresh(st.LoadSeq))
 
 	case model.EventsLoadedMsg:
@@ -1092,8 +1101,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st.Loading = false
-		st.Refreshing = false
 		st.Items = msg.Items
+		st.LastRefreshed = m.now()
 		return m, nil
 
 	case model.EventsErrorMsg:
@@ -1105,7 +1114,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		st.Loading = false
-		st.Refreshing = false
 		st.Error = msg.Error
 		return m, nil
 
@@ -1120,6 +1128,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		st.DetailsLoading = false
 		st.Details = msg.Details
+		st.LastRefreshed = m.now()
 		return m, nil
 
 	case model.SyncStatusErrorMsg:

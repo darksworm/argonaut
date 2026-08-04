@@ -428,6 +428,7 @@ func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
 
 func TestRenderPaneFrame_StatusAnchorsInBottomBorder(t *testing.T) {
 	frame := paneFrame{Title: "Events", Width: 40, BodyRows: 1, Status: "⟳ 10s", MoreBelow: true}
+	_ = frame
 
 	out := stripANSI(renderPaneFrame(frame, []string{"x"}))
 	lines := strings.Split(out, "\n")

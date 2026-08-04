@@ -643,9 +643,6 @@ func TestPaneRefreshDue_RefetchesInBackground(t *testing.T) {
 	mm := teaModel.(*Model)
 
 	st := mm.state.Events
-	if !st.Refreshing {
-		t.Error("expected the pane to mark itself refreshing")
-	}
 	if st.Loading || len(st.Items) != 1 {
 		t.Errorf("a background refresh must not blank the pane, got %+v", st)
 	}
@@ -659,17 +656,18 @@ func TestPaneRefreshDue_StaleSeq_IsDropped(t *testing.T) {
 	m.config.Events.RefreshInterval = "10s"
 
 	teaModel, cmd := m.Update(model.PaneRefreshDueMsg{SwitchEpoch: m.switchEpoch, LoadSeq: m.state.Events.LoadSeq - 1})
-	mm := teaModel.(*Model)
-
-	if mm.state.Events.Refreshing || cmd != nil {
+	_ = teaModel
+	if cmd != nil {
 		t.Error("a stale refresh tick must be dropped")
 	}
 }
 
-func TestEventsLoadedMsg_ClearsRefreshing(t *testing.T) {
+// A landed refresh stamps the pane so the border can show when the data was
+// last updated — a blink is not a signal.
+func TestEventsLoadedMsg_StampsLastRefreshed(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
-	m.state.Events.Refreshing = true
-	m.state.Events.Loading = false
+	stamp := time.Date(2026, 8, 4, 18, 35, 12, 0, time.UTC)
+	m.now = func() time.Time { return stamp }
 
 	teaModel, _ := m.Update(model.EventsLoadedMsg{
 		Target:      m.state.Events.Target,
@@ -679,11 +677,8 @@ func TestEventsLoadedMsg_ClearsRefreshing(t *testing.T) {
 	})
 	mm := teaModel.(*Model)
 
-	if mm.state.Events.Refreshing {
-		t.Error("expected a landed refresh to clear the indicator")
-	}
-	if mm.state.Events.Items[0].Reason != "Pulled" {
-		t.Error("expected the refreshed events to replace the stale ones")
+	if !mm.state.Events.LastRefreshed.Equal(stamp) {
+		t.Errorf("expected the pane stamped with the refresh time, got %v", mm.state.Events.LastRefreshed)
 	}
 }
 

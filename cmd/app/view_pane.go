@@ -322,8 +322,8 @@ func (m *Model) renderSidePane(l paneLayout) string {
 	frameStatus := ""
 	if interval := m.config.GetEventsRefreshInterval(); interval > 0 {
 		frameStatus = "⟳ " + interval.String()
-		if st.Refreshing {
-			frameStatus = "⟳ refreshing"
+		if !st.LastRefreshed.IsZero() {
+			frameStatus = "⟳ updated " + humantime.Ago(st.LastRefreshed, m.now())
 		}
 	}
 
@@ -331,13 +331,12 @@ func (m *Model) renderSidePane(l paneLayout) string {
 	st.Offset = min(max(0, st.Offset), max(0, len(body)-capacity))
 	visible := body[st.Offset:min(st.Offset+capacity, len(body))]
 	return renderPaneFrame(paneFrame{
-		Title:        title,
-		Width:        l.paneBoxWidth,
-		BodyRows:     l.paneBodyRows,
-		MoreAbove:    st.Offset > 0,
-		MoreBelow:    st.Offset+capacity < len(body),
-		Status:       frameStatus,
-		StatusActive: st.Refreshing,
+		Title:     title,
+		Width:     l.paneBoxWidth,
+		BodyRows:  l.paneBodyRows,
+		MoreAbove: st.Offset > 0,
+		MoreBelow: st.Offset+capacity < len(body),
+		Status:    frameStatus,
 	}, visible)
 }
 
@@ -348,10 +347,9 @@ type paneFrame struct {
 	BodyRows  int // body rows to render (padded with blanks)
 	MoreAbove bool
 	MoreBelow bool
-	// Status is anchored at the bottom border's left edge (auto-refresh
-	// cadence / activity); StatusActive brightens it while work is in flight
-	Status       string
-	StatusActive bool
+	// Status is anchored at the bottom border's left edge (the pane's
+	// auto-refresh cadence and data age)
+	Status string
 }
 
 // renderPaneFrame draws a manually-composed rounded frame: the title lives
@@ -402,9 +400,6 @@ func renderPaneFrame(f paneFrame, body []string) string {
 	bottomLeft := ""
 	if f.Status != "" {
 		statusStyle := lipgloss.NewStyle().Foreground(currentPalette.Dim)
-		if f.StatusActive {
-			statusStyle = markerStyle
-		}
 		bottomFill -= lipgloss.Width("─ " + f.Status + " ")
 		bottomLeft = borderStyle.Render("─ ") + statusStyle.Render(f.Status) + borderStyle.Render(" ")
 	}

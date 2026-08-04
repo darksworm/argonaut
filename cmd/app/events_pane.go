@@ -83,6 +83,25 @@ func (m *Model) paneRefreshCmds() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// paneAgeTickMsg re-renders the open pane once a second so the border's
+// "updated Ns ago" stays honest between refreshes. Display only.
+type paneAgeTickMsg struct {
+	switchEpoch int
+	loadSeq     int
+}
+
+// schedulePaneAgeTick arms the next display tick; nil when the indicator is
+// hidden (auto-refresh disabled).
+func (m *Model) schedulePaneAgeTick(loadSeq int) tea.Cmd {
+	if m.config.GetEventsRefreshInterval() <= 0 {
+		return nil
+	}
+	epoch := m.switchEpoch
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return paneAgeTickMsg{switchEpoch: epoch, loadSeq: loadSeq}
+	})
+}
+
 // schedulePaneFetch arms the retarget debounce for the given load.
 func (m *Model) schedulePaneFetch(loadSeq int) tea.Cmd {
 	epoch := m.switchEpoch
@@ -120,9 +139,9 @@ func (m *Model) retargetOpenPane() tea.Cmd {
 	}
 	m.state.Events = st
 	if !st.Loading && !st.DetailsLoading {
-		return m.schedulePaneRefresh(m.paneLoadSeq)
+		return tea.Batch(m.schedulePaneRefresh(m.paneLoadSeq), m.schedulePaneAgeTick(m.paneLoadSeq))
 	}
-	return tea.Batch(m.schedulePaneFetch(m.paneLoadSeq), m.schedulePaneRefresh(m.paneLoadSeq))
+	return tea.Batch(m.schedulePaneFetch(m.paneLoadSeq), m.schedulePaneRefresh(m.paneLoadSeq), m.schedulePaneAgeTick(m.paneLoadSeq))
 }
 
 // modeBehindCommandBar returns the mode a dismissed command bar falls back
@@ -199,7 +218,7 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 		ResourceStatus: resourceStatus,
 		LoadSeq:        m.paneLoadSeq,
 	}
-	return m, tea.Batch(m.paneFetchCmds(), m.schedulePaneRefresh(m.paneLoadSeq))
+	return m, tea.Batch(m.paneFetchCmds(), m.schedulePaneRefresh(m.paneLoadSeq), m.schedulePaneAgeTick(m.paneLoadSeq))
 }
 
 // paneFetchCmds returns the fetches the open pane still needs.
