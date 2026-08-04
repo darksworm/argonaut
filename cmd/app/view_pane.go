@@ -104,15 +104,14 @@ func renderEventCards(events []model.ResourceEvent, width int, now time.Time) []
 		if i > 0 {
 			lines = append(lines, "")
 		}
-		marker := "  "
+		// Warnings are marked by color alone; reasons stay flush left
 		reasonStyle := lipgloss.NewStyle().Foreground(currentPalette.Text)
 		if e.Type == "Warning" {
-			marker = "! "
 			reasonStyle = lipgloss.NewStyle().Foreground(currentPalette.Danger)
 		}
 		meta := fmt.Sprintf("x%d · %s", e.Count, humantime.Ago(e.LastSeen, now))
-		gap := max(1, width-lipgloss.Width(marker+e.Reason)-lipgloss.Width(meta))
-		lines = append(lines, reasonStyle.Render(marker+e.Reason)+strings.Repeat(" ", gap)+dim.Render(meta))
+		gap := max(1, width-lipgloss.Width(e.Reason)-lipgloss.Width(meta))
+		lines = append(lines, reasonStyle.Render(e.Reason)+strings.Repeat(" ", gap)+dim.Render(meta))
 		for _, part := range wrapAnsiToWidth(e.Message, max(1, width-2)) {
 			lines = append(lines, "  "+dim.Render(part))
 		}

@@ -11,20 +11,31 @@ import (
 
 var paneNow = time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC)
 
-func TestRenderEventCards_WarningCardLayout(t *testing.T) {
-	events := []model.ResourceEvent{{
-		Type:     "Warning",
-		Reason:   "BackOff",
-		Message:  "Back-off restarting failed container web",
-		Count:    412,
-		LastSeen: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
-	}}
+// Reasons sit flush against the frame padding — warnings are distinguished
+// by color alone, not a marker column.
+func TestRenderEventCards_ReasonsAreFlushLeft(t *testing.T) {
+	events := []model.ResourceEvent{
+		{
+			Type:     "Warning",
+			Reason:   "BackOff",
+			Message:  "Back-off restarting failed container web",
+			Count:    412,
+			LastSeen: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+		},
+		{
+			Type:     "Normal",
+			Reason:   "Scheduled",
+			Message:  "ok",
+			Count:    1,
+			LastSeen: paneNow,
+		},
+	}
 
 	lines := renderEventCards(events, 46, paneNow)
 
 	head := stripANSI(lines[0])
-	if !strings.HasPrefix(head, "! BackOff") {
-		t.Errorf("expected the warning marker before the reason, got %q", head)
+	if !strings.HasPrefix(head, "BackOff") {
+		t.Errorf("expected the warning reason flush left, got %q", head)
 	}
 	if !strings.HasSuffix(head, "x412 · 2m ago") {
 		t.Errorf("expected the meta right-aligned at the line end, got %q", head)
@@ -35,21 +46,8 @@ func TestRenderEventCards_WarningCardLayout(t *testing.T) {
 	if got := stripANSI(lines[1]); !strings.HasPrefix(got, "  Back-off restarting") {
 		t.Errorf("expected the message indented under the reason, got %q", got)
 	}
-}
-
-func TestRenderEventCards_NormalEventAlignsWithWarnings(t *testing.T) {
-	events := []model.ResourceEvent{{
-		Type:     "Normal",
-		Reason:   "Scheduled",
-		Message:  "ok",
-		Count:    1,
-		LastSeen: paneNow,
-	}}
-
-	lines := renderEventCards(events, 46, paneNow)
-
-	if head := stripANSI(lines[0]); !strings.HasPrefix(head, "  Scheduled") {
-		t.Errorf("expected normal events indented to align with warning reasons, got %q", head)
+	if normalHead := stripANSI(lines[3]); !strings.HasPrefix(normalHead, "Scheduled") {
+		t.Errorf("expected the normal reason flush left too, got %q", normalHead)
 	}
 }
 
