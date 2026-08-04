@@ -39,6 +39,12 @@ type paneLayout struct {
 	treeBodyRows  int  // tree content rows
 }
 
+// paneContentRows is how many body lines fit below the frame's fixed top
+// padding row (see renderPaneFrame).
+func (l paneLayout) paneContentRows() int {
+	return max(0, l.paneBodyRows-1)
+}
+
 // paneLayout computes the split for the given row budget (the rows the tree
 // body alone would get with no pane open).
 func (m *Model) paneLayout(availableRows int) paneLayout {
@@ -245,14 +251,15 @@ func (m *Model) renderSidePane(l paneLayout) string {
 		return ""
 	}
 
-	*offset = min(max(0, *offset), max(0, len(body)-l.paneBodyRows))
-	visible := body[*offset:min(*offset+l.paneBodyRows, len(body))]
+	capacity := l.paneContentRows()
+	*offset = min(max(0, *offset), max(0, len(body)-capacity))
+	visible := body[*offset:min(*offset+capacity, len(body))]
 	return renderPaneFrame(paneFrame{
 		Title:     title,
 		Width:     l.paneBoxWidth,
 		BodyRows:  l.paneBodyRows,
 		MoreAbove: *offset > 0,
-		MoreBelow: *offset+l.paneBodyRows < len(body),
+		MoreBelow: *offset+capacity < len(body),
 	}, visible)
 }
 
@@ -297,11 +304,12 @@ func renderPaneFrame(f paneFrame, body []string) string {
 	b.WriteString(borderStyle.Render("╮"))
 	b.WriteString("\n")
 
-	// Body rows, padded to the frame's height and width
+	// Body rows, padded to the frame's height and width. The first row is
+	// always blank — breathing room between the title and the content.
 	for i := 0; i < f.BodyRows; i++ {
 		line := strings.Repeat(" ", bodyWidth)
-		if i < len(body) && body[i] != "" {
-			line = normalizeLinesToWidth(body[i], bodyWidth)
+		if i > 0 && i-1 < len(body) && body[i-1] != "" {
+			line = normalizeLinesToWidth(body[i-1], bodyWidth)
 		}
 		b.WriteString(borderStyle.Render("│") + " " + line + " " + borderStyle.Render("│"))
 		b.WriteString("\n")

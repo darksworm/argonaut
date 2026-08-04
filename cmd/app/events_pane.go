@@ -24,9 +24,9 @@ func (m *Model) resolveAppNamespace(appName string) string {
 }
 
 // panePageSize returns the number of rows a page scroll moves in a side
-// pane — its rendered body height, from the same geometry the renderer uses.
+// pane — its visible content height, from the same geometry the renderer uses.
 func (m *Model) panePageSize() int {
-	return max(1, m.paneLayout(m.viewportRowBudget()).paneBodyRows)
+	return max(1, m.paneLayout(m.viewportRowBudget()).paneContentRows())
 }
 
 // modeBehindCommandBar returns the mode a dismissed command bar falls back

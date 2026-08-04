@@ -1,4 +1,5 @@
 ╭─ Events · Application demo-app ────────────────╮
+│                                                │
 │ Loading events…                                │
 │                                                │
 │                                                │
@@ -7,10 +8,10 @@
 │                                                │
 │                                                │
 │                                                │
-│                                                │
 ╰────────────────────────────────────────────────╯
 
 ╭─ Events · Application demo-app ────────────────╮
+│                                                │
 │ No events.                                     │
 │                                                │
 │                                                │
@@ -19,12 +20,11 @@
 │                                                │
 │                                                │
 │                                                │
-│                                                │
 ╰────────────────────────────────────────────────╯
 
 ╭─ Events · Application demo-app ────────────────╮
-│ connection refused: dial tcp 10.0.0.1:443      │
 │                                                │
+│ connection refused: dial tcp 10.0.0.1:443      │
 │                                                │
 │                                                │
 │                                                │

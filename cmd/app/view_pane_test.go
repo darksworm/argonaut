@@ -323,27 +323,59 @@ func TestRenderPaneFrame_MoreAboveMarker_LeavesRoomForTitleByCells(t *testing.T)
 }
 
 func TestRenderPaneFrame_TitleAndBody(t *testing.T) {
-	frame := paneFrame{Title: "Events · Pod web-1", Width: 30, BodyRows: 2}
+	frame := paneFrame{Title: "Events · Pod web-1", Width: 30, BodyRows: 3}
 
 	out := stripANSI(renderPaneFrame(frame, []string{"hello"}))
 	lines := strings.Split(out, "\n")
 
-	if len(lines) != 4 {
-		t.Fatalf("expected top border + 2 body rows + bottom border, got %d lines:\n%s", len(lines), out)
+	if len(lines) != 5 {
+		t.Fatalf("expected top border + 3 body rows + bottom border, got %d lines:\n%s", len(lines), out)
 	}
 	if !strings.HasPrefix(lines[0], "╭─ Events · Pod web-1 ") || !strings.HasSuffix(lines[0], "╮") {
 		t.Errorf("expected the title embedded in the top border, got %q", lines[0])
 	}
-	if lines[1] != "│ hello"+strings.Repeat(" ", 30-2-2-len("hello"))+" │" {
-		t.Errorf("unexpected body row: %q", lines[1])
+	// The first body row is always blank: breathing room under the title
+	if lines[1] != "│"+strings.Repeat(" ", 28)+"│" {
+		t.Errorf("expected the padding row under the title, got %q", lines[1])
 	}
-	if lines[2] != "│"+strings.Repeat(" ", 28)+"│" {
-		t.Errorf("expected a blank padded row, got %q", lines[2])
+	if lines[2] != "│ hello"+strings.Repeat(" ", 30-2-2-len("hello"))+" │" {
+		t.Errorf("unexpected first content row: %q", lines[2])
+	}
+	if lines[3] != "│"+strings.Repeat(" ", 28)+"│" {
+		t.Errorf("expected a blank padded row, got %q", lines[3])
 	}
 	for _, line := range lines {
 		if w := len([]rune(line)); w != 30 {
 			t.Errorf("every frame line must be exactly 30 cells, got %d in %q", w, line)
 		}
+	}
+}
+
+// The padding row consumes one physical row, so the scrollable capacity is
+// BodyRows-1 — the viewport math and markers must account for it.
+func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.state.Events.Loading = false
+	// 3 two-line cards + 2 separators = exactly 8 content lines
+	var events []model.ResourceEvent
+	for _, r := range []string{"A", "B", "C"} {
+		events = append(events, model.ResourceEvent{Reason: r, Message: "m", Count: 1, LastSeen: paneNow})
+	}
+	m.state.Events.Items = events
+
+	l := m.paneLayout(9) // paneBodyRows 8: content fills it exactly, but the
+	// padding row leaves capacity 7 → the last line is clipped
+	out := stripANSI(m.renderSidePane(l))
+
+	if !strings.Contains(out, "▼ more below") {
+		t.Errorf("expected the below marker: the padding row costs one row of capacity:\n%s", out)
+	}
+	lines := strings.Split(out, "\n")
+	if got := len(lines); got != l.paneBodyRows+2 {
+		t.Errorf("frame height must stay %d rows, got %d", l.paneBodyRows+2, got)
+	}
+	if content := strings.Trim(stripANSI(lines[1]), "│ "); content != "" {
+		t.Errorf("expected the padding row directly under the title, got %q", lines[1])
 	}
 }
 
