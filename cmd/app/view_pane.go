@@ -94,23 +94,30 @@ func statusGlyph(status string) (string, color.Color) {
 	}
 }
 
-// shortShaRE finds the 8-char shas the data layer shortened messages to.
-// The all-digits guard below avoids coloring date-like numbers.
-var shortShaRE = regexp.MustCompile(`\b[0-9a-f]{8}\b`)
+// messageTokenRE finds highlightable tokens in message text: hex object
+// names (shortened git shas, pod-template hashes) and the substituted "you".
+// The digit+letter guard below avoids coloring date-like numbers.
+var messageTokenRE = regexp.MustCompile("\\b(?:[0-9a-f]{7,40}|you)\\b")
 
 // styleMessageLine dims a wrapped message line, giving embedded shas their
-// identity color so repeats are spottable.
+// identity color (so repeats are spottable) and "you" a highlight.
 func styleMessageLine(line string) string {
 	dim := lipgloss.NewStyle().Foreground(currentPalette.Dim)
 	var b strings.Builder
 	last := 0
-	for _, loc := range shortShaRE.FindAllStringIndex(line, -1) {
-		sha := line[loc[0]:loc[1]]
-		if !strings.ContainsAny(sha, "abcdef") {
-			continue // eight digits alone are more likely a number than a sha
+	for _, loc := range messageTokenRE.FindAllStringIndex(line, -1) {
+		token := line[loc[0]:loc[1]]
+		var style lipgloss.Style
+		switch {
+		case token == "you":
+			style = lipgloss.NewStyle().Foreground(currentPalette.Text).Bold(true)
+		case strings.ContainsAny(token, "abcdef") && strings.ContainsAny(token, "0123456789"):
+			style = lipgloss.NewStyle().Foreground(currentPalette.ShaColor(token))
+		default:
+			continue // digits or letters alone are likelier words/numbers
 		}
 		b.WriteString(dim.Render(line[last:loc[0]]))
-		b.WriteString(lipgloss.NewStyle().Foreground(currentPalette.ShaColor(sha)).Render(sha))
+		b.WriteString(style.Render(token))
 		last = loc[1]
 	}
 	b.WriteString(dim.Render(line[last:]))
@@ -188,7 +195,7 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	}
 	switch {
 	case details.InitiatedBy != "" && details.InitiatedBy == selfUser:
-		field("Initiated by", "you", text)
+		field("Initiated by", "you", text.Bold(true))
 	case details.InitiatedBy != "":
 		field("Initiated by", details.InitiatedBy, text)
 	case details.Automated:

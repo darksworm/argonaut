@@ -96,6 +96,11 @@ func NewTUITest(t *testing.T) *TUITestFramework {
 	return &TUITestFramework{t: t, buf: make([]byte, ringSize)}
 }
 
+// SetTerminalSize overrides the PTY dimensions; call before StartAppArgs.
+func (tf *TUITestFramework) SetTerminalSize(rows, cols int) {
+	tf.vtRows, tf.vtCols = rows, cols
+}
+
 // ensureBinary builds the app test binary if it doesn't exist yet.
 func ensureBinary(t *testing.T) error {
 	t.Helper()
@@ -242,8 +247,10 @@ check_enabled = false`
 	env = mergeEnv(env, extraEnv)
 	tf.cmd.Env = env
 
-	// Set window size
-	tf.vtRows, tf.vtCols = 40, 120
+	// Set window size (per-test override via SetTerminalSize before start)
+	if tf.vtRows == 0 || tf.vtCols == 0 {
+		tf.vtRows, tf.vtCols = 40, 120
+	}
 	ws := struct{ Row, Col, X, Y uint16 }{uint16(tf.vtRows), uint16(tf.vtCols), 0, 0}
 	syscall.Syscall(syscall.SYS_IOCTL, p.Fd(), uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(&ws)))
 
@@ -337,8 +344,10 @@ check_enabled = false`
 	env = mergeEnv(env, extraEnv)
 	tf.cmd.Env = env
 
-	// Set window size
-	tf.vtRows, tf.vtCols = 40, 120
+	// Set window size (per-test override via SetTerminalSize before start)
+	if tf.vtRows == 0 || tf.vtCols == 0 {
+		tf.vtRows, tf.vtCols = 40, 120
+	}
 	ws := struct{ Row, Col, X, Y uint16 }{uint16(tf.vtRows), uint16(tf.vtCols), 0, 0}
 	syscall.Syscall(syscall.SYS_IOCTL, p.Fd(), uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(&ws)))
 

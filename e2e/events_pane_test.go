@@ -208,3 +208,50 @@ func TestEventsPane_AppRow_ShowsOperationStateAboveEvents(t *testing.T) {
 		t.Fatal("esc did not land back on the tree")
 	}
 }
+
+// Opening the pane must not scroll the layout: the banner's top row stays.
+func TestEventsPane_DoesNotClipTheBannerTopRow(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServerWithEvents()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	tf.SetTerminalSize(45, 207) // a large desktop terminal, like the bug report
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	openDemoTree(t, tf)
+
+	// The banner must include the logo's top row at all
+	if !strings.Contains(tf.Screen(), "_____") {
+		t.Log(tf.Screen())
+		t.Fatal("the logo's top row is missing before the pane even opens")
+	}
+
+	topBefore := strings.Split(tf.Screen(), "\n")[0]
+
+	_ = tf.Send("e")
+	if !tf.WaitForPlain("─ Application demo ", 5*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("pane did not open")
+	}
+
+	topAfter := strings.Split(tf.Screen(), "\n")[0]
+	if strings.TrimSpace(topAfter) != strings.TrimSpace(topBefore) {
+		t.Errorf("the screen's top row changed when the pane opened —\nbefore: %q\nafter:  %q",
+			strings.TrimSpace(topBefore), strings.TrimSpace(topAfter))
+	}
+}

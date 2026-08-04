@@ -7,9 +7,20 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/model"
+	"github.com/darksworm/argonaut/pkg/theme"
 )
 
 var paneNow = time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC)
+
+// withRealPalette gives the package palette real colors for tests that
+// assert styling — the zero palette renders everything unstyled, which made
+// style assertions pass vacuously.
+func withRealPalette(t *testing.T) {
+	t.Helper()
+	old := currentPalette
+	currentPalette = theme.Default()
+	t.Cleanup(func() { currentPalette = old })
+}
 
 // Reasons sit flush against the frame padding — warnings are distinguished
 // by color alone, not a marker column.
@@ -79,11 +90,49 @@ func TestRenderEventCards_ShasGetIdentityColors(t *testing.T) {
 		LastSeen: paneNow,
 	}}
 
+	withRealPalette(t)
 	lines := renderEventCards(events, 46, paneNow, "")
 
 	shaStyled := lipgloss.NewStyle().Foreground(currentPalette.ShaColor("4caae2c0")).Render("4caae2c0")
 	if !strings.Contains(strings.Join(lines, "\n"), shaStyled) {
 		t.Errorf("expected the sha rendered in its identity color, got: %q", lines)
+	}
+}
+
+// Pod-template hashes (8-10 hex) deserve identity colors too, not only
+// shortened git shas.
+func TestRenderEventCards_TemplateHashesGetIdentityColors(t *testing.T) {
+	events := []model.ResourceEvent{{
+		Reason:   "SwitchService",
+		Message:  "Switched selector from '' to '595d8d78b6'",
+		Count:    2,
+		LastSeen: paneNow,
+	}}
+
+	withRealPalette(t)
+	lines := renderEventCards(events, 46, paneNow, "")
+
+	hashStyled := lipgloss.NewStyle().Foreground(currentPalette.ShaColor("595d8d78b6")).Render("595d8d78b6")
+	if !strings.Contains(strings.Join(lines, "\n"), hashStyled) {
+		t.Errorf("expected the template hash in its identity color, got: %q", lines)
+	}
+}
+
+// The substituted "you" stands out from the dim message text.
+func TestRenderEventCards_YouIsHighlighted(t *testing.T) {
+	events := []model.ResourceEvent{{
+		Reason:   "OperationStarted",
+		Message:  "admin initiated sync to HEAD",
+		Count:    1,
+		LastSeen: paneNow,
+	}}
+
+	withRealPalette(t)
+	lines := renderEventCards(events, 46, paneNow, "admin")
+
+	youStyled := lipgloss.NewStyle().Foreground(currentPalette.Text).Bold(true).Render("you")
+	if !strings.Contains(strings.Join(lines, "\n"), youStyled) {
+		t.Errorf("expected 'you' highlighted, got: %q", lines)
 	}
 }
 
@@ -508,5 +557,36 @@ func TestRenderPaneFrame_ScrollMarkersAnchorInBorders(t *testing.T) {
 	plain := stripANSI(renderPaneFrame(paneFrame{Title: "Events", Width: 40, BodyRows: 1}, []string{"x"}))
 	if strings.Contains(plain, "▲") || strings.Contains(plain, "▼") {
 		t.Errorf("expected no markers when nothing is clipped:\n%s", plain)
+	}
+}
+
+// The layout must never exceed the terminal height — an extra line scrolls
+// the banner's top row off the screen.
+func TestMainLayout_WithPaneOpen_FitsTheTerminalHeight(t *testing.T) {
+	for _, size := range []struct{ cols, rows int }{
+		{100, 24}, {120, 30}, {140, 40}, {80, 24}, {101, 24}, {200, 50}, {170, 45},
+	} {
+		m := buildEventsPaneTestModel()
+		// The full-size banner (ASCII logo) renders with a server configured
+		m.state.Server = &model.Server{BaseURL: "https://argo.example.com"}
+		m.state.APIVersion = "v2.10.3"
+		m.state.Terminal.Cols, m.state.Terminal.Rows = size.cols, size.rows
+
+		check := func(state string) {
+			lines := strings.Split(m.renderMainLayout(), "\n")
+			if len(lines) > size.rows {
+				t.Errorf("%dx%d pane %s: layout is %d lines, terminal has %d",
+					size.cols, size.rows, state, len(lines), size.rows)
+			}
+			for i, line := range lines {
+				if w := lipgloss.Width(line); w > size.cols {
+					t.Errorf("%dx%d pane %s: line %d is %d cells wide (terminal %d) — it wraps and clips the top: %q",
+						size.cols, size.rows, state, i, w, size.cols, stripANSI(line))
+				}
+			}
+		}
+		check("closed")
+		m = openEventsPane(t, m)
+		check("open")
 	}
 }
