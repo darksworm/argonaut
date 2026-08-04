@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/darksworm/argonaut/pkg/model"
@@ -26,6 +27,13 @@ type wireEvent struct {
 	} `json:"series"`
 }
 
+// flattenWhitespace collapses all whitespace runs (newlines, tabs, spaces)
+// into single spaces so a message renders as one wrappable line — embedded
+// control characters would break the pane frame's row accounting.
+func flattenWhitespace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 func (e wireEvent) normalize() model.ResourceEvent {
 	lastSeen := e.LastTimestamp
 	if lastSeen.IsZero() {
@@ -41,7 +49,7 @@ func (e wireEvent) normalize() model.ResourceEvent {
 	return model.ResourceEvent{
 		Type:     e.Type,
 		Reason:   e.Reason,
-		Message:  e.Message,
+		Message:  flattenWhitespace(e.Message),
 		Count:    count,
 		LastSeen: lastSeen,
 	}

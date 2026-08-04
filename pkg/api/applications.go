@@ -630,13 +630,13 @@ func ConvertOperationState(argoApp ArgoApplication) *model.SyncStatusDetails {
 				Namespace: r.Namespace,
 				Name:      r.Name,
 				Status:    status,
-				Message:   r.Message,
+				Message:   flattenWhitespace(r.Message),
 			})
 		}
 	}
 	return &model.SyncStatusDetails{
 		Phase:       opState.Phase,
-		Message:     opState.Message,
+		Message:     flattenWhitespace(opState.Message),
 		StartedAt:   opState.StartedAt,
 		FinishedAt:  opState.FinishedAt,
 		Revision:    opState.resolvedRevision(),

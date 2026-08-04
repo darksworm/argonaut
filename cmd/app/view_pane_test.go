@@ -212,6 +212,31 @@ func TestPaneLayout_WideTerminal_SplitsSideBySide(t *testing.T) {
 	}
 }
 
+// Tree width has diminishing returns: once it has ~80 rendered columns,
+// additional terminal width goes to the pane (up to its own cap).
+func TestPaneLayout_WideTerminal_GivesGrowthToThePane(t *testing.T) {
+	m := buildEventsPaneTestModel()
+
+	m.state.Terminal.Cols = 180
+	l := m.paneLayout(16)
+	if l.paneBoxWidth != 98 {
+		t.Errorf("at 180 cols expected pane box 98 (tree keeps 82), got %d", l.paneBoxWidth)
+	}
+	if l.treeBoxWidth != 82 {
+		t.Errorf("at 180 cols expected tree box 82, got %d", l.treeBoxWidth)
+	}
+
+	// Beyond the pane's cap the tree resumes growing
+	m.state.Terminal.Cols = 240
+	l = m.paneLayout(16)
+	if l.paneBoxWidth != 100 {
+		t.Errorf("at 240 cols expected the pane capped at 100, got %d", l.paneBoxWidth)
+	}
+	if l.treeBoxWidth != 140 {
+		t.Errorf("at 240 cols expected the tree to take the rest (140), got %d", l.treeBoxWidth)
+	}
+}
+
 func TestPaneLayout_NarrowTerminal_FallsBackToBottomPane(t *testing.T) {
 	m := buildEventsPaneTestModel()
 	m.state.Terminal.Cols = 99

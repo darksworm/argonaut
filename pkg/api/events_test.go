@@ -208,6 +208,33 @@ func TestListEvents_ReturnsEventsNewestFirst(t *testing.T) {
 	}
 }
 
+// Helm/controller errors embed newlines and tabs; a message must reach the
+// renderer as a single line or it breaks the pane frame row accounting.
+func TestListEvents_MultilineMessage_IsFlattenedToOneLine(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"items":[{
+			"type": "Warning",
+			"reason": "OperationCompleted",
+			"message": "failed: line one\n\nError: bad yaml:\n\t12:30\texecuting template",
+			"count": 1,
+			"lastTimestamp": "2026-08-04T12:00:00Z"
+		}]}`))
+	}))
+	defer server.Close()
+
+	svc := NewApplicationService(&model.Server{BaseURL: server.URL, Token: "test-token"})
+
+	events, err := svc.ListEvents(context.Background(), ListEventsParams{AppName: "demo-app"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	want := "failed: line one Error: bad yaml: 12:30 executing template"
+	if events[0].Message != want {
+		t.Errorf("expected whitespace runs collapsed to single spaces,\nwant %q\ngot  %q", want, events[0].Message)
+	}
+}
+
 func TestSortEventsNewestFirst_OrdersByLastSeenDescending(t *testing.T) {
 	older := model.ResourceEvent{Reason: "Scheduled", LastSeen: time.Date(2026, 8, 4, 10, 0, 0, 0, time.UTC)}
 	newer := model.ResourceEvent{Reason: "BackOff", LastSeen: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)}

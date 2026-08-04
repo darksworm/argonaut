@@ -20,9 +20,14 @@ import (
 // instead of width.
 const paneSideMinCols = 100
 
-// paneSideBoxWidth is the pane's fixed outer width in side-by-side mode —
-// event text doesn't get more useful past ~46 content columns.
-const paneSideBoxWidth = 50
+// The pane's outer width in side-by-side mode scales with the terminal:
+// tree width has diminishing returns past ~80 rendered columns, so growth
+// beyond that goes to the pane until it reaches its own useful maximum.
+const (
+	paneSideMinBoxWidth   = 50 // matches the design mock at 100 cols
+	paneSideMaxBoxWidth   = 100
+	treePreferredBoxWidth = 82 // tree renders 2 narrower: ~80 columns
+)
 
 // paneLayout describes how the tree box and the pane box share the screen.
 type paneLayout struct {
@@ -41,13 +46,14 @@ func (m *Model) paneLayout(availableRows int) paneLayout {
 	if cols >= paneSideMinCols {
 		// renderTreePanel renders 2 cells narrower than the width it is
 		// given (the full-width call passes cols and renders cols-2), so
-		// the tree box gets cols-50 for a rendered row of exactly cols-2 —
-		// flush with the status line and command bar.
+		// the tree box gets cols-pane for a rendered row of exactly
+		// cols-2 — flush with the status line and command bar.
+		paneBox := min(max(cols-treePreferredBoxWidth, paneSideMinBoxWidth), paneSideMaxBoxWidth)
 		return paneLayout{
 			side:          true,
-			paneBoxWidth:  paneSideBoxWidth,
-			paneBodyWidth: paneSideBoxWidth - 4, // borders + one space padding each side
-			treeBoxWidth:  cols - paneSideBoxWidth,
+			paneBoxWidth:  paneBox,
+			paneBodyWidth: paneBox - 4, // borders + one space padding each side
+			treeBoxWidth:  cols - paneBox,
 			paneBodyRows:  max(0, availableRows-1), // frame total == tree box total height
 			treeBodyRows:  availableRows,
 		}

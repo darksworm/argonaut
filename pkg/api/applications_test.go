@@ -196,6 +196,35 @@ func TestConvertOperationState_PendingHookWithoutPhase_FallsBackToStatus(t *test
 	}
 }
 
+func TestConvertOperationState_MultilineMessages_AreFlattened(t *testing.T) {
+	argoApp := ArgoApplication{
+		Metadata: ApplicationMetadata{Name: "demo-app"},
+		Status: ApplicationStatus{
+			OperationState: OperationState{
+				Phase:   "Failed",
+				Message: "one or more objects\nfailed to apply",
+				SyncResult: &SyncOperationResult{
+					Resources: []ResourceResult{{
+						Kind:    "Deployment",
+						Name:    "web",
+						Status:  "SyncFailed",
+						Message: "invalid:\n\tline 12:30\texecuting template",
+					}},
+				},
+			},
+		},
+	}
+
+	details := ConvertOperationState(argoApp)
+
+	if details.Message != "one or more objects failed to apply" {
+		t.Errorf("expected the operation message flattened, got %q", details.Message)
+	}
+	if got := details.Resources[0].Message; got != "invalid: line 12:30 executing template" {
+		t.Errorf("expected the resource message flattened, got %q", got)
+	}
+}
+
 func TestConvertToApp_WithApplicationSet(t *testing.T) {
 	svc := &ApplicationService{}
 
