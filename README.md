@@ -278,6 +278,10 @@ context = ""              # Override Kubernetes context for k9s
 viewer = ""               # Interactive diff viewer (e.g., "code --diff {left} {right}", "meld {left} {right}")
 formatter = ""            # Diff formatter command (e.g., "delta --side-by-side")
 
+[events]
+refresh_interval = "10s"  # How often the events/status pane refetches ("0" disables)
+auto_open = true          # Open the pane automatically in the resource tree view
+
 [http_timeouts]
 request_timeout = "10s"   # Timeout for HTTP requests (increase for large deployments)
 
@@ -354,6 +358,15 @@ formatter = "delta --side-by-side --line-numbers"
 ```
 
 If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+
+#### `[events]`
+
+Settings for the events/status pane shown next to the resource tree.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `refresh_interval` | How often the pane refetches events and sync status. Use Go duration format (e.g., "30s", "1m"); `"0"` disables auto-refresh. | `"10s"` |
+| `auto_open` | Open the pane automatically when the resource tree view opens. Set to `false` to open it on demand with `e`. | `true` |
 
 #### `[http_timeouts]`
 

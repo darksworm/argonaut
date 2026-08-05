@@ -711,6 +711,61 @@ func TestSaveAndLoadUpdatesConfig(t *testing.T) {
 	}
 }
 
+func TestIsEventsAutoOpenEnabled(t *testing.T) {
+	tr, fa := true, false
+
+	tests := []struct {
+		name string
+		cfg  *ArgonautConfig
+		want bool
+	}{
+		{"nil config defaults to enabled", nil, true},
+		{"unset key defaults to enabled", &ArgonautConfig{}, true},
+		{"explicit true", &ArgonautConfig{Events: EventsConfig{AutoOpen: &tr}}, true},
+		{"explicit false", &ArgonautConfig{Events: EventsConfig{AutoOpen: &fa}}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.cfg.IsEventsAutoOpenEnabled(); got != tc.want {
+				t.Errorf("IsEventsAutoOpenEnabled() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadEventsAutoOpenFromToml(t *testing.T) {
+	tests := []struct {
+		name string
+		toml string
+		want bool
+	}{
+		{"absent section → default-true", ``, true},
+		{"explicit false", "[events]\nauto_open = false\n", false},
+		{"explicit true", "[events]\nauto_open = true\n", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			originalConfig := os.Getenv("ARGONAUT_CONFIG")
+			defer os.Setenv("ARGONAUT_CONFIG", originalConfig)
+
+			configPath := filepath.Join(tempDir, "test_config.toml")
+			os.Setenv("ARGONAUT_CONFIG", configPath)
+			if err := os.WriteFile(configPath, []byte(tc.toml), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+
+			loaded, err := LoadArgonautConfig()
+			if err != nil {
+				t.Fatalf("LoadArgonautConfig: %v", err)
+			}
+			if got := loaded.IsEventsAutoOpenEnabled(); got != tc.want {
+				t.Errorf("IsEventsAutoOpenEnabled() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestGetEventsRefreshInterval(t *testing.T) {
 	tests := []struct {
 		name string

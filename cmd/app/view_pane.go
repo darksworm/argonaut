@@ -40,10 +40,10 @@ type paneLayout struct {
 	treeBodyRows  int  // tree content rows
 }
 
-// paneContentRows is how many body lines fit below the frame's fixed top
-// padding row (see renderPaneFrame).
+// paneContentRows is how many body lines fit between the frame's fixed top
+// and bottom padding rows (see renderPaneFrame).
 func (l paneLayout) paneContentRows() int {
-	return max(0, l.paneBodyRows-1)
+	return max(0, l.paneBodyRows-2)
 }
 
 // paneLayout computes the split for the given row budget (the rows the tree
@@ -427,11 +427,12 @@ func renderPaneFrame(f paneFrame, body []string) string {
 	b.WriteString(borderStyle.Render("╮"))
 	b.WriteString("\n")
 
-	// Body rows, padded to the frame's height and width. The first row is
-	// always blank — breathing room between the title and the content.
+	// Body rows, padded to the frame's height and width. The first and last
+	// rows are always blank — breathing room between the borders and the
+	// content.
 	for i := 0; i < f.BodyRows; i++ {
 		line := strings.Repeat(" ", bodyWidth)
-		if i > 0 && i-1 < len(body) && body[i-1] != "" {
+		if i > 0 && i < f.BodyRows-1 && i-1 < len(body) && body[i-1] != "" {
 			line = normalizeLinesToWidth(body[i-1], bodyWidth)
 		}
 		b.WriteString(borderStyle.Render("│") + " " + line + " " + borderStyle.Render("│"))

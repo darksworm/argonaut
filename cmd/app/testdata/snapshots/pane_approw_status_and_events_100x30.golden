@@ -26,4 +26,4 @@
  │                                              ││   admin initiated sync to HEAD                 │ 
  │                                              ││                                                │ 
  ╰──────────────────────────────────────────────╯╰─ ⟳ 10s ────────────────────────────────────────╯ 
- <events>                                                  j/k: select • ⇧↑/⇧↓: scroll • esc: close 
+ <tree>                                                          ⇧↑/⇧↓: scroll events • Ready • 1/4 

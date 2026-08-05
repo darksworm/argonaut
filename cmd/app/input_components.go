@@ -11,7 +11,6 @@ import (
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
-	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // InputComponentState manages interactive input components
@@ -653,12 +652,6 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
 
-		// A command that isn't a pane command closes any open side pane —
-		// the pane never outlives a jump elsewhere.
-		if canonical != "events" {
-			m.state.Events = nil
-		}
-
 		// IMPORTANT: When adding new commands here, also add them to pkg/autocomplete/autocomplete.go
 		// to ensure they appear in autocomplete and validation works correctly.
 		switch canonical {
@@ -827,9 +820,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					// Clean up any existing tree watchers before starting new ones
 					m.cleanupTreeWatchers()
 					// Multiple apps selected - open multi tree view with live updates
-					m.treeView = treeview.NewTreeView(0, 0)
-					m.treeView.ApplyTheme(currentPalette)
-					m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+					m.treeView = m.newTreeView()
 					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
@@ -878,9 +869,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
 			}
 			// Single app: open tree view with watch (reset tree view)
-			m.treeView = treeview.NewTreeView(0, 0)
-			m.treeView.ApplyTheme(currentPalette)
-			m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+			m.treeView = m.newTreeView()
 			m.treeNav.Reset() // Reset scroll position
 			m.state.SaveNavigationState()
 			// selectedApp may already be set by the cursor-position path above.

@@ -66,6 +66,9 @@ type TreeView struct {
 	syncSummaries map[string]*model.SyncOpSummary
 	// Time source for relative timestamps; overridable for deterministic tests
 	now func() time.Time
+
+	// currentUser is the logged-in username; their syncs render "by you"
+	currentUser string
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -870,6 +873,12 @@ func (v *TreeView) SetClock(now func() time.Time) {
 	v.now = now
 }
 
+// SetCurrentUser tells the view who is logged in, so sync summaries can
+// render that user's operations as "by you".
+func (v *TreeView) SetCurrentUser(username string) {
+	v.currentUser = username
+}
+
 // SetAppSyncSummary sets (or clears, with nil) the last-sync-operation
 // summary rendered as a one-line annotation under the app's root row.
 func (v *TreeView) SetAppSyncSummary(appName string, summary *model.SyncOpSummary) {
@@ -914,27 +923,30 @@ func (v *TreeView) renderSyncSummaryLine(s *model.SyncOpSummary) string {
 	if at.IsZero() {
 		at = s.StartedAt
 	}
-	segments := []string{humantime.Ago(at, v.now())}
 	revision := s.Revision
 	if len(revision) > 8 {
 		revision = revision[:8]
 	}
-	if s.InitiatedBy != "" {
-		segments = append(segments, "by "+s.InitiatedBy)
-	} else if s.Automated {
-		segments = append(segments, "auto")
-	}
-	segments = append(segments, "enter for details")
 
 	line := dim.Render("last sync: ") +
 		phaseStyle.Render(glyph+" "+s.Phase) +
-		dim.Render(" · "+segments[0])
+		dim.Render(" · "+humantime.Ago(at, v.now()))
 	if revision != "" {
 		// The revision keeps its identity color so the same sha is
 		// spottable in the pane's status block and events
 		line += dim.Render(" · ") + lipgloss.NewStyle().Foreground(v.palette.ShaColor(revision)).Render(revision)
 	}
-	return line + dim.Render(" · "+strings.Join(segments[1:], " · "))
+	switch {
+	case s.InitiatedBy != "" && s.InitiatedBy == v.currentUser:
+		// "you" gets the same highlight as the pane's status block
+		line += dim.Render(" · by ") +
+			lipgloss.NewStyle().Foreground(v.palette.Text).Bold(true).Render("you")
+	case s.InitiatedBy != "":
+		line += dim.Render(" · by " + s.InitiatedBy)
+	case s.Automated:
+		line += dim.Render(" · auto")
+	}
+	return line
 }
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node

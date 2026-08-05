@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	model "github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
@@ -548,12 +549,66 @@ func TestRender_AppWithSyncSummary_ShowsSummaryLineUnderRoot(t *testing.T) {
 	if len(lines) < 3 {
 		t.Fatalf("expected root + summary + resource lines, got %d:\n%s", len(lines), strings.Join(lines, "\n"))
 	}
-	want := "last sync: ✖ Failed · 2m ago · a1b2c3d4 · by alice · enter for details"
+	want := "last sync: ✖ Failed · 2m ago · a1b2c3d4 · by alice"
 	if lines[1] != want {
 		t.Errorf("expected summary line %q, got %q", want, lines[1])
 	}
 	if !strings.Contains(lines[2], "Deployment") {
 		t.Errorf("expected the resource row after the summary line, got %q", lines[2])
+	}
+}
+
+func TestRender_SyncSummaryWithoutInitiator_HasNoTrailingSeparator(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Healthy", "Synced")
+	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
+	v.UpsertAppTree("my-app", &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+		},
+	})
+	v.SetAppSyncSummary("my-app", &model.SyncOpSummary{
+		Phase:      "Succeeded",
+		FinishedAt: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+	})
+
+	lines := strings.Split(stripANSI(v.Render()), "\n")
+
+	if want := "last sync: ✔ Succeeded · 2m ago"; lines[1] != want {
+		t.Errorf("expected summary line %q, got %q", want, lines[1])
+	}
+}
+
+// The user recognizes themselves at a glance: their own syncs read "by you",
+// highlighted like the pane's status block does it.
+func TestRender_SyncSummaryBySessionUser_ShowsHighlightedYou(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Healthy", "Synced")
+	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
+	v.SetCurrentUser("admin")
+	v.UpsertAppTree("my-app", &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+		},
+	})
+	v.SetAppSyncSummary("my-app", &model.SyncOpSummary{
+		Phase:       "Succeeded",
+		FinishedAt:  time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+		Revision:    "4caae2c0e29c5ada",
+		InitiatedBy: "admin",
+	})
+
+	rendered := v.Render()
+
+	lines := strings.Split(stripANSI(rendered), "\n")
+	if want := "last sync: ✔ Succeeded · 2m ago · 4caae2c0 · by you"; lines[1] != want {
+		t.Errorf("expected summary line %q, got %q", want, lines[1])
+	}
+	youStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Bold(true).Render("you")
+	if !strings.Contains(rendered, youStyled) {
+		t.Errorf("expected 'you' highlighted like the pane does it, got: %q", rendered)
 	}
 }
 

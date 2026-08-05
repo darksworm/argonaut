@@ -12,11 +12,6 @@ import (
 
 // renderStatusLine - 1:1 mapping from MainLayout status Box
 func (m *Model) renderStatusLine() string {
-	// An open side pane flips the mode segment and hints.
-	if m.state.Mode == model.ModeNormal && m.paneOpen() {
-		return m.renderStatusBarLine("<events>", "j/k: select • ⇧↑/⇧↓: scroll • esc: close")
-	}
-
 	visibleItems := m.getVisibleItems()
 
 	// Left side: view and filter info (matches MainLayout left Box)
@@ -140,12 +135,15 @@ func (m *Model) renderStatusLine() string {
 		statusText += fmt.Sprintf(" • %s", position)
 	}
 
-	// Advertise the side-pane hotkeys in the plain tree view. The hint
-	// yields to upgrade/changelog notices and to narrow terminals.
+	// Advertise the side-pane hotkeys in the tree view. The hint yields to
+	// upgrade/changelog notices and to narrow terminals.
 	if m.state.Navigation.View == model.ViewTree && m.state.Mode == model.ModeNormal && rightText == "" {
-		const hints = "enter: details"
+		hints := "e: events"
+		if m.paneOpen() {
+			hints = "⇧↑/⇧↓: scroll events"
+		}
 		available := max(0, m.state.Terminal.Cols-2)
-		if lipgloss.Width(leftText)+len(hints)+lipgloss.Width(statusText)+len(" • ")+2 <= available {
+		if lipgloss.Width(leftText)+lipgloss.Width(hints)+lipgloss.Width(statusText)+len(" • ")+2 <= available {
 			statusText = hints + " • " + statusText
 		}
 	}

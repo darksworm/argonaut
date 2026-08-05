@@ -326,8 +326,8 @@ func TestEventsErrorMsg_FromSupersededLoad_IsDropped(t *testing.T) {
 	staleTarget := m.state.Events.Target
 	staleSeq := m.state.Events.LoadSeq
 
-	teaModel, _ := m.handleKeyMsg(testKeyMsg("esc"))
-	m = openEventsPane(t, teaModel.(*Model))
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e")) // toggle closed
+	m = openEventsPane(t, teaModel.(*Model))       // reopen: a fresh load supersedes the stale one
 
 	teaModel, _ = m.Update(model.EventsErrorMsg{
 		Target:      staleTarget,
@@ -352,7 +352,7 @@ func TestSyncStatusLoadedMsg_FromSupersededLoad_IsDropped(t *testing.T) {
 	m = teaModel.(*Model)
 	staleSeq := m.state.Events.LoadSeq
 
-	teaModel, _ = m.handleKeyMsg(testKeyMsg("esc"))
+	teaModel, _ = m.handleKeyMsg(testKeyMsg("e"))                 // toggle closed
 	teaModel, _ = teaModel.(*Model).handleKeyMsg(testKeyMsg("e")) // reopen, same target
 	m = teaModel.(*Model)
 
@@ -429,32 +429,54 @@ func TestSyncStatusErrorMsg_StaleEpoch_IsDropped(t *testing.T) {
 	}
 }
 
-func TestEventsPane_EscClosesBackToTree(t *testing.T) {
+// e toggles the pane: the one escape hatch for hiding an auto-opened pane,
+// and the way back in.
+func TestTreeKeyE_TogglesThePane(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 	cursorBefore := m.treeView.SelectedIndex()
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("e"))
+	mm := teaModel.(*Model)
+
+	if mm.state.Events != nil {
+		t.Fatal("expected e to close the open pane")
+	}
+	if mm.state.Navigation.View != model.ViewTree || mm.treeView.SelectedIndex() != cursorBefore {
+		t.Error("toggling the pane must not leave the tree or move the cursor")
+	}
+
+	teaModel, _ = mm.handleKeyMsg(testKeyMsg("e"))
+	mm = teaModel.(*Model)
+	if mm.state.Events == nil {
+		t.Error("expected e to reopen the pane")
+	}
+}
+
+// The pane is part of the view, not a layer over it: esc leaves the tree
+// view exactly as it did before the pane existed, taking the pane with it.
+func TestEventsPane_EscLeavesTreeViewLikeAlways(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	teaModel, _ := m.handleKeyMsg(testKeyMsg("esc"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeNormal {
-		t.Fatalf("expected ModeNormal after esc, got %s", mm.state.Mode)
+	if mm.state.Navigation.View != model.ViewApps {
+		t.Fatalf("expected esc to leave the tree for the apps view, got %s", mm.state.Navigation.View)
 	}
 	if mm.state.Events != nil {
-		t.Error("expected events state to be cleared on close")
-	}
-	if mm.treeView.SelectedIndex() != cursorBefore {
-		t.Error("closing the pane must not move the tree cursor")
+		t.Error("expected the pane gone with the tree session")
 	}
 }
 
-func TestEventsPane_QCloses(t *testing.T) {
+func TestEventsPane_QLeavesTreeViewLikeAlways(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	teaModel, _ := m.handleKeyMsg(testKeyMsg("q"))
 	mm := teaModel.(*Model)
 
-	if mm.state.Mode != model.ModeNormal || mm.state.Events != nil {
-		t.Errorf("expected q to close the pane, got mode %s events %+v", mm.state.Mode, mm.state.Events)
+	if mm.state.Navigation.View != model.ViewApps || mm.state.Events != nil {
+		t.Errorf("expected q to return to the apps view with no pane state, got view %s events %+v",
+			mm.state.Navigation.View, mm.state.Events)
 	}
 }
 
@@ -744,6 +766,21 @@ func TestEventsCommand_InTreeView_OpensEventsPane(t *testing.T) {
 	}
 }
 
+// :sync stays in the tree view, so — like the s key — it must not eat the pane.
+func TestSyncCommand_InTreeView_KeepsThePaneOpen(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg(":"))
+	m = runCommand(t, teaModel.(*Model), "sync")
+
+	if m.state.Mode != model.ModeConfirmResourceSync {
+		t.Fatalf("expected the sync confirmation, got mode %s", m.state.Mode)
+	}
+	if m.state.Events == nil {
+		t.Error("expected the pane to stay open behind the sync confirmation")
+	}
+}
+
 func TestViewJumpingCommand_ClosesTheOpenPane(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
@@ -774,6 +811,163 @@ func TestAppsBatchUpdate_RefreshesTreeSyncSummaryLive(t *testing.T) {
 
 	if !strings.Contains(mm.treeView.Render(), "last sync:") {
 		t.Error("expected the tree to show the sync summary line after a live app update")
+	}
+}
+
+// The pane is part of the tree view: it opens by itself once the tree loads,
+// targeting the selected row, and starts its fetches.
+func TestResourceTreeLoaded_AutoOpensThePane(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	m.state.Events = nil
+	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "d1", Kind: "Deployment", Name: "web"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teaModel, cmd := m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", Health: "Healthy", Sync: "Synced",
+		TreeJSON: treeJSON, SwitchEpoch: m.switchEpoch,
+	})
+	mm := teaModel.(*Model)
+
+	st := mm.state.Events
+	if st == nil {
+		t.Fatal("expected the pane to auto-open once the tree loaded")
+	}
+	if st.Target.AppName != "test-app" {
+		t.Errorf("expected the pane targeted at the loaded app, got %+v", st.Target)
+	}
+	if cmd == nil {
+		t.Error("expected the auto-opened pane to start its fetches")
+	}
+}
+
+func TestResourceTreeLoaded_AutoOpenDisabled_KeepsPaneClosed(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	m.state.Events = nil
+	off := false
+	m.config.Events.AutoOpen = &off
+	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "d1", Kind: "Deployment", Name: "web"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teaModel, _ := m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", Health: "Healthy", Sync: "Synced",
+		TreeJSON: treeJSON, SwitchEpoch: m.switchEpoch,
+	})
+	mm := teaModel.(*Model)
+
+	if mm.state.Events != nil {
+		t.Error("expected the pane to stay closed with auto_open = false")
+	}
+}
+
+// A later tree load (multi-app streams, watch reloads) must not reset a pane
+// that is already open and possibly retargeted.
+func TestResourceTreeLoaded_PaneAlreadyOpen_IsLeftAlone(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel()) // opened on the Pod row
+	targetBefore := m.state.Events.Target
+	seqBefore := m.state.Events.LoadSeq
+	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "pod-uid", Version: "v1", Kind: "Pod", Name: "web-1"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teaModel, _ := m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", Health: "Healthy", Sync: "Synced",
+		TreeJSON: treeJSON, SwitchEpoch: m.switchEpoch,
+	})
+	mm := teaModel.(*Model)
+
+	if mm.state.Events.Target != targetBefore || mm.state.Events.LoadSeq != seqBefore {
+		t.Errorf("expected the open pane untouched by a tree reload, got %+v", mm.state.Events)
+	}
+}
+
+// Drilling into a child app replaces the tree session; the pane must not
+// keep pointing at the old app's resources while the child tree loads.
+func TestDrillIntoChildApp_ClosesTheStalePane(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	childNs := "argocd"
+	m.state.Apps = append(m.state.Apps, model.App{Name: "child-app", Sync: "Synced", Health: "Healthy", AppNamespace: &childNs})
+	m.treeView.UpsertAppTree("test-app", &api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "child-app-uid", Group: "argoproj.io", Version: "v1alpha1", Kind: "Application", Name: "child-app", Namespace: &childNs},
+	}})
+	m.treeView.SetSelectedIndex(1) // the child Application row
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg("enter"))
+	mm := teaModel.(*Model)
+
+	if mm.state.Events != nil {
+		t.Error("expected the stale pane closed while the child tree loads (auto-open retargets it)")
+	}
+}
+
+// Once authentication reveals who is logged in, the tree's sync summaries
+// render that user's operations as "by you".
+func TestAuthValidation_TreeSummaryShowsSessionUserAsYou(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	teaModel, _ := m.Update(model.AuthValidationResultMsg{
+		Mode: model.ModeNormal, Username: "admin", SwitchEpoch: m.switchEpoch,
+	})
+	m = teaModel.(*Model)
+
+	updated := m.state.Apps[0] // test-app
+	updated.SyncOp = &model.SyncOpSummary{
+		Phase:       "Succeeded",
+		FinishedAt:  time.Now().Add(-time.Minute),
+		InitiatedBy: "admin",
+	}
+	teaModel, _ = m.Update(model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: updated}},
+		SwitchEpoch: m.switchEpoch,
+	})
+	m = teaModel.(*Model)
+
+	if rendered := stripANSI(m.treeView.Render()); !strings.Contains(rendered, "by you") {
+		t.Errorf("expected the session user's sync to read 'by you', got:\n%s", rendered)
+	}
+}
+
+// Drilling into resources rebuilds the TreeView from scratch — the fresh
+// instance must still know the session user.
+func TestTreeRebuild_KeepsSessionUserForSummaries(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	teaModel, _ := m.Update(model.AuthValidationResultMsg{
+		Mode: model.ModeNormal, Username: "admin", SwitchEpoch: m.switchEpoch,
+	})
+	m = teaModel.(*Model)
+	m.state.Apps[0].SyncOp = &model.SyncOpSummary{
+		Phase:       "Succeeded",
+		FinishedAt:  time.Now().Add(-time.Minute),
+		InitiatedBy: "admin",
+	}
+	m.state.Navigation.View = model.ViewApps
+	m.state.Navigation.SelectedIdx = 0
+
+	teaModel, _ = m.handleKeyMsg(testKeyMsg("r")) // fresh TreeView instance
+	m = teaModel.(*Model)
+	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "d1", Kind: "Deployment", Name: "web"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	teaModel, _ = m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", Health: "Healthy", Sync: "Synced",
+		TreeJSON: treeJSON, SwitchEpoch: m.switchEpoch,
+	})
+	m = teaModel.(*Model)
+
+	if rendered := stripANSI(m.treeView.Render()); !strings.Contains(rendered, "by you") {
+		t.Errorf("expected the rebuilt tree to render 'by you', got:\n%s", rendered)
 	}
 }
 

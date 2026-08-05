@@ -603,6 +603,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
+		// The pane is part of the tree view: open it over the first loaded
+		// tree unless the user configured it away (or it is already open)
+		if m.state.Navigation.View == model.ViewTree && m.state.Events == nil &&
+			m.config.IsEventsAutoOpenEnabled() && m.treeView != nil && m.treeView.VisibleCount() > 0 {
+			_, cmd := m.handleShowEvents()
+			return m, cmd
+		}
 		return m, nil
 
 		// removed: resources list loader
@@ -872,9 +879,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Clean up any existing tree watchers before starting new one
 				m.cleanupTreeWatchers()
 				// Reset tree view for fresh single-app session
-				m.treeView = treeview.NewTreeView(0, 0)
-				m.treeView.ApplyTheme(currentPalette)
-				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+				m.treeView = m.newTreeView()
 				m.treeNav.Reset() // Reset scroll position
 				// Use namespace from message to avoid ambiguity when multiple apps share a name
 				ns := ""
@@ -1260,8 +1265,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Clean up any existing tree watchers first
 					m.cleanupTreeWatchers()
 					// Reset tree view for multi-app session
-					m.treeView = treeview.NewTreeView(0, 0)
-					m.treeView.ApplyTheme(currentPalette)
+					m.treeView = m.newTreeView()
 					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
@@ -1450,9 +1454,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Clean up any existing tree watchers before starting new one
 				m.cleanupTreeWatchers()
 				// Reset tree view for fresh single-app session
-				m.treeView = treeview.NewTreeView(0, 0)
-				m.treeView.ApplyTheme(currentPalette)
-				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+				m.treeView = m.newTreeView()
 				m.treeNav.Reset() // Reset scroll position
 				// Use namespace from message to avoid ambiguity when multiple apps share a name
 				ns := ""
@@ -1573,6 +1575,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.Username != "" {
 			m.currentUsername = msg.Username
+			if m.treeView != nil {
+				m.treeView.SetCurrentUser(msg.Username)
+			}
 		}
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
 
@@ -1692,6 +1697,16 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 		// The watch delivers full apps, so the summary line updates for free
 		m.treeView.SetAppSyncSummary(upd.App.Name, upd.App.SyncOp)
 	}
+}
+
+// newTreeView builds a fresh TreeView carrying the session-wide view state
+// (theme, size, logged-in user) that every tree rebuild must preserve.
+func (m *Model) newTreeView() *treeview.TreeView {
+	tv := treeview.NewTreeView(0, 0)
+	tv.ApplyTheme(currentPalette)
+	tv.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+	tv.SetCurrentUser(m.currentUsername)
+	return tv
 }
 
 // setTreeApp atomically stores all relevant info about the app being shown in

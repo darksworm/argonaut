@@ -430,9 +430,7 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 					parentApp := m.findAppByNameAndNamespace(parentAppName, parentAppNamespace)
 					if parentApp != nil {
 						m = m.cleanupTreeWatchers()
-						m.treeView = treeview.NewTreeView(0, 0)
-						m.treeView.ApplyTheme(currentPalette)
-						m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+						m.treeView = m.newTreeView()
 						m.treeNav.Reset()
 						m.state.Navigation.View = model.ViewTree
 						m.setTreeApp(*parentApp)
@@ -1723,11 +1721,6 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Open k9s for the selected resource
 			return m.handleOpenK9s()
 		case "q":
-			// An open pane absorbs the first q/esc; the second leaves the tree
-			if m.state.Events != nil {
-				m.closePane()
-				return m, nil
-			}
 			// Clear filter, drop any app-of-apps back stack, and return to apps list
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
@@ -1741,10 +1734,6 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			)
 			return m, nil
 		case "esc":
-			if m.state.Events != nil {
-				m.closePane()
-				return m, nil
-			}
 			// Delegate to handleEscape which handles app-of-apps back-navigation
 			return m.handleEscape()
 		case "/":
@@ -1791,7 +1780,11 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "e":
-			// Open the events pane for the selected row
+			// Toggle the events pane for the selected row
+			if m.state.Events != nil {
+				m.closePane()
+				return m, nil
+			}
 			return m.handleShowEvents()
 		case "d":
 			// Show diff for the selected resource
@@ -1922,9 +1915,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 		// Clean up any existing tree watchers before starting new ones
 		m.cleanupTreeWatchers()
 		// Reset tree view to a fresh multi-app instance
-		m.treeView = treeview.NewTreeView(0, 0)
-		m.treeView.ApplyTheme(currentPalette)
-		m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+		m.treeView = m.newTreeView()
 		m.treeNav.Reset() // Reset scroll position
 		m.state.SaveNavigationState()
 		m.state.Navigation.View = model.ViewTree
@@ -1965,9 +1956,7 @@ func (m *Model) handleOpenResourcesForSelection() (tea.Model, tea.Cmd) {
 	// Clean up any existing tree watchers before starting new one
 	m.cleanupTreeWatchers()
 	// Reset tree view to a fresh single-app instance
-	m.treeView = treeview.NewTreeView(0, 0)
-	m.treeView.ApplyTheme(currentPalette)
-	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+	m.treeView = m.newTreeView()
 	m.treeNav.Reset() // Reset scroll position
 	m.state.SaveNavigationState()
 	m.state.Navigation.View = model.ViewTree
@@ -1990,9 +1979,7 @@ func (m *Model) handleNavigateToChildApp(appName string, appNamespace string) (t
 	}
 	m.state.SaveNavigationState()
 	m = m.cleanupTreeWatchers()
-	m.treeView = treeview.NewTreeView(0, 0)
-	m.treeView.ApplyTheme(currentPalette)
-	m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+	m.treeView = m.newTreeView()
 	m.treeNav.Reset()
 	m.state.Navigation.View = model.ViewTree
 	m.setTreeApp(*app)

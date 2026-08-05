@@ -13,6 +13,11 @@ func (m *Model) handleMouseClickMsg(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) 
 	if msg.Button == tea.MouseLeft {
 		// Start a new selection, clearing any previous one
 		m.selection.SetStart(selection.Position{Row: msg.Y, Col: msg.X})
+		// Force a full repaint: if the terminal has drifted from the
+		// renderer's model of it (a resize glitch scrolling the screen),
+		// partial repaints leave stale rows right where the user is about
+		// to highlight — a selection must start from a coherent screen.
+		return m, func() tea.Msg { return tea.ClearScreen() }
 	}
 	return m, nil
 }

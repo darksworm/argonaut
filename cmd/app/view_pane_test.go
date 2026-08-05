@@ -493,8 +493,25 @@ func TestRenderPaneFrame_TitleAndBody(t *testing.T) {
 	}
 }
 
-// The padding row consumes one physical row, so the scrollable capacity is
-// BodyRows-1 — the viewport math and markers must account for it.
+// The last body row is always blank — breathing room above the bottom
+// border, mirroring the padding row under the title. Content never reaches it.
+func TestRenderPaneFrame_BottomPaddingRowStaysBlank(t *testing.T) {
+	frame := paneFrame{Title: "Events", Width: 30, BodyRows: 4}
+
+	out := stripANSI(renderPaneFrame(frame, []string{"a", "b", "c"}))
+	lines := strings.Split(out, "\n")
+
+	// top border, padding, "a", "b", padding, bottom border
+	if !strings.Contains(lines[2], "a") || !strings.Contains(lines[3], "b") {
+		t.Errorf("expected the content rows between the padding rows:\n%s", out)
+	}
+	if last := lines[len(lines)-2]; strings.Trim(last, "│ ") != "" {
+		t.Errorf("expected the row above the bottom border to stay blank, got %q", last)
+	}
+}
+
+// The padding rows consume two physical rows, so the scrollable capacity is
+// BodyRows-2 — the viewport math and markers must account for it.
 func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 	m.state.Events.Loading = false

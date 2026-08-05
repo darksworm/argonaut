@@ -103,6 +103,18 @@ type EventsConfig struct {
 	// sync details (e.g. "10s", "30s", "1m"). "0" disables auto-refresh.
 	// Default is "10s".
 	RefreshInterval string `toml:"refresh_interval,omitempty"`
+	// AutoOpen controls whether the pane opens by itself when the resource
+	// tree view opens. Default is true.
+	AutoOpen *bool `toml:"auto_open,omitempty"`
+}
+
+// IsEventsAutoOpenEnabled reports whether the events pane opens by itself in
+// the tree view. Defaults to true when unset.
+func (c *ArgonautConfig) IsEventsAutoOpenEnabled() bool {
+	if c == nil || c.Events.AutoOpen == nil {
+		return true
+	}
+	return *c.Events.AutoOpen
 }
 
 // GetEventsRefreshInterval returns the parsed pane auto-refresh interval.

@@ -17,12 +17,12 @@
  │                                                                                                │ 
  │ TREE VIEW    / filter • n/N next/prev match •  d  diff • K open in k9s                         │ 
  │               Space  select •  s  sync •  a  actions (Rollouts) •  Ctrl+D  delete              │ 
+ │               e  toggle events •  ⇧↑ / ⇧↓  scroll events                                       │ 
  │              :refresh|:refresh! • :up                                                          │ 
  │                                                                                                │ 
  │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
- │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 
  │                                                                                                │ 

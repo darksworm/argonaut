@@ -63,6 +63,8 @@ func (m *Model) renderHelpModal() string {
 		"\n",
 		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("a"), " actions (Rollouts) ", bullet(), " ", keycap("Ctrl+D"), " delete",
 		"\n",
+		keycap("e"), " toggle events ", bullet(), " ", keycap("⇧↑"), "/", keycap("⇧↓"), " scroll events",
+		"\n",
 		mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
 	}, "")
 

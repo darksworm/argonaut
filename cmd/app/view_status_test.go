@@ -8,32 +8,40 @@ import (
 	"github.com/darksworm/argonaut/pkg/model"
 )
 
-func TestStatusLine_TreeView_AdvertisesPaneHotkeys(t *testing.T) {
+// With the pane hidden, the tree advertises how to bring it back.
+func TestStatusLine_TreeView_AdvertisesThePaneToggle(t *testing.T) {
 	m := buildEventsPaneTestModel()
 
 	line := stripANSI(m.renderStatusLine())
 
-	if !strings.Contains(line, "enter: details") {
-		t.Errorf("expected the tree status line to advertise the pane hotkey, got %q", line)
+	if !strings.Contains(line, "e: events") {
+		t.Errorf("expected the tree status line to advertise the pane toggle, got %q", line)
 	}
 	if !strings.Contains(line, "Ready") {
 		t.Errorf("expected Ready to remain in the status line, got %q", line)
 	}
 }
 
-func TestStatusLine_EventsPane_ShowsModeAndScrollHints(t *testing.T) {
+// The pane is part of the view: the status line keeps the tree segment and
+// position, and only the scroll hint changes.
+func TestStatusLine_OpenPane_KeepsTreeSegmentAndShowsScrollHint(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	line := stripANSI(m.renderStatusLine())
 
-	if !strings.Contains(line, "<events>") {
-		t.Errorf("expected the mode segment <events>, got %q", line)
+	if !strings.Contains(line, "<tree>") {
+		t.Errorf("expected the tree segment to stay, got %q", line)
 	}
-	if !strings.Contains(line, "j/k: select • ⇧↑/⇧↓: scroll • esc: close") {
-		t.Errorf("expected the pane hints, got %q", line)
+	if !strings.Contains(line, "⇧↑/⇧↓: scroll events") {
+		t.Errorf("expected the scroll hint, got %q", line)
 	}
-	if strings.Contains(line, "e: events") {
-		t.Errorf("tree hints must yield while the pane is open, got %q", line)
+	if !strings.Contains(line, "2/2") {
+		t.Errorf("expected the tree position to stay visible, got %q", line)
+	}
+	for _, gone := range []string{"<events>", "esc: close", "j/k: select"} {
+		if strings.Contains(line, gone) {
+			t.Errorf("expected %q gone from the status line, got %q", gone, line)
+		}
 	}
 }
 
