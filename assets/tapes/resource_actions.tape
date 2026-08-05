@@ -14,7 +14,7 @@ Type "./argonaut-demo"
 Enter
 Wait+Screen@30s /Ready/
 Sleep 1500ms
-Type ":resources rollout-bluegreen"
+Type ":resources rollout-canary"
 Enter
 Wait+Screen@15s /EVENTS/
 Sleep 1s

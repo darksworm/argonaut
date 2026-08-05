@@ -25,6 +25,12 @@ argocd app sync rollout-bluegreen
 # fresh pod-level events on every pod (pod names are random, so the tapes
 # can't target one specific pod — refresh them all)
 kubectl --context k3d-argocd-demo -n argonaut-demo delete pods -l app=bluegreen-demo
+
+# a paused mid-update rollout, so the actions modal shows the full Argo
+# Rollouts set (abort, promote-full, resume, skip-current-step, …) instead
+# of just restart; sync the app afterwards to revert
+kubectl --context k3d-argocd-demo -n argonaut-demo patch rollout canary-demo \
+  --type json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"nginx:1.26"}]'
 ```
 
 Build the binary the tapes launch:
