@@ -32,7 +32,7 @@ func TestStatusLine_OpenPane_KeepsTreeSegmentAndShowsScrollHint(t *testing.T) {
 	if !strings.Contains(line, "<tree>") {
 		t.Errorf("expected the tree segment to stay, got %q", line)
 	}
-	if !strings.Contains(line, "⇧↑/⇧↓: scroll events") {
+	if !strings.Contains(line, "u/i: scroll events") {
 		t.Errorf("expected the scroll hint, got %q", line)
 	}
 	if !strings.Contains(line, "2/2") {

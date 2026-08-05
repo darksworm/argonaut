@@ -140,7 +140,7 @@ func (m *Model) renderStatusLine() string {
 	if m.state.Navigation.View == model.ViewTree && m.state.Mode == model.ModeNormal && rightText == "" {
 		hints := "e: events"
 		if m.paneOpen() {
-			hints = "⇧↑/⇧↓: scroll events"
+			hints = "u/i: scroll events"
 		}
 		available := max(0, m.state.Terminal.Cols-2)
 		if lipgloss.Width(leftText)+lipgloss.Width(hints)+lipgloss.Width(statusText)+len(" • ")+2 <= available {

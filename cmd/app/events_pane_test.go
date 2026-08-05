@@ -561,7 +561,9 @@ func TestEventsPane_JKNavigateTheTreeAndRetargetThePane(t *testing.T) {
 	}
 }
 
-func TestEventsPane_ShiftedKeysScrollTheViewport(t *testing.T) {
+// u/i sit right above j/k: scroll the pane without leaving the tree's home
+// row. Shift arrows do the same for non-vimmers.
+func TestEventsPane_UIAndShiftArrowsScrollTheViewport(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	for _, tc := range []struct {
@@ -569,10 +571,12 @@ func TestEventsPane_ShiftedKeysScrollTheViewport(t *testing.T) {
 		want  int
 		label string
 	}{
-		{tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl}, 1, "ctrl+e scrolls down"},
-		{tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}, 0, "ctrl+y scrolls up"},
+		{testKeyMsg("u"), 1, "u scrolls down"},
+		{testKeyMsg("i"), 0, "i scrolls up"},
 		{tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift}, 1, "shift+down scrolls down"},
 		{tea.KeyPressMsg{Code: tea.KeyUp, Mod: tea.ModShift}, 0, "shift+up scrolls up"},
+		{tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl}, 0, "ctrl+e is retired"},
+		{tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}, 0, "ctrl+y is retired"},
 	} {
 		teaModel, _ := m.handleKeyMsg(tc.key)
 		m = teaModel.(*Model)

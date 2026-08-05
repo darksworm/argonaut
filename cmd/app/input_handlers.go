@@ -1706,13 +1706,13 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	{
 		switch msg.String() {
-		case "ctrl+e", "shift+down":
-			// Scroll the side pane (vim's scroll-line-down)
+		case "u", "shift+down":
+			// Scroll the side pane; u/i mirror j/k from one row up
 			if st := m.state.Events; st != nil {
 				st.Offset++
 			}
 			return m, nil
-		case "ctrl+y", "shift+up":
+		case "i", "shift+up":
 			if st := m.state.Events; st != nil {
 				st.Offset = max(0, st.Offset-1)
 			}
