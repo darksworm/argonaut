@@ -191,8 +191,7 @@ argonaut
 ### **Live Resources**
 <img src="assets/argonaut_resources.png" alt="Resources view"/>
 
-### **Events & sync status**
-The pane follows your cursor through the tree: application rows show the last sync operation's status and events, resource rows their health and Kubernetes events.
+### **Resource tree and events**
 <img src="assets/argonaut_events.gif" alt="Events and sync status pane following the tree selection"/>
 
 ### **Diff**  
