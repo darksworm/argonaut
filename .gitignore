@@ -99,7 +99,7 @@ e2e/test-snapshots/*.raw
 e2e/test-snapshots/*.txt
 e2e/test-snapshots/*.screen
 
-# screenshot recording by-products (docs/screenshots.md)
+# screenshot recording by-products (assets/README.md)
 /argonaut-demo
-/help_raw.png
-/help_discard.gif
+/*_raw.png
+/screenshot_discard.gif

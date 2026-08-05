@@ -1,7 +1,7 @@
 default_view = 'apps'
 
 [appearance]
-theme = 'tokyo-storm'
+theme = 'tokyo-night'
 
 [updates]
 check_enabled = false
