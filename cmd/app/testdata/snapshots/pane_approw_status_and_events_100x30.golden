@@ -1,5 +1,5 @@
  Context: argo.example.com                                                           Argonaut dev   
- ╭──────────────────────────────────────────────╮╭─ Application demo-app ─────────────────────────╮ 
+ ╭──────────────────────────────────────────────╮╭─ Application demo-app ───────────────── ⟳ 10s ─╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
  │ ├── Deployment [demo/web] (Degraded)         ││ Operation     Sync                             │ 
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Phase         Failed                           │ 
@@ -25,5 +25,5 @@
  │                                              ││ OperationStarted                   x1 · 2m ago │ 
  │                                              ││   admin initiated sync to HEAD                 │ 
  │                                              ││                                                │ 
- ╰──────────────────────────────────────────────╯╰─ ⟳ 10s ────────────────────────────────────────╯ 
+ ╰──────────────────────────────────────────────╯╰────────────────────────────────────────────────╯ 
  <tree>                                                          ⇧↑/⇧↓: scroll events • Ready • 1/4 

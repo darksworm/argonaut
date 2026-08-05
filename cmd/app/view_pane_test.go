@@ -493,25 +493,33 @@ func TestRenderPaneFrame_TitleAndBody(t *testing.T) {
 	}
 }
 
-// The last body row is always blank — breathing room above the bottom
-// border, mirroring the padding row under the title. Content never reaches it.
-func TestRenderPaneFrame_BottomPaddingRowStaysBlank(t *testing.T) {
-	frame := paneFrame{Title: "Events", Width: 30, BodyRows: 4}
-
-	out := stripANSI(renderPaneFrame(frame, []string{"a", "b", "c"}))
-	lines := strings.Split(out, "\n")
-
-	// top border, padding, "a", "b", padding, bottom border
-	if !strings.Contains(lines[2], "a") || !strings.Contains(lines[3], "b") {
-		t.Errorf("expected the content rows between the padding rows:\n%s", out)
+// Content may use every row below the title padding — a pane that fits its
+// content exactly shows all of it, with no phantom scroll marker.
+func TestRenderSidePane_ContentFillingTheBodyExactly_ShowsItAll(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.state.Events.Loading = false
+	m.state.Events.DetailsLoading = false
+	m.state.Events.ResourceStatus = nil // no status block: the body is EVENTS + cards
+	// heading + 3 two-line cards + 2 separators = exactly 9 content lines
+	var events []model.ResourceEvent
+	for _, r := range []string{"A", "B", "C"} {
+		events = append(events, model.ResourceEvent{Reason: r, Message: "m", Count: 1, LastSeen: paneNow})
 	}
-	if last := lines[len(lines)-2]; strings.Trim(last, "│ ") != "" {
-		t.Errorf("expected the row above the bottom border to stay blank, got %q", last)
+	m.state.Events.Items = events
+
+	l := m.paneLayout(11) // paneBodyRows 10: padding row + all 9 content lines
+	out := stripANSI(m.renderSidePane(l))
+
+	if !strings.Contains(out, "C") {
+		t.Errorf("expected the last card visible:\n%s", out)
+	}
+	if strings.Contains(out, "▼ more below") {
+		t.Errorf("nothing is clipped, so no marker belongs on the frame:\n%s", out)
 	}
 }
 
-// The padding rows consume two physical rows, so the scrollable capacity is
-// BodyRows-2 — the viewport math and markers must account for it.
+// The padding row consumes one physical row, so the scrollable capacity is
+// BodyRows-1 — the viewport math and markers must account for it.
 func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 	m.state.Events.Loading = false
@@ -522,8 +530,8 @@ func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
 	}
 	m.state.Events.Items = events
 
-	l := m.paneLayout(9) // paneBodyRows 8: content fills it exactly, but the
-	// padding row leaves capacity 7 → the last line is clipped
+	l := m.paneLayout(8) // paneBodyRows 7: the padding row leaves capacity 6
+	// for 8 content lines → clipped
 	out := stripANSI(m.renderSidePane(l))
 
 	if !strings.Contains(out, "▼ more below") {
@@ -538,22 +546,27 @@ func TestRenderSidePane_PaddingRowReducesScrollCapacity(t *testing.T) {
 	}
 }
 
-func TestRenderPaneFrame_StatusAnchorsInBottomBorder(t *testing.T) {
-	frame := paneFrame{Title: "Events", Width: 40, BodyRows: 1, Status: "⟳ 10s", MoreBelow: true}
-	_ = frame
+func TestRenderPaneFrame_StatusAnchorsInTopBorderRight(t *testing.T) {
+	frame := paneFrame{Title: "Events", Width: 40, BodyRows: 1, Status: "⟳ 10s"}
 
 	out := stripANSI(renderPaneFrame(frame, []string{"x"}))
 	lines := strings.Split(out, "\n")
-	bottom := lines[len(lines)-1]
 
-	if !strings.HasPrefix(bottom, "╰─ ⟳ 10s ") {
-		t.Errorf("expected the status anchored at the bottom border's left edge, got %q", bottom)
+	if top := lines[0]; !strings.HasSuffix(top, " ⟳ 10s ─╮") {
+		t.Errorf("expected the status anchored at the top border's right edge, got %q", top)
 	}
-	if !strings.HasSuffix(bottom, "▼ more below ─╯") {
-		t.Errorf("expected the status to coexist with the scroll marker, got %q", bottom)
+	if bottom := lines[len(lines)-1]; strings.Contains(bottom, "⟳") {
+		t.Errorf("expected no status in the bottom border, got %q", bottom)
 	}
-	if w := len([]rune(bottom)); w != 40 {
-		t.Errorf("expected the bottom border to span exactly 40 cells, got %d", w)
+
+	// With the ▲ marker up too, the marker keeps the corner
+	frame.MoreAbove = true
+	top := strings.Split(stripANSI(renderPaneFrame(frame, []string{"x"})), "\n")[0]
+	if !strings.HasSuffix(top, " ⟳ 10s ─ ▲ more above ─╮") {
+		t.Errorf("expected the status to coexist with the scroll marker, got %q", top)
+	}
+	if w := len([]rune(top)); w != 40 {
+		t.Errorf("expected the top border to span exactly 40 cells, got %d", w)
 	}
 }
 

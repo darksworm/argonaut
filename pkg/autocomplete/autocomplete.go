@@ -102,8 +102,8 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 		{
 			Command:     "events",
 			Aliases:     []string{"events", "event"},
-			Description: "Show events (and sync status) for the selected row",
-			TakesArg:    false,
+			Description: "Auto-open the events pane: on|off, add 'always' to persist",
+			TakesArg:    true,
 			ArgType:     "",
 		},
 		{

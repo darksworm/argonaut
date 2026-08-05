@@ -113,10 +113,10 @@ func TestEventsPane_ShowsResourceEvents(t *testing.T) {
 
 	openDemoTree(t, tf)
 
-	// The app root carries the last-sync summary line
-	if !tf.WaitForPlain("last sync:", 5*time.Second) {
-		t.Log(tf.SnapshotPlain())
-		t.Fatal("sync summary line not shown under the app root")
+	// The app root carries the compact last-sync summary inline
+	if !tf.WaitForScreen("· ✖ sync failed", 5*time.Second) {
+		t.Log(tf.Screen())
+		t.Fatal("sync summary not shown on the app root row")
 	}
 	// The pane opens by itself on the application root
 	if !tf.WaitForScreen("─ Application demo ", 5*time.Second) {
@@ -237,15 +237,15 @@ func TestMouseSelection_DoesNotDuplicateTheSelectedRow(t *testing.T) {
 	}
 
 	openDemoTree(t, tf)
-	if !tf.WaitForScreen("last sync:", 5*time.Second) {
+	if !tf.WaitForScreen("· ✖ sync failed", 5*time.Second) {
 		t.Log(tf.Screen())
-		t.Fatal("sync summary line not shown")
+		t.Fatal("sync summary not shown")
 	}
 
 	rows := strings.Split(tf.Screen(), "\n")
 	summaryRow := -1
 	for i, r := range rows {
-		if strings.Contains(r, "last sync:") {
+		if strings.Contains(r, "· ✖ sync failed") {
 			summaryRow = i
 			break
 		}
@@ -265,7 +265,7 @@ func TestMouseSelection_DoesNotDuplicateTheSelectedRow(t *testing.T) {
 	time.Sleep(2500 * time.Millisecond)
 
 	held := tf.Screen()
-	if got := strings.Count(held, "last sync:"); got != 1 {
+	if got := strings.Count(held, "· ✖ sync failed"); got != 1 {
 		t.Log(held)
 		t.Errorf("expected exactly one summary row while selecting, got %d", got)
 	}
@@ -281,7 +281,7 @@ func TestMouseSelection_DoesNotDuplicateTheSelectedRow(t *testing.T) {
 		t.Fatal("selection never engaged (no Copied! confirmation)")
 	}
 	after := tf.Screen()
-	if got := strings.Count(after, "last sync:"); got != 1 {
+	if got := strings.Count(after, "· ✖ sync failed"); got != 1 {
 		t.Log(after)
 		t.Errorf("expected exactly one summary row after the selection, got %d", got)
 	}

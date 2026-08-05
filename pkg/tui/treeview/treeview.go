@@ -66,9 +66,6 @@ type TreeView struct {
 	syncSummaries map[string]*model.SyncOpSummary
 	// Time source for relative timestamps; overridable for deterministic tests
 	now func() time.Time
-
-	// currentUser is the logged-in username; their syncs render "by you"
-	currentUser string
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -589,6 +586,9 @@ func (v *TreeView) Render() string {
 		prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
 		label := v.renderLabel(n)
 		line := prefixStyled + label
+		if seg := v.compactSyncSummary(n, nil); seg != "" {
+			line += " " + seg
+		}
 		if len(n.children) > 0 && !v.expanded[n.uid] {
 			hidden := countDescendants(n)
 			if hidden > 0 {
@@ -614,6 +614,9 @@ func (v *TreeView) Render() string {
 			st := v.renderStatusPartNeutralBG(n, flashBG)
 			sp := bgStyle.Render(" ")
 			line = ps + ks + sp + ns + sp + st
+			if seg := v.compactSyncSummary(n, flashBG); seg != "" {
+				line += sp + seg
+			}
 			line = padRightWithBG(line, v.innerWidth(), flashBG)
 		} else if v.desaturateMode {
 			// In desaturate mode: only highlight selected items, with scoped highlighting
@@ -640,6 +643,9 @@ func (v *TreeView) Render() string {
 				st := v.renderStatusPartNeutralBG(n, rowBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
+				if seg := v.compactSyncSummary(n, rowBG); seg != "" {
+					line += sp + seg
+				}
 				// NO padRightWithBG - don't extend highlight to full width
 			}
 			// else: cursor-only or regular line - keep default rendering (no special background)
@@ -673,6 +679,9 @@ func (v *TreeView) Render() string {
 				st := v.renderStatusPartNeutralBG(n, rowBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
+				if seg := v.compactSyncSummary(n, rowBG); seg != "" {
+					line += sp + seg
+				}
 				line = padRightWithBG(line, v.innerWidth(), rowBG)
 			} else if isMatch {
 				// Non-selected, non-cursor match: highlight with warning background
@@ -688,16 +697,13 @@ func (v *TreeView) Render() string {
 				st := v.renderStatusPartNeutralBG(n, matchBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
+				if seg := v.compactSyncSummary(n, matchBG); seg != "" {
+					line += sp + seg
+				}
 				line = padRightWithBG(line, v.innerWidth(), matchBG)
 			}
 		}
 		b.WriteString(line)
-		if n.parent == nil {
-			if s := v.syncSummaries[n.name]; s != nil {
-				b.WriteString("\n")
-				b.WriteString(v.renderSyncSummaryLine(s))
-			}
-		}
 		if i < len(v.order)-1 {
 			b.WriteString("\n")
 		}
@@ -810,14 +816,9 @@ func (v *TreeView) SetSelectedIndex(idx int) {
 // VisibleCount returns the number of currently visible nodes in DFS order.
 func (v *TreeView) VisibleCount() int { return len(v.order) }
 
-// hasSyncSummary reports whether a root node renders a summary line under it.
-func (v *TreeView) hasSyncSummary(n *treeNode) bool {
-	return n.parent == nil && v.syncSummaries[n.name] != nil
-}
-
 // SelectedLineIndex returns the index of the selected line in the rendered
 // output, accounting for the blank separator lines inserted between app
-// roots and the sync-summary lines inserted under them in View().
+// roots in View().
 func (v *TreeView) SelectedLineIndex() int {
 	if v.selIdx <= 0 || v.selIdx >= len(v.order) {
 		if v.selIdx < 0 {
@@ -826,37 +827,27 @@ func (v *TreeView) SelectedLineIndex() int {
 		return min(v.selIdx, max(0, len(v.order)-1))
 	}
 	extras := 0
-	if v.hasSyncSummary(v.order[0]) {
-		extras++
-	}
 	for i := 1; i <= v.selIdx && i < len(v.order); i++ {
 		if v.order[i].parent == nil {
 			extras++ // blank separator before this root
-			if v.hasSyncSummary(v.order[i]) {
-				extras++
-			}
 		}
 	}
 	return v.selIdx + extras
 }
 
 // VisibleLineCount returns the number of lines produced by View(): visible
-// nodes plus blank separators (roots-1) plus sync-summary lines.
+// nodes plus blank separators (roots-1).
 func (v *TreeView) VisibleLineCount() int {
-	extras := 0
 	roots := 0
 	for _, n := range v.order {
 		if n.parent == nil {
 			roots++
-			if v.hasSyncSummary(n) {
-				extras++
-			}
 		}
 	}
 	if roots > 0 {
 		roots--
 	}
-	return len(v.order) + roots + extras
+	return len(v.order) + roots
 }
 
 func padRightWithBG(s string, width int, bg color.Color) string {
@@ -871,12 +862,6 @@ func padRightWithBG(s string, width int, bg color.Color) string {
 // SetClock overrides the time source used for relative timestamps (tests).
 func (v *TreeView) SetClock(now func() time.Time) {
 	v.now = now
-}
-
-// SetCurrentUser tells the view who is logged in, so sync summaries can
-// render that user's operations as "by you".
-func (v *TreeView) SetCurrentUser(username string) {
-	v.currentUser = username
 }
 
 // SetAppSyncSummary sets (or clears, with nil) the last-sync-operation
@@ -904,49 +889,54 @@ func phaseGlyph(phase string) string {
 	}
 }
 
-// renderSyncSummaryLine formats the one-line last-sync annotation:
-// "last sync: ✖ Failed · 2m ago · a1b2c3d · by alice · S for details"
-func (v *TreeView) renderSyncSummaryLine(s *model.SyncOpSummary) string {
-	dim := lipgloss.NewStyle().Foreground(v.palette.Dim)
+// compactSyncSummary is the root row's inline last-operation segment:
+// "· ✖ sync failed 2m ago". Empty for non-roots and for apps without a
+// summary. A non-nil bg renders it over a highlighted row's background;
+// the details (revision, initiator) live in the events pane.
+func (v *TreeView) compactSyncSummary(n *treeNode, bg color.Color) string {
+	if n.parent != nil {
+		return ""
+	}
+	s := v.syncSummaries[n.name]
+	if s == nil {
+		return ""
+	}
 
 	glyph := phaseGlyph(s.Phase)
-	phaseColor := v.palette.Success
+	var text string
+	switch s.Phase {
+	case "Succeeded":
+		text = "synced"
+	case "Failed", "Error":
+		text = "sync failed"
+	case "Running":
+		text = "syncing"
+	default:
+		text = "sync " + strings.ToLower(s.Phase)
+	}
+	if s.Phase != "Running" {
+		at := s.FinishedAt
+		if at.IsZero() {
+			at = s.StartedAt
+		}
+		text += " " + humantime.Ago(at, v.now())
+	}
+
+	if bg != nil {
+		return lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(bg).
+			Render("· " + glyph + " " + text)
+	}
+	glyphColor := v.palette.Success
 	switch glyph {
 	case "✖":
-		phaseColor = v.palette.Danger
+		glyphColor = v.palette.Danger
 	case "◌":
-		phaseColor = v.palette.Progress
+		glyphColor = v.palette.Progress
 	}
-	phaseStyle := lipgloss.NewStyle().Foreground(phaseColor)
-
-	at := s.FinishedAt
-	if at.IsZero() {
-		at = s.StartedAt
-	}
-	revision := s.Revision
-	if len(revision) > 8 {
-		revision = revision[:8]
-	}
-
-	line := dim.Render("last sync: ") +
-		phaseStyle.Render(glyph+" "+s.Phase) +
-		dim.Render(" · "+humantime.Ago(at, v.now()))
-	if revision != "" {
-		// The revision keeps its identity color so the same sha is
-		// spottable in the pane's status block and events
-		line += dim.Render(" · ") + lipgloss.NewStyle().Foreground(v.palette.ShaColor(revision)).Render(revision)
-	}
-	switch {
-	case s.InitiatedBy != "" && s.InitiatedBy == v.currentUser:
-		// "you" gets the same highlight as the pane's status block
-		line += dim.Render(" · by ") +
-			lipgloss.NewStyle().Foreground(v.palette.Text).Bold(true).Render("you")
-	case s.InitiatedBy != "":
-		line += dim.Render(" · by " + s.InitiatedBy)
-	case s.Automated:
-		line += dim.Render(" · auto")
-	}
-	return line
+	dim := lipgloss.NewStyle().Foreground(v.palette.Dim)
+	return dim.Render("· ") +
+		lipgloss.NewStyle().Foreground(glyphColor).Render(glyph) +
+		dim.Render(" "+text)
 }
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node

@@ -40,10 +40,10 @@ type paneLayout struct {
 	treeBodyRows  int  // tree content rows
 }
 
-// paneContentRows is how many body lines fit between the frame's fixed top
-// and bottom padding rows (see renderPaneFrame).
+// paneContentRows is how many body lines fit below the frame's fixed top
+// padding row (see renderPaneFrame).
 func (l paneLayout) paneContentRows() int {
-	return max(0, l.paneBodyRows-2)
+	return max(0, l.paneBodyRows-1)
 }
 
 // paneLayout computes the split for the given row budget (the rows the tree
@@ -390,35 +390,39 @@ type paneFrame struct {
 	BodyRows  int // body rows to render (padded with blanks)
 	MoreAbove bool
 	MoreBelow bool
-	// Status is anchored at the bottom border's left edge (the pane's
+	// Status is anchored at the top border's right edge (the pane's
 	// auto-refresh cadence and data age)
 	Status string
 }
 
 // renderPaneFrame draws a manually-composed rounded frame: the title lives
-// in the top border, scroll markers anchor at fixed spots in the borders
-// (▲ top-right, ▼ bottom-right) so users learn where to look.
+// in the top border with the status at its right edge, scroll markers anchor
+// at fixed spots in the borders (▲ top-right, ▼ bottom-right) so users learn
+// where to look.
 func renderPaneFrame(f paneFrame, body []string) string {
 	borderStyle := lipgloss.NewStyle().Foreground(currentPalette.Border)
 	titleStyle := lipgloss.NewStyle().Foreground(currentPalette.Text)
 	markerStyle := lipgloss.NewStyle().Foreground(currentPalette.Info)
 	bodyWidth := max(0, f.Width-4)
 
-	// Top border: ╭─ Title ────[▲ more above ─]╮
-	title := f.Title
-	maxTitle := f.Width - 6 // "╭─ " + " " + filler + "╮"
-	if f.MoreAbove {
-		maxTitle -= lipgloss.Width(" ▲ more above ─")
+	// Top border: ╭─ Title ────[ status ─][ ▲ more above ─]╮
+	topRight := ""
+	topRightWidth := 0
+	if f.Status != "" {
+		statusStyle := lipgloss.NewStyle().Foreground(currentPalette.Dim)
+		topRight = borderStyle.Render(" ") + statusStyle.Render(f.Status) + borderStyle.Render(" ─")
+		topRightWidth += lipgloss.Width(" " + f.Status + " ─")
 	}
+	if f.MoreAbove {
+		topRight += markerStyle.Render(" ▲ more above ") + borderStyle.Render("─")
+		topRightWidth += lipgloss.Width(" ▲ more above ─")
+	}
+	title := f.Title
+	maxTitle := f.Width - 6 - topRightWidth // "╭─ " + " " + filler + "╮"
 	if lipgloss.Width(title) > maxTitle {
 		title = clipAnsiToWidth(title, max(0, maxTitle-1)) + "…"
 	}
-	fill := f.Width - lipgloss.Width(title) - 5 // "╭─ " + " " + "╮"
-	topRight := ""
-	if f.MoreAbove {
-		fill -= lipgloss.Width(" ▲ more above ─")
-		topRight = markerStyle.Render(" ▲ more above ") + borderStyle.Render("─")
-	}
+	fill := f.Width - lipgloss.Width(title) - 5 - topRightWidth // "╭─ " + " " + "╮"
 	var b strings.Builder
 	b.WriteString(borderStyle.Render("╭─ "))
 	b.WriteString(titleStyle.Render(title))
@@ -427,33 +431,25 @@ func renderPaneFrame(f paneFrame, body []string) string {
 	b.WriteString(borderStyle.Render("╮"))
 	b.WriteString("\n")
 
-	// Body rows, padded to the frame's height and width. The first and last
-	// rows are always blank — breathing room between the borders and the
-	// content.
+	// Body rows, padded to the frame's height and width. The first row is
+	// always blank — breathing room between the title and the content.
 	for i := 0; i < f.BodyRows; i++ {
 		line := strings.Repeat(" ", bodyWidth)
-		if i > 0 && i < f.BodyRows-1 && i-1 < len(body) && body[i-1] != "" {
+		if i > 0 && i-1 < len(body) && body[i-1] != "" {
 			line = normalizeLinesToWidth(body[i-1], bodyWidth)
 		}
 		b.WriteString(borderStyle.Render("│") + " " + line + " " + borderStyle.Render("│"))
 		b.WriteString("\n")
 	}
 
-	// Bottom border: ╰[─ status ]────[ ▼ more below ─]╯
+	// Bottom border: ╰────[ ▼ more below ─]╯
 	bottomFill := f.Width - 2
-	bottomLeft := ""
-	if f.Status != "" {
-		statusStyle := lipgloss.NewStyle().Foreground(currentPalette.Dim)
-		bottomFill -= lipgloss.Width("─ " + f.Status + " ")
-		bottomLeft = borderStyle.Render("─ ") + statusStyle.Render(f.Status) + borderStyle.Render(" ")
-	}
 	bottomRight := ""
 	if f.MoreBelow {
 		bottomFill -= lipgloss.Width(" ▼ more below ─")
 		bottomRight = markerStyle.Render(" ▼ more below ") + borderStyle.Render("─")
 	}
 	b.WriteString(borderStyle.Render("╰"))
-	b.WriteString(bottomLeft)
 	b.WriteString(borderStyle.Render(strings.Repeat("─", max(0, bottomFill))))
 	b.WriteString(bottomRight)
 	b.WriteString(borderStyle.Render("╯"))

@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
 	model "github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
@@ -525,7 +524,7 @@ func TestSelectedResourceDetail_SyntheticRootIsNotAResource(t *testing.T) {
 	}
 }
 
-func TestRender_AppWithSyncSummary_ShowsSummaryLineUnderRoot(t *testing.T) {
+func TestRender_RootRow_CarriesCompactSyncSummaryInline(t *testing.T) {
 	v := NewTreeView(100, 20)
 	v.ApplyTheme(theme.Default())
 	v.SetAppMeta("my-app", "Degraded", "Synced")
@@ -544,21 +543,45 @@ func TestRender_AppWithSyncSummary_ShowsSummaryLineUnderRoot(t *testing.T) {
 		InitiatedBy: "alice",
 	})
 
+	v.SetSelectedIndex(1) // cursor off the root: the plain row renders unpadded
+
 	lines := strings.Split(stripANSI(v.Render()), "\n")
 
-	if len(lines) < 3 {
-		t.Fatalf("expected root + summary + resource lines, got %d:\n%s", len(lines), strings.Join(lines, "\n"))
+	want := "Application [my-app] (Degraded, Synced) · ✖ sync failed 2m ago"
+	if lines[0] != want {
+		t.Errorf("expected the root row %q, got %q", want, lines[0])
 	}
-	want := "last sync: ✖ Failed · 2m ago · a1b2c3d4 · by alice"
-	if lines[1] != want {
-		t.Errorf("expected summary line %q, got %q", want, lines[1])
-	}
-	if !strings.Contains(lines[2], "Deployment") {
-		t.Errorf("expected the resource row after the summary line, got %q", lines[2])
+	if !strings.Contains(lines[1], "Deployment") {
+		t.Errorf("expected the resource row directly under the root, got %q", lines[1])
 	}
 }
 
-func TestRender_SyncSummaryWithoutInitiator_HasNoTrailingSeparator(t *testing.T) {
+// The cursor usually rests on the root row — the highlight must not swallow
+// the sync summary.
+func TestRender_RootRowUnderCursor_KeepsTheSyncSummary(t *testing.T) {
+	v := NewTreeView(100, 20)
+	v.ApplyTheme(theme.Default())
+	v.SetAppMeta("my-app", "Degraded", "Synced")
+	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
+	v.UpsertAppTree("my-app", &api.ResourceTree{
+		Nodes: []api.ResourceNode{
+			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
+		},
+	})
+	v.SetAppSyncSummary("my-app", &model.SyncOpSummary{
+		Phase:      "Failed",
+		FinishedAt: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+	})
+	v.SetSelectedIndex(0) // cursor on the root row
+
+	lines := strings.Split(stripANSI(v.Render()), "\n")
+
+	if !strings.Contains(lines[0], "· ✖ sync failed 2m ago") {
+		t.Errorf("expected the highlighted root row to keep the summary, got %q", lines[0])
+	}
+}
+
+func TestRender_RootRow_SucceededSummaryReadsSynced(t *testing.T) {
 	v := NewTreeView(100, 20)
 	v.ApplyTheme(theme.Default())
 	v.SetAppMeta("my-app", "Healthy", "Synced")
@@ -573,46 +596,40 @@ func TestRender_SyncSummaryWithoutInitiator_HasNoTrailingSeparator(t *testing.T)
 		FinishedAt: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
 	})
 
+	v.SetSelectedIndex(1) // cursor off the root: the plain row renders unpadded
+
 	lines := strings.Split(stripANSI(v.Render()), "\n")
 
-	if want := "last sync: ✔ Succeeded · 2m ago"; lines[1] != want {
-		t.Errorf("expected summary line %q, got %q", want, lines[1])
+	if want := "Application [my-app] (Healthy, Synced) · ✔ synced 2m ago"; lines[0] != want {
+		t.Errorf("expected the root row %q, got %q", want, lines[0])
 	}
 }
 
-// The user recognizes themselves at a glance: their own syncs read "by you",
-// highlighted like the pane's status block does it.
-func TestRender_SyncSummaryBySessionUser_ShowsHighlightedYou(t *testing.T) {
+func TestRender_RootRow_RunningSummaryReadsSyncing(t *testing.T) {
 	v := NewTreeView(100, 20)
 	v.ApplyTheme(theme.Default())
 	v.SetAppMeta("my-app", "Healthy", "Synced")
 	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
-	v.SetCurrentUser("admin")
 	v.UpsertAppTree("my-app", &api.ResourceTree{
 		Nodes: []api.ResourceNode{
 			{UID: "deploy-uid", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web"},
 		},
 	})
 	v.SetAppSyncSummary("my-app", &model.SyncOpSummary{
-		Phase:       "Succeeded",
-		FinishedAt:  time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
-		Revision:    "4caae2c0e29c5ada",
-		InitiatedBy: "admin",
+		Phase:     "Running",
+		StartedAt: time.Date(2026, 8, 4, 12, 1, 30, 0, time.UTC),
 	})
 
-	rendered := v.Render()
+	v.SetSelectedIndex(1) // cursor off the root: the plain row renders unpadded
 
-	lines := strings.Split(stripANSI(rendered), "\n")
-	if want := "last sync: ✔ Succeeded · 2m ago · 4caae2c0 · by you"; lines[1] != want {
-		t.Errorf("expected summary line %q, got %q", want, lines[1])
-	}
-	youStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Bold(true).Render("you")
-	if !strings.Contains(rendered, youStyled) {
-		t.Errorf("expected 'you' highlighted like the pane does it, got: %q", rendered)
+	lines := strings.Split(stripANSI(v.Render()), "\n")
+
+	if want := "Application [my-app] (Healthy, Synced) · ◌ syncing"; lines[0] != want {
+		t.Errorf("expected the root row %q, got %q", want, lines[0])
 	}
 }
 
-func TestLineAccounting_CountsSummaryLinesLikeSeparators(t *testing.T) {
+func TestLineAccounting_InlineSummariesAddNoLines(t *testing.T) {
 	v := NewTreeView(100, 20)
 	v.ApplyTheme(theme.Default())
 	v.SetClock(func() time.Time { return time.Date(2026, 8, 4, 12, 2, 0, 0, time.UTC) })
@@ -625,7 +642,6 @@ func TestLineAccounting_CountsSummaryLinesLikeSeparators(t *testing.T) {
 			},
 		})
 	}
-	// Only the first app has a summary line
 	v.SetAppSyncSummary("app-a", &model.SyncOpSummary{
 		Phase:      "Succeeded",
 		FinishedAt: time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
@@ -637,10 +653,10 @@ func TestLineAccounting_CountsSummaryLinesLikeSeparators(t *testing.T) {
 	}
 
 	// Cursor on app-b's deployment (order: rootA, deployA, rootB, deployB).
-	// Rendered: rootA(0), summary(1), deployA(2), blank(3), rootB(4), deployB(5).
+	// Rendered: rootA(0), deployA(1), blank(2), rootB(3), deployB(4).
 	v.SetSelectedIndex(3)
-	if got := v.SelectedLineIndex(); got != 5 {
-		t.Errorf("SelectedLineIndex() = %d, want 5", got)
+	if got := v.SelectedLineIndex(); got != 4 {
+		t.Errorf("SelectedLineIndex() = %d, want 4", got)
 	}
 }
 

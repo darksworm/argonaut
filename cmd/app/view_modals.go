@@ -43,7 +43,7 @@ func (m *Model) renderHelpModal() string {
 
 	// COMMANDS
 	commands := strings.Join([]string{
-		mono(":q"), " (to exit, google how to exit vim)",
+		mono(":events"), " on|off [always] ", bullet(), " ", mono(":q"), " (to exit, google how to exit vim)",
 	}, "")
 
 	// APPS VIEW - hotkeys and commands specific to apps view

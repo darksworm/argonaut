@@ -1,5 +1,5 @@
  Context: argo.example.com                                                           Argonaut dev   
- ╭──────────────────────────────────────────────╮╭─ Pod web-6f7d9b-x4k2m ─────────────────────────╮ 
+ ╭──────────────────────────────────────────────╮╭─ Pod web-6f7d9b-x4k2m ───── ⟳ updated 12s ago ─╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
  │ ├── Deployment [demo/web] (Degraded)         ││ Health        Degraded                         │ 
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Sync          OutOfSync                        │ 
@@ -18,6 +18,6 @@
  │                                              ││   Container image "web:1.4.2" already present  │ 
  │                                              ││   on machine                                   │ 
  │                                              ││                                                │ 
- │                                              ││                                                │ 
- ╰──────────────────────────────────────────────╯╰─ ⟳ updated 12s ago ───────────── ▼ more below ─╯ 
+ │                                              ││ Unhealthy                         x38 · 5m ago │ 
+ ╰──────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯ 
  <tree>                                                          ⇧↑/⇧↓: scroll events • Ready • 1/4 

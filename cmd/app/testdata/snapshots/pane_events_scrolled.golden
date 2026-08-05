@@ -1,5 +1,5 @@
   argo.example.com                                                                   Argonaut dev   
- ╭──────────────────────────────────────────────╮╭─ Pod web-6f7d9b-x4k2m ────────── ▲ more above ─╮ 
+ ╭──────────────────────────────────────────────╮╭─ Pod web-… ─ ⟳ updated 12s ago ─ ▲ more above ─╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
  │ ├── Deployment [demo/web] (Degraded)         ││               [web]                            │ 
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Last sync     SyncFailed                       │ 
@@ -8,6 +8,6 @@
  │                                              ││ EVENTS                                         │ 
  │                                              ││ BackOff                          x412 · 2m ago │ 
  │                                              ││   Back-off restarting failed container web in  │ 
- │                                              ││                                                │ 
- ╰──────────────────────────────────────────────╯╰─ ⟳ updated 12s ago ───────────── ▼ more below ─╯ 
+ │                                              ││   pod web-6f7d9b-x4k2m_demo(a1b2c3d)           │ 
+ ╰──────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯ 
  <tree>                                                          ⇧↑/⇧↓: scroll events • Ready • 1/4 

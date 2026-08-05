@@ -6,7 +6,7 @@
  │ └── Service [demo/web] (Healthy)                                           │ 
  │                                                                            │ 
  ╰────────────────────────────────────────────────────────────────────────────╯ 
- ╭─ Pod web-6f7d9b-x4k2m ─────────────────────────────────────────────────────╮ 
+ ╭─ Pod web-6f7d9b-x4k2m ───────────────────────────────── ⟳ updated 12s ago ─╮ 
  │                                                                            │ 
  │ Health        Degraded                                                     │ 
  │ Sync          OutOfSync                                                    │ 
@@ -18,6 +18,6 @@
  │ EVENTS                                                                     │ 
  │ BackOff                                                      x412 · 2m ago │ 
  │   Back-off restarting failed container web in pod web-6f7d9b-x4k2m_demo(a1 │ 
- │                                                                            │ 
- ╰─ ⟳ updated 12s ago ───────────────────────────────────────── ▼ more below ─╯ 
+ │   b2c3d)                                                                   │ 
+ ╰───────────────────────────────────────────────────────────── ▼ more below ─╯ 
  <tree>                                      ⇧↑/⇧↓: scroll events • Ready • 1/4 

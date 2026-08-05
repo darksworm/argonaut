@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
@@ -755,14 +757,88 @@ func runCommand(t *testing.T, m *Model, command string) *Model {
 	return teaModel.(*Model)
 }
 
-func TestEventsCommand_InTreeView_OpensEventsPane(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	m.treeView.SetSelectedIndex(1)
+// :events off hides the pane for this session: it closes now and stays away
+// on the next tree load.
+func TestEventsCommand_Off_ClosesPaneAndStopsAutoOpen(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
 
-	m = runCommand(t, m, "events")
+	teaModel, _ := m.handleKeyMsg(testKeyMsg(":"))
+	m = runCommand(t, teaModel.(*Model), "events off")
 
-	if m.state.Events == nil || m.state.Events.Target.Resource.UID != "pod-uid" {
-		t.Errorf("expected events for the selected row, got %+v", m.state.Events)
+	if m.state.Events != nil {
+		t.Fatal("expected :events off to close the pane")
+	}
+	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
+		{UID: "d1", Kind: "Deployment", Name: "web"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	teaModel, _ = m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", Health: "Healthy", Sync: "Synced",
+		TreeJSON: treeJSON, SwitchEpoch: m.switchEpoch,
+	})
+	if teaModel.(*Model).state.Events != nil {
+		t.Error("expected auto-open to stay off for the session")
+	}
+}
+
+// :events on undoes a session off — reopening immediately in the tree view.
+func TestEventsCommand_On_ReopensThePane(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	teaModel, _ := m.handleKeyMsg(testKeyMsg(":"))
+	m = runCommand(t, teaModel.(*Model), "events off")
+
+	teaModel, _ = m.handleKeyMsg(testKeyMsg(":"))
+	m = runCommand(t, teaModel.(*Model), "events on")
+
+	if m.state.Events == nil {
+		t.Error("expected :events on to open the pane in the tree view")
+	}
+}
+
+// A bare :events (or junk argument) explains itself instead of guessing.
+func TestEventsCommand_WithoutOnOff_ExplainsUsage(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	m.state.Mode = model.ModeCommand
+	m.inputComponents.SetCommandValue("events")
+	m.state.UI.Command = "events"
+	teaModel, cmd := m.handleEnhancedCommandModeKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+	mm := teaModel.(*Model)
+
+	if mm.state.Events == nil {
+		t.Error("expected the open pane left untouched")
+	}
+	var usage string
+	for _, msg := range collectMsgs(t, cmd) {
+		if sc, ok := msg.(model.StatusChangeMsg); ok {
+			usage = sc.Status
+		}
+	}
+	if !strings.Contains(usage, "on|off") {
+		t.Errorf("expected a usage hint, got %q", usage)
+	}
+}
+
+// "always" makes the choice outlive the session: it lands in the config file.
+func TestEventsCommand_OffAlways_PersistsToConfig(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "config.toml")
+	t.Setenv("ARGONAUT_CONFIG", cfgPath)
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	teaModel, _ := m.handleKeyMsg(testKeyMsg(":"))
+	m = runCommand(t, teaModel.(*Model), "events off always")
+
+	if m.state.Events != nil {
+		t.Error("expected the pane closed")
+	}
+	loaded, err := config.LoadArgonautConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.IsEventsAutoOpenEnabled() {
+		t.Error("expected auto_open = false persisted to the config file")
 	}
 }
 
@@ -809,8 +885,8 @@ func TestAppsBatchUpdate_RefreshesTreeSyncSummaryLive(t *testing.T) {
 	})
 	mm := teaModel.(*Model)
 
-	if !strings.Contains(mm.treeView.Render(), "last sync:") {
-		t.Error("expected the tree to show the sync summary line after a live app update")
+	if !strings.Contains(stripANSI(mm.treeView.Render()), "· ✖ sync failed") {
+		t.Error("expected the root row's sync summary after a live app update")
 	}
 }
 
@@ -910,66 +986,7 @@ func TestDrillIntoChildApp_ClosesTheStalePane(t *testing.T) {
 	}
 }
 
-// Once authentication reveals who is logged in, the tree's sync summaries
-// render that user's operations as "by you".
-func TestAuthValidation_TreeSummaryShowsSessionUserAsYou(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	teaModel, _ := m.Update(model.AuthValidationResultMsg{
-		Mode: model.ModeNormal, Username: "admin", SwitchEpoch: m.switchEpoch,
-	})
-	m = teaModel.(*Model)
 
-	updated := m.state.Apps[0] // test-app
-	updated.SyncOp = &model.SyncOpSummary{
-		Phase:       "Succeeded",
-		FinishedAt:  time.Now().Add(-time.Minute),
-		InitiatedBy: "admin",
-	}
-	teaModel, _ = m.Update(model.AppsBatchUpdateMsg{
-		Updates:     []model.AppUpdatedMsg{{App: updated}},
-		SwitchEpoch: m.switchEpoch,
-	})
-	m = teaModel.(*Model)
-
-	if rendered := stripANSI(m.treeView.Render()); !strings.Contains(rendered, "by you") {
-		t.Errorf("expected the session user's sync to read 'by you', got:\n%s", rendered)
-	}
-}
-
-// Drilling into resources rebuilds the TreeView from scratch — the fresh
-// instance must still know the session user.
-func TestTreeRebuild_KeepsSessionUserForSummaries(t *testing.T) {
-	m := buildEventsPaneTestModel()
-	teaModel, _ := m.Update(model.AuthValidationResultMsg{
-		Mode: model.ModeNormal, Username: "admin", SwitchEpoch: m.switchEpoch,
-	})
-	m = teaModel.(*Model)
-	m.state.Apps[0].SyncOp = &model.SyncOpSummary{
-		Phase:       "Succeeded",
-		FinishedAt:  time.Now().Add(-time.Minute),
-		InitiatedBy: "admin",
-	}
-	m.state.Navigation.View = model.ViewApps
-	m.state.Navigation.SelectedIdx = 0
-
-	teaModel, _ = m.handleKeyMsg(testKeyMsg("r")) // fresh TreeView instance
-	m = teaModel.(*Model)
-	treeJSON, err := json.Marshal(api.ResourceTree{Nodes: []api.ResourceNode{
-		{UID: "d1", Kind: "Deployment", Name: "web"},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	teaModel, _ = m.Update(model.ResourceTreeLoadedMsg{
-		AppName: "test-app", Health: "Healthy", Sync: "Synced",
-		TreeJSON: treeJSON, SwitchEpoch: m.switchEpoch,
-	})
-	m = teaModel.(*Model)
-
-	if rendered := stripANSI(m.treeView.Render()); !strings.Contains(rendered, "by you") {
-		t.Errorf("expected the rebuilt tree to render 'by you', got:\n%s", rendered)
-	}
-}
 
 // Two apps share a name; the summary under the tree root must come from the
 // tree-scoped app, not the first name-match in the list.
@@ -1004,10 +1021,10 @@ func TestResourceTreeLoaded_SyncSummary_DisambiguatesAppByNamespace(t *testing.T
 	mm := teaModel.(*Model)
 
 	rendered := mm.treeView.Render()
-	if !strings.Contains(rendered, "Succeeded") {
-		t.Error("expected the tree-scoped app's summary (Succeeded)")
+	if !strings.Contains(rendered, "· ✔ synced") {
+		t.Error("expected the tree-scoped app's summary (synced)")
 	}
-	if strings.Contains(rendered, "Failed") {
+	if strings.Contains(rendered, "sync failed") {
 		t.Error("the same-named app from another namespace must not leak its summary")
 	}
 }
@@ -1034,8 +1051,8 @@ func TestResourceTreeLoaded_SetsSyncSummaryFromAppList(t *testing.T) {
 	})
 	mm := teaModel.(*Model)
 
-	if !strings.Contains(mm.treeView.Render(), "last sync:") {
-		t.Error("expected the freshly loaded tree to carry the app's sync summary line")
+	if !strings.Contains(stripANSI(mm.treeView.Render()), "· ✔ synced") {
+		t.Error("expected the freshly loaded tree to carry the app's sync summary")
 	}
 }
 

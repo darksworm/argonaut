@@ -29,6 +29,15 @@ func (m *Model) resolveAppNamespace(appName string) string {
 // fetching, so holding j/k fetches once for the row the user settles on.
 const paneFetchDebounce = 200 * time.Millisecond
 
+// eventsAutoOpenEnabled reports whether the pane opens by itself in the tree
+// view, honoring a session-scoped ":events on|off" before the config default.
+func (m *Model) eventsAutoOpenEnabled() bool {
+	if m.eventsAutoOpenOverride != nil {
+		return *m.eventsAutoOpenOverride
+	}
+	return m.config.IsEventsAutoOpenEnabled()
+}
+
 // eventsTargetForSelection derives the events target from the tree cursor:
 // app-level on the synthetic root, resource-scoped otherwise. A non-empty
 // notice means the target cannot have events (resource Missing → no UID).

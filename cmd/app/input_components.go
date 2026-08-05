@@ -656,12 +656,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		// to ensure they appear in autocomplete and validation works correctly.
 		switch canonical {
 		case "events":
-			if m.state.Navigation.View != model.ViewTree {
-				return m, func() tea.Msg {
-					return model.StatusChangeMsg{Status: "Navigate to resources view first to view events"}
-				}
-			}
-			return m.handleShowEvents()
+			return m.handleEventsCommand(allArgs)
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.
@@ -1144,6 +1139,51 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.inputComponents.ClearCommandInput()
 	m.inputComponents.FocusCommandInput()
 	return m, nil
+}
+
+// handleEventsCommand applies ":events on|off [always]": whether the pane
+// opens by itself in the tree view. The choice lives for this session;
+// "always" also writes it to the config file.
+func (m *Model) handleEventsCommand(args string) (tea.Model, tea.Cmd) {
+	fields := strings.Fields(strings.ToLower(args))
+	validSwitch := len(fields) >= 1 && (fields[0] == "on" || fields[0] == "off")
+	validSuffix := len(fields) == 1 || (len(fields) == 2 && fields[1] == "always")
+	if !validSwitch || !validSuffix {
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Usage: :events on|off [always]"}
+		}
+	}
+	on := fields[0] == "on"
+	m.eventsAutoOpenOverride = &on
+
+	status := "Events pane " + fields[0]
+	if len(fields) == 2 {
+		argonautConfig, err := config.LoadArgonautConfig()
+		if err != nil {
+			cblog.Warn("Could not load config, using defaults", "err", err)
+			argonautConfig = config.GetDefaultConfig()
+		}
+		argonautConfig.Events.AutoOpen = &on
+		m.config.Events.AutoOpen = &on
+		if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Could not save config: " + err.Error()}
+			}
+		}
+		status += " (saved to config)"
+	}
+
+	statusCmd := func() tea.Msg { return model.StatusChangeMsg{Status: status} }
+	if !on {
+		m.closePane()
+		return m, statusCmd
+	}
+	if m.state.Navigation.View == model.ViewTree && m.state.Events == nil &&
+		m.treeView != nil && m.treeView.VisibleCount() > 0 {
+		_, openCmd := m.handleShowEvents()
+		return m, tea.Batch(openCmd, statusCmd)
+	}
+	return m, statusCmd
 }
 
 // handleThemeCommand handles the :theme command for switching UI themes

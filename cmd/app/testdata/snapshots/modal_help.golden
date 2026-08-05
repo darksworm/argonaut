@@ -20,7 +20,7 @@
  │               e  toggle events •  ⇧↑ / ⇧↓  scroll events                                       │ 
  │              :refresh|:refresh! • :up                                                          │ 
  │                                                                                                │ 
- │ COMMANDS     :q (to exit, google how to exit vim)                                              │ 
+ │ COMMANDS     :events on|off [always] • :q (to exit, google how to exit vim)                    │ 
  │                                                                                                │ 
  │ Press ?, q or Esc to close                                                                     │ 
  │                                                                                                │ 

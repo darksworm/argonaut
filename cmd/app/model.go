@@ -56,6 +56,10 @@ type Model struct {
 	// The session's username (from userinfo), for "you" in event displays
 	currentUsername string
 
+	// eventsAutoOpenOverride is the session-scoped ":events on|off" choice;
+	// nil follows the config default
+	eventsAutoOpenOverride *bool
+
 	// Monotonic counter identifying each side-pane fetch; a reopened pane
 	// shares epoch and target with the load it superseded, so this is what
 	// gates late completions (see EventsState.LoadSeq)
@@ -606,7 +610,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The pane is part of the tree view: open it over the first loaded
 		// tree unless the user configured it away (or it is already open)
 		if m.state.Navigation.View == model.ViewTree && m.state.Events == nil &&
-			m.config.IsEventsAutoOpenEnabled() && m.treeView != nil && m.treeView.VisibleCount() > 0 {
+			m.eventsAutoOpenEnabled() && m.treeView != nil && m.treeView.VisibleCount() > 0 {
 			_, cmd := m.handleShowEvents()
 			return m, cmd
 		}
@@ -1575,9 +1579,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.Username != "" {
 			m.currentUsername = msg.Username
-			if m.treeView != nil {
-				m.treeView.SetCurrentUser(msg.Username)
-			}
 		}
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
 
@@ -1700,12 +1701,11 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 }
 
 // newTreeView builds a fresh TreeView carrying the session-wide view state
-// (theme, size, logged-in user) that every tree rebuild must preserve.
+// (theme, size) that every tree rebuild must preserve.
 func (m *Model) newTreeView() *treeview.TreeView {
 	tv := treeview.NewTreeView(0, 0)
 	tv.ApplyTheme(currentPalette)
 	tv.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
-	tv.SetCurrentUser(m.currentUsername)
 	return tv
 }
 

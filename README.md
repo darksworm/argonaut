@@ -368,6 +368,8 @@ Settings for the events/status pane shown next to the resource tree.
 | `refresh_interval` | How often the pane refetches events and sync status. Use Go duration format (e.g., "30s", "1m"); `"0"` disables auto-refresh. | `"10s"` |
 | `auto_open` | Open the pane automatically when the resource tree view opens. Set to `false` to open it on demand with `e`. | `true` |
 
+At runtime, `:events on|off` changes this for the current session; add `always` (e.g. `:events off always`) to persist the choice here.
+
 #### `[http_timeouts]`
 
 Settings for HTTP request timeouts. Useful for large deployments with thousands of applications where API responses take longer.
