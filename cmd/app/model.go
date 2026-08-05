@@ -609,8 +609,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.treeLoading = false
 		// The pane is part of the tree view: open it over the first loaded
 		// tree unless the user configured it away (or it is already open)
-		if m.state.Navigation.View == model.ViewTree && m.state.Events == nil &&
-			m.eventsAutoOpenEnabled() && m.treeView != nil && m.treeView.VisibleCount() > 0 {
+		if m.canAutoOpenPane() && m.eventsAutoOpenEnabled() {
 			_, cmd := m.handleShowEvents()
 			return m, cmd
 		}

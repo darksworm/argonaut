@@ -1146,9 +1146,9 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 // "always" also writes it to the config file.
 func (m *Model) handleEventsCommand(args string) (tea.Model, tea.Cmd) {
 	fields := strings.Fields(strings.ToLower(args))
-	validSwitch := len(fields) >= 1 && (fields[0] == "on" || fields[0] == "off")
-	validSuffix := len(fields) == 1 || (len(fields) == 2 && fields[1] == "always")
-	if !validSwitch || !validSuffix {
+	switch strings.Join(fields, " ") {
+	case "on", "off", "on always", "off always":
+	default:
 		return m, func() tea.Msg {
 			return model.StatusChangeMsg{Status: "Usage: :events on|off [always]"}
 		}
@@ -1164,7 +1164,6 @@ func (m *Model) handleEventsCommand(args string) (tea.Model, tea.Cmd) {
 			argonautConfig = config.GetDefaultConfig()
 		}
 		argonautConfig.Events.AutoOpen = &on
-		m.config.Events.AutoOpen = &on
 		if err := config.SaveArgonautConfig(argonautConfig); err != nil {
 			return m, func() tea.Msg {
 				return model.StatusChangeMsg{Status: "Could not save config: " + err.Error()}
@@ -1178,8 +1177,7 @@ func (m *Model) handleEventsCommand(args string) (tea.Model, tea.Cmd) {
 		m.closePane()
 		return m, statusCmd
 	}
-	if m.state.Navigation.View == model.ViewTree && m.state.Events == nil &&
-		m.treeView != nil && m.treeView.VisibleCount() > 0 {
+	if m.canAutoOpenPane() {
 		_, openCmd := m.handleShowEvents()
 		return m, tea.Batch(openCmd, statusCmd)
 	}

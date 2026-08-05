@@ -38,6 +38,13 @@ func (m *Model) eventsAutoOpenEnabled() bool {
 	return m.config.IsEventsAutoOpenEnabled()
 }
 
+// canAutoOpenPane reports whether the tree view is showing with no pane open
+// yet — the state in which auto-open (or ":events on") may open one.
+func (m *Model) canAutoOpenPane() bool {
+	return m.state.Navigation.View == model.ViewTree && m.state.Events == nil &&
+		m.treeView != nil && m.treeView.VisibleCount() > 0
+}
+
 // eventsTargetForSelection derives the events target from the tree cursor:
 // app-level on the synthetic root, resource-scoped otherwise. A non-empty
 // notice means the target cannot have events (resource Missing → no UID).

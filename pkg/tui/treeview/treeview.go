@@ -877,15 +877,15 @@ func (v *TreeView) SetAppSyncSummary(appName string, summary *model.SyncOpSummar
 	v.syncSummaries[appName] = summary
 }
 
-// phaseGlyph maps an operation phase to its status glyph.
-func phaseGlyph(phase string) string {
+// phaseGlyph maps an operation phase to its status glyph and color.
+func (v *TreeView) phaseGlyph(phase string) (string, color.Color) {
 	switch phase {
 	case "Failed", "Error", "Terminating":
-		return "✖"
+		return "✖", v.palette.Danger
 	case "Running":
-		return "◌"
+		return "◌", v.palette.Progress
 	default: // Succeeded
-		return "✔"
+		return "✔", v.palette.Success
 	}
 }
 
@@ -902,7 +902,7 @@ func (v *TreeView) compactSyncSummary(n *treeNode, bg color.Color) string {
 		return ""
 	}
 
-	glyph := phaseGlyph(s.Phase)
+	glyph, glyphColor := v.phaseGlyph(s.Phase)
 	var text string
 	switch s.Phase {
 	case "Succeeded":
@@ -925,13 +925,6 @@ func (v *TreeView) compactSyncSummary(n *treeNode, bg color.Color) string {
 	if bg != nil {
 		return lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(bg).
 			Render("· " + glyph + " " + text)
-	}
-	glyphColor := v.palette.Success
-	switch glyph {
-	case "✖":
-		glyphColor = v.palette.Danger
-	case "◌":
-		glyphColor = v.palette.Progress
 	}
 	dim := lipgloss.NewStyle().Foreground(v.palette.Dim)
 	return dim.Render("· ") +
