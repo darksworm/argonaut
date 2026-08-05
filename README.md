@@ -172,6 +172,7 @@ argonaut
 - **Scoped navigation**: clusters → namespaces → projects → apps
 - **Command palette** (`:`) for actions: `sync`, `diff`, `rollback`, `resources`, etc.
 - **Live resources view** per app with health & sync status
+- **Events & sync status pane** beside the resource tree — Kubernetes events and the last sync operation for whatever row you're on, auto-refreshing
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
 - **Execute actions** on resources — dynamically discovered per resource, including Argo Rollouts and any custom-defined actions
@@ -189,6 +190,10 @@ argonaut
 
 ### **Live Resources**
 <img src="assets/argonaut_resources.png" alt="Resources view"/>
+
+### **Events & sync status**
+The pane follows your cursor through the tree: application rows show the last sync operation's status and events, resource rows their health and Kubernetes events.
+<img src="assets/argonaut_events.gif" alt="Events and sync status pane following the tree selection"/>
 
 ### **Diff**  
 <img src="assets/argonaut_diff.png" alt="External diff"/>
