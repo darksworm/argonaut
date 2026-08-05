@@ -100,6 +100,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "app",
 		},
 		{
+			Command:     "events",
+			Aliases:     []string{"events", "event"},
+			Description: "Auto-open the events pane: on|off, add 'always' to persist",
+			TakesArg:    true,
+			ArgType:     "",
+		},
+		{
 			Command:     "logs",
 			Aliases:     []string{"logs", "log", "l"},
 			Description: "Show application logs",

@@ -556,10 +556,60 @@ type ContextSwitchResultMsg struct {
 	Error        error
 }
 
+// Events / Sync-status pane messages
+
+// EventsLoadedMsg is sent when events for the events pane have loaded
+type EventsLoadedMsg struct {
+	Target      EventsTarget
+	Items       []ResourceEvent
+	SwitchEpoch int
+	LoadSeq     int
+}
+
+// EventsErrorMsg is sent when loading events for the events pane fails
+type EventsErrorMsg struct {
+	Target      EventsTarget
+	Error       string
+	SwitchEpoch int
+	LoadSeq     int
+}
+
+// PaneFetchDueMsg fires after the pane-retarget debounce window: the fetch
+// runs only if LoadSeq still matches the pane, so scrolling quickly through
+// rows fetches once for the row the user settles on.
+type PaneFetchDueMsg struct {
+	SwitchEpoch int
+	LoadSeq     int
+}
+
+// PaneRefreshDueMsg fires on the pane's auto-refresh interval: the open pane
+// refetches in the background as long as LoadSeq still matches.
+type PaneRefreshDueMsg struct {
+	SwitchEpoch int
+	LoadSeq     int
+}
+
+// SyncStatusLoadedMsg is sent when the sync-status pane's details have loaded
+type SyncStatusLoadedMsg struct {
+	Target      SyncStatusTarget
+	Details     *SyncStatusDetails
+	SwitchEpoch int
+	LoadSeq     int
+}
+
+// SyncStatusErrorMsg is sent when loading the sync-status pane fails
+type SyncStatusErrorMsg struct {
+	Target      SyncStatusTarget
+	Error       string
+	SwitchEpoch int
+	LoadSeq     int
+}
+
 // AuthValidationResultMsg is the result of validateAuthentication,
 // replacing SetModeMsg for auth validation to allow epoch gating
 // without globally gating SetModeMsg which is used by many flows.
 type AuthValidationResultMsg struct {
 	Mode        Mode
+	Username    string // the session's user, for "you" in event displays
 	SwitchEpoch int
 }

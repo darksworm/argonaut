@@ -1,0 +1,29 @@
+ Context: argo.example.com                                                           Argonaut dev   
+ ╭──────────────────────────────────────────────╮╭─ Application demo-app ───────────────── ⟳ 10s ─╮ 
+ │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
+ │ ├── Deployment [demo/web] (Degraded)         ││ Operation     Sync                             │ 
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Phase         Failed                           │ 
+ │ └── Service [demo/web] (Healthy)             ││ Started       2 minutes ago                    │ 
+ │                                              ││ Duration      6s                               │ 
+ │                                              ││ Revision      a1b2c3d4                         │ 
+ │                                              ││ Initiated by  alice                            │ 
+ │                                              ││ Message       one or more objects failed to ap │ 
+ │                                              ││               ply                              │ 
+ │                                              ││                                                │ 
+ │                                              ││ RESULT                                         │ 
+ │                                              ││ ✔ Service      demo/web                 Synced │ 
+ │                                              ││   service/web unchanged                        │ 
+ │                                              ││ ✖ Deployment   demo/web             SyncFailed │ 
+ │                                              ││   Deployment.apps "web" is invalid: spec.templ │ 
+ │                                              ││   ate.spec.containers[0].image: Required value │ 
+ │                                              ││                                                │ 
+ │                                              ││ EVENTS                                         │ 
+ │                                              ││ OperationCompleted                 x1 · 1m ago │ 
+ │                                              ││   Sync operation to a1b2c3d failed: one or mor │ 
+ │                                              ││   e objects failed to apply                    │ 
+ │                                              ││                                                │ 
+ │                                              ││ OperationStarted                   x1 · 2m ago │ 
+ │                                              ││   admin initiated sync to HEAD                 │ 
+ │                                              ││                                                │ 
+ ╰──────────────────────────────────────────────╯╰────────────────────────────────────────────────╯ 
+ <tree>                                                            u/i: scroll events • Ready • 1/4 

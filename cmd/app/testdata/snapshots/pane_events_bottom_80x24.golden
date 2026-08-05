@@ -1,0 +1,23 @@
+ Context: argo.example.com                                       Argonaut dev   
+ ╭────────────────────────────────────────────────────────────────────────────╮ 
+ │ Application [demo-app] (Degraded, Synced)                                  │ 
+ │ ├── Deployment [demo/web] (Degraded)                                       │ 
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degraded)                             │ 
+ │ └── Service [demo/web] (Healthy)                                           │ 
+ │                                                                            │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭─ Pod web-6f7d9b-x4k2m ───────────────────────────────── ⟳ updated 12s ago ─╮ 
+ │                                                                            │ 
+ │ Health        Degraded                                                     │ 
+ │ Sync          OutOfSync                                                    │ 
+ │ Age           3d                                                           │ 
+ │ Message       containers with unready status: [web]                        │ 
+ │ Last sync     SyncFailed                                                   │ 
+ │   pod spec invalid                                                         │ 
+ │                                                                            │ 
+ │ EVENTS                                                                     │ 
+ │ BackOff                                                      x412 · 2m ago │ 
+ │   Back-off restarting failed container web in pod web-6f7d9b-x4k2m_demo(a1 │ 
+ │   b2c3d)                                                                   │ 
+ ╰───────────────────────────────────────────────────────────── ▼ more below ─╯ 
+ <tree>                                        u/i: scroll events • Ready • 1/4 

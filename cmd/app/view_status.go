@@ -135,10 +135,25 @@ func (m *Model) renderStatusLine() string {
 		statusText += fmt.Sprintf(" • %s", position)
 	}
 
-	// Combine the full right side text
-	fullRightText := rightText + statusText
+	// Advertise the side-pane hotkeys in the tree view. The hint yields to
+	// upgrade/changelog notices and to narrow terminals.
+	if m.state.Navigation.View == model.ViewTree && m.state.Mode == model.ModeNormal && rightText == "" {
+		hints := "e: events"
+		if m.paneOpen() {
+			hints = "u/i: scroll events"
+		}
+		available := max(0, m.state.Terminal.Cols-2)
+		if lipgloss.Width(leftText)+lipgloss.Width(hints)+lipgloss.Width(statusText)+len(" • ")+2 <= available {
+			statusText = hints + " • " + statusText
+		}
+	}
 
-	// Layout matching MainLayout justifyContent="space-between"
+	return m.renderStatusBarLine(leftText, rightText+statusText)
+}
+
+// renderStatusBarLine lays out the status line's two sides with
+// space-between justification, padded/clipped to the container width.
+func (m *Model) renderStatusBarLine(leftText, fullRightText string) string {
 	leftStyled := statusStyle.Render(leftText)
 	rightStyled := statusStyle.Render(fullRightText)
 

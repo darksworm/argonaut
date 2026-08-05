@@ -22,63 +22,125 @@ type OwnerReference struct {
 	UID        string `json:"uid,omitempty"`
 }
 
+// ApplicationSource identifies where an application's manifests come from
+type ApplicationSource struct {
+	RepoURL        string `json:"repoURL,omitempty"`
+	Path           string `json:"path,omitempty"`
+	TargetRevision string `json:"targetRevision,omitempty"`
+}
+
+// ApplicationMetadata holds the application CR's object metadata
+type ApplicationMetadata struct {
+	Name            string           `json:"name"`
+	Namespace       string           `json:"namespace,omitempty"`
+	OwnerReferences []OwnerReference `json:"ownerReferences,omitempty"`
+}
+
+// ApplicationDestination identifies the target cluster and namespace
+type ApplicationDestination struct {
+	Name      string `json:"name,omitempty"`
+	Server    string `json:"server,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// ApplicationSpec holds the application's desired configuration
+type ApplicationSpec struct {
+	Project string `json:"project,omitempty"`
+	// Single source (legacy/traditional)
+	Source *ApplicationSource `json:"source,omitempty"`
+	// Multiple sources (newer multi-source support)
+	Sources     []ApplicationSource    `json:"sources,omitempty"`
+	Destination ApplicationDestination `json:"destination"`
+}
+
+// SyncStatus holds the application's sync comparison state
+type SyncStatus struct {
+	Status     string `json:"status,omitempty"`
+	ComparedTo struct {
+		Source  *ApplicationSource  `json:"source,omitempty"`
+		Sources []ApplicationSource `json:"sources,omitempty"`
+	} `json:"comparedTo"`
+	Revision  string   `json:"revision,omitempty"`
+	Revisions []string `json:"revisions,omitempty"`
+}
+
+// HealthStatus holds the application's health assessment
+type HealthStatus struct {
+	Status  string `json:"status,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// SyncOperation holds the sync request parameters
+type SyncOperation struct {
+	Revision string `json:"revision,omitempty"`
+}
+
+// OperationInitiator identifies who or what started an operation
+type OperationInitiator struct {
+	Username  string `json:"username,omitempty"`
+	Automated bool   `json:"automated,omitempty"`
+}
+
+// Operation describes the requested operation
+type Operation struct {
+	Sync        *SyncOperation     `json:"sync,omitempty"`
+	InitiatedBy OperationInitiator `json:"initiatedBy,omitempty"`
+}
+
+// ResourceResult holds the outcome of syncing a single resource
+type ResourceResult struct {
+	Group     string `json:"group,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Status    string `json:"status,omitempty"`
+	Message   string `json:"message,omitempty"`
+	HookType  string `json:"hookType,omitempty"`
+	HookPhase string `json:"hookPhase,omitempty"`
+}
+
+// SyncOperationResult holds the outcome of a sync operation
+type SyncOperationResult struct {
+	Revision  string           `json:"revision,omitempty"`
+	Resources []ResourceResult `json:"resources,omitempty"`
+}
+
+// OperationState holds the state of the application's last operation
+type OperationState struct {
+	Phase      string               `json:"phase,omitempty"`
+	Message    string               `json:"message,omitempty"`
+	StartedAt  time.Time            `json:"startedAt,omitempty"`
+	FinishedAt time.Time            `json:"finishedAt,omitempty"`
+	Operation  Operation            `json:"operation,omitempty"`
+	SyncResult *SyncOperationResult `json:"syncResult,omitempty"`
+}
+
+// resolvedRevision prefers the revision the operation actually synced to,
+// falling back to the requested one while the operation has no result yet.
+func (o OperationState) resolvedRevision() string {
+	if o.SyncResult != nil && o.SyncResult.Revision != "" {
+		return o.SyncResult.Revision
+	}
+	if o.Operation.Sync != nil {
+		return o.Operation.Sync.Revision
+	}
+	return ""
+}
+
+// ApplicationStatus holds the application's observed state
+type ApplicationStatus struct {
+	Sync           SyncStatus          `json:"sync"`
+	Health         HealthStatus        `json:"health"`
+	OperationState OperationState      `json:"operationState,omitempty"`
+	History        []DeploymentHistory `json:"history,omitempty"`
+	Resources      []ResourceStatus    `json:"resources,omitempty"`
+}
+
 // ArgoApplication represents an ArgoCD application from the API
 type ArgoApplication struct {
-	Metadata struct {
-		Name            string           `json:"name"`
-		Namespace       string           `json:"namespace,omitempty"`
-		OwnerReferences []OwnerReference `json:"ownerReferences,omitempty"`
-	} `json:"metadata"`
-	Spec struct {
-		Project string `json:"project,omitempty"`
-		// Single source (legacy/traditional)
-		Source *struct {
-			RepoURL        string `json:"repoURL,omitempty"`
-			Path           string `json:"path,omitempty"`
-			TargetRevision string `json:"targetRevision,omitempty"`
-		} `json:"source,omitempty"`
-		// Multiple sources (newer multi-source support)
-		Sources []struct {
-			RepoURL        string `json:"repoURL,omitempty"`
-			Path           string `json:"path,omitempty"`
-			TargetRevision string `json:"targetRevision,omitempty"`
-		} `json:"sources,omitempty"`
-		Destination struct {
-			Name      string `json:"name,omitempty"`
-			Server    string `json:"server,omitempty"`
-			Namespace string `json:"namespace,omitempty"`
-		} `json:"destination"`
-	} `json:"spec"`
-	Status struct {
-		Sync struct {
-			Status     string `json:"status,omitempty"`
-			ComparedTo struct {
-				Source *struct {
-					RepoURL        string `json:"repoURL,omitempty"`
-					Path           string `json:"path,omitempty"`
-					TargetRevision string `json:"targetRevision,omitempty"`
-				} `json:"source,omitempty"`
-				Sources []struct {
-					RepoURL        string `json:"repoURL,omitempty"`
-					Path           string `json:"path,omitempty"`
-					TargetRevision string `json:"targetRevision,omitempty"`
-				} `json:"sources,omitempty"`
-			} `json:"comparedTo"`
-			Revision  string   `json:"revision,omitempty"`
-			Revisions []string `json:"revisions,omitempty"`
-		} `json:"sync"`
-		Health struct {
-			Status  string `json:"status,omitempty"`
-			Message string `json:"message,omitempty"`
-		} `json:"health"`
-		OperationState struct {
-			Phase      string    `json:"phase,omitempty"`
-			StartedAt  time.Time `json:"startedAt,omitempty"`
-			FinishedAt time.Time `json:"finishedAt,omitempty"`
-		} `json:"operationState,omitempty"`
-		History   []DeploymentHistory `json:"history,omitempty"`
-		Resources []ResourceStatus    `json:"resources,omitempty"`
-	} `json:"status"`
+	Metadata ApplicationMetadata `json:"metadata"`
+	Spec     ApplicationSpec     `json:"spec"`
+	Status   ApplicationStatus   `json:"status"`
 }
 
 // ApplicationWatchEvent represents an event from the watch stream
@@ -110,6 +172,12 @@ var AppListFields = []string{
 	"items.spec",
 	"items.status.sync.status",
 	"items.status.health",
+	// Only leaf fields directly under operationState project through the
+	// server's field selection (verified against a live Argo CD): deeper
+	// paths like operation.sync.revision or syncResult.revision return
+	// nothing. The summary therefore starts with phase + timestamps; the
+	// watch stream (no field selection) fills in revision/initiator.
+	"items.status.operationState.phase",
 	"items.status.operationState.finishedAt",
 	"items.status.operationState.startedAt",
 }
@@ -120,14 +188,10 @@ var AppWatchFields []string
 
 // DeploymentHistory represents a deployment history entry from ArgoCD API
 type DeploymentHistory struct {
-	ID         int       `json:"id"`
-	Revision   string    `json:"revision"`
-	DeployedAt time.Time `json:"deployedAt"`
-	Source     *struct {
-		RepoURL        string `json:"repoURL,omitempty"`
-		Path           string `json:"path,omitempty"`
-		TargetRevision string `json:"targetRevision,omitempty"`
-	} `json:"source,omitempty"`
+	ID         int                `json:"id"`
+	Revision   string             `json:"revision"`
+	DeployedAt time.Time          `json:"deployedAt"`
+	Source     *ApplicationSource `json:"source,omitempty"`
 }
 
 // RevisionMetadataResponse represents git metadata response from ArgoCD API
@@ -517,11 +581,15 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 		app.ClusterLabel = &label
 	}
 
-	// Handle sync timestamp
-	if !argoApp.Status.OperationState.FinishedAt.IsZero() {
-		app.LastSyncAt = &argoApp.Status.OperationState.FinishedAt
-	} else if !argoApp.Status.OperationState.StartedAt.IsZero() {
-		app.LastSyncAt = &argoApp.Status.OperationState.StartedAt
+	if opState := argoApp.Status.OperationState; opState.Phase != "" {
+		app.SyncOp = &model.SyncOpSummary{
+			Phase:       opState.Phase,
+			StartedAt:   opState.StartedAt,
+			FinishedAt:  opState.FinishedAt,
+			Revision:    opState.resolvedRevision(),
+			InitiatedBy: opState.Operation.InitiatedBy.Username,
+			Automated:   opState.Operation.InitiatedBy.Automated,
+		}
 	}
 
 	// Extract ApplicationSet from ownerReferences
@@ -543,17 +611,51 @@ func (s *ApplicationService) ConvertToApp(argoApp ArgoApplication) model.App {
 	return app
 }
 
+// ConvertOperationState converts an application's last-operation state into
+// the sync-status pane's model. Returns nil if the app has never synced.
+func ConvertOperationState(argoApp ArgoApplication) *model.SyncStatusDetails {
+	opState := argoApp.Status.OperationState
+	if opState.Phase == "" {
+		return nil
+	}
+
+	var resources []model.SyncResourceResult
+	if opState.SyncResult != nil {
+		for _, r := range opState.SyncResult.Resources {
+			// Hooks report an operation phase instead of a sync result
+			// code, but a pending hook may not have a phase yet
+			status := r.Status
+			if r.HookType != "" && r.HookPhase != "" {
+				status = r.HookPhase
+			}
+			resources = append(resources, model.SyncResourceResult{
+				Kind:      r.Kind,
+				Namespace: r.Namespace,
+				Name:      r.Name,
+				Status:    status,
+				Message:   shortenShas(flattenWhitespace(r.Message)),
+			})
+		}
+	}
+	return &model.SyncStatusDetails{
+		Phase:       opState.Phase,
+		Message:     shortenShas(flattenWhitespace(opState.Message)),
+		StartedAt:   opState.StartedAt,
+		FinishedAt:  opState.FinishedAt,
+		Revision:    opState.resolvedRevision(),
+		InitiatedBy: opState.Operation.InitiatedBy.Username,
+		Automated:   opState.Operation.InitiatedBy.Automated,
+		Resources:   resources,
+	}
+}
+
 // HasMultipleSources returns true if the application uses multiple sources
 func (app *ArgoApplication) HasMultipleSources() bool {
 	return len(app.Spec.Sources) > 0
 }
 
-// GetPrimarySources returns either the single source or the first source from multiple sources
-func (app *ArgoApplication) GetPrimarySource() *struct {
-	RepoURL        string `json:"repoURL,omitempty"`
-	Path           string `json:"path,omitempty"`
-	TargetRevision string `json:"targetRevision,omitempty"`
-} {
+// GetPrimarySource returns either the single source or the first source from multiple sources
+func (app *ArgoApplication) GetPrimarySource() *ApplicationSource {
 	if app.Spec.Source != nil {
 		return app.Spec.Source
 	}
@@ -757,13 +859,18 @@ func (s *ApplicationService) WatchResourceTree(ctx context.Context, appName, app
 	}
 }
 
-// GetUserInfo validates user authentication by checking session info
-func (s *ApplicationService) GetUserInfo(ctx context.Context) error {
-	// A successful response is all we need — it proves the user is authenticated
-	if _, err := s.client.Get(ctx, "/api/v1/session/userinfo"); err != nil {
-		return fmt.Errorf("failed to get user info: %w", err)
+// GetUserInfo validates user authentication by checking session info and
+// returns the session's username (empty if the server omits it).
+func (s *ApplicationService) GetUserInfo(ctx context.Context) (string, error) {
+	data, err := s.client.Get(ctx, "/api/v1/session/userinfo")
+	if err != nil {
+		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
-	return nil
+	var info struct {
+		Username string `json:"username"`
+	}
+	_ = json.Unmarshal(data, &info) // authentication already proven by the 200
+	return info.Username, nil
 }
 
 // GetApplication fetches a single application with full details including history

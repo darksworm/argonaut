@@ -50,6 +50,21 @@ type Model struct {
 	ready bool
 	err   error
 
+	// Time source for relative timestamps; overridable for deterministic tests
+	now func() time.Time
+
+	// The session's username (from userinfo), for "you" in event displays
+	currentUsername string
+
+	// eventsAutoOpenOverride is the session-scoped ":events on|off" choice;
+	// nil follows the config default
+	eventsAutoOpenOverride *bool
+
+	// Monotonic counter identifying each side-pane fetch; a reopened pane
+	// shares epoch and target with the load it superseded, so this is what
+	// gates late completions (see EventsState.LoadSeq)
+	paneLoadSeq int
+
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 	// Closed when the current app watch forwarder stops.
@@ -569,6 +584,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := json.Unmarshal(msg.TreeJSON, &tree); err == nil {
 				m.treeView.SetAppMeta(msg.AppName, msg.Health, msg.Sync)
 				m.treeView.UpsertAppTree(msg.AppName, &tree)
+				// Prefer the tree-scoped app's namespace (ADR-0004): a
+				// name-only scan can pick a same-named app elsewhere.
+				if app := m.findAppByNameAndNamespace(msg.AppName, m.resolveAppNamespace(msg.AppName)); app != nil {
+					m.treeView.SetAppSyncSummary(msg.AppName, app.SyncOp)
+				}
 
 				// Apply resource sync statuses from Application.status.resources
 				if len(msg.ResourcesJSON) > 0 {
@@ -587,6 +607,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
+		// The pane is part of the tree view: open it over the first loaded
+		// tree unless the user configured it away (or it is already open)
+		if m.canAutoOpenPane() && m.eventsAutoOpenEnabled() {
+			_, cmd := m.handleShowEvents()
+			return m, cmd
+		}
 		return m, nil
 
 		// removed: resources list loader
@@ -856,9 +882,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Clean up any existing tree watchers before starting new one
 				m.cleanupTreeWatchers()
 				// Reset tree view for fresh single-app session
-				m.treeView = treeview.NewTreeView(0, 0)
-				m.treeView.ApplyTheme(currentPalette)
-				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+				m.treeView = m.newTreeView()
 				m.treeNav.Reset() // Reset scroll position
 				// Use namespace from message to avoid ambiguity when multiple apps share a name
 				ns := ""
@@ -1043,6 +1067,94 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep modal open to show error
 		return m, nil
 
+	case model.PaneFetchDueMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		// Fetch only if this debounce tick still matches the pane's load —
+		// a newer retarget or a close supersedes it.
+		if st := m.state.Events; st != nil && st.LoadSeq == msg.LoadSeq && (st.Loading || st.DetailsLoading) {
+			return m, m.paneFetchCmds()
+		}
+		return m, nil
+
+	case paneAgeTickMsg:
+		if msg.switchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		if st := m.state.Events; st != nil && st.LoadSeq == msg.loadSeq {
+			// The re-render happens by virtue of this Update cycle
+			return m, m.schedulePaneAgeTick(st.LoadSeq)
+		}
+		return m, nil
+
+	case model.PaneRefreshDueMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.LoadSeq {
+			return m, nil
+		}
+		// An initial or retarget fetch is still in flight: just keep the
+		// interval ticking
+		if st.Loading || st.DetailsLoading {
+			return m, m.schedulePaneRefresh(st.LoadSeq)
+		}
+		return m, tea.Batch(m.paneRefreshCmds(), m.schedulePaneRefresh(st.LoadSeq))
+
+	case model.EventsLoadedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
+			return m, nil
+		}
+		st.Loading = false
+		st.Items = msg.Items
+		st.LastRefreshed = m.now()
+		return m, nil
+
+	case model.EventsErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.Target != msg.Target || st.LoadSeq != msg.LoadSeq {
+			return m, nil
+		}
+		st.Loading = false
+		st.Error = msg.Error
+		return m, nil
+
+	case model.SyncStatusLoadedMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.LoadSeq ||
+			st.Target.AppName != msg.Target.AppName || st.Target.AppNamespace != msg.Target.AppNamespace {
+			return m, nil
+		}
+		st.DetailsLoading = false
+		st.Details = msg.Details
+		st.LastRefreshed = m.now()
+		return m, nil
+
+	case model.SyncStatusErrorMsg:
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.LoadSeq ||
+			st.Target.AppName != msg.Target.AppName || st.Target.AppNamespace != msg.Target.AppNamespace {
+			return m, nil
+		}
+		st.DetailsLoading = false
+		st.DetailsError = msg.Error
+		return m, nil
+
 	case model.ResourceActionsLoadedMsg:
 		if msg.SwitchEpoch != m.switchEpoch {
 			return m, nil
@@ -1156,8 +1268,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Clean up any existing tree watchers first
 					m.cleanupTreeWatchers()
 					// Reset tree view for multi-app session
-					m.treeView = treeview.NewTreeView(0, 0)
-					m.treeView.ApplyTheme(currentPalette)
+					m.treeView = m.newTreeView()
 					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
@@ -1346,9 +1457,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Clean up any existing tree watchers before starting new one
 				m.cleanupTreeWatchers()
 				// Reset tree view for fresh single-app session
-				m.treeView = treeview.NewTreeView(0, 0)
-				m.treeView.ApplyTheme(currentPalette)
-				m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+				m.treeView = m.newTreeView()
 				m.treeNav.Reset() // Reset scroll position
 				// Use namespace from message to avoid ambiguity when multiple apps share a name
 				ns := ""
@@ -1467,6 +1576,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				"msg_epoch", msg.SwitchEpoch, "current_epoch", m.switchEpoch)
 			return m, nil
 		}
+		if msg.Username != "" {
+			m.currentUsername = msg.Username
+		}
 		return m, func() tea.Msg { return model.SetModeMsg{Mode: msg.Mode} }
 
 	case model.ContextSwitchResultMsg:
@@ -1575,12 +1687,25 @@ func (m *Model) applyBatchAppUpdate(upd model.AppUpdatedMsg) {
 		m.state.Apps = append(m.state.Apps, upd.App)
 	}
 	// Update tree view sync statuses
-	if m.treeView != nil && m.state.Navigation.View == model.ViewTree && len(upd.ResourcesJSON) > 0 {
-		var resources []api.ResourceStatus
-		if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
-			m.treeView.SetResourceStatuses(upd.App.Name, resources)
+	if m.treeView != nil && m.state.Navigation.View == model.ViewTree {
+		if len(upd.ResourcesJSON) > 0 {
+			var resources []api.ResourceStatus
+			if json.Unmarshal(upd.ResourcesJSON, &resources) == nil {
+				m.treeView.SetResourceStatuses(upd.App.Name, resources)
+			}
 		}
+		// The watch delivers full apps, so the summary line updates for free
+		m.treeView.SetAppSyncSummary(upd.App.Name, upd.App.SyncOp)
 	}
+}
+
+// newTreeView builds a fresh TreeView carrying the session-wide view state
+// (theme, size) that every tree rebuild must preserve.
+func (m *Model) newTreeView() *treeview.TreeView {
+	tv := treeview.NewTreeView(0, 0)
+	tv.ApplyTheme(currentPalette)
+	tv.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+	return tv
 }
 
 // setTreeApp atomically stores all relevant info about the app being shown in

@@ -43,7 +43,7 @@ func (m *Model) renderHelpModal() string {
 
 	// COMMANDS
 	commands := strings.Join([]string{
-		mono(":q"), " (to exit, google how to exit vim)",
+		mono(":events"), " on|off [always] ", bullet(), " ", mono(":q"), " (to exit, google how to exit vim)",
 	}, "")
 
 	// APPS VIEW - hotkeys and commands specific to apps view
@@ -62,6 +62,8 @@ func (m *Model) renderHelpModal() string {
 		mono("/"), " filter ", bullet(), " ", mono("n"), "/", mono("N"), " next/prev match ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", mono("K"), " open in k9s",
 		"\n",
 		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("a"), " actions (Rollouts) ", bullet(), " ", keycap("Ctrl+D"), " delete",
+		"\n",
+		keycap("e"), " toggle events ", bullet(), " ", keycap("u"), "/", keycap("i"), " or ", keycap("⇧↓"), "/", keycap("⇧↑"), " scroll events",
 		"\n",
 		mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
 	}, "")

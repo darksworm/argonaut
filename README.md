@@ -172,6 +172,7 @@ argonaut
 - **Scoped navigation**: clusters → namespaces → projects → apps
 - **Command palette** (`:`) for actions: `sync`, `diff`, `rollback`, `resources`, etc.
 - **Live resources view** per app with health & sync status
+- **Events & sync status pane** beside the resource tree — Kubernetes events and the last sync operation for whatever row you're on, auto-refreshing
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
 - **Execute actions** on resources — dynamically discovered per resource, including Argo Rollouts and any custom-defined actions
@@ -187,8 +188,8 @@ argonaut
 ### **Sync**
 <img src="assets/argonaut_sync.png" alt="Sync apps"/>
 
-### **Live Resources**
-<img src="assets/argonaut_resources.png" alt="Resources view"/>
+### **Live resource tree and events**
+<img src="assets/argonaut_events.gif" alt="Events and sync status pane following the tree selection"/>
 
 ### **Diff**  
 <img src="assets/argonaut_diff.png" alt="External diff"/>
@@ -278,6 +279,10 @@ context = ""              # Override Kubernetes context for k9s
 viewer = ""               # Interactive diff viewer (e.g., "code --diff {left} {right}", "meld {left} {right}")
 formatter = ""            # Diff formatter command (e.g., "delta --side-by-side")
 
+[events]
+refresh_interval = "10s"  # How often the events/status pane refetches ("0" disables)
+auto_open = true          # Open the pane automatically in the resource tree view
+
 [http_timeouts]
 request_timeout = "10s"   # Timeout for HTTP requests (increase for large deployments)
 
@@ -354,6 +359,17 @@ formatter = "delta --side-by-side --line-numbers"
 ```
 
 If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+
+#### `[events]`
+
+Settings for the events/status pane shown next to the resource tree.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `refresh_interval` | How often the pane refetches events and sync status. Use Go duration format (e.g., "30s", "1m"); `"0"` disables auto-refresh. | `"10s"` |
+| `auto_open` | Open the pane automatically when the resource tree view opens. Set to `false` to open it on demand with `e`. | `true` |
+
+At runtime, `:events on|off` changes this for the current session; add `always` (e.g. `:events off always`) to persist the choice here.
 
 #### `[http_timeouts]`
 

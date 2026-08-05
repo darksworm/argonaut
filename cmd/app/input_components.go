@@ -11,7 +11,6 @@ import (
 	"github.com/darksworm/argonaut/pkg/config"
 	"github.com/darksworm/argonaut/pkg/model"
 	"github.com/darksworm/argonaut/pkg/theme"
-	"github.com/darksworm/argonaut/pkg/tui/treeview"
 )
 
 // InputComponentState manages interactive input components
@@ -656,6 +655,8 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		// IMPORTANT: When adding new commands here, also add them to pkg/autocomplete/autocomplete.go
 		// to ensure they appear in autocomplete and validation works correctly.
 		switch canonical {
+		case "events":
+			return m.handleEventsCommand(allArgs)
 		case "logs":
 			// Open logs using the configured log file (via ARGONAUT_LOG_FILE) with a sensible fallback.
 			// Reuse the view helper so behavior matches the Logs view.
@@ -814,9 +815,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 					// Clean up any existing tree watchers before starting new ones
 					m.cleanupTreeWatchers()
 					// Multiple apps selected - open multi tree view with live updates
-					m.treeView = treeview.NewTreeView(0, 0)
-					m.treeView.ApplyTheme(currentPalette)
-					m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+					m.treeView = m.newTreeView()
 					m.treeNav.Reset() // Reset scroll position
 					m.state.SaveNavigationState()
 					m.state.Navigation.View = model.ViewTree
@@ -865,9 +864,7 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 				return m, func() tea.Msg { return model.StatusChangeMsg{Status: "No app selected for resources"} }
 			}
 			// Single app: open tree view with watch (reset tree view)
-			m.treeView = treeview.NewTreeView(0, 0)
-			m.treeView.ApplyTheme(currentPalette)
-			m.treeView.SetSize(m.contentInnerWidth(), m.state.Terminal.Rows)
+			m.treeView = m.newTreeView()
 			m.treeNav.Reset() // Reset scroll position
 			m.state.SaveNavigationState()
 			// selectedApp may already be set by the cursor-position path above.
@@ -1142,6 +1139,49 @@ func (m *Model) handleEnhancedEnterCommandMode() (tea.Model, tea.Cmd) {
 	m.inputComponents.ClearCommandInput()
 	m.inputComponents.FocusCommandInput()
 	return m, nil
+}
+
+// handleEventsCommand applies ":events on|off [always]": whether the pane
+// opens by itself in the tree view. The choice lives for this session;
+// "always" also writes it to the config file.
+func (m *Model) handleEventsCommand(args string) (tea.Model, tea.Cmd) {
+	fields := strings.Fields(strings.ToLower(args))
+	switch strings.Join(fields, " ") {
+	case "on", "off", "on always", "off always":
+	default:
+		return m, func() tea.Msg {
+			return model.StatusChangeMsg{Status: "Usage: :events on|off [always]"}
+		}
+	}
+	on := fields[0] == "on"
+	m.eventsAutoOpenOverride = &on
+
+	status := "Events pane " + fields[0]
+	if len(fields) == 2 {
+		argonautConfig, err := config.LoadArgonautConfig()
+		if err != nil {
+			cblog.Warn("Could not load config, using defaults", "err", err)
+			argonautConfig = config.GetDefaultConfig()
+		}
+		argonautConfig.Events.AutoOpen = &on
+		if err := config.SaveArgonautConfig(argonautConfig); err != nil {
+			return m, func() tea.Msg {
+				return model.StatusChangeMsg{Status: "Could not save config: " + err.Error()}
+			}
+		}
+		status += " (saved to config)"
+	}
+
+	statusCmd := func() tea.Msg { return model.StatusChangeMsg{Status: status} }
+	if !on {
+		m.closePane()
+		return m, statusCmd
+	}
+	if m.canAutoOpenPane() {
+		_, openCmd := m.handleShowEvents()
+		return m, tea.Batch(openCmd, statusCmd)
+	}
+	return m, statusCmd
 }
 
 // handleThemeCommand handles the :theme command for switching UI themes

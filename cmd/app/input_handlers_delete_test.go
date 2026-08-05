@@ -17,6 +17,8 @@ func testKeyMsg(s string) tea.KeyMsg {
 	switch s {
 	case "esc":
 		return tea.KeyPressMsg{Code: tea.KeyEscape}
+	case "enter":
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	case "backspace":
 		return tea.KeyPressMsg{Code: tea.KeyBackspace}
 	case "ctrl+d":

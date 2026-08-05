@@ -24,6 +24,7 @@ type ArgonautConfig struct {
 	Clipboard       ClipboardConfig   `toml:"clipboard,omitempty"`
 	HTTPTimeouts    HTTPTimeoutConfig `toml:"http_timeouts,omitempty"`
 	Updates         UpdatesConfig     `toml:"updates,omitempty"`
+	Events          EventsConfig      `toml:"events,omitempty"`
 	DefaultView     string            `toml:"default_view,omitempty"`
 	LastSeenVersion string            `toml:"last_seen_version,omitempty"`
 }
@@ -94,6 +95,46 @@ type HTTPTimeoutConfig struct {
 	// Default is "10s". Increase for large deployments with thousands of applications.
 	// Zero or negative values are ignored and default timeout is used.
 	RequestTimeout string `toml:"request_timeout,omitempty"`
+}
+
+// EventsConfig holds settings for the events/details side pane.
+type EventsConfig struct {
+	// RefreshInterval is how often an open pane refetches its events and
+	// sync details (e.g. "10s", "30s", "1m"). "0" disables auto-refresh.
+	// Default is "10s".
+	RefreshInterval string `toml:"refresh_interval,omitempty"`
+	// AutoOpen controls whether the pane opens by itself when the resource
+	// tree view opens. Default is true.
+	AutoOpen *bool `toml:"auto_open,omitempty"`
+}
+
+// IsEventsAutoOpenEnabled reports whether the events pane opens by itself in
+// the tree view. Defaults to true when unset.
+func (c *ArgonautConfig) IsEventsAutoOpenEnabled() bool {
+	if c == nil || c.Events.AutoOpen == nil {
+		return true
+	}
+	return *c.Events.AutoOpen
+}
+
+// GetEventsRefreshInterval returns the parsed pane auto-refresh interval.
+// Defaults to 10s when unset or unparseable; zero or negative disables.
+func (c *ArgonautConfig) GetEventsRefreshInterval() time.Duration {
+	const fallback = 10 * time.Second
+	if c == nil || c.Events.RefreshInterval == "" {
+		return fallback
+	}
+	if c.Events.RefreshInterval == "0" {
+		return 0
+	}
+	d, err := time.ParseDuration(c.Events.RefreshInterval)
+	if err != nil {
+		return fallback
+	}
+	if d <= 0 {
+		return 0
+	}
+	return d
 }
 
 // GetArgonautConfigPath returns the path to the Argonaut configuration file

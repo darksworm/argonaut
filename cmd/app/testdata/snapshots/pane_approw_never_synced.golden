@@ -1,0 +1,13 @@
+╭─ Application demo-app ───────────────── ⟳ 10s ─╮
+│                                                │
+│ This application has never been synced.        │
+│                                                │
+│ EVENTS                                         │
+│ Scheduled                          x1 · 1h ago │
+│   Successfully assigned demo/web-6f7d9b-x4k2m  │
+│   to node-2                                    │
+│                                                │
+│                                                │
+│                                                │
+│                                                │
+╰────────────────────────────────────────────────╯

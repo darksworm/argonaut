@@ -142,11 +142,14 @@ func (m *Model) willDesaturateBase() bool {
 	return ov != nil && ov.desaturate
 }
 
-// renderTreePanel renders the resource tree view inside a bordered container with scrolling
-func (m *Model) renderTreePanel(availableRows int) string {
-	contentWidth := max(0, m.contentInnerWidth())
+// renderTreePanel renders the resource tree view inside a bordered container
+// with scrolling. boxWidth is the outer rendered width of the bordered box
+// (the terminal width normally; narrower while a side pane is open).
+func (m *Model) renderTreePanel(availableRows int, boxWidth int) string {
+	contentWidth := max(0, boxWidth-6)
 	treeContent := "(no data)"
 	if m.treeView != nil {
+		m.treeView.SetSize(contentWidth, availableRows)
 		treeContent = m.treeView.Render()
 	}
 
@@ -216,8 +219,12 @@ func (m *Model) renderTreePanel(availableRows int) string {
 		_ = scrollInfo
 	}
 
-	adjustedWidth := max(0, m.state.Terminal.Cols-2)
-	return contentBorderStyle.Width(adjustedWidth).Height(availableRows + 1).AlignVertical(lipgloss.Top).Render(visibleContent)
+	style := contentBorderStyle
+	if m.paneOpen() {
+		// The pane owns the input; the dimmed border says so at a glance
+		style = style.BorderForeground(currentPalette.Dim)
+	}
+	return style.Width(max(0, boxWidth-2)).Height(availableRows + 1).AlignVertical(lipgloss.Top).Render(visibleContent)
 }
 
 // contentInnerWidth computes inner content width inside the bordered box
@@ -270,7 +277,19 @@ func (m *Model) renderMainLayout() string {
 	}
 
 	if m.state.Navigation.View == model.ViewTree {
-		sections = append(sections, m.renderTreePanel(listRows))
+		fullWidth := m.state.Terminal.Cols
+		if m.paneOpen() {
+			l := m.paneLayout(listRows)
+			pane := m.renderSidePane(l)
+			tree := m.renderTreePanel(l.treeBodyRows, l.treeBoxWidth)
+			if l.side {
+				sections = append(sections, lipgloss.JoinHorizontal(lipgloss.Top, tree, pane))
+			} else {
+				sections = append(sections, tree, pane)
+			}
+		} else {
+			sections = append(sections, m.renderTreePanel(listRows, fullWidth))
+		}
 	} else {
 		sections = append(sections, m.renderListView(listRows))
 	}

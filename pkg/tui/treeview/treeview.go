@@ -5,10 +5,12 @@ import (
 	"image/color"
 	"sort"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/darksworm/argonaut/pkg/api"
+	"github.com/darksworm/argonaut/pkg/humantime"
 	model "github.com/darksworm/argonaut/pkg/model"
 	pkgsort "github.com/darksworm/argonaut/pkg/sort"
 	"github.com/darksworm/argonaut/pkg/theme"
@@ -59,6 +61,11 @@ type TreeView struct {
 
 	// Sort configuration for ordering siblings in the tree
 	sortConfig *model.SortConfig
+
+	// Last-sync-operation summaries rendered under each app root
+	syncSummaries map[string]*model.SyncOpSummary
+	// Time source for relative timestamps; overridable for deterministic tests
+	now func() time.Time
 }
 
 // ResourceSelection represents a selected resource for deletion
@@ -69,8 +76,13 @@ type ResourceSelection struct {
 	Kind      string
 	Namespace string
 	Name      string
+	UID       string // Kubernetes object UID (without the treeview's appName:: prefix)
 	Status    string // Sync status (e.g., "Synced", "OutOfSync", "Missing")
 	Health    string // Health status (e.g., "Healthy", "Degraded", "Missing")
+	// HealthMessage is the controller's explanation of the health status
+	HealthMessage string
+	// CreatedAt is the resource's creation time; zero when unknown
+	CreatedAt time.Time
 }
 
 // IsMissing returns true if the resource has Missing status or health
@@ -89,6 +101,8 @@ type treeNode struct {
 	namespace string
 	status    string
 	health    string
+	healthMsg string
+	createdAt time.Time
 	parent    *treeNode
 	children  []*treeNode
 }
@@ -242,6 +256,7 @@ func NewTreeView(width, height int) *TreeView {
 		appMeta:      make(map[string]struct{ health, sync string }),
 		palette:      theme.Default(), // Start with default theme
 		selectedUIDs: make(map[string]bool),
+		now:          time.Now,
 	}
 	tv.Model = tv // self
 	return tv
@@ -305,11 +320,21 @@ func (v *TreeView) UpsertAppTree(appName string, tree *api.ResourceTree) {
 			ns = *n.Namespace
 		}
 		health := ""
-		if n.Health != nil && n.Health.Status != nil {
-			health = *n.Health.Status
+		healthMsg := ""
+		if n.Health != nil {
+			if n.Health.Status != nil {
+				health = *n.Health.Status
+			}
+			if n.Health.Message != nil {
+				healthMsg = *n.Health.Message
+			}
+		}
+		createdAt := time.Time{}
+		if n.CreatedAt != nil {
+			createdAt = *n.CreatedAt
 		}
 		key := makeKey(n.UID)
-		tn := &treeNode{uid: key, group: n.Group, version: n.Version, kind: n.Kind, name: n.Name, status: n.Status, health: health, namespace: ns}
+		tn := &treeNode{uid: key, group: n.Group, version: n.Version, kind: n.Kind, name: n.Name, status: n.Status, health: health, healthMsg: healthMsg, createdAt: createdAt, namespace: ns}
 		v.nodesByUID[key] = tn
 		nodesLocal[key] = tn
 		appKeys = append(appKeys, key)
@@ -481,7 +506,7 @@ func (v *TreeView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		case "right", "l", "enter":
+		case "right", "l":
 			if v.selIdx >= 0 && v.selIdx < len(v.order) {
 				cur := v.order[v.selIdx]
 				if len(cur.children) > 0 {
@@ -561,6 +586,9 @@ func (v *TreeView) Render() string {
 		prefixStyled := lipgloss.NewStyle().Foreground(v.palette.Text).Render(prefix + disc)
 		label := v.renderLabel(n)
 		line := prefixStyled + label
+		if seg := v.compactSyncSummary(n, nil); seg != "" {
+			line += " " + seg
+		}
 		if len(n.children) > 0 && !v.expanded[n.uid] {
 			hidden := countDescendants(n)
 			if hidden > 0 {
@@ -586,6 +614,9 @@ func (v *TreeView) Render() string {
 			st := v.renderStatusPartNeutralBG(n, flashBG)
 			sp := bgStyle.Render(" ")
 			line = ps + ks + sp + ns + sp + st
+			if seg := v.compactSyncSummary(n, flashBG); seg != "" {
+				line += sp + seg
+			}
 			line = padRightWithBG(line, v.innerWidth(), flashBG)
 		} else if v.desaturateMode {
 			// In desaturate mode: only highlight selected items, with scoped highlighting
@@ -612,6 +643,9 @@ func (v *TreeView) Render() string {
 				st := v.renderStatusPartNeutralBG(n, rowBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
+				if seg := v.compactSyncSummary(n, rowBG); seg != "" {
+					line += sp + seg
+				}
 				// NO padRightWithBG - don't extend highlight to full width
 			}
 			// else: cursor-only or regular line - keep default rendering (no special background)
@@ -645,6 +679,9 @@ func (v *TreeView) Render() string {
 				st := v.renderStatusPartNeutralBG(n, rowBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
+				if seg := v.compactSyncSummary(n, rowBG); seg != "" {
+					line += sp + seg
+				}
 				line = padRightWithBG(line, v.innerWidth(), rowBG)
 			} else if isMatch {
 				// Non-selected, non-cursor match: highlight with warning background
@@ -660,6 +697,9 @@ func (v *TreeView) Render() string {
 				st := v.renderStatusPartNeutralBG(n, matchBG)
 				sp := bgStyle.Render(" ")
 				line = ps + ks + sp + ns + sp + st
+				if seg := v.compactSyncSummary(n, matchBG); seg != "" {
+					line += sp + seg
+				}
 				line = padRightWithBG(line, v.innerWidth(), matchBG)
 			}
 		}
@@ -786,17 +826,17 @@ func (v *TreeView) SelectedLineIndex() int {
 		}
 		return min(v.selIdx, max(0, len(v.order)-1))
 	}
-	gaps := 0
+	extras := 0
 	for i := 1; i <= v.selIdx && i < len(v.order); i++ {
 		if v.order[i].parent == nil {
-			gaps++
+			extras++ // blank separator before this root
 		}
 	}
-	return v.selIdx + gaps
+	return v.selIdx + extras
 }
 
-// VisibleLineCount returns the number of lines produced by View(), which is
-// the number of visible nodes plus the number of blank separators (roots-1).
+// VisibleLineCount returns the number of lines produced by View(): visible
+// nodes plus blank separators (roots-1).
 func (v *TreeView) VisibleLineCount() int {
 	roots := 0
 	for _, n := range v.order {
@@ -817,6 +857,79 @@ func padRightWithBG(s string, width int, bg color.Color) string {
 	}
 	padding := lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width-w))
 	return s + padding
+}
+
+// SetClock overrides the time source used for relative timestamps (tests).
+func (v *TreeView) SetClock(now func() time.Time) {
+	v.now = now
+}
+
+// SetAppSyncSummary sets (or clears, with nil) the last-sync-operation
+// summary rendered as a one-line annotation under the app's root row.
+func (v *TreeView) SetAppSyncSummary(appName string, summary *model.SyncOpSummary) {
+	if v.syncSummaries == nil {
+		v.syncSummaries = make(map[string]*model.SyncOpSummary)
+	}
+	if summary == nil {
+		delete(v.syncSummaries, appName)
+		return
+	}
+	v.syncSummaries[appName] = summary
+}
+
+// phaseGlyph maps an operation phase to its status glyph and color.
+func (v *TreeView) phaseGlyph(phase string) (string, color.Color) {
+	switch phase {
+	case "Failed", "Error", "Terminating":
+		return "✖", v.palette.Danger
+	case "Running":
+		return "◌", v.palette.Progress
+	default: // Succeeded
+		return "✔", v.palette.Success
+	}
+}
+
+// compactSyncSummary is the root row's inline last-operation segment:
+// "· ✖ sync failed 2m ago". Empty for non-roots and for apps without a
+// summary. A non-nil bg renders it over a highlighted row's background;
+// the details (revision, initiator) live in the events pane.
+func (v *TreeView) compactSyncSummary(n *treeNode, bg color.Color) string {
+	if n.parent != nil {
+		return ""
+	}
+	s := v.syncSummaries[n.name]
+	if s == nil {
+		return ""
+	}
+
+	glyph, glyphColor := v.phaseGlyph(s.Phase)
+	var text string
+	switch s.Phase {
+	case "Succeeded":
+		text = "synced"
+	case "Failed", "Error":
+		text = "sync failed"
+	case "Running":
+		text = "syncing"
+	default:
+		text = "sync " + strings.ToLower(s.Phase)
+	}
+	if s.Phase != "Running" {
+		at := s.FinishedAt
+		if at.IsZero() {
+			at = s.StartedAt
+		}
+		text += " " + humantime.Ago(at, v.now())
+	}
+
+	if bg != nil {
+		return lipgloss.NewStyle().Foreground(v.palette.DarkBG).Background(bg).
+			Render("· " + glyph + " " + text)
+	}
+	dim := lipgloss.NewStyle().Foreground(v.palette.Dim)
+	return dim.Render("· ") +
+		lipgloss.NewStyle().Foreground(glyphColor).Render(glyph) +
+		dim.Render(" "+text)
 }
 
 // SetAppMeta sets the application metadata used for the synthetic top-level node
@@ -976,6 +1089,38 @@ func (v *TreeView) SelectedResource() (group, kind, namespace, name string, ok b
 		return "", "", "", "", false
 	}
 	return node.group, node.kind, node.namespace, node.name, true
+}
+
+// SelectedResourceDetail returns the full selection details of the cursor
+// row. ok is false when the cursor is not on a real Kubernetes resource
+// (e.g. the synthetic application root).
+func (v *TreeView) SelectedResourceDetail() (ResourceSelection, bool) {
+	if v.selIdx < 0 || v.selIdx >= len(v.order) {
+		return ResourceSelection{}, false
+	}
+	node := v.order[v.selIdx]
+	if node == nil || strings.HasSuffix(node.uid, "::__app_root__") {
+		return ResourceSelection{}, false
+	}
+	appName := v.appName
+	uid := node.uid
+	if idx := strings.Index(node.uid, "::"); idx > 0 {
+		appName = node.uid[:idx]
+		uid = node.uid[idx+2:]
+	}
+	return ResourceSelection{
+		AppName:       appName,
+		Group:         node.group,
+		Version:       node.version,
+		Kind:          node.kind,
+		Namespace:     node.namespace,
+		Name:          node.name,
+		UID:           uid,
+		Status:        node.status,
+		Health:        node.health,
+		HealthMessage: node.healthMsg,
+		CreatedAt:     node.createdAt,
+	}, true
 }
 
 // GetAppName returns the name of the application being displayed.

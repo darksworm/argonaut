@@ -25,6 +25,10 @@ type NavigatorContext struct {
 	// The 'changed' parameter indicates whether the cursor actually moved
 	OnNavigate func(changed bool)
 
+	// AfterNavigate optionally returns a follow-up command (e.g. the side
+	// pane's debounced refetch when the selection changed)
+	AfterNavigate func(changed bool) tea.Cmd
+
 	// Whether this context supports navigation (false for Search, Command, Help modes)
 	SupportsNavigation bool
 
@@ -41,6 +45,36 @@ func isNavigationKey(msg tea.KeyMsg) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// treeNavigatorContext is the tree view's navigation wiring, shared by
+// normal mode and the side panes (which navigate the tree beneath them).
+func (m *Model) treeNavigatorContext() *NavigatorContext {
+	if m.treeView == nil {
+		return &NavigatorContext{SupportsNavigation: false}
+	}
+	// The selection may have been set outside the navigator (search jumps,
+	// direct SetSelectedIndex) — start from where the tree actually is
+	m.treeNav.SetItemCount(m.treeView.VisibleCount())
+	m.treeNav.SetCursor(m.treeView.SelectedIndex())
+	return &NavigatorContext{
+		Navigator:         m.treeNav,
+		GetItemCount:      func() int { return m.treeView.VisibleCount() },
+		GetViewportHeight: m.treeViewportHeight,
+		OnNavigate: func(changed bool) {
+			if changed {
+				m.treeView.SetSelectedIndex(m.treeNav.Cursor())
+			}
+		},
+		AfterNavigate: func(changed bool) tea.Cmd {
+			if changed {
+				// The side pane is a lens over the selection
+				return m.retargetOpenPane()
+			}
+			return nil
+		},
+		SupportsNavigation: true,
 	}
 }
 
@@ -96,20 +130,7 @@ func (m *Model) getNavigatorContext() *NavigatorContext {
 	case model.ModeNormal:
 		// Check for tree view first
 		if m.state.Navigation.View == model.ViewTree {
-			if m.treeView == nil {
-				return &NavigatorContext{SupportsNavigation: false}
-			}
-			return &NavigatorContext{
-				Navigator:         m.treeNav,
-				GetItemCount:      func() int { return m.treeView.VisibleCount() },
-				GetViewportHeight: m.treeViewportHeight,
-				OnNavigate: func(changed bool) {
-					if changed {
-						m.treeView.SetSelectedIndex(m.treeNav.Cursor())
-					}
-				},
-				SupportsNavigation: true,
-			}
+			return m.treeNavigatorContext()
 		}
 		// Default: list navigation (apps, clusters, namespaces, projects)
 		return &NavigatorContext{
@@ -176,6 +197,9 @@ func (m *Model) executeNavigation(ctx *NavigatorContext, msg tea.KeyMsg) (tea.Mo
 	// Invoke post-navigation callback for side effects
 	if ctx.OnNavigate != nil {
 		ctx.OnNavigate(changed)
+	}
+	if ctx.AfterNavigate != nil {
+		return m, ctx.AfterNavigate(changed)
 	}
 
 	return m, nil

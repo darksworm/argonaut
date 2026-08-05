@@ -12,6 +12,9 @@ func (m *Model) cleanupAppWatcher() *Model {
 }
 
 // cleanupTreeWatchers stops all active tree watchers and clears the list.
+// It marks the end of a tree session (leaving the view, or rebuilding for
+// another app), so the side pane — a lens over that session — closes with it;
+// auto-open reopens it against whatever tree loads next.
 func (m *Model) cleanupTreeWatchers() *Model {
 	if len(m.treeWatchCleanups) > 0 {
 		for _, c := range m.treeWatchCleanups {
@@ -25,6 +28,7 @@ func (m *Model) cleanupTreeWatchers() *Model {
 		close(m.treeStreamDone)
 		m.treeStreamDone = make(chan struct{})
 	}
+	m.closePane()
 	return m
 }
 

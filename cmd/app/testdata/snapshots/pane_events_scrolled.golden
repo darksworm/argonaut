@@ -1,0 +1,13 @@
+  argo.example.com                                                                   Argonaut dev   
+ ╭──────────────────────────────────────────────╮╭─ Pod web-… ─ ⟳ updated 12s ago ─ ▲ more above ─╮ 
+ │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
+ │ ├── Deployment [demo/web] (Degraded)         ││               [web]                            │ 
+ │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Last sync     SyncFailed                       │ 
+ │ └── Service [demo/web] (Healthy)             ││   pod spec invalid                             │ 
+ │                                              ││                                                │ 
+ │                                              ││ EVENTS                                         │ 
+ │                                              ││ BackOff                          x412 · 2m ago │ 
+ │                                              ││   Back-off restarting failed container web in  │ 
+ │                                              ││   pod web-6f7d9b-x4k2m_demo(a1b2c3d)           │ 
+ ╰──────────────────────────────────────────────╯╰───────────────────────────────── ▼ more below ─╯ 
+ <tree>                                                            u/i: scroll events • Ready • 1/4 

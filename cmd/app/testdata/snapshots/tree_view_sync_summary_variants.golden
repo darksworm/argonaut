@@ -1,0 +1,15 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Application [demo-app] (Degraded, Synced) · ✖ sync failed 2m ago                               │
+│ ├── Deployment [demo/web] (Degraded)                                                           │
+│ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degraded)                                                 │
+│ └── Service [demo/web] (Healthy)                                                               │
+│                                                                                                │
+│ Application [other-app] (Healthy, Synced) · ◌ syncing                                          │
+│ └── Service [api]                                                                              │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯
