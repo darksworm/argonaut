@@ -1,0 +1,7 @@
+default_view = 'apps'
+
+[appearance]
+theme = 'tokyo-night'
+
+[updates]
+check_enabled = false

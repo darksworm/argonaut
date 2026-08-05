@@ -98,3 +98,8 @@ logs/
 e2e/test-snapshots/*.raw
 e2e/test-snapshots/*.txt
 e2e/test-snapshots/*.screen
+
+# screenshot recording by-products (assets/README.md)
+/argonaut-demo
+/*_raw.png
+/screenshot_discard.gif
