@@ -188,10 +188,7 @@ argonaut
 ### **Sync**
 <img src="assets/argonaut_sync.png" alt="Sync apps"/>
 
-### **Live Resources**
-<img src="assets/argonaut_resources.png" alt="Resources view"/>
-
-### **Resource tree and events**
+### **Live resource tree and events**
 <img src="assets/argonaut_events.gif" alt="Events and sync status pane following the tree selection"/>
 
 ### **Diff**  
