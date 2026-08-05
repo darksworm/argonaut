@@ -97,7 +97,7 @@ func statusGlyph(status string) (string, color.Color) {
 // messageTokenRE finds highlightable tokens in message text: hex object
 // names (shortened git shas, pod-template hashes) and the substituted "you".
 // The digit+letter guard below avoids coloring date-like numbers.
-var messageTokenRE = regexp.MustCompile("\\b(?:[0-9a-f]{7,40}|you)\\b")
+var messageTokenRE = regexp.MustCompile(`\b(?:[0-9a-f]{7,40}|you)\b`)
 
 // styleMessageLine dims a wrapped message line, giving embedded shas their
 // identity color (so repeats are spottable) and "you" a highlight.
