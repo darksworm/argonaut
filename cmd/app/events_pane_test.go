@@ -986,8 +986,6 @@ func TestDrillIntoChildApp_ClosesTheStalePane(t *testing.T) {
 	}
 }
 
-
-
 // Two apps share a name; the summary under the tree root must come from the
 // tree-scoped app, not the first name-match in the list.
 func TestResourceTreeLoaded_SyncSummary_DisambiguatesAppByNamespace(t *testing.T) {

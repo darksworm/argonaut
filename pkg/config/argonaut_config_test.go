@@ -1,11 +1,11 @@
 package config
 
 import (
-	"time"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestGetArgonautConfigPath(t *testing.T) {
