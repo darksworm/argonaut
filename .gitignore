@@ -98,3 +98,8 @@ logs/
 e2e/test-snapshots/*.raw
 e2e/test-snapshots/*.txt
 e2e/test-snapshots/*.screen
+
+# screenshot recording by-products (docs/screenshots.md)
+/argonaut-demo
+/help_raw.png
+/help_discard.gif

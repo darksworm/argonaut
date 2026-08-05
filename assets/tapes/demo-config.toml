@@ -1,0 +1,7 @@
+default_view = 'apps'
+
+[appearance]
+theme = 'tokyo-storm'
+
+[updates]
+check_enabled = false
