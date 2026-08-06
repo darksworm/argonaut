@@ -237,7 +237,7 @@ func SaveArgonautConfig(config *ArgonautConfig) error {
 // itself when pinning the pre-2.18 clusters default during an upgrade.
 const defaultViewMigrationComment = `# Newer Argonaut versions open the apps view by default. This line was added
 # automatically on upgrade to keep the clusters view you were used to.
-# Delete it to switch to the new default.
+# Delete the default_view = 'clusters' line to switch to the new default.
 `
 
 // SaveArgonautConfigWithDefaultViewComment saves like SaveArgonautConfig but
