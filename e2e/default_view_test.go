@@ -138,3 +138,114 @@ func TestDefaultViewMigrationPinsClustersForExistingUser(t *testing.T) {
 		t.Errorf("expected explanatory comment above the pin, got:\n%s", content)
 	}
 }
+
+func TestDefaultViewMigrationSurvivesRealVersionedUpgrade(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServer()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// A real upgrade: released (non-dev) binary and an old last_seen_version.
+	// Unlike dev builds, this also triggers the what's-new full config rewrite,
+	// which the pin and its explanatory comment must survive.
+	tf.binOverride = versionedBinPath
+	tf.extraConfig = `last_seen_version = "2.17.0"`
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	if !tf.WaitForPlain("<clusters>", 5*time.Second) {
+		t.Fatalf("expected '<clusters>' breadcrumb for upgraded user, got:\n%s", tf.Screen())
+	}
+
+	argonautConfig := filepath.Join(tf.workspace, ".config", "argonaut", "config.toml")
+	data, err := os.ReadFile(argonautConfig)
+	if err != nil {
+		t.Fatalf("read argonaut config: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "last_seen_version = '"+releasedTestVersion+"'") {
+		t.Errorf("expected the upgrade to record the new version, got:\n%s", content)
+	}
+	if !strings.Contains(content, `default_view = 'clusters'`) {
+		t.Errorf("expected pinned default_view in config, got:\n%s", content)
+	}
+	if !strings.Contains(content, "apps view by default") {
+		t.Errorf("expected the explanatory comment to survive the what's-new rewrite, got:\n%s", content)
+	}
+}
+
+func TestFreshInstallDefaultsToAppsAcrossLaunches(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServer()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// A fresh install of a released binary: no Argonaut config file at all.
+	tf.binOverride = versionedBinPath
+	tf.skipArgonautConfig = true
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+	if !tf.WaitForPlain("<apps>", 5*time.Second) {
+		t.Fatalf("expected '<apps>' breadcrumb on fresh install, got:\n%s", tf.Screen())
+	}
+
+	// The first launch records the version but must not pin a default_view
+	argonautConfig := filepath.Join(tf.workspace, ".config", "argonaut", "config.toml")
+	data, err := os.ReadFile(argonautConfig)
+	if err != nil {
+		t.Fatalf("read argonaut config after first launch: %v", err)
+	}
+	if !strings.Contains(string(data), "last_seen_version = '"+releasedTestVersion+"'") {
+		t.Errorf("expected first launch to record the version, got:\n%s", data)
+	}
+	if strings.Contains(string(data), "default_view") {
+		t.Errorf("fresh install must not get a pinned default_view, got:\n%s", data)
+	}
+
+	// The second launch (config now exists) must not be mistaken for an
+	// upgrade from the clusters-default era
+	tf.StopApp()
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("restart app: %v", err)
+	}
+	if !tf.WaitForScreen("<apps>", 5*time.Second) {
+		t.Fatalf("expected '<apps>' breadcrumb on second launch, got:\n%s", tf.Screen())
+	}
+	data, err = os.ReadFile(argonautConfig)
+	if err != nil {
+		t.Fatalf("read argonaut config after second launch: %v", err)
+	}
+	if strings.Contains(string(data), "default_view") {
+		t.Errorf("second launch must not pin a default_view, got:\n%s", data)
+	}
+}
