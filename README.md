@@ -289,8 +289,8 @@ request_timeout = "10s"   # Timeout for HTTP requests (increase for large deploy
 [updates]
 check_enabled = true      # Set to false to disable the GitHub release-check on startup
 
-# Start in apps view instead of clusters (supports :command syntax)
-default_view = "apps"
+# Start in clusters view instead of apps (supports :command syntax)
+default_view = "clusters"
 ```
 
 ### Configuration Options
@@ -411,8 +411,8 @@ Configure which view Argonaut starts in. Uses the same syntax as `:commands`, wi
 
 | Value | Startup view |
 |-------|-------------|
-| `"apps"` | Applications list |
-| `"clusters"` | Clusters list (default) |
+| `"apps"` | Applications list (default) |
+| `"clusters"` | Clusters list |
 | `"ns"` | Namespaces list |
 | `"proj"` | Projects list |
 | `"appsets"` | ApplicationSets list |

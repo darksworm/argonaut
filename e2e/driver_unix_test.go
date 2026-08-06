@@ -86,6 +86,14 @@ type TUITestFramework struct {
 	// extraConfig is additional TOML config appended to the test config file
 	extraConfig string
 
+	// skipArgonautConfig leaves the workspace without an Argonaut config file,
+	// simulating a fresh install (StartApp* writes one by default)
+	skipArgonautConfig bool
+
+	// binOverride runs a different binary than the shared test build,
+	// e.g. one compiled with an injected release version
+	binOverride string
+
 	// requestTimeout overrides the default "2s" request_timeout for E2E tests.
 	// Set before calling StartApp/StartAppArgs.
 	requestTimeout string
@@ -128,6 +136,23 @@ func ensureBinary(t *testing.T) error {
 	return nil
 }
 
+// StopApp kills the running app process and releases its PTY so the test can
+// relaunch the binary in the same workspace.
+func (tf *TUITestFramework) StopApp() {
+	if tf.cmd != nil && tf.cmd.Process != nil {
+		_ = tf.cmd.Process.Kill()
+		_, _ = tf.cmd.Process.Wait()
+	}
+	if tf.pty != nil {
+		_ = tf.pty.Close()
+		tf.pty = nil
+	}
+	if tf.tty != nil {
+		_ = tf.tty.Close()
+		tf.tty = nil
+	}
+}
+
 // Workspace returns the isolated workspace directory for this test
 func (tf *TUITestFramework) Workspace() string {
 	return tf.workspace
@@ -167,30 +192,13 @@ func (tf *TUITestFramework) SetupWorkspace() (string, error) {
 	return filepath.Join(cfgDir, "config"), nil
 }
 
-// StartApp runs the compiled binary under a PTY
-func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
-	tf.t.Helper()
-	if err := ensureBinary(tf.t); err != nil {
-		return err
+// writeArgonautTestConfig writes the standard e2e Argonaut config (fast
+// timeouts, mock clipboard, no update checks) unless the test opted out via
+// skipArgonautConfig to simulate a fresh install.
+func (tf *TUITestFramework) writeArgonautTestConfig(configPath string) error {
+	if tf.skipArgonautConfig {
+		return nil
 	}
-	tf.cmd = exec.Command(binPath)
-	p, t, err := pty.Open()
-	if err != nil {
-		return err
-	}
-	tf.pty, tf.tty = p, t
-
-	tf.cmd.Stdout, tf.cmd.Stdin, tf.cmd.Stderr = t, t, t
-	// Run the app in the isolated workspace so per-test files (e.g., logs) don't clash
-	if tf.workspace != "" {
-		tf.cmd.Dir = tf.workspace
-	}
-	// Create low timeout config for all E2E tests to make them faster
-	configDir := filepath.Join(tf.workspace, ".config", "argonaut")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return err
-	}
-	configPath := filepath.Join(configDir, "config.toml")
 
 	// Create a mock clipboard file for all tests (even if they don't use it)
 	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
@@ -218,7 +226,38 @@ copy_command = "tee ` + clipboardFile + `"
 # paints "New version available" in the status bar, and contends for CPU.
 check_enabled = false`
 
-	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
+	return os.WriteFile(configPath, []byte(testConfig), 0600)
+}
+
+// StartApp runs the compiled binary under a PTY
+func (tf *TUITestFramework) StartApp(extraEnv ...string) error {
+	tf.t.Helper()
+	if err := ensureBinary(tf.t); err != nil {
+		return err
+	}
+	bin := binPath
+	if tf.binOverride != "" {
+		bin = tf.binOverride
+	}
+	tf.cmd = exec.Command(bin)
+	p, t, err := pty.Open()
+	if err != nil {
+		return err
+	}
+	tf.pty, tf.tty = p, t
+
+	tf.cmd.Stdout, tf.cmd.Stdin, tf.cmd.Stderr = t, t, t
+	// Run the app in the isolated workspace so per-test files (e.g., logs) don't clash
+	if tf.workspace != "" {
+		tf.cmd.Dir = tf.workspace
+	}
+	// Create low timeout config for all E2E tests to make them faster
+	configDir := filepath.Join(tf.workspace, ".config", "argonaut")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	if err := tf.writeArgonautTestConfig(configPath); err != nil {
 		return err
 	}
 
@@ -272,7 +311,11 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 	if err := ensureBinary(tf.t); err != nil {
 		return err
 	}
-	tf.cmd = exec.Command(binPath, args...)
+	bin := binPath
+	if tf.binOverride != "" {
+		bin = tf.binOverride
+	}
+	tf.cmd = exec.Command(bin, args...)
 	p, t, err := pty.Open()
 	if err != nil {
 		return err
@@ -288,34 +331,7 @@ func (tf *TUITestFramework) StartAppArgs(args []string, extraEnv ...string) erro
 		return err
 	}
 	configPath := filepath.Join(configDir, "config.toml")
-
-	// Create a mock clipboard file for all tests (even if they don't use it)
-	clipboardFile := filepath.Join(tf.workspace, "clipboard.txt")
-
-	// Create test config with both timeout and clipboard settings.
-	// Extra config is prepended so top-level keys appear before TOML sections.
-	testConfig := ""
-	if tf.extraConfig != "" {
-		testConfig += tf.extraConfig + "\n"
-	}
-	reqTimeout := tf.requestTimeout
-	if reqTimeout == "" {
-		reqTimeout = "2s"
-	}
-	testConfig += `[http_timeouts]
-# Use lower timeout for E2E tests to speed them up
-request_timeout = "` + reqTimeout + `"
-
-[clipboard]
-# Mock clipboard for tests - writes to file instead of system clipboard
-copy_command = "tee ` + clipboardFile + `"
-
-[updates]
-# Disable the GitHub-API update check during e2e runs — it adds latency,
-# paints "New version available" in the status bar, and contends for CPU.
-check_enabled = false`
-
-	if err := os.WriteFile(configPath, []byte(testConfig), 0600); err != nil {
+	if err := tf.writeArgonautTestConfig(configPath); err != nil {
 		return err
 	}
 

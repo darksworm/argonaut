@@ -222,6 +222,14 @@ func main() {
 	appcontext.SetRequestTimeout(requestTimeout)
 	cblog.With("component", "app").Debug("Applied request timeout", "timeout", requestTimeout.String())
 
+	// Pin the old clusters default for users upgrading from a version where
+	// clusters was the built-in default view, so the upgrade doesn't change
+	// their startup view.
+	pinClustersView := shouldPinClustersView(argonautConfig, configExisted)
+	if pinClustersView {
+		argonautConfig.DefaultView = "clusters"
+	}
+
 	// Create the initial model
 	m := NewModel(argonautConfig)
 
@@ -253,6 +261,14 @@ func main() {
 			if err := config.SaveArgonautConfig(argonautConfig); err != nil {
 				cblog.With("component", "app").Warn("Could not save last seen version", "err", err)
 			}
+		}
+	}
+
+	// Saved after the version-check saves above so the explanatory comment
+	// isn't clobbered by their full-file rewrite.
+	if pinClustersView {
+		if err := config.SaveArgonautConfigWithDefaultViewComment(argonautConfig); err != nil {
+			cblog.With("component", "app").Warn("Could not pin default_view", "err", err)
 		}
 	}
 

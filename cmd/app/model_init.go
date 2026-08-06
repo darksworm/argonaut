@@ -163,7 +163,7 @@ func (m *Model) validateDefaultViewScope() {
 		warning := fmt.Sprintf("%s %q from default_view not found.\nFalling back to default view.", label, scope.scopeValue)
 		m.state.Modals.DefaultViewWarning = &warning
 		// Reset to default navigation
-		m.state.Navigation.View = model.ViewClusters
+		m.state.Navigation.View = model.ViewApps
 		m.state.Navigation.SelectedIdx = 0
 		m.state.Selections = *model.NewSelectionState()
 	}

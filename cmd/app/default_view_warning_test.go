@@ -41,9 +41,9 @@ func TestDefaultViewWarning_MalformedConfig(t *testing.T) {
 		t.Errorf("warning should mention the invalid value, got: %s", *m.state.Modals.DefaultViewWarning)
 	}
 
-	// View should remain at default (clusters) since the parse failed
-	if m.state.Navigation.View != model.ViewClusters {
-		t.Errorf("expected default view clusters, got %s", m.state.Navigation.View)
+	// View should remain at the default (apps) since the parse failed
+	if m.state.Navigation.View != model.ViewApps {
+		t.Errorf("expected default view apps, got %s", m.state.Navigation.View)
 	}
 
 	// No pending scope to validate
@@ -135,8 +135,8 @@ func TestDefaultViewWarning_ScopeClusterNotFound(t *testing.T) {
 	}
 
 	// Should fall back to default view
-	if m.state.Navigation.View != model.ViewClusters {
-		t.Errorf("expected fallback to clusters view, got %s", m.state.Navigation.View)
+	if m.state.Navigation.View != model.ViewApps {
+		t.Errorf("expected fallback to apps view, got %s", m.state.Navigation.View)
 	}
 
 	// Scope selections should be cleared
@@ -161,8 +161,8 @@ func TestDefaultViewWarning_ScopeNamespaceNotFound(t *testing.T) {
 	if !strings.Contains(*m.state.Modals.DefaultViewWarning, "Namespace") {
 		t.Errorf("warning should mention 'Namespace', got: %s", *m.state.Modals.DefaultViewWarning)
 	}
-	if m.state.Navigation.View != model.ViewClusters {
-		t.Errorf("expected fallback to clusters view, got %s", m.state.Navigation.View)
+	if m.state.Navigation.View != model.ViewApps {
+		t.Errorf("expected fallback to apps view, got %s", m.state.Navigation.View)
 	}
 }
 
@@ -182,8 +182,8 @@ func TestDefaultViewWarning_ScopeProjectNotFound(t *testing.T) {
 	if !strings.Contains(*m.state.Modals.DefaultViewWarning, "Project") {
 		t.Errorf("warning should mention 'Project', got: %s", *m.state.Modals.DefaultViewWarning)
 	}
-	if m.state.Navigation.View != model.ViewClusters {
-		t.Fatalf("expected fallback to ViewClusters, got: %v", m.state.Navigation.View)
+	if m.state.Navigation.View != model.ViewApps {
+		t.Fatalf("expected fallback to ViewApps, got: %v", m.state.Navigation.View)
 	}
 }
 
@@ -203,8 +203,8 @@ func TestDefaultViewWarning_ScopeAppsetNotFound(t *testing.T) {
 	if !strings.Contains(*m.state.Modals.DefaultViewWarning, "ApplicationSet") {
 		t.Errorf("warning should mention 'ApplicationSet', got: %s", *m.state.Modals.DefaultViewWarning)
 	}
-	if m.state.Navigation.View != model.ViewClusters {
-		t.Fatalf("expected fallback to ViewClusters, got: %v", m.state.Navigation.View)
+	if m.state.Navigation.View != model.ViewApps {
+		t.Fatalf("expected fallback to ViewApps, got: %v", m.state.Navigation.View)
 	}
 }
 
@@ -271,8 +271,8 @@ func TestDefaultViewWarning_EmptyConfig(t *testing.T) {
 	if m.pendingDefaultViewScope != nil {
 		t.Error("unexpected pending scope for empty config")
 	}
-	// Default view should remain clusters
-	if m.state.Navigation.View != model.ViewClusters {
-		t.Errorf("expected clusters view for empty config, got %s", m.state.Navigation.View)
+	// Default view is apps when default_view is unset
+	if m.state.Navigation.View != model.ViewApps {
+		t.Errorf("expected apps view for empty config, got %s", m.state.Navigation.View)
 	}
 }

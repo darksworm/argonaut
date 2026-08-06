@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -785,5 +786,45 @@ func TestGetEventsRefreshInterval(t *testing.T) {
 				t.Errorf("GetEventsRefreshInterval(%q) = %v, want %v", tt.raw, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSaveArgonautConfigWithDefaultViewComment(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("ARGONAUT_CONFIG", filepath.Join(tempDir, "config.toml"))
+
+	cfg := GetDefaultConfig()
+	cfg.DefaultView = "clusters"
+
+	if err := SaveArgonautConfigWithDefaultViewComment(cfg); err != nil {
+		t.Fatalf("SaveArgonautConfigWithDefaultViewComment() failed: %v", err)
+	}
+
+	data, err := os.ReadFile(GetArgonautConfigPath())
+	if err != nil {
+		t.Fatalf("reading saved config: %v", err)
+	}
+	content := string(data)
+
+	// The explanatory comment sits directly above the default_view key
+	idx := strings.Index(content, "default_view =")
+	if idx == -1 {
+		t.Fatalf("saved config is missing default_view:\n%s", content)
+	}
+	before := content[:idx]
+	if !strings.Contains(before, "# ") {
+		t.Errorf("expected explanatory comment above default_view, got:\n%s", content)
+	}
+	if !strings.Contains(before, "apps view by default") {
+		t.Errorf("comment should explain the new apps default, got:\n%s", content)
+	}
+
+	// The commented file still parses and round-trips the pinned value
+	loaded, err := LoadArgonautConfig()
+	if err != nil {
+		t.Fatalf("LoadArgonautConfig() failed on commented file: %v", err)
+	}
+	if loaded.DefaultView != "clusters" {
+		t.Errorf("expected default_view to round-trip as clusters, got %q", loaded.DefaultView)
 	}
 }

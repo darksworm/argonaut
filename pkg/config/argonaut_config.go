@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -229,6 +230,25 @@ func LoadArgonautConfig() (*ArgonautConfig, error) {
 
 // SaveArgonautConfig saves the configuration to the config file
 func SaveArgonautConfig(config *ArgonautConfig) error {
+	return saveArgonautConfig(config, false)
+}
+
+// defaultViewMigrationComment explains a default_view that Argonaut wrote by
+// itself when pinning the pre-2.18 clusters default during an upgrade.
+const defaultViewMigrationComment = `# Newer Argonaut versions open the apps view by default. This line was added
+# automatically on upgrade to keep the clusters view you were used to.
+# Delete the default_view = 'clusters' line to switch to the new default.
+`
+
+// SaveArgonautConfigWithDefaultViewComment saves like SaveArgonautConfig but
+// puts an explanatory comment above the default_view key. Note that comments
+// don't survive later full saves (marshalling drops them), so this is a
+// one-time explanation, not a permanent annotation.
+func SaveArgonautConfigWithDefaultViewComment(config *ArgonautConfig) error {
+	return saveArgonautConfig(config, true)
+}
+
+func saveArgonautConfig(config *ArgonautConfig, withDefaultViewComment bool) error {
 	if err := EnsureArgonautConfigDir(); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -239,6 +259,12 @@ func SaveArgonautConfig(config *ArgonautConfig) error {
 	data, err := toml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if withDefaultViewComment {
+		data = bytes.Replace(data,
+			[]byte("default_view ="),
+			[]byte(defaultViewMigrationComment+"default_view ="), 1)
 	}
 
 	// Write to file
