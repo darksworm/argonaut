@@ -3,6 +3,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -88,5 +90,51 @@ func TestDefaultViewWithScope(t *testing.T) {
 	if !strings.Contains(tf.Screen(), "default") {
 		t.Log(tf.Screen())
 		t.Fatal("expected `default` namespace row in the namespaces view")
+	}
+}
+
+func TestDefaultViewMigrationPinsClustersForExistingUser(t *testing.T) {
+	t.Parallel()
+	tf := NewTUITest(t)
+	t.Cleanup(tf.Cleanup)
+
+	srv, err := MockArgoServer()
+	if err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	cfgPath, err := tf.SetupWorkspace()
+	if err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+	if err := WriteArgoConfig(cfgPath, srv.URL); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// An existing user: their config predates the apps default and has no default_view
+	tf.extraConfig = `last_seen_version = "2.17.0"`
+
+	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
+		t.Fatalf("start app: %v", err)
+	}
+
+	// Their startup view must not change on upgrade
+	if !tf.WaitForPlain("<clusters>", 5*time.Second) {
+		t.Fatalf("expected '<clusters>' breadcrumb for migrated user, got:\n%s", tf.Screen())
+	}
+
+	// The pin was written back to their config with an explanation above it
+	argonautConfig := filepath.Join(tf.workspace, ".config", "argonaut", "config.toml")
+	data, err := os.ReadFile(argonautConfig)
+	if err != nil {
+		t.Fatalf("read argonaut config: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, `default_view = 'clusters'`) {
+		t.Errorf("expected pinned default_view in config, got:\n%s", content)
+	}
+	if !strings.Contains(content, "apps view by default") {
+		t.Errorf("expected explanatory comment above the pin, got:\n%s", content)
 	}
 }

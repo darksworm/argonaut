@@ -129,7 +129,7 @@ func (u *UpdateServiceImpl) CheckForUpdates(currentVersion string) (*model.Updat
 	logger.Debug("Latest release", "version", release.TagName, "published", release.PublishedAt)
 
 	// Compare versions (simple string comparison, assumes semantic versioning)
-	updateAvailable := isVersionNewer(release.TagName, currentVersion)
+	updateAvailable := IsVersionNewer(release.TagName, currentVersion)
 
 	installMethod := u.DetectInstallMethod()
 
@@ -286,8 +286,8 @@ func (u *UpdateServiceImpl) RestartApplication() error {
 
 // Helper methods
 
-// isVersionNewer compares version strings and returns true if newVersion > currentVersion
-func isVersionNewer(newVersion, currentVersion string) bool {
+// IsVersionNewer compares version strings and returns true if newVersion > currentVersion
+func IsVersionNewer(newVersion, currentVersion string) bool {
 	// Remove 'v' prefix if present
 	newVersion = strings.TrimPrefix(newVersion, "v")
 	currentVersion = strings.TrimPrefix(currentVersion, "v")

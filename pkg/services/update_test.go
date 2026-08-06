@@ -154,7 +154,7 @@ func TestDownloadAndReplaceRejectsMissingChecksum(t *testing.T) {
 	}
 }
 
-// --- isVersionNewer ---------------------------------------------------------
+// --- IsVersionNewer ---------------------------------------------------------
 
 func TestIsVersionNewer(t *testing.T) {
 	tests := []struct {
@@ -188,8 +188,8 @@ func TestIsVersionNewer(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("%s_vs_%s", tc.newV, tc.currentV), func(t *testing.T) {
-			if got := isVersionNewer(tc.newV, tc.currentV); got != tc.want {
-				t.Errorf("isVersionNewer(%q, %q) = %v, want %v", tc.newV, tc.currentV, got, tc.want)
+			if got := IsVersionNewer(tc.newV, tc.currentV); got != tc.want {
+				t.Errorf("IsVersionNewer(%q, %q) = %v, want %v", tc.newV, tc.currentV, got, tc.want)
 			}
 		})
 	}

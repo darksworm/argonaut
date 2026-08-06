@@ -305,7 +305,7 @@ func NewAppState() *AppState {
 			Cols: 80,
 		},
 		Navigation: NavigationState{
-			View:           ViewClusters,
+			View:           ViewApps,
 			SelectedIdx:    0,
 			LastGPressed:   0,
 			LastEscPressed: 0,
