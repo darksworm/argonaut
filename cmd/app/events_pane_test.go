@@ -1002,6 +1002,30 @@ func TestPaneWatchRefreshDue_RefetchesAndDisarms(t *testing.T) {
 	}
 }
 
+// A pending tick belongs to the load it was armed for: after a retarget,
+// updates must arm for the new load instead of being absorbed by a stale
+// tick that will die on its seq check.
+func TestAppsBatchUpdate_AfterRetarget_ArmsForTheNewLoad(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel()) // opened on the Pod row
+	m.watchGeneration = 7
+	batch := model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: m.state.Apps[0]}},
+		SwitchEpoch: m.switchEpoch,
+	}
+	teaModel, cmd := m.Update(batch)
+	if cmd == nil {
+		t.Fatal("setup: the first update must arm")
+	}
+	teaModel, _ = teaModel.(*Model).handleKeyMsg(testKeyMsg("k")) // retarget to the root
+	m = teaModel.(*Model)
+
+	_, cmd = m.Update(batch)
+
+	if cmd == nil {
+		t.Error("expected an update after a retarget to arm for the new load")
+	}
+}
+
 // A retarget between the arm and the tick supersedes the refresh: the new
 // target's own load is already running.
 func TestPaneWatchRefreshDue_FromSupersededLoad_IsDropped(t *testing.T) {

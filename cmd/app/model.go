@@ -65,9 +65,11 @@ type Model struct {
 	// gates late completions (see EventsState.LoadSeq)
 	paneLoadSeq int
 
-	// True while a watch-triggered pane refresh tick is in flight; absorbs
-	// the rest of the watch burst into that one tick.
-	paneWatchRefreshArmed bool
+	// LoadSeq of the pane load a watch-triggered refresh tick is in flight
+	// for (0 = none); absorbs the rest of the watch burst into that one
+	// tick. Scoped to the load so a retarget lets the new load arm its own
+	// tick while the stale one dies on its seq check.
+	paneWatchRefreshArmedSeq int
 
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
@@ -1099,8 +1101,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case paneWatchRefreshDueMsg:
-		// The tick fires exactly once per arm, so always disarm first.
-		m.paneWatchRefreshArmed = false
+		// Each arm's tick fires exactly once; disarm only our own arm so a
+		// stale tick cannot release one armed for a newer load.
+		if m.paneWatchRefreshArmedSeq == msg.loadSeq {
+			m.paneWatchRefreshArmedSeq = 0
+		}
 		if msg.switchEpoch != m.switchEpoch {
 			return m, nil
 		}

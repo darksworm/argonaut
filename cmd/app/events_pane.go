@@ -128,10 +128,10 @@ func (m *Model) paneShowsApp(app model.App) bool {
 // for the pane's app.
 func (m *Model) armPaneWatchRefresh() tea.Cmd {
 	st := m.state.Events
-	if st == nil || m.paneWatchRefreshArmed {
+	if st == nil || m.paneWatchRefreshArmedSeq == st.LoadSeq {
 		return nil
 	}
-	m.paneWatchRefreshArmed = true
+	m.paneWatchRefreshArmedSeq = st.LoadSeq
 	epoch := m.switchEpoch
 	seq := st.LoadSeq
 	return tea.Tick(paneWatchRefreshDebounce, func(time.Time) tea.Msg {
