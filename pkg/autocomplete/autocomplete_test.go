@@ -325,6 +325,44 @@ func TestSortCommandRequiresDirection(t *testing.T) {
 	}
 }
 
+func TestEventsCommandAutocomplete(t *testing.T) {
+	engine := NewAutocompleteEngine()
+	state := createTestState()
+
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{":events ", []string{":events on", ":events off"}},
+		{":events o", []string{":events on", ":events off"}},
+		{":events on", []string{":events on always"}},
+		{":events off", []string{":events off always"}},
+		{":events on ", []string{":events on always"}},
+		{":events on al", []string{":events on always"}},
+		{":events on x", []string{}},
+		{":events foo ", nil},
+		{":events foo a", nil},
+	}
+
+	for _, test := range tests {
+		suggestions := engine.GetCommandAutocomplete(test.input, state)
+		if !reflect.DeepEqual(suggestions, test.expected) {
+			t.Errorf("input %q: expected %v, got %v", test.input, test.expected, suggestions)
+		}
+	}
+}
+
+func TestEventsCommandHasNoSingularAlias(t *testing.T) {
+	engine := NewAutocompleteEngine()
+
+	if got := engine.ResolveAlias("event"); got != "event" {
+		t.Errorf("'event' should not resolve to a command, resolved to %q", got)
+	}
+	if engine.GetCommandInfo("event") != nil {
+		t.Error("'event' should not be a known command")
+	}
+}
+
 func TestThemeCommandAutocomplete(t *testing.T) {
 	engine := NewAutocompleteEngine()
 	state := createTestState()
