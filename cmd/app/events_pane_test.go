@@ -801,13 +801,34 @@ func TestEventsCommand_On_ReopensThePane(t *testing.T) {
 	}
 }
 
-// A bare :events (or junk argument) explains itself instead of guessing.
-func TestEventsCommand_WithoutOnOff_ExplainsUsage(t *testing.T) {
+// A bare :events is not a command; it is rejected before it reaches the handler.
+func TestEventsCommand_Bare_IsMarkedInvalid(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	m.state.Mode = model.ModeCommand
 	m.inputComponents.SetCommandValue("events")
 	m.state.UI.Command = "events"
+	teaModel, _ := m.handleEnhancedCommandModeKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+	mm := teaModel.(*Model)
+
+	if !mm.state.UI.CommandInvalid {
+		t.Error("expected bare :events to be marked invalid")
+	}
+	if mm.state.Mode != model.ModeCommand {
+		t.Errorf("expected to stay in command mode, got %s", mm.state.Mode)
+	}
+	if mm.state.Events == nil {
+		t.Error("expected the open pane left untouched")
+	}
+}
+
+// A junk argument explains itself instead of guessing.
+func TestEventsCommand_JunkArgument_ExplainsUsage(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+
+	m.state.Mode = model.ModeCommand
+	m.inputComponents.SetCommandValue("events foo")
+	m.state.UI.Command = "events foo"
 	teaModel, cmd := m.handleEnhancedCommandModeKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	mm := teaModel.(*Model)
 

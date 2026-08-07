@@ -187,6 +187,11 @@ func (m *Model) validateCommand(input string) bool {
 		return false
 	}
 
+	// :events needs its on|off flag
+	if canonical == "events" && len(parts) == 1 {
+		return false
+	}
+
 	// If command takes an argument and one is provided, validate it
 	if len(parts) >= 2 {
 		arg := parts[1]
@@ -352,6 +357,17 @@ func (m *Model) renderCommandInputWithAutocomplete(maxWidth int) string {
 				suggestionSuffix = strings.TrimPrefix(suggestionSuffix, " ")
 				dimSuggestion = lipgloss.NewStyle().Foreground(dimColor).Render(suggestionSuffix)
 			}
+		}
+	}
+
+	// :events takes a fixed flag; hint both options instead of the first completion,
+	// already while the command name itself is still being completed
+	if len(parts) == 1 {
+		dimStyle := lipgloss.NewStyle().Foreground(dimColor)
+		if hasTrailingSpace && strings.EqualFold(parts[0], "events") {
+			dimSuggestion = dimStyle.Render("on|off")
+		} else if !hasTrailingSpace && strings.EqualFold(firstPlain, "events") {
+			dimSuggestion = dimStyle.Render(firstPlain[len(currentInput):] + " on|off")
 		}
 	}
 

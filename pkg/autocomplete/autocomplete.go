@@ -101,10 +101,10 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 		},
 		{
 			Command:     "events",
-			Aliases:     []string{"events", "event"},
+			Aliases:     []string{"events"},
 			Description: "Auto-open the events pane: on|off, add 'always' to persist",
 			TakesArg:    true,
-			ArgType:     "",
+			ArgType:     "events",
 		},
 		{
 			Command:     "logs",
@@ -265,13 +265,18 @@ func (e *AutocompleteEngine) GetCommandAutocomplete(input string, state *model.A
 			return e.getSecondArgumentSuggestions(parts[0], parts[1], "", true, state)
 		}
 		// Check if first arg exactly matches a valid option for commands with second args
-		// This shows direction suggestions right after typing a complete field name
+		// This shows second-arg suggestions right after typing a complete first arg
 		cmdInfo := e.GetCommandInfo(parts[0])
-		if cmdInfo != nil && cmdInfo.Command == "sort" {
-			firstArgSuggestions := e.getSortSuggestions("")
+		if cmdInfo != nil {
+			var firstArgSuggestions []string
+			switch cmdInfo.Command {
+			case "sort":
+				firstArgSuggestions = e.getSortSuggestions("")
+			case "events":
+				firstArgSuggestions = e.getEventsSuggestions("")
+			}
 			for _, s := range firstArgSuggestions {
 				if strings.EqualFold(s, parts[1]) {
-					// First arg is complete, suggest second argument (direction is required)
 					return e.getSecondArgumentSuggestions(parts[0], parts[1], "", false, state)
 				}
 			}
@@ -341,6 +346,8 @@ func (e *AutocompleteEngine) getArgumentSuggestions(command, argPrefix string, s
 		suggestions = e.getThemeSuggestions(argPrefix)
 	case "sort":
 		suggestions = e.getSortSuggestions(argPrefix)
+	case "events":
+		suggestions = e.getEventsSuggestions(argPrefix)
 	case "argocd-context":
 		suggestions = e.getArgocdContextSuggestions(argPrefix, state)
 	}
@@ -543,6 +550,20 @@ func (e *AutocompleteEngine) getSortSuggestions(prefix string) []string {
 	return suggestions
 }
 
+// getEventsSuggestions returns the on/off options for the events command
+func (e *AutocompleteEngine) getEventsSuggestions(prefix string) []string {
+	var suggestions []string
+	prefix = strings.ToLower(prefix)
+
+	for _, opt := range []string{"on", "off"} {
+		if strings.HasPrefix(opt, prefix) {
+			suggestions = append(suggestions, opt)
+		}
+	}
+
+	return suggestions
+}
+
 // getSecondArgumentSuggestions returns suggestions for a second argument (e.g., sort direction)
 // The hasTrailingSpace parameter indicates if the original input had a trailing space after the current token
 func (e *AutocompleteEngine) getSecondArgumentSuggestions(command, firstArg, prefix string, hasTrailingSpace bool, state *model.AppState) []string {
@@ -551,13 +572,16 @@ func (e *AutocompleteEngine) getSecondArgumentSuggestions(command, firstArg, pre
 		return nil
 	}
 
-	// Currently only sort command has a second argument
-	if cmdInfo.Command != "sort" {
+	var options []string
+	switch cmdInfo.Command {
+	case "sort":
+		options = []string{"asc", "desc"}
+	case "events":
+		options = []string{"always"}
+	default:
 		return nil
 	}
 
-	// Suggest direction options
-	options := []string{"asc", "desc"}
 	var suggestions []string
 	prefix = strings.ToLower(prefix)
 
@@ -567,21 +591,9 @@ func (e *AutocompleteEngine) getSecondArgumentSuggestions(command, firstArg, pre
 		}
 	}
 
-	// Build suggestions that match the input format exactly
-	// When hasTrailingSpace is true and prefix is empty, input is "sort name "
-	// so suggestion should be "sort name asc" (matching the space)
 	prefixedSuggestions := make([]string, len(suggestions))
 	for i, suggestion := range suggestions {
-		if hasTrailingSpace && prefix == "" {
-			// Input: "sort name " -> Suggestion: "sort name asc"
-			prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
-		} else if prefix != "" {
-			// Input: "sort name a" or "sort name as" -> Suggestion: "sort name asc"
-			prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
-		} else {
-			// Input: "sort name" (no trailing space) -> Suggestion: "sort name asc" (add space before direction)
-			prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
-		}
+		prefixedSuggestions[i] = ":" + command + " " + firstArg + " " + suggestion
 	}
 
 	return prefixedSuggestions
