@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.18.0](https://github.com/darksworm/argonaut/compare/v2.17.2...v2.18.0) (2026-08-07)
+
+
+### Features
+
+* added live events pane in tree view ([#262](https://github.com/darksworm/argonaut/issues/262)) ([96881d3](https://github.com/darksworm/argonaut/commit/96881d3e17decea851522b845f8328f431c616e1))
+* default to apps view, pin clusters for existing users ([#264](https://github.com/darksworm/argonaut/issues/264)) ([08394b1](https://github.com/darksworm/argonaut/commit/08394b1785099516fb473a52955fddee2f8f6582))
+* refresh events pane on watch updates for its app ([#265](https://github.com/darksworm/argonaut/issues/265)) ([488fbe0](https://github.com/darksworm/argonaut/commit/488fbe0d513d7418aedf8b88cc412c41e5d03e18))
+
+
+### Bug Fixes
+
+* suggest and validate :events arguments ([#266](https://github.com/darksworm/argonaut/issues/266)) ([ab923d3](https://github.com/darksworm/argonaut/commit/ab923d36775cc8a20c20286f0458d4d34e3ec0b5))
+* sync selected child application ([#260](https://github.com/darksworm/argonaut/issues/260)) ([4caae2c](https://github.com/darksworm/argonaut/commit/4caae2c0e29c5ada8c840af6718bdcf3eeb57baa))
+
 ## [2.17.2](https://github.com/darksworm/argonaut/compare/v2.17.1...v2.17.2) (2026-07-25)
 
 
