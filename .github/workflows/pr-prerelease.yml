@@ -90,6 +90,7 @@ jobs:
         with:
           fetch-depth: 1
           ref: ${{ needs.check-release-pr.outputs.pr_sha }}
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -129,8 +130,6 @@ jobs:
           distribution: goreleaser
           version: nightly
           args: release --config .goreleaser.release.yml --snapshot --clean --skip=aur,nix
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Debug GoReleaser output
         run: |
