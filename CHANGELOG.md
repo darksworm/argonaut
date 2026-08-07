@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.18.0](https://github.com/darksworm/argonaut/compare/v2.17.2...v2.18.0) (2026-08-07)
+
+
+### Features
+
+* you can now view k8s events through argonaut — an events pane opens in the tree view and automatically updates as the apps change (disable with `:events off always`) ([#262](https://github.com/darksworm/argonaut/issues/262)) ([96881d3](https://github.com/darksworm/argonaut/commit/96881d3e17decea851522b845f8328f431c616e1))
+* you can now sync child applications directly in the resource tree ([#260](https://github.com/darksworm/argonaut/issues/260)) ([4caae2c](https://github.com/darksworm/argonaut/commit/4caae2c0e29c5ada8c840af6718bdcf3eeb57baa))
+* the default view has changed to all applications — but if you had been using a prior version of argonaut and hadn't changed the default, we wrote it to your config to ensure your experience doesn't change ([#264](https://github.com/darksworm/argonaut/issues/264)) ([08394b1](https://github.com/darksworm/argonaut/commit/08394b1785099516fb473a52955fddee2f8f6582))
+
 ## [2.17.2](https://github.com/darksworm/argonaut/compare/v2.17.1...v2.17.2) (2026-07-25)
 
 
