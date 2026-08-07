@@ -12,4 +12,5 @@ spec:
     # example of app-of-apps pattern, from the official Argo CD example apps repo
     path: apps
     repoURL: https://github.com/argoproj/argocd-example-apps
-    targetRevision: HEAD
+    # pinned: upstream HEAD (8088f4c) nil-derefs .destination.namespace in helm template
+    targetRevision: e27374f
