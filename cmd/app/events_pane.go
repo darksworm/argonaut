@@ -99,6 +99,46 @@ func (m *Model) paneRefreshCmds() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// paneWatchRefreshDebounce is the coalescing window for watch-triggered pane
+// refreshes: a sync emits a burst of watch updates, and one armed tick turns
+// the whole burst into a single refetch.
+const paneWatchRefreshDebounce = time.Second
+
+// paneWatchRefreshDueMsg fires after the coalescing window of a watch update
+// that touched the pane's app; the refetch runs only if LoadSeq still matches.
+type paneWatchRefreshDueMsg struct {
+	switchEpoch int
+	loadSeq     int
+}
+
+// paneShowsApp reports whether the open pane is scoped to the given app.
+func (m *Model) paneShowsApp(app model.App) bool {
+	st := m.state.Events
+	if st == nil || app.Name != st.Target.AppName {
+		return false
+	}
+	ns := ""
+	if app.AppNamespace != nil {
+		ns = *app.AppNamespace
+	}
+	return ns == st.Target.AppNamespace
+}
+
+// armPaneWatchRefresh schedules a pane refetch in response to a watch update
+// for the pane's app.
+func (m *Model) armPaneWatchRefresh() tea.Cmd {
+	st := m.state.Events
+	if st == nil || m.paneWatchRefreshArmedSeq == st.LoadSeq {
+		return nil
+	}
+	m.paneWatchRefreshArmedSeq = st.LoadSeq
+	epoch := m.switchEpoch
+	seq := st.LoadSeq
+	return tea.Tick(paneWatchRefreshDebounce, func(time.Time) tea.Msg {
+		return paneWatchRefreshDueMsg{switchEpoch: epoch, loadSeq: seq}
+	})
+}
+
 // paneAgeTickMsg re-renders the open pane once a second so the border's
 // "updated Ns ago" stays honest between refreshes. Display only.
 type paneAgeTickMsg struct {
