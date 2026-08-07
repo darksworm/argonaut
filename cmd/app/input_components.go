@@ -278,6 +278,17 @@ func (m *Model) validateCommand(input string) bool {
 			// Context names are validated at execution time (re-reads config from disk)
 			// so any non-empty arg is syntactically valid here
 			return true
+		case "events":
+			if len(parts) > 3 {
+				return false
+			}
+			if !strings.EqualFold(arg, "on") && !strings.EqualFold(arg, "off") {
+				return false
+			}
+			if len(parts) == 3 && !strings.EqualFold(parts[2], "always") {
+				return false
+			}
+			return true
 		}
 	}
 

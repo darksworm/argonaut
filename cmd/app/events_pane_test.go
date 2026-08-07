@@ -822,27 +822,24 @@ func TestEventsCommand_Bare_IsMarkedInvalid(t *testing.T) {
 	}
 }
 
-// A junk argument explains itself instead of guessing.
-func TestEventsCommand_JunkArgument_ExplainsUsage(t *testing.T) {
+// A junk argument is rejected at submit, same as a bare :events.
+func TestEventsCommand_JunkArgument_IsMarkedInvalid(t *testing.T) {
 	m := openEventsPane(t, buildEventsPaneTestModel())
 
 	m.state.Mode = model.ModeCommand
 	m.inputComponents.SetCommandValue("events foo")
 	m.state.UI.Command = "events foo"
-	teaModel, cmd := m.handleEnhancedCommandModeKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+	teaModel, _ := m.handleEnhancedCommandModeKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	mm := teaModel.(*Model)
 
+	if !mm.state.UI.CommandInvalid {
+		t.Error("expected :events foo to be marked invalid")
+	}
+	if mm.state.Mode != model.ModeCommand {
+		t.Errorf("expected to stay in command mode, got %s", mm.state.Mode)
+	}
 	if mm.state.Events == nil {
 		t.Error("expected the open pane left untouched")
-	}
-	var usage string
-	for _, msg := range collectMsgs(t, cmd) {
-		if sc, ok := msg.(model.StatusChangeMsg); ok {
-			usage = sc.Status
-		}
-	}
-	if !strings.Contains(usage, "on|off") {
-		t.Errorf("expected a usage hint, got %q", usage)
 	}
 }
 

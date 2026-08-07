@@ -19,6 +19,20 @@ func TestValidateCommand_BareEventsIsInvalid(t *testing.T) {
 	}
 }
 
+func TestValidateCommand_EventsRejectsUnknownFlags(t *testing.T) {
+	m := buildSyncTestModel(100, 30)
+
+	invalid := []string{"events foo", "events on alwayss", "events on always extra"}
+	for _, cmd := range invalid {
+		if m.validateCommand(cmd) {
+			t.Errorf(":%s should be invalid", cmd)
+		}
+	}
+	if !m.validateCommand("events ON") {
+		t.Error(":events ON should be valid, flags are case-insensitive")
+	}
+}
+
 func TestValidateCommand_SingularEventIsUnknown(t *testing.T) {
 	m := buildSyncTestModel(100, 30)
 
