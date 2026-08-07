@@ -340,6 +340,8 @@ func TestEventsCommandAutocomplete(t *testing.T) {
 		{":events on ", []string{":events on always"}},
 		{":events on al", []string{":events on always"}},
 		{":events on x", []string{}},
+		{":events foo ", nil},
+		{":events foo a", nil},
 	}
 
 	for _, test := range tests {

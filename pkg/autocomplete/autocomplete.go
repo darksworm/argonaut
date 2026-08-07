@@ -577,6 +577,9 @@ func (e *AutocompleteEngine) getSecondArgumentSuggestions(command, firstArg, pre
 	case "sort":
 		options = []string{"asc", "desc"}
 	case "events":
+		if !strings.EqualFold(firstArg, "on") && !strings.EqualFold(firstArg, "off") {
+			return nil
+		}
 		options = []string{"always"}
 	default:
 		return nil
