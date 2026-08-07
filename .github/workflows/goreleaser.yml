@@ -13,6 +13,11 @@ on:
         description: "Existing tag to (re)build and upload assets for, e.g. v2.17.0"
         required: true
         type: string
+      skip:
+        description: "Comma-separated goreleaser pipes to skip, e.g. aur"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -78,7 +83,7 @@ jobs:
         with:
           distribution: goreleaser
           version: nightly
-          args: release --config .goreleaser.release.yml --clean
+          args: release --config .goreleaser.release.yml --clean ${{ inputs.skip != '' && format('--skip={0}', inputs.skip) || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}          # must have repo:status, repo:write
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }} # PAT with write on tap repo
