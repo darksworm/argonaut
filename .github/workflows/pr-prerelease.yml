@@ -280,11 +280,6 @@ jobs:
             ${artifactFiles.map(f => `- \`${f}\``).join('\n')}
             </details>
 
-            ### 🐳 Docker Image
-            \`\`\`bash
-            docker pull ghcr.io/${repoFullName}:${version}
-            \`\`\`
-
             ### 🔍 Checksums
             <details>
             <summary>Click to expand checksums</summary>
