@@ -894,6 +894,159 @@ func TestAppsBatchUpdate_RefreshesTreeSyncSummaryLive(t *testing.T) {
 	}
 }
 
+// The watch stream is the pane's freshness signal: an update for the app the
+// pane is showing arms a debounced refresh, so a sync or health change shows
+// up without waiting for the polling interval.
+func TestAppsBatchUpdate_ForPaneApp_ArmsWatchRefresh(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.watchGeneration = 7 // a foreign generation keeps the consume chain out of cmd
+	updated := m.state.Apps[0]
+	updated.SyncOp = &model.SyncOpSummary{Phase: "Succeeded", FinishedAt: time.Now()}
+
+	_, cmd := m.Update(model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: updated}},
+		SwitchEpoch: m.switchEpoch,
+	})
+
+	if cmd == nil {
+		t.Fatal("expected a watch update for the pane's app to arm a refresh")
+	}
+}
+
+// A sync emits a burst of watch updates; one armed tick absorbs the burst
+// instead of refetching per update.
+func TestAppsBatchUpdate_WhileRefreshArmed_Coalesces(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.watchGeneration = 7
+	updated := m.state.Apps[0]
+	batch := model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: updated}},
+		SwitchEpoch: m.switchEpoch,
+	}
+	teaModel, cmd := m.Update(batch)
+	if cmd == nil {
+		t.Fatal("setup: the first update must arm the refresh")
+	}
+
+	_, cmd = teaModel.(*Model).Update(batch)
+
+	if cmd != nil {
+		t.Error("expected updates within the armed window to coalesce into the pending tick")
+	}
+}
+
+// Only the app the pane is showing is a freshness signal; churn on other
+// apps must not refetch it.
+func TestAppsBatchUpdate_ForOtherApp_DoesNotArmWatchRefresh(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.watchGeneration = 7
+	other := m.state.Apps[1] // zzz-other-app
+
+	_, cmd := m.Update(model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: other}},
+		SwitchEpoch: m.switchEpoch,
+	})
+
+	if cmd != nil {
+		t.Error("expected an unrelated app's update to leave the pane alone")
+	}
+}
+
+// When the coalescing window closes, the pane refetches in the background —
+// no loading placeholder — and the next watch update can arm again.
+func TestPaneWatchRefreshDue_RefetchesAndDisarms(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.watchGeneration = 7
+	teaModel, _ := m.Update(model.EventsLoadedMsg{
+		Target:      m.state.Events.Target,
+		Items:       []model.ResourceEvent{{Reason: "BackOff"}},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
+		Details:     &model.SyncStatusDetails{Phase: "Succeeded"},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+	batch := model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: m.state.Apps[0]}},
+		SwitchEpoch: m.switchEpoch,
+	}
+	teaModel, _ = m.Update(batch)
+	m = teaModel.(*Model)
+
+	teaModel, cmd := m.Update(paneWatchRefreshDueMsg{switchEpoch: m.switchEpoch, loadSeq: m.state.Events.LoadSeq})
+	m = teaModel.(*Model)
+
+	if m.state.Events.Loading || len(m.state.Events.Items) != 1 {
+		t.Errorf("a watch-triggered refresh must not blank the pane, got %+v", m.state.Events)
+	}
+	if cmd == nil {
+		t.Fatal("expected the refresh fetches to dispatch")
+	}
+	var gotEvents bool
+	for _, msg := range collectMsgs(t, cmd) {
+		if _, ok := msg.(model.EventsErrorMsg); ok {
+			gotEvents = true
+		}
+	}
+	if !gotEvents {
+		t.Error("expected an events refetch to dispatch")
+	}
+
+	if _, cmd = m.Update(batch); cmd == nil {
+		t.Error("expected the fired tick to disarm, letting the next update arm again")
+	}
+}
+
+// A retarget between the arm and the tick supersedes the refresh: the new
+// target's own load is already running.
+func TestPaneWatchRefreshDue_FromSupersededLoad_IsDropped(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	teaModel, _ := m.Update(model.EventsLoadedMsg{
+		Target:      m.state.Events.Target,
+		Items:       []model.ResourceEvent{{Reason: "BackOff"}},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+	teaModel, _ = m.Update(model.SyncStatusLoadedMsg{
+		Target:      model.SyncStatusTarget{AppName: "test-app", AppNamespace: "test-namespace"},
+		Details:     &model.SyncStatusDetails{Phase: "Succeeded"},
+		SwitchEpoch: m.switchEpoch,
+		LoadSeq:     m.state.Events.LoadSeq,
+	})
+	m = teaModel.(*Model)
+
+	_, cmd := m.Update(paneWatchRefreshDueMsg{switchEpoch: m.switchEpoch, loadSeq: m.state.Events.LoadSeq - 1})
+
+	if cmd != nil {
+		t.Error("expected a superseded watch-refresh tick to be dropped")
+	}
+}
+
+// Two apps sharing a name in different ArgoCD namespaces: only the pane's
+// own app is a freshness signal (ADR-0004).
+func TestAppsBatchUpdate_SameNameOtherNamespace_DoesNotArmWatchRefresh(t *testing.T) {
+	m := openEventsPane(t, buildEventsPaneTestModel())
+	m.watchGeneration = 7
+	otherNs := "team-a"
+	imposter := m.state.Apps[0]
+	imposter.AppNamespace = &otherNs
+
+	_, cmd := m.Update(model.AppsBatchUpdateMsg{
+		Updates:     []model.AppUpdatedMsg{{App: imposter}},
+		SwitchEpoch: m.switchEpoch,
+	})
+
+	if cmd != nil {
+		t.Error("expected the same-named app from another namespace to leave the pane alone")
+	}
+}
+
 // The pane is part of the tree view: it opens by itself once the tree loads,
 // targeting the selected row, and starts its fetches.
 func TestResourceTreeLoaded_AutoOpensThePane(t *testing.T) {

@@ -65,6 +65,10 @@ type Model struct {
 	// gates late completions (see EventsState.LoadSeq)
 	paneLoadSeq int
 
+	// True while a watch-triggered pane refresh tick is in flight; absorbs
+	// the rest of the watch burst into that one tick.
+	paneWatchRefreshArmed bool
+
 	// Watch channel for Argo events
 	watchChan chan services.ArgoApiEvent
 	// Closed when the current app watch forwarder stops.
@@ -510,6 +514,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		deletesApplied := 0
+		paneAppTouched := false
 		// Preferred path: apply ordered operations to preserve stream semantics.
 		if len(msg.Operations) > 0 {
 			for _, op := range msg.Operations {
@@ -517,6 +522,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case model.AppBatchOperationUpdate:
 					if op.Update != nil {
 						m.applyBatchAppUpdate(*op.Update)
+						paneAppTouched = paneAppTouched || m.paneShowsApp(op.Update.App)
 					}
 				case model.AppBatchOperationDelete:
 					if op.Delete != "" && m.applyBatchAppDelete(op.Delete) {
@@ -528,6 +534,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Backward-compatible fallback for older/non-ordered producers.
 			for _, upd := range msg.Updates {
 				m.applyBatchAppUpdate(upd)
+				paneAppTouched = paneAppTouched || m.paneShowsApp(upd.App)
 			}
 			for _, name := range msg.Deletes {
 				if m.applyBatchAppDelete(name) {
@@ -555,6 +562,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmds []tea.Cmd
 		if msg.Generation == m.watchGeneration {
 			cmds = append(cmds, m.consumeWatchEvents())
+		}
+		if paneAppTouched {
+			cmds = append(cmds, m.armPaneWatchRefresh())
 		}
 		if msg.Immediate != nil {
 			imm := msg.Immediate
@@ -1087,6 +1097,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.schedulePaneAgeTick(st.LoadSeq)
 		}
 		return m, nil
+
+	case paneWatchRefreshDueMsg:
+		// The tick fires exactly once per arm, so always disarm first.
+		m.paneWatchRefreshArmed = false
+		if msg.switchEpoch != m.switchEpoch {
+			return m, nil
+		}
+		st := m.state.Events
+		if st == nil || st.LoadSeq != msg.loadSeq || st.Loading || st.DetailsLoading {
+			return m, nil
+		}
+		return m, m.paneRefreshCmds()
 
 	case model.PaneRefreshDueMsg:
 		if msg.SwitchEpoch != m.switchEpoch {
