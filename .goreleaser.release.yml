@@ -38,7 +38,8 @@ aurs:
     git_url: ssh://aur@aur.archlinux.org/argonaut-bin.git
     provides: [argonaut]
     conflicts: [argonaut]
-    skip_upload: false
+    # temporarily true: aur.archlinux.org has disabled uploads; revert when they re-enable
+    skip_upload: true
     commit_msg_template: "upgpkg: {{ .ProjectName }} {{ .Version }}"
     package: |
       _binname="argonaut"

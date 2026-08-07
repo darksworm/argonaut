@@ -47,6 +47,9 @@ brew install darksworm/tap/argonaut
 <details>
   <summary><strong>AUR (Arch User Repository)</strong></summary>
 
+> [!WARNING]
+> AUR uploads are currently disabled on aur.archlinux.org, so these packages may lag behind the latest release until uploads are re-enabled.
+
 ```bash
 yay -S argonaut-bin
 ```
