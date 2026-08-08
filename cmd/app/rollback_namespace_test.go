@@ -8,12 +8,13 @@ import (
 
 func TestRollbackBottomNavigation_EmptyRows_DoesNotSetNegativeIndex(t *testing.T) {
 	m := buildSyncTestModel(100, 30)
+	m.state.Mode = model.ModeRollback
 	m.state.Rollback = &model.RollbackState{
 		Rows:        []model.RollbackRow{},
 		SelectedIdx: 0,
 	}
 
-	newModel, _ := m.Update(model.RollbackNavigationMsg{Direction: "bottom"})
+	newModel, _ := m.handleKeyMsg(testKeyMsg("G"))
 	m = newModel.(*Model)
 
 	if m.state.Rollback.SelectedIdx < 0 {

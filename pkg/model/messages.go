@@ -453,20 +453,30 @@ type ClearRefreshFlashMsg struct{}
 type RollbackHistoryLoadedMsg struct {
 	AppName         string
 	AppNamespace    *string
-	Rows            []RollbackRow
+	Rows            []RollbackRow // newest-first
 	CurrentRevision string
+	AutoSyncEnabled bool
+	SwitchEpoch     int
 }
 
-// RollbackMetadataLoadedMsg is sent when git metadata is loaded for a revision
+// RollbackMetadataLoadedMsg is sent when git metadata is loaded for a
+// revision. AppName/Revision/SwitchEpoch identify the session and row the
+// fetch was for, so replies landing after a session change are dropped.
 type RollbackMetadataLoadedMsg struct {
-	RowIndex int
-	Metadata RevisionMetadata
+	RowIndex    int
+	Metadata    RevisionMetadata
+	AppName     string
+	Revision    string
+	SwitchEpoch int
 }
 
 // RollbackMetadataErrorMsg is sent when metadata loading fails
 type RollbackMetadataErrorMsg struct {
-	RowIndex int
-	Error    string
+	RowIndex    int
+	Error       string
+	AppName     string
+	Revision    string
+	SwitchEpoch int
 }
 
 // RollbackExecutedMsg is sent when rollback is executed
@@ -475,27 +485,6 @@ type RollbackExecutedMsg struct {
 	AppNamespace *string
 	Success      bool
 	Watch        bool // Whether to start watching after rollback
-}
-
-// RollbackNavigationMsg is sent to change rollback navigation
-type RollbackNavigationMsg struct {
-	Direction string // "up", "down", "top", "bottom"
-}
-
-// RollbackToggleOptionMsg is sent to toggle rollback options
-type RollbackToggleOptionMsg struct {
-	Option string // "prune", "watch", "dryrun"
-}
-
-// RollbackConfirmMsg is sent to confirm rollback
-type RollbackConfirmMsg struct{}
-
-// RollbackCancelMsg is sent to cancel rollback
-type RollbackCancelMsg struct{}
-
-// RollbackShowDiffMsg is sent to show diff for selected revision
-type RollbackShowDiffMsg struct {
-	Revision string
 }
 
 // ResourceTreeLoadedMsg is sent when a resource tree is loaded for an app

@@ -102,9 +102,14 @@ func (m *Model) getNavigatorContext() *NavigatorContext {
 		}
 
 	case model.ModeRollback:
-		if m.state.Rollback == nil || m.state.Rollback.Loading {
+		// The confirm modal pins its target — no list navigation beneath it
+		if m.state.Rollback == nil || m.state.Rollback.Loading || m.state.Rollback.Mode == "confirm" {
 			return &NavigatorContext{SupportsNavigation: false}
 		}
+		// The navigator outlives rollback sessions — start from where the
+		// state actually is, not where the last session left the cursor
+		m.rollbackNav.SetItemCount(len(m.state.Rollback.Rows))
+		m.rollbackNav.SetCursor(m.state.Rollback.SelectedIdx)
 		return &NavigatorContext{
 			Navigator:         m.rollbackNav,
 			GetItemCount:      func() int { return len(m.state.Rollback.Rows) },
@@ -113,6 +118,13 @@ func (m *Model) getNavigatorContext() *NavigatorContext {
 				if changed {
 					m.state.Rollback.SelectedIdx = m.rollbackNav.Cursor()
 				}
+			},
+			AfterNavigate: func(changed bool) tea.Cmd {
+				if changed {
+					// The detail pane is a lens over the selection
+					return m.retargetRollbackPane()
+				}
+				return nil
 			},
 			SupportsNavigation: true,
 		}

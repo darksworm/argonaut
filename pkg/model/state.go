@@ -132,6 +132,7 @@ type UIState struct {
 	RefreshFlashApps   map[string]bool `json:"-"` // Apps to highlight after refresh (transient)
 	RefreshFlashTree   bool            `json:"-"` // Flash tree view after refresh (transient)
 	SelectionCopied    bool            `json:"-"` // Show "Copied!" message briefly (transient)
+	FooterNotice       string          `json:"-"` // Brief hint shown in the status bar (transient)
 }
 
 // ModalState holds modal-related state

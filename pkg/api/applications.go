@@ -51,6 +51,27 @@ type ApplicationSpec struct {
 	// Multiple sources (newer multi-source support)
 	Sources     []ApplicationSource    `json:"sources,omitempty"`
 	Destination ApplicationDestination `json:"destination"`
+	SyncPolicy  *SyncPolicy            `json:"syncPolicy,omitempty"`
+}
+
+// SyncPolicy holds the parts of the sync policy argonaut inspects
+type SyncPolicy struct {
+	Automated *AutomatedSyncPolicy `json:"automated,omitempty"`
+}
+
+// AutomatedSyncPolicy mirrors spec.syncPolicy.automated; Enabled defaults to
+// true when the automated block is present (pre-2.13 servers have no field)
+type AutomatedSyncPolicy struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// AutoSyncEnabled reports whether the automated sync policy is active
+func (s *ApplicationSpec) AutoSyncEnabled() bool {
+	if s.SyncPolicy == nil || s.SyncPolicy.Automated == nil {
+		return false
+	}
+	enabled := s.SyncPolicy.Automated.Enabled
+	return enabled == nil || *enabled
 }
 
 // SyncStatus holds the application's sync comparison state
@@ -188,10 +209,12 @@ var AppWatchFields []string
 
 // DeploymentHistory represents a deployment history entry from ArgoCD API
 type DeploymentHistory struct {
-	ID         int                `json:"id"`
-	Revision   string             `json:"revision"`
-	DeployedAt time.Time          `json:"deployedAt"`
-	Source     *ApplicationSource `json:"source,omitempty"`
+	ID              int                `json:"id"`
+	Revision        string             `json:"revision"`
+	DeployedAt      time.Time          `json:"deployedAt"`
+	DeployStartedAt *time.Time         `json:"deployStartedAt,omitempty"`
+	InitiatedBy     OperationInitiator `json:"initiatedBy,omitempty"`
+	Source          *ApplicationSource `json:"source,omitempty"`
 }
 
 // RevisionMetadataResponse represents git metadata response from ArgoCD API
@@ -928,7 +951,7 @@ func (s *ApplicationService) RefreshApplication(ctx context.Context, name string
 
 // GetRevisionMetadata fetches git metadata for a specific revision
 func (s *ApplicationService) GetRevisionMetadata(ctx context.Context, name string, revision string, appNamespace *string) (*model.RevisionMetadata, error) {
-	endpoint := fmt.Sprintf("/api/v1/applications/%s/revisions/%s/metadata", name, revision)
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/revisions/%s/metadata", url.PathEscape(name), url.PathEscape(revision))
 	if appNamespace != nil && *appNamespace != "" {
 		endpoint += "?appNamespace=" + url.QueryEscape(*appNamespace)
 	}
@@ -949,6 +972,51 @@ func (s *ApplicationService) GetRevisionMetadata(ctx context.Context, name strin
 		Message: metadata.Message,
 		Tags:    metadata.Tags,
 	}, nil
+}
+
+// DisableAutoSync removes the automated sync policy so a rollback is not
+// immediately synced back to the current target revision. Uses a merge patch
+// rather than a spec update: our ApplicationSpec model is partial, and
+// round-tripping it through PUT /spec would wipe fields we don't model.
+func (s *ApplicationService) DisableAutoSync(ctx context.Context, name string, appNamespace *string) error {
+	endpoint := "/api/v1/applications/" + url.PathEscape(name)
+
+	body := map[string]interface{}{
+		"name":      name,
+		"patch":     `{"spec":{"syncPolicy":{"automated":null}}}`,
+		"patchType": "merge",
+	}
+	if appNamespace != nil && *appNamespace != "" {
+		body["appNamespace"] = *appNamespace
+	}
+
+	if _, err := s.client.Patch(ctx, endpoint, body); err != nil {
+		return fmt.Errorf("failed to disable auto-sync for %s: %w", name, err)
+	}
+
+	return nil
+}
+
+// GetApplicationManifests fetches the rendered manifests for an application at a revision
+func (s *ApplicationService) GetApplicationManifests(ctx context.Context, name string, revision string, appNamespace *string) ([]string, error) {
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/manifests?revision=%s", url.PathEscape(name), url.QueryEscape(revision))
+	if appNamespace != nil && *appNamespace != "" {
+		endpoint += "&appNamespace=" + url.QueryEscape(*appNamespace)
+	}
+
+	resp, err := s.client.Get(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get manifests for %s@%s: %w", name, revision, err)
+	}
+
+	var response struct {
+		Manifests []string `json:"manifests"`
+	}
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return nil, fmt.Errorf("failed to decode manifests response: %w", err)
+	}
+
+	return response.Manifests, nil
 }
 
 // RollbackApplication performs a rollback operation
@@ -1094,13 +1162,19 @@ func ConvertDeploymentHistoryToRollbackRows(history []DeploymentHistory) []model
 
 	for _, deployment := range history {
 		row := model.RollbackRow{
-			ID:         deployment.ID,
-			Revision:   deployment.Revision,
-			DeployedAt: &deployment.DeployedAt,
-			Author:     nil, // Will be loaded asynchronously
-			Date:       nil, // Will be loaded asynchronously
-			Message:    nil, // Will be loaded asynchronously
-			MetaError:  nil,
+			ID:              deployment.ID,
+			Revision:        deployment.Revision,
+			DeployedAt:      &deployment.DeployedAt,
+			DeployStartedAt: deployment.DeployStartedAt,
+			InitiatedBy:     deployment.InitiatedBy.Username,
+			Automated:       deployment.InitiatedBy.Automated,
+		}
+		if deployment.Source != nil {
+			row.Source = &model.RollbackSource{
+				RepoURL:        deployment.Source.RepoURL,
+				Path:           deployment.Source.Path,
+				TargetRevision: deployment.Source.TargetRevision,
+			}
 		}
 		rows = append(rows, row)
 	}

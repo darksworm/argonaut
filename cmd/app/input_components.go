@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -539,18 +540,16 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		// Clear invalid flag when user pastes (any change resets the warning)
 		m.state.UI.CommandInvalid = false
 		return m, cmd
-	case "ctrl+c":
-		// Treat Ctrl+C as closing the input (do not quit app)
+	case "ctrl+c", "esc":
+		// Close the input (Ctrl+C does not quit the app); an open rollback
+		// session gets the focus back, like search does for diff
 		m.inputComponents.BlurInputs()
 		m.inputComponents.ClearCommandInput()
-		m.state.Mode = model.ModeNormal
-		m.state.UI.Command = ""
-		m.state.UI.CommandInvalid = false
-		return m, nil
-	case "esc":
-		m.inputComponents.BlurInputs()
-		m.inputComponents.ClearCommandInput()
-		m.state.Mode = model.ModeNormal
+		if m.state.Rollback != nil {
+			m.state.Mode = model.ModeRollback
+		} else {
+			m.state.Mode = model.ModeNormal
+		}
 		m.state.UI.Command = ""
 		m.state.UI.CommandInvalid = false
 		return m, nil
@@ -675,9 +674,28 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.state.UI.CommandInvalid = false
 		m.inputComponents.ClearCommandInput()
 
-		// Clear UI state for all commands
+		// A command is a jump somewhere else — close any open rollback
+		// session rather than leaving it dangling under the new view
+		m.state.Rollback = nil
+		m.state.Modals.RollbackAppName = nil
+
+		// Clear UI state for all commands. SelectedIdx is relative to the
+		// filtered list, so re-point it at the same item in the unfiltered
+		// one — otherwise selection-based commands target the wrong app.
+		var selectedItem interface{}
+		if items := m.getVisibleItems(); m.state.Navigation.SelectedIdx < len(items) {
+			selectedItem = items[m.state.Navigation.SelectedIdx]
+		}
 		m.state.UI.ActiveFilter = ""
 		m.state.UI.SearchQuery = ""
+		if selectedItem != nil {
+			for i, item := range m.getVisibleItems() {
+				if reflect.DeepEqual(item, selectedItem) {
+					m.state.Navigation.SelectedIdx = i
+					break
+				}
+			}
+		}
 
 		// IMPORTANT: When adding new commands here, also add them to pkg/autocomplete/autocomplete.go
 		// to ensure they appear in autocomplete and validation works correctly.
@@ -790,8 +808,12 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 			target := arg
 			var targetNamespace *string
 			if target == "" {
-				// Only try to get current selection if we're in the apps view
-				if m.state.Navigation.View == model.ViewApps {
+				switch {
+				case len(m.state.Selections.SelectedApps) > 1:
+					// Rollback is single-app; several selected apps have
+					// no unambiguous target
+					return m, m.showFooterNotice("Rollback works on one app at a time — clear the selection first")
+				case m.state.Navigation.View == model.ViewApps:
 					items := m.getVisibleItemsForCurrentView()
 					if len(items) > 0 && m.state.Navigation.SelectedIdx < len(items) {
 						if app, ok := items[m.state.Navigation.SelectedIdx].(model.App); ok {
@@ -799,7 +821,11 @@ func (m *Model) handleEnhancedCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 							targetNamespace = app.AppNamespace
 						}
 					}
-				} else {
+				case m.state.Navigation.View == model.ViewTree && m.state.UI.TreeApp != nil:
+					// The tree shows exactly one app — roll that one back
+					target = m.state.UI.TreeApp.Name
+					targetNamespace = m.state.UI.TreeApp.AppNamespace
+				default:
 					return m, func() tea.Msg {
 						return model.StatusChangeMsg{Status: "Navigate to apps view first to select an app for rollback"}
 					}

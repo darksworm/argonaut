@@ -47,7 +47,9 @@ func (m *Model) renderStatusLine() string {
 	// Right side: status and position (matches MainLayout right Box)
 	// For tree view, use treeView counts; otherwise use list counts.
 	position := ""
-	if m.state.Navigation.View == model.ViewTree && m.treeView != nil {
+	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil {
+		position = fmt.Sprintf("%d/%d", min(m.state.Rollback.SelectedIdx+1, len(m.state.Rollback.Rows)), len(m.state.Rollback.Rows))
+	} else if m.state.Navigation.View == model.ViewTree && m.treeView != nil {
 		total := m.treeView.VisibleCount()
 		if total > 0 {
 			position = fmt.Sprintf("%d/%d", m.treeView.SelectedIndex()+1, total)
@@ -131,17 +133,32 @@ func (m *Model) renderStatusLine() string {
 		statusText = copiedStyle.Render("Copied!") + " • " + statusText
 	}
 
+	// Transient hint (refusals and similar user feedback)
+	if m.state.UI.FooterNotice != "" {
+		noticeStyle := lipgloss.NewStyle().Foreground(yellowBright)
+		statusText = noticeStyle.Render(m.state.UI.FooterNotice) + " • " + statusText
+	}
+
 	if position != "" {
 		statusText += fmt.Sprintf(" • %s", position)
 	}
 
 	// Advertise the side-pane hotkeys in the tree view. The hint yields to
 	// upgrade/changelog notices and to narrow terminals.
+	hints := ""
 	if m.state.Navigation.View == model.ViewTree && m.state.Mode == model.ModeNormal && rightText == "" {
-		hints := "e: events"
+		hints = "e: events"
 		if m.paneOpen() {
 			hints = "u/i: scroll events"
 		}
+	}
+	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && rightText == "" {
+		hints = "enter: select • d: diff • u/i: scroll • esc: close"
+		if m.state.Rollback.Mode == "confirm" {
+			hints = "p: prune • w: watch • h/l: choose • enter: confirm • esc: back"
+		}
+	}
+	if hints != "" {
 		available := max(0, m.state.Terminal.Cols-2)
 		if lipgloss.Width(leftText)+lipgloss.Width(hints)+lipgloss.Width(statusText)+len(" • ")+2 <= available {
 			statusText = hints + " • " + statusText

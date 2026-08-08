@@ -386,8 +386,9 @@ func (m *Model) renderSidePane(l paneLayout) string {
 // paneFrame describes the frame around a pane body.
 type paneFrame struct {
 	Title     string
-	Width     int // outer width, borders included
-	BodyRows  int // body rows to render (padded with blanks)
+	Width     int  // outer width, borders included
+	BodyRows  int  // body rows to render (padded with blanks)
+	Flush     bool // skip the blank breathing row under the title
 	MoreAbove bool
 	MoreBelow bool
 	// Status is anchored at the top border's right edge (the pane's
@@ -431,12 +432,16 @@ func renderPaneFrame(f paneFrame, body []string) string {
 	b.WriteString(borderStyle.Render("╮"))
 	b.WriteString("\n")
 
-	// Body rows, padded to the frame's height and width. The first row is
-	// always blank — breathing room between the title and the content.
+	// Body rows, padded to the frame's height and width. Unless Flush, the
+	// first row is blank — breathing room between the title and the content.
+	pad := 1
+	if f.Flush {
+		pad = 0
+	}
 	for i := 0; i < f.BodyRows; i++ {
 		line := strings.Repeat(" ", bodyWidth)
-		if i > 0 && i-1 < len(body) && body[i-1] != "" {
-			line = normalizeLinesToWidth(body[i-1], bodyWidth)
+		if i >= pad && i-pad < len(body) && body[i-pad] != "" {
+			line = normalizeLinesToWidth(body[i-pad], bodyWidth)
 		}
 		b.WriteString(borderStyle.Render("│") + " " + line + " " + borderStyle.Render("│"))
 		b.WriteString("\n")

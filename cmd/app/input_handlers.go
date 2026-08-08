@@ -326,23 +326,30 @@ func (m *Model) handleSyncModal() (tea.Model, tea.Cmd) {
 
 // handleRollback initiates rollback for selected or current app
 func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
-	if m.state.Navigation.View != model.ViewApps {
-		// Rollback only available in apps view
-		return m, nil
-	}
-
 	var appName string
 	var appNamespace *string
 
-	// Check if we have a single app selected
-	if len(m.state.Selections.SelectedApps) == 1 {
-		// Use the selected app
-		for name := range m.state.Selections.SelectedApps {
-			appName = name
-			break
+	switch m.state.Navigation.View {
+	case model.ViewTree:
+		// A hovered child Application (app-of-apps) is the target; any
+		// other row means the app the tree itself shows
+		if m.treeView != nil {
+			if _, kind, namespace, name, ok := m.treeView.SelectedResource(); ok &&
+				kind == "Application" && !m.treeView.IsSelectedSyntheticRoot() {
+				ns := namespace
+				return m.openRollback(name, &ns)
+			}
 		}
-	} else if len(m.state.Selections.SelectedApps) == 0 {
-		// No selection, use current app under cursor
+		if m.state.UI.TreeApp != nil {
+			appName = m.state.UI.TreeApp.Name
+			appNamespace = m.state.UI.TreeApp.AppNamespace
+		}
+	case model.ViewApps:
+		// Rollback is single-app: several deliberately-selected apps have
+		// no unambiguous target
+		if len(m.state.Selections.SelectedApps) > 1 {
+			return m, m.showFooterNotice("Rollback works on one app at a time — clear the selection first")
+		}
 		visibleItems := m.getVisibleItemsForCurrentView()
 		if len(visibleItems) > 0 && m.state.Navigation.SelectedIdx < len(visibleItems) {
 			if app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App); ok {
@@ -350,9 +357,8 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 				appNamespace = app.AppNamespace
 			}
 		}
-	} else {
-		// Multiple apps selected - rollback not supported for multiple apps
-		m.statusService.Set("Rollback not supported for multiple apps")
+	default:
+		// Other views have no app under the cursor
 		return m, nil
 	}
 
@@ -361,11 +367,14 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Set rollback app name and switch to rollback mode
+	return m.openRollback(appName, appNamespace)
+}
+
+// openRollback switches to the rollback view for the given app and starts
+// loading its deployment history.
+func (m *Model) openRollback(appName string, appNamespace *string) (tea.Model, tea.Cmd) {
 	m.state.Modals.RollbackAppName = &appName
 	m.state.Mode = model.ModeRollback
-
-	// Initialize rollback state with loading
 	m.state.Rollback = &model.RollbackState{
 		AppName:      appName,
 		AppNamespace: appNamespace,
@@ -373,11 +382,26 @@ func (m *Model) handleRollback() (tea.Model, tea.Cmd) {
 		Mode:         "list",
 	}
 
-	// Log rollback start
 	cblog.With("component", "rollback").Info("Starting rollback session", "app", appName)
 
-	// Start loading rollback history
 	return m, m.startRollbackSession(appName, appNamespace)
+}
+
+// returnFromTreeToApps leaves the tree for the apps view. If we have a saved
+// navigation entry from when we drilled in, the apps-view filter is restored
+// so the user lands back in the same filtered context.
+func (m *Model) returnFromTreeToApps() {
+	m = m.safeChangeView(model.ViewApps)
+	m.clearTreeApp()
+	m.state.Navigation.SelectedIdx = 0
+	if n := len(m.state.SavedNavigation); n > 0 {
+		top := m.state.SavedNavigation[n-1]
+		if top.View == model.ViewApps {
+			m.state.UI.SearchQuery = top.SavedSearchQuery
+			m.state.UI.ActiveFilter = top.SavedActiveFilter
+			m.state.SavedNavigation = m.state.SavedNavigation[:n-1]
+		}
+	}
 }
 
 // handleEscape handles escape key (clear filters, exit modes)
@@ -417,6 +441,14 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
 			}
+			// A rollback-watch tree steps back to the deployment history it
+			// came from, with the apps view beneath for the esc after that.
+			if m.rollbackWatchApp != nil {
+				target := m.rollbackWatchApp
+				m.rollbackWatchApp = nil
+				m.returnFromTreeToApps()
+				return m.openRollback(target.Name, target.AppNamespace)
+			}
 			// If we drilled into this tree from a parent tree (app-of-apps), pop the stack and go back.
 			if n := len(m.state.SavedNavigation); n > 0 {
 				top := m.state.SavedNavigation[n-1]
@@ -439,20 +471,8 @@ func (m *Model) handleEscape() (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-			// Return to apps view from tree/resources view. If we have a saved
-			// navigation entry from when we drilled in, restore the apps-view
-			// filter so the user lands back in the same filtered context.
-			m = m.safeChangeView(model.ViewApps)
-			m.clearTreeApp()
-			m.state.Navigation.SelectedIdx = 0
-			if n := len(m.state.SavedNavigation); n > 0 {
-				top := m.state.SavedNavigation[n-1]
-				if top.View == model.ViewApps {
-					m.state.UI.SearchQuery = top.SavedSearchQuery
-					m.state.UI.ActiveFilter = top.SavedActiveFilter
-					m.state.SavedNavigation = m.state.SavedNavigation[:n-1]
-				}
-			}
+			// Return to apps view from tree/resources view.
+			m.returnFromTreeToApps()
 		case model.ViewApps:
 			// Check if scoped by ApplicationSet (separate hierarchy)
 			if len(m.state.Selections.ScopeApplicationSets) > 0 {
@@ -700,12 +720,11 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// rollbackPageSize returns the number of visible rows for page scrolling in rollback mode
+// rollbackPageSize is how many history entries one page scroll moves —
+// exactly the rows visible in the list frame (flush: one row per entry).
 func (m *Model) rollbackPageSize() int {
-	// Approximate: modal takes ~60% of terminal height, minus header/footer
-	modalHeight := m.state.Terminal.Rows * 60 / 100
-	overhead := 6 // header, footer, borders
-	return max(1, modalHeight-overhead)
+	_, bodyRows := rollbackListGeometry(m.rollbackPaneLayout(m.renderBanner()))
+	return max(1, bodyRows)
 }
 
 // handleRollbackModeKeys handles input when in rollback mode.
@@ -713,7 +732,12 @@ func (m *Model) rollbackPageSize() int {
 func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "ctrl+c":
-		// Allow exit even during loading
+		// Step back from confirm to the list; close the session from the
+		// list (also allowed while loading)
+		if m.state.Rollback != nil && !m.state.Rollback.Loading && m.state.Rollback.Mode == "confirm" {
+			m.state.Rollback.Mode = "list"
+			return m, nil
+		}
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.RollbackAppName = nil
 		m.state.Rollback = nil
@@ -726,6 +750,18 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
+	case ":":
+		if m.state.Rollback.Mode == "list" {
+			return m.handleEnterCommandMode()
+		}
+		return m, nil
+	case "u", "shift+down":
+		// Scroll the detail pane, mirroring the events pane keys
+		m.state.Rollback.DetailOffset++
+		return m, nil
+	case "i", "shift+up":
+		m.state.Rollback.DetailOffset = max(0, m.state.Rollback.DetailOffset-1)
+		return m, nil
 	case "p":
 		// Toggle prune option in confirmation view
 		if m.state.Rollback.Mode == "confirm" {
@@ -748,47 +784,62 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.Rollback.ConfirmSelected = 1
 		}
 		return m, nil
+	case "R":
+		// R opened this view; in the list it selects, like enter
+		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 {
+			m.state.Rollback.Mode = "confirm"
+			m.state.Rollback.ConfirmSelected = 1
+		}
+		return m, nil
 	case "enter":
 		// Confirm rollback or execute rollback
-		if m.state.Rollback.Mode == "list" {
-			// Switch to confirmation mode
+		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 {
+			// Switch to confirmation mode; Cancel is the safe default
 			m.state.Rollback.Mode = "confirm"
-			m.state.Rollback.ConfirmSelected = 0
+			m.state.Rollback.ConfirmSelected = 1
 		} else if m.state.Rollback.Mode == "confirm" {
 			if m.state.Rollback.ConfirmSelected == 1 {
-				// Cancel
-				m.state.Rollback = nil
-				m.state.Modals.RollbackAppName = nil
-				m.state.Mode = model.ModeNormal
+				// Cancel steps back to the list, like esc
+				m.state.Rollback.Mode = "list"
 				return m, nil
 			}
-			// Execute rollback
-			if len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
-				selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-				request := model.RollbackRequest{
-					ID:           selectedRow.ID,
-					Name:         m.state.Rollback.AppName,
-					AppNamespace: m.state.Rollback.AppNamespace,
-					Prune:        m.state.Rollback.Prune,
-					DryRun:       m.state.Rollback.DryRun,
-				}
-				// Set loading state
-				m.state.Rollback.Loading = true
-				m.state.Rollback.Error = ""
-				return m, m.executeRollback(request)
-			}
+			return m.executeSelectedRollback()
+		}
+		return m, nil
+	case "y":
+		if m.state.Rollback.Mode == "confirm" {
+			return m.executeSelectedRollback()
 		}
 		return m, nil
 	case "d":
-		// Show diff for selected revision (if we want to implement this later)
-		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
+		if m.state.Rollback.Mode == "list" && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
 			selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-			// Could implement diff viewing here later
-			_ = selectedRow
+			return m, m.startRollbackDiffSession(
+				m.state.Rollback.AppName,
+				m.state.Rollback.AppNamespace,
+				selectedRow.Revision,
+				m.state.Rollback.CurrentRevision,
+			)
 		}
 		return m, nil
 	}
 	return m, nil
+}
+
+func (m *Model) executeSelectedRollback() (tea.Model, tea.Cmd) {
+	if len(m.state.Rollback.Rows) == 0 || m.state.Rollback.SelectedIdx >= len(m.state.Rollback.Rows) {
+		return m, nil
+	}
+	selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+	request := model.RollbackRequest{
+		ID:           selectedRow.ID,
+		Name:         m.state.Rollback.AppName,
+		AppNamespace: m.state.Rollback.AppNamespace,
+		Prune:        m.state.Rollback.Prune,
+	}
+	m.state.Rollback.Loading = true
+	m.state.Rollback.Error = ""
+	return m, m.executeRollback(request, m.state.Rollback.AutoSyncEnabled)
 }
 
 // handleConfirmAppDeleteKeys handles input when in app delete confirmation mode
@@ -1725,6 +1776,7 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.treeView != nil {
 				m.treeView.ClearFilter()
 			}
+			m.rollbackWatchApp = nil
 			m.state.SavedNavigation = nil
 			m = m.safeChangeView(model.ViewApps)
 			visibleItems := m.getVisibleItemsForCurrentView()
@@ -1811,6 +1863,9 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case ":":
 			// Enter command mode
 			return m.handleEnterCommandMode()
+		case "R":
+			// Roll back the hovered child Application, or the tree's app
+			return m.handleRollback()
 		case "?":
 			// Show help
 			return m.handleShowHelp()
@@ -1862,13 +1917,7 @@ func (m *Model) handleNormalModeGlobalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			return m.handleOpenAppK9s()
 		}
 	case "R":
-		cblog.With("component", "tui").Debug("R key pressed", "view", m.state.Navigation.View)
-		if m.state.Navigation.View == model.ViewApps {
-			cblog.With("component", "rollback").Debug("Calling handleRollback()")
-			return m.handleRollback()
-		} else {
-			cblog.With("component", "rollback").Debug("Rollback not available in view", "view", m.state.Navigation.View)
-		}
+		return m.handleRollback()
 	case "ctrl+d":
 		// Open delete confirmation for selected app (apps view) or resource (tree view)
 		if m.state.Navigation.View == model.ViewApps {

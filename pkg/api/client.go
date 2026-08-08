@@ -187,6 +187,12 @@ func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte
 	return c.request(ctx, "PUT", path, body)
 }
 
+// Patch performs a PATCH request without retries; see Post.
+// See Get for timeout responsibility.
+func (c *Client) Patch(ctx context.Context, path string, body interface{}) ([]byte, error) {
+	return c.request(ctx, "PATCH", path, body)
+}
+
 // Delete performs a DELETE request without retries; see Post.
 // See Get for timeout responsibility.
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {

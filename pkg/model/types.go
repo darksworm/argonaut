@@ -209,15 +209,26 @@ type ResourceInfo struct {
 	Value string `json:"value"`
 }
 
+// RollbackSource identifies where a historical deployment came from
+type RollbackSource struct {
+	RepoURL        string `json:"repoURL"`
+	Path           string `json:"path"`
+	TargetRevision string `json:"targetRevision"`
+}
+
 // RollbackRow represents a deployment history entry for rollback selection
 type RollbackRow struct {
-	ID         int        `json:"id"`         // Deployment ID
-	Revision   string     `json:"revision"`   // Git SHA/revision
-	DeployedAt *time.Time `json:"deployedAt"` // Deployment timestamp
-	Author     *string    `json:"author"`     // Git author (loaded async)
-	Date       *time.Time `json:"date"`       // Git commit date
-	Message    *string    `json:"message"`    // Git commit message
-	MetaError  *string    `json:"metaError"`  // Error loading metadata
+	ID              int             `json:"id"`              // Deployment ID
+	Revision        string          `json:"revision"`        // Git SHA/revision
+	DeployedAt      *time.Time      `json:"deployedAt"`      // Deployment timestamp
+	DeployStartedAt *time.Time      `json:"deployStartedAt"` // When the sync began
+	InitiatedBy     string          `json:"initiatedBy"`     // Username, empty when automated
+	Automated       bool            `json:"automated"`       // Deployed by automated sync policy
+	Source          *RollbackSource `json:"source"`          // Repo/path/target at deploy time
+	Author          *string         `json:"author"`          // Git author (loaded async)
+	Date            *time.Time      `json:"date"`            // Git commit date
+	Message         *string         `json:"message"`         // Git commit message
+	MetaError       *string         `json:"metaError"`       // Error loading metadata
 }
 
 // RollbackState holds the state for rollback operations
@@ -232,8 +243,25 @@ type RollbackState struct {
 	Mode            string        `json:"mode"`            // "list" or "confirm"
 	Prune           bool          `json:"prune"`           // Prune option
 	Watch           bool          `json:"watch"`           // Watch option after rollback
-	DryRun          bool          `json:"dryRun"`          // Dry run option (not shown in confirm view)
+	AutoSyncEnabled bool          `json:"autoSyncEnabled"` // App has an active automated sync policy
+	LoadSeq         int           `json:"loadSeq"`         // Debounce seq for metadata fetches
+	DetailOffset    int           `json:"detailOffset"`    // Detail pane scroll offset
+	Notice          string        `json:"notice"`          // Transient notice shown in the detail pane
 	ConfirmSelected int           `json:"confirmSelected"` // 0 = Yes, 1 = No/Cancel
+}
+
+// IsRedeploy reports whether the selected row is the current deployment —
+// rolling back to it is really a redeploy.
+func (r *RollbackState) IsRedeploy() bool {
+	return r.SelectedIdx == 0
+}
+
+// SelectedRow returns the row under the cursor, or nil when out of range.
+func (r *RollbackState) SelectedRow() *RollbackRow {
+	if r.SelectedIdx < 0 || r.SelectedIdx >= len(r.Rows) {
+		return nil
+	}
+	return &r.Rows[r.SelectedIdx]
 }
 
 // RevisionMetadata represents git commit metadata for a revision

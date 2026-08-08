@@ -1,10 +1,10 @@
 
-.PHONY: test unit e2e goldens \
+.PHONY: dev test unit e2e goldens \
 	k3d-start k3d-stop k3d-restart k3d-delete \
 	argocd-up argocd-down argocd-restart \
 	argocd-portforward argocd-portforward-stop \
 	argocd-git-daemon argocd-git-daemon-stop \
-	argocd-password argocd-login
+	argocd-password argocd-login argocd-history
 
 # Default parallelism for tests. 16 matches the typical core count and
 # fully saturates the box for the e2e suite (~3.3s wall-clock). Higher
@@ -23,6 +23,11 @@ ARGOCD_HOST ?= localhost
 # The daemon exposes all repos under GIT_DAEMON_BASE_PATH.
 GIT_DAEMON_PORT ?= 9418
 GIT_DAEMON_BASE_PATH ?= $(abspath $(CURDIR)/..)
+
+# Dev loop: bring up the ArgoCD environment, then run the app under a
+# file watcher — every .go save recompiles and restarts the TUI.
+dev: argocd-up
+	watchexec -r -e go --wrap-process=none -- 'go build -o /tmp/argonaut-dev ./cmd/app && exec /tmp/argonaut-dev'
 
 # Run all tests, including e2e (unix-only), with parallelism and no cache.
 test:
@@ -172,6 +177,13 @@ argocd-portforward-stop:
 		echo "No PID file; freeing port $(ARGOCD_PORT) if bound..."; \
 		fuser -k -TERM $(ARGOCD_PORT)/tcp 2>/dev/null || true; \
 	fi
+
+# Seed a demo app with a real deployment history (distinct manifests per
+# commit → every entry has a real diff and commit metadata). Serves a local
+# repo to the cluster via the git daemon.
+# Usage: make argocd-history [HISTORY_APP=history-demo] [HISTORY_DEPTH=6]
+argocd-history: argocd-up argocd-git-daemon
+	@./scripts/seed-history.sh
 
 # Echo the initial ArgoCD admin password (reads from k3d-managed cluster)
 argocd-password:
