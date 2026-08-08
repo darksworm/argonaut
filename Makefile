@@ -27,7 +27,7 @@ GIT_DAEMON_BASE_PATH ?= $(abspath $(CURDIR)/..)
 # Dev loop: bring up the ArgoCD environment, then run the app under a
 # file watcher — every .go save recompiles and restarts the TUI.
 dev: argocd-up
-	watchexec -r -e go --wrap-process=none -- go run ./cmd/app
+	watchexec -r -e go --wrap-process=none -- 'go build -o /tmp/argonaut-dev ./cmd/app && exec /tmp/argonaut-dev'
 
 # Run all tests, including e2e (unix-only), with parallelism and no cache.
 test:

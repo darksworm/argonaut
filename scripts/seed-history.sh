@@ -10,17 +10,42 @@ APP=${HISTORY_APP:-history-demo}
 DEPTH=${HISTORY_DEPTH:-6}
 NAMESPACE=history-demo
 
+# Argo CD retains at most revisionHistoryLimit entries (we set 100 below)
+if ! [ "$DEPTH" -ge 1 ] 2>/dev/null || [ "$DEPTH" -gt 100 ]; then
+  echo "HISTORY_DEPTH must be between 1 and 100, got '$DEPTH'" >&2
+  exit 1
+fi
+
+# Fail fast with a clear hint when the Argo CD environment isn't up
+if ! argocd account get-user-info >/dev/null 2>&1; then
+  echo "Argo CD is not reachable — run 'make argocd-up' first." >&2
+  exit 1
+fi
+
 # The git daemon serves the parent directory of the argonaut repo.
 BASE_DIR=$(cd "$(dirname "$0")/../.." && pwd)
 REPO_NAME=argonaut-history-repo
 REPO_DIR="$BASE_DIR/$REPO_NAME"
 REPO_URL="git://host.k3d.internal/$REPO_NAME"
 
-# Fresh repo every run so revisions and history entries line up.
+# Fresh repo AND fresh app every run: --upsert alone would keep the old
+# history entries, whose commits no longer exist after the repo reset.
+if argocd app get "$APP" >/dev/null 2>&1; then
+  echo "Deleting previous '$APP' ..."
+  argocd app delete "$APP" --yes >/dev/null
+  for _ in $(seq 1 60); do
+    argocd app get "$APP" >/dev/null 2>&1 || break
+    sleep 1
+  done
+fi
+
 rm -rf "$REPO_DIR"
 mkdir -p "$REPO_DIR/manifests"
 cd "$REPO_DIR"
 git init -q -b main
+# Repo-local identity so commits work without a global git config
+git config user.name "Argonaut Demo"
+git config user.email "demo@argonaut.local"
 
 subject() {
   case $(( $1 % 6 )) in
