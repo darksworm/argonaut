@@ -35,9 +35,6 @@ func (m *Model) activeOverlay() *overlaySpec {
 	}
 
 	// Desaturating overlays.
-	if m.state.Mode == model.ModeRollback && m.state.Rollback != nil && m.state.Rollback.Loading {
-		return &overlaySpec{modal: m.renderRollbackLoadingModal(), desaturate: true}
-	}
 	if m.state.Navigation.View == model.ViewTree && m.treeLoading {
 		return &overlaySpec{modal: m.renderTreeLoadingSpinner(), desaturate: true}
 	}

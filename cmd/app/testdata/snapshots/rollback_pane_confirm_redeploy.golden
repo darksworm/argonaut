@@ -1,0 +1,24 @@
+ Context: argo.example.com                                                           Argonaut dev   
+ ╭─ Deployment history demo-app ──────────────────────────────────────────────────────────────────╮ 
+ │ #30  a1b2c3d4 fix: suggest and validate :events arguments  1h ago   by jane.doe   current      │ 
+ │ #29  11223344 fix: suggest and validate :events arguments  21h ago  by automated               │ 
+ │ #28  deadbeef                                              3d ago   by automated               │ 
+ │ #27  55667788                                                               mith               │ 
+ ╰─────────────────── ╭──────────────────────────────────────────────────────╮ ───────────────────╯ 
+ ╭─ #30 a1b2c3d4 ──── │                                                      │ ─ deployed 1h ago ─╮ 
+ │                    │                  Redeploy demo-app?                  │                    │ 
+ │ DEPLOYMENT         │                                                      │                    │ 
+ │ Deployed       1h  │        a1b2c3d4 (current) → a1b2c3d4 (1h ago)        │                    │ 
+ │ Initiated by   jan │     fix: suggest and validate :events arguments      │                    │ 
+ │ Active for     1h5 │                                                      │                    │ 
+ │                    │                Redeploy        Cancel                │                    │ 
+ │ COMMIT         a1b │                                                      │                    │ 
+ │ Author         Jan │              p: Prune Off • w: Watch On              │                    │ 
+ │ Date           22h │                                                      │                    │ 
+ │                    ╰──────────────────────────────────────────────────────╯                    │ 
+ │ fix: suggest and v                                                                             │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ │                                                                                                │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+ <apps>                p: prune • w: watch • h/l: choose • enter: confirm • esc: back • Ready • 1/4 

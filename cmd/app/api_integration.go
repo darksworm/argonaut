@@ -1140,8 +1140,12 @@ func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.C
 
 		cblog.With("component", "rollback").Info("Loaded application history", "app", appName, "count", len(app.Status.History))
 
-		// Convert history to rollback rows
+		// Convert history to rollback rows, newest first so index 0 is the
+		// current deployment (the "redeploy" row)
 		rows := api.ConvertDeploymentHistoryToRollbackRows(app.Status.History)
+		for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
+			rows[i], rows[j] = rows[j], rows[i]
+		}
 
 		// Get current revision from sync status
 		currentRevision := ""
@@ -1158,6 +1162,8 @@ func (m *Model) startRollbackSession(appName string, appNamespace *string) tea.C
 			AppNamespace:    appNamespace,
 			Rows:            rows,
 			CurrentRevision: currentRevision,
+			AutoSyncEnabled: app.Spec.AutoSyncEnabled(),
+			SwitchEpoch:     epoch,
 		}
 	}
 }
@@ -1191,8 +1197,10 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 	}
 }
 
-// executeRollback performs the actual rollback operation
-func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
+// executeRollback performs the actual rollback operation. When
+// disableAutoSync is set, the automated sync policy is removed first so the
+// rollback isn't immediately synced back to the current target revision.
+func (m *Model) executeRollback(request model.RollbackRequest, disableAutoSync bool) tea.Cmd {
 	if m.state.Server == nil {
 		epoch := m.switchEpoch
 		return func() tea.Msg {
@@ -1201,11 +1209,21 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 	}
 	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
+	watchAfter := m.state.Rollback != nil && m.state.Rollback.Watch
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithMinAPITimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		apiService := services.NewArgoApiService(server)
+
+		if disableAutoSync {
+			if err := apiService.DisableAutoSync(ctx, server, request.Name, request.AppNamespace); err != nil {
+				if isAuthenticationError(err.Error()) {
+					return model.AuthErrorMsg{Error: err, SwitchEpoch: epoch}
+				}
+				return model.ApiErrorMsg{Message: "Failed to disable auto-sync: " + err.Error(), SwitchEpoch: epoch}
+			}
+		}
 
 		err := apiService.RollbackApplication(ctx, server, request)
 		if err != nil {
@@ -1214,12 +1232,6 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 				return model.AuthErrorMsg{Error: err, SwitchEpoch: epoch}
 			}
 			return model.ApiErrorMsg{Message: "Failed to rollback application: " + err.Error(), SwitchEpoch: epoch}
-		}
-
-		// Determine if we should watch after rollback
-		watchAfter := false
-		if m.state.Rollback != nil {
-			watchAfter = m.state.Rollback.Watch
 		}
 
 		return model.RollbackExecutedMsg{
@@ -1232,7 +1244,10 @@ func (m *Model) executeRollback(request model.RollbackRequest) tea.Cmd {
 }
 
 // startRollbackDiffSession shows diff between current and selected revision
-func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, revision string) tea.Cmd {
+// startRollbackDiffSession diffs the app's rendered manifests at the selected
+// historical revision against those at the currently synced revision — a
+// git-terms answer to "what would this rollback change".
+func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, revision string, currentRevision string) tea.Cmd {
 	if m.state.Server == nil {
 		epoch := m.switchEpoch
 		return func() tea.Msg {
@@ -1247,38 +1262,29 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 
 		apiService := services.NewArgoApiService(server)
 
-		// Get diff between current and target revision
-		diffs, err := apiService.GetResourceDiffs(ctx, server, appName, appNamespace)
+		cleanAll := func(manifests []string) []string {
+			docs := make([]string, 0, len(manifests))
+			for _, doc := range manifests {
+				if s := cleanManifestToYAML(doc); s != "" {
+					docs = append(docs, s)
+				}
+			}
+			return docs
+		}
+
+		selectedManifests, err := apiService.GetApplicationManifests(ctx, server, appName, revision, appNamespace)
 		if err != nil {
-			return model.ApiErrorMsg{Message: "Failed to load diffs: " + err.Error(), SwitchEpoch: epoch}
+			return model.ApiErrorMsg{Message: "Failed to load manifests at " + shortRevision(revision) + ": " + err.Error(), SwitchEpoch: epoch}
+		}
+		currentManifests, err := apiService.GetApplicationManifests(ctx, server, appName, currentRevision, appNamespace)
+		if err != nil {
+			return model.ApiErrorMsg{Message: "Failed to load manifests at " + shortRevision(currentRevision) + ": " + err.Error(), SwitchEpoch: epoch}
 		}
 
-		// Process diffs (same logic as regular diff)
-		desiredDocs := make([]string, 0)
-		liveDocs := make([]string, 0)
-		for _, d := range diffs {
-			if d.TargetState != "" {
-				s := cleanManifestToYAML(d.TargetState)
-				if s != "" {
-					desiredDocs = append(desiredDocs, s)
-				}
-			}
-			if d.LiveState != "" {
-				s := cleanManifestToYAML(d.LiveState)
-				if s != "" {
-					liveDocs = append(liveDocs, s)
-				}
-			}
-		}
+		leftFile, _ := writeTempYAML("current-", cleanAll(currentManifests))
+		rightFile, _ := writeTempYAML("rollback-", cleanAll(selectedManifests))
 
-		if len(desiredDocs) == 0 && len(liveDocs) == 0 {
-			return model.StatusChangeMsg{Status: "No diffs to show"}
-		}
-
-		leftFile, _ := writeTempYAML("live-", liveDocs)
-		rightFile, _ := writeTempYAML("rollback-", desiredDocs)
-
-		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--color=always", "--", leftFile, rightFile)
+		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--no-color", "--", leftFile, rightFile)
 		out, err := cmd.CombinedOutput()
 		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
 			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error(), SwitchEpoch: epoch}
@@ -1286,21 +1292,29 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 
 		cleaned := stripDiffHeader(string(out))
 		if strings.TrimSpace(cleaned) == "" {
-			return model.StatusChangeMsg{Status: "No differences"}
+			return rollbackDiffNoChangesMsg{switchEpoch: epoch, revision: shortRevision(revision)}
 		}
 
-		lines := strings.Split(cleaned, "\n")
-		return rollbackDiffReadyMsg{
-			title: fmt.Sprintf("Rollback %s to %s", appName, revision[:8]),
-			lines: lines,
+		if viewer := m.config.GetDiffViewer(); viewer != "" {
+			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
 		}
+
+		title := fmt.Sprintf("%s - %s vs %s", appName, shortRevision(currentRevision), shortRevision(revision))
+		formatted := cleaned
+		if formattedOut, ferr := m.runDiffFormatterWithTitle(cleaned, appName); ferr == nil && strings.TrimSpace(formattedOut) != "" {
+			formatted = formattedOut
+		}
+		return m.openTextPager(title, formatted)()
 	}
 }
 
-// rollbackDiffReadyMsg carries computed rollback diff data to Update for safe state mutation.
-type rollbackDiffReadyMsg struct {
-	title string
-	lines []string
+// shortRevision truncates a git revision for display without panicking on
+// tags or short SHAs.
+func shortRevision(revision string) string {
+	if len(revision) > 8 {
+		return revision[:8]
+	}
+	return revision
 }
 
 // deleteSelectedApplications deletes the currently selected applications

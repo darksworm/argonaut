@@ -453,8 +453,10 @@ type ClearRefreshFlashMsg struct{}
 type RollbackHistoryLoadedMsg struct {
 	AppName         string
 	AppNamespace    *string
-	Rows            []RollbackRow
+	Rows            []RollbackRow // newest-first
 	CurrentRevision string
+	AutoSyncEnabled bool
+	SwitchEpoch     int
 }
 
 // RollbackMetadataLoadedMsg is sent when git metadata is loaded for a revision
@@ -475,27 +477,6 @@ type RollbackExecutedMsg struct {
 	AppNamespace *string
 	Success      bool
 	Watch        bool // Whether to start watching after rollback
-}
-
-// RollbackNavigationMsg is sent to change rollback navigation
-type RollbackNavigationMsg struct {
-	Direction string // "up", "down", "top", "bottom"
-}
-
-// RollbackToggleOptionMsg is sent to toggle rollback options
-type RollbackToggleOptionMsg struct {
-	Option string // "prune", "watch", "dryrun"
-}
-
-// RollbackConfirmMsg is sent to confirm rollback
-type RollbackConfirmMsg struct{}
-
-// RollbackCancelMsg is sent to cancel rollback
-type RollbackCancelMsg struct{}
-
-// RollbackShowDiffMsg is sent to show diff for selected revision
-type RollbackShowDiffMsg struct {
-	Revision string
 }
 
 // ResourceTreeLoadedMsg is sent when a resource tree is loaded for an app

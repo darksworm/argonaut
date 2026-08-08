@@ -47,6 +47,12 @@ type ArgoApiService interface {
 	// RollbackApplication performs a rollback operation
 	RollbackApplication(ctx context.Context, server *model.Server, request model.RollbackRequest) error
 
+	// GetApplicationManifests fetches the rendered manifests for an application at a revision
+	GetApplicationManifests(ctx context.Context, server *model.Server, appName string, revision string, appNamespace *string) ([]string, error)
+
+	// DisableAutoSync removes the automated sync policy from an application
+	DisableAutoSync(ctx context.Context, server *model.Server, appName string, appNamespace *string) error
+
 	// GetResourceTree fetches the resource tree for an application
 	GetResourceTree(ctx context.Context, server *model.Server, appName string, appNamespace string) (*api.ResourceTree, error)
 
@@ -434,6 +440,16 @@ func (s *ArgoApiServiceImpl) GetRevisionMetadata(ctx context.Context, server *mo
 // RollbackApplication performs a rollback operation
 func (s *ArgoApiServiceImpl) RollbackApplication(ctx context.Context, server *model.Server, request model.RollbackRequest) error {
 	return s.appService.RollbackApplication(ctx, request)
+}
+
+// GetApplicationManifests fetches the rendered manifests for an application at a revision
+func (s *ArgoApiServiceImpl) GetApplicationManifests(ctx context.Context, server *model.Server, appName string, revision string, appNamespace *string) ([]string, error) {
+	return s.appService.GetApplicationManifests(ctx, appName, revision, appNamespace)
+}
+
+// DisableAutoSync removes the automated sync policy from an application
+func (s *ArgoApiServiceImpl) DisableAutoSync(ctx context.Context, server *model.Server, appName string, appNamespace *string) error {
+	return s.appService.DisableAutoSync(ctx, appName, appNamespace)
 }
 
 // GetResourceTree implements ArgoApiService.GetResourceTree

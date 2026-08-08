@@ -1,0 +1,24 @@
+ Context: argo.example.com                                       Argonaut dev   
+ ╭─ Deployment history demo-app ──────────────────────────────────────────────╮ 
+ │ #30  a1b2c3d4 fix: suggest and validate :...  1h ago   by jane.doe   curr… │ 
+ │ #29  11223344 fix: suggest and validate :...  21h ago  by automated        │ 
+ │ #28  deadbeef                                 3d ago   by automated        │ 
+ │ #27  55667788                                 3d ago   by bob.smith        │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭─ #29 11223344 ────────────────────────────────────────── deployed 21h ago ─╮ 
+ │                                                                            │ 
+ │ DEPLOYMENT                                                                 │ 
+ │ Deployed       21h ago · 2026-08-07 14:02                                  │ 
+ │ Time to deploy 14s                                                         │ 
+ │ Initiated by   automated sync policy                                       │ 
+ │ Active for     20h0m                                                       │ 
+ │                                                                            │ 
+ │ COMMIT         1122334455aa                                                │ 
+ │ Author         Jane Doe                                                    │ 
+ │ Date           22h ago · 2026-08-07 13:58                                  │ 
+ │                                                                            │ 
+ │ fix: suggest and validate :events arguments                                │ 
+ │                                                                            │ 
+ │ SOURCE                                                                     │ 
+ ╰───────────────────────────────────────────────────────────── ▼ more below ─╯ 
+ <apps>        enter: select • d: diff • u/i: scroll • esc: close • Ready • 2/4 

@@ -114,28 +114,6 @@ func (m *Model) renderTreeLoadingSpinner() string {
 	return outer.Render(spinnerStyle.Render(spinnerContent))
 }
 
-// renderRollbackLoadingModal displays a centered modal while rollback is loading/executing
-func (m *Model) renderRollbackLoadingModal() string {
-	msg := "Loading rollback…"
-	if m.state.Rollback != nil {
-		if m.state.Rollback.Mode == "confirm" {
-			msg = "Executing rollback…"
-		} else if m.state.Modals.RollbackAppName != nil {
-			msg = "Loading rollback for " + *m.state.Modals.RollbackAppName + "…"
-		}
-	}
-	content := m.spinner.View() + " " + statusStyle.Render(msg)
-	wrapper := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(outOfSyncColor).
-		Padding(1, 2)
-	minW := 28
-	w := max(minW, lipgloss.Width(content)+4)
-	wrapper = wrapper.Width(w)
-	outer := lipgloss.NewStyle().Padding(1, 1)
-	return outer.Render(wrapper.Render(content))
-}
-
 func (m *Model) renderSyncLoadingModal() string {
 	msg := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Syncing…"))
 	content := msg
@@ -190,85 +168,6 @@ func (m *Model) renderNoServerModal() string {
 	wrapper = wrapper.Width(w)
 	outer := lipgloss.NewStyle().Padding(1, 1)
 	return outer.Render(wrapper.Render(content))
-}
-
-func (m *Model) renderRollbackModal() string {
-	header := m.renderBanner()
-	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	const MARGIN_TOP_LINES = 1 // blank line between header and box
-	overhead := BORDER_LINES + headerLines + STATUS_LINES + MARGIN_TOP_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	// Expand modal height to fully occupy available space (align with other views)
-	// Use +2 here and adjust overall container height below to avoid clipping the status line.
-	contentHeight := max(3, availableRows+2)
-	innerWidth := max(0, containerWidth-4)
-	innerHeight := max(0, contentHeight-2)
-
-	if m.state.Rollback == nil || m.state.Modals.RollbackAppName == nil {
-		var content string
-		if m.state.Modals.RollbackAppName == nil {
-			content = "No app selected for rollback"
-		} else {
-			content = fmt.Sprintf("Loading deployment history for %s...\n\n%s", *m.state.Modals.RollbackAppName, m.spinner.View())
-		}
-		return m.renderSimpleModal("Rollback", content)
-	}
-
-	rollback := m.state.Rollback
-	var modalContent string
-	if rollback.Loading {
-		if rollback.Mode == "confirm" {
-			modalContent = fmt.Sprintf("%s Executing rollback for %s...", m.spinner.View(), rollback.AppName)
-		} else {
-			modalContent = fmt.Sprintf("%s Loading deployment history for %s...", m.spinner.View(), *m.state.Modals.RollbackAppName)
-		}
-	} else if rollback.Error != "" {
-		errorStyle := lipgloss.NewStyle().Foreground(outOfSyncColor)
-		modalContent = errorStyle.Render(fmt.Sprintf("Error loading rollback history:\n%s", rollback.Error))
-	} else if rollback.Mode == "confirm" {
-		modalContent = m.renderRollbackConfirmation(rollback, innerHeight, innerWidth)
-	} else {
-		modalContent = m.renderRollbackHistory(rollback)
-	}
-
-	if rollback.Mode != "confirm" {
-		instructionStyle := lipgloss.NewStyle().Foreground(cyanBright)
-		instructions := "j/k: Navigate • Enter: Select • Esc: Cancel"
-		modalContent += "\n\n" + instructionStyle.Render(instructions)
-	}
-
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Width(containerWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	modalContent = normalizeLinesToWidth(modalContent, innerWidth)
-	modalContent = clipAnsiToLines(modalContent, innerHeight)
-	styledContent := modalStyle.Render(modalContent)
-
-	var sections []string
-	sections = append(sections, header)
-	// Add one blank line margin above the modal box to match other views
-	sections = append(sections, "")
-	sections = append(sections, styledContent)
-	// Add status line to ensure full-height composition like other views
-	status := m.renderStatusLine()
-	sections = append(sections, status)
-
-	content := strings.Join(sections, "\n")
-	// Use full terminal height here to accommodate the taller rollback modal while
-	// keeping the status line visible.
-	totalHeight := m.state.Terminal.Rows
-	content = clipAnsiToLines(content, totalHeight)
-	return mainContainerStyle.Height(totalHeight).Render(content)
 }
 
 func (m *Model) renderSimpleModal(title, content string) string {

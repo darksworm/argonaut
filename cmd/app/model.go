@@ -130,6 +130,10 @@ type Model struct {
 	themeNav    *listnav.ListNavigator // Theme selection modal
 	rollbackNav *listnav.ListNavigator // Rollback history modal
 
+	// rollbackWatchApp marks a tree session opened by a rollback with watch:
+	// esc there reopens the app's deployment history instead of just leaving
+	rollbackWatchApp *model.TreeAppInfo
+
 	// Cleanup callbacks for active tree watchers
 	treeWatchCleanups []func()
 
@@ -220,6 +224,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case clearCopiedStatusMsg:
 		m.state.UI.SelectionCopied = false
+		return m, nil
+
+	case clearFooterNoticeMsg:
+		// Only clear the notice this tick was armed for — a newer one wins
+		if m.state.UI.FooterNotice == msg.notice {
+			m.state.UI.FooterNotice = ""
+		}
 		return m, nil
 
 	case clipboard.CopyMsg:
@@ -891,24 +902,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.state.Mode == model.ModeConfirmSync {
 					m.state.Mode = model.ModeNormal
 				}
-				// Clean up any existing tree watchers before starting new one
-				m.cleanupTreeWatchers()
-				// Reset tree view for fresh single-app session
-				m.treeView = m.newTreeView()
-				m.treeNav.Reset() // Reset scroll position
-				// Use namespace from message to avoid ambiguity when multiple apps share a name
-				ns := ""
-				if msg.AppNamespace != nil {
-					ns = *msg.AppNamespace
-				}
-				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
-				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
-					appObj = *found
-				}
-				m.state.SaveNavigationState()
-				m.state.Navigation.View = model.ViewTree
-				m.setTreeApp(appObj)
-				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
+				return m, m.switchToAppTreeWatch(msg.AppName, msg.AppNamespace)
 			}
 		} else {
 			m.statusService.Set("Sync cancelled")
@@ -1428,28 +1422,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Rollback Messages
 	case model.RollbackHistoryLoadedMsg:
-		// Initialize rollback state with deployment history
+		if msg.SwitchEpoch != m.switchEpoch {
+			return m, nil
+		}
 		m.state.Rollback = &model.RollbackState{
 			AppName:         msg.AppName,
 			AppNamespace:    msg.AppNamespace,
 			Rows:            msg.Rows,
 			CurrentRevision: msg.CurrentRevision,
-			SelectedIdx:     0,
-			Loading:         false,
 			Mode:            "list",
-			Prune:           false,
 			Watch:           true,
-			DryRun:          false,
+			AutoSyncEnabled: msg.AutoSyncEnabled,
 		}
 
-		// Start loading metadata for the first visible chunk (up to 10)
-		var cmds []tea.Cmd
-		preload := min(10, len(msg.Rows))
-		for i := 0; i < preload; i++ {
-			cmds = append(cmds, m.loadRevisionMetadata(msg.AppName, i, msg.Rows[i].Revision, msg.AppNamespace))
-		}
-
-		return m, tea.Batch(cmds...)
+		// Off-screen rows load as the cursor scrolls them into view.
+		return m, m.fetchVisibleRollbackMetadata()
 
 	case model.RollbackMetadataLoadedMsg:
 		// Update rollback row with loaded metadata
@@ -1481,119 +1468,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Start watching tree if requested
 			if msg.Watch {
-				// Clean up any existing tree watchers before starting new one
-				m.cleanupTreeWatchers()
-				// Reset tree view for fresh single-app session
-				m.treeView = m.newTreeView()
-				m.treeNav.Reset() // Reset scroll position
-				// Use namespace from message to avoid ambiguity when multiple apps share a name
-				ns := ""
-				if msg.AppNamespace != nil {
-					ns = *msg.AppNamespace
-				}
-				appObj := model.App{Name: msg.AppName, AppNamespace: msg.AppNamespace}
-				if found := m.findAppByNameAndNamespace(msg.AppName, ns); found != nil {
-					appObj = *found
-				}
-				m.state.SaveNavigationState()
-				m.state.Navigation.View = model.ViewTree
-				m.setTreeApp(appObj)
-				return m, tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
+				cmd := m.switchToAppTreeWatch(msg.AppName, msg.AppNamespace)
+				// esc from this watch reopens the deployment history
+				m.rollbackWatchApp = &model.TreeAppInfo{Name: msg.AppName, AppNamespace: msg.AppNamespace}
+				return m, cmd
 			}
 		} else {
 			m.statusService.Error(fmt.Sprintf("Rollback failed for %s", msg.AppName))
 		}
 		return m, nil
 
-	case rollbackDiffReadyMsg:
-		// Closure goroutine has finished computing the rollback diff; mutate state here
-		// (single-threaded Update) rather than from the goroutine to avoid data races.
-		m.state.Diff = &model.DiffState{
-			Title:   msg.title,
-			Content: msg.lines,
-			Offset:  0,
-			Loading: false,
-		}
-		return m, func() tea.Msg { return model.SetModeMsg{Mode: model.ModeDiff} }
+	case rollbackMetaDueMsg:
+		return m, m.handleRollbackMetaDue(msg)
 
-	case model.RollbackNavigationMsg:
-		// Handle rollback navigation
-		if m.state.Rollback != nil {
-			switch msg.Direction {
-			case "up":
-				if m.state.Rollback.SelectedIdx > 0 {
-					m.state.Rollback.SelectedIdx--
-					// Load metadata for newly selected row if not loaded
-					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-					if row.Author == nil && row.MetaError == nil {
-						return m, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace)
-					}
-				}
-			case "down":
-				if m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows)-1 {
-					m.state.Rollback.SelectedIdx++
-					// Load metadata for newly selected row if not loaded
-					row := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-					var cmds []tea.Cmd
-					if row.Author == nil && row.MetaError == nil {
-						cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, m.state.Rollback.SelectedIdx, row.Revision, m.state.Rollback.AppNamespace))
-					}
-					// Opportunistically preload the next two rows' metadata to reduce "loading" gaps
-					for j := 1; j <= 2; j++ {
-						idx := m.state.Rollback.SelectedIdx + j
-						if idx < len(m.state.Rollback.Rows) {
-							r := m.state.Rollback.Rows[idx]
-							if r.Author == nil && r.MetaError == nil {
-								cmds = append(cmds, m.loadRevisionMetadata(m.state.Rollback.AppName, idx, r.Revision, m.state.Rollback.AppNamespace))
-							}
-						}
-					}
-					return m, tea.Batch(cmds...)
-				}
-			case "top":
-				m.state.Rollback.SelectedIdx = 0
-			case "bottom":
-				if len(m.state.Rollback.Rows) > 0 {
-					m.state.Rollback.SelectedIdx = len(m.state.Rollback.Rows) - 1
-				}
-			}
-		}
-		return m, nil
-
-	case model.RollbackToggleOptionMsg:
-		// Handle rollback option toggling
-		if m.state.Rollback != nil {
-			switch msg.Option {
-			case "prune":
-				m.state.Rollback.Prune = !m.state.Rollback.Prune
-			case "watch":
-				m.state.Rollback.Watch = !m.state.Rollback.Watch
-			case "dryrun":
-				m.state.Rollback.DryRun = !m.state.Rollback.DryRun
-			}
-		}
-		return m, nil
-
-	case model.RollbackConfirmMsg:
-		// Handle rollback confirmation
-		if m.state.Rollback != nil && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
-			// Switch to confirmation mode
-			m.state.Rollback.Mode = "confirm"
-		}
-		return m, nil
-
-	case model.RollbackCancelMsg:
-		// Handle rollback cancellation
-		m.state.Rollback = nil
-		m.state.Modals.RollbackAppName = nil
-		m.state.Mode = model.ModeNormal
-		return m, nil
-
-	case model.RollbackShowDiffMsg:
-		// Handle rollback diff request
-		if m.state.Rollback != nil {
-			return m, m.startRollbackDiffSession(m.state.Rollback.AppName, m.state.Rollback.AppNamespace, msg.Revision)
-		}
+	case rollbackDiffNoChangesMsg:
+		m.handleRollbackDiffNoChanges(msg)
 		return m, nil
 
 	case model.AuthValidationResultMsg:
@@ -1738,7 +1627,38 @@ func (m *Model) newTreeView() *treeview.TreeView {
 // setTreeApp atomically stores all relevant info about the app being shown in
 // the tree view. Always use this instead of assigning UI.TreeApp fields directly,
 // so that adding new fields only requires updating this one function.
+
+// switchToAppTreeWatch swaps to the tree view watching the given app (after
+// a sync or rollback with watch enabled). It saves a return point for esc —
+// unless the tree already shows this app, where a duplicate entry would make
+// the first esc "return" to the same view.
+func (m *Model) switchToAppTreeWatch(appName string, appNamespace *string) tea.Cmd {
+	m.cleanupTreeWatchers()
+	m.treeView = m.newTreeView()
+	m.treeNav.Reset()
+	// Use the namespace to avoid ambiguity when multiple apps share a name
+	ns := ""
+	if appNamespace != nil {
+		ns = *appNamespace
+	}
+	appObj := model.App{Name: appName, AppNamespace: appNamespace}
+	if found := m.findAppByNameAndNamespace(appName, ns); found != nil {
+		appObj = *found
+	}
+	alreadyOnThisTree := m.state.Navigation.View == model.ViewTree &&
+		m.state.UI.TreeApp != nil && m.state.UI.TreeApp.Name == appName
+	if !alreadyOnThisTree {
+		m.state.SaveNavigationState()
+	}
+	m.state.Navigation.View = model.ViewTree
+	m.setTreeApp(appObj)
+	return tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
+}
+
 func (m *Model) setTreeApp(app model.App) {
+	// A new tree session is not a rollback watch (the rollback flow re-marks
+	// itself right after switching)
+	m.rollbackWatchApp = nil
 	m.state.UI.TreeApp = &model.TreeAppInfo{
 		Name:          app.Name,
 		AppNamespace:  app.AppNamespace,

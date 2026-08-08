@@ -337,25 +337,36 @@ func TestRollback_WithAppNamespace_PassesNamespaceToAPI(t *testing.T) {
 		t.Fatal("my-app not visible in apps view")
 	}
 
-	// Open rollback modal
+	// Open the rollback view
 	_ = tf.Send("R")
 
-	// Wait for history to load (the history view renders "Deployment History:")
-	if !tf.WaitForPlain("Deployment History", 5*time.Second) {
+	if !tf.WaitForPlain("Deployment history", 5*time.Second) {
 		t.Log(tf.SnapshotPlain())
-		t.Fatal("rollback history modal did not appear")
+		t.Fatal("rollback history view did not appear")
 	}
 
-	// Select the first (only) history entry → switches to confirm mode
+	// Select the only history entry → in-pane confirm; the newest entry is
+	// the current deployment, so the action reads "redeploy"
 	_ = tf.Send("\r")
-
-	// Wait for confirm mode (shows "Application:")
-	if !tf.WaitForPlain("Application:", 3*time.Second) {
+	if !tf.WaitForPlain("Redeploy my-app?", 3*time.Second) {
 		t.Log(tf.SnapshotPlain())
-		t.Fatal("rollback confirmation modal did not appear")
+		t.Fatal("confirmation modal did not appear")
 	}
 
-	// Confirm rollback (ConfirmSelected=0 = "Yes" by default)
+	// esc steps back to the list instead of discarding the session
+	_ = tf.Send("\x1b")
+	if !tf.WaitForPlain("d: diff", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("esc did not return to the history list")
+	}
+
+	// Re-enter confirm; Cancel is preselected, so move to the action first
+	_ = tf.Send("\r")
+	if !tf.WaitForPlain("Redeploy my-app?", 3*time.Second) {
+		t.Log(tf.SnapshotPlain())
+		t.Fatal("confirmation modal did not reappear")
+	}
+	_ = tf.Send("h")
 	_ = tf.Send("\r")
 
 	// Wait for the rollback API call

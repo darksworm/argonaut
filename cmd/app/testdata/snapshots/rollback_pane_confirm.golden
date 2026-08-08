@@ -1,0 +1,24 @@
+ Context: argo.example.com                                                           Argonaut dev   
+ ╭─ Deployment history demo-app ──────────────────────────────────────────────────────────────────╮ 
+ │ #30  a1b2c3d4 fix: suggest and validate :events arguments  1h ago   by jane.doe   current      │ 
+ │ #29  11223344 fix: suggest and validate :events arguments  21h ago  by automated               │ 
+ │ #28  deadbeef                                                               ated               │ 
+ │ #27  55667788      ╭──────────────────────────────────────────────────────╮ mith               │ 
+ ╰─────────────────── │                                                      │ ───────────────────╯ 
+ ╭─ #29 11223344 ──── │                  Rollback demo-app?                  │  deployed 21h ago ─╮ 
+ │                    │                                                      │                    │ 
+ │ DEPLOYMENT         │       a1b2c3d4 (current) → 11223344 (21h ago)        │                    │ 
+ │ Deployed       21h │     fix: suggest and validate :events arguments      │                    │ 
+ │ Time to deploy 14s │                                                      │                    │ 
+ │ Initiated by   aut │       ⚠ Auto-sync on — will be disabled first        │                    │ 
+ │ Active for     20h │                                                      │                    │ 
+ │                    │                Rollback        Cancel                │                    │ 
+ │ COMMIT         112 │                                                      │                    │ 
+ │ Author         Jan │              p: Prune Off • w: Watch On              │                    │ 
+ │ Date           22h │                                                      │                    │ 
+ │                    ╰──────────────────────────────────────────────────────╯                    │ 
+ │ fix: suggest and v                                                                             │ 
+ │                                                                                                │ 
+ │ SOURCE                                                                                         │ 
+ ╰───────────────────────────────────────────────────────────────────────────────── ▼ more below ─╯ 
+ <apps>                p: prune • w: watch • h/l: choose • enter: confirm • esc: back • Ready • 2/4 
