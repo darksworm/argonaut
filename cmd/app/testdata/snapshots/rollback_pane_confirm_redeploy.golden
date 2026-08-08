@@ -11,7 +11,7 @@
  │ Deployed       1h  │        a1b2c3d4 (current) → a1b2c3d4 (1h ago)        │                    │ 
  │ Initiated by   jan │     fix: suggest and validate :events arguments      │                    │ 
  │ Active for     1h5 │                                                      │                    │ 
- │                    │                Redeploy        Cancel                │                    │ 
+ │                    │              Redeploy (y)        Cancel              │                    │ 
  │ COMMIT         a1b │                                                      │                    │ 
  │ Author         Jan │              p: Prune Off • w: Watch On              │                    │ 
  │ Date           22h │                                                      │                    │ 

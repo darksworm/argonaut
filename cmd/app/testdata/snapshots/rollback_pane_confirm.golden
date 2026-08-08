@@ -12,7 +12,7 @@
  │ Time to deploy 14s │                                                      │                    │ 
  │ Initiated by   aut │       ⚠ Auto-sync on — will be disabled first        │                    │ 
  │ Active for     20h │                                                      │                    │ 
- │                    │                Rollback        Cancel                │                    │ 
+ │                    │              Rollback (y)        Cancel              │                    │ 
  │ COMMIT         112 │                                                      │                    │ 
  │ Author         Jan │              p: Prune Off • w: Watch On              │                    │ 
  │ Date           22h │                                                      │                    │ 

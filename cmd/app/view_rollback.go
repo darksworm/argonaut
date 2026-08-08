@@ -110,10 +110,10 @@ func (m *Model) renderRollbackConfirmModal() string {
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
 	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
-	actionBtn := inactive.Render(verb)
+	actionBtn := inactive.Render(verb + " (y)")
 	cancelBtn := inactive.Render("Cancel")
 	if rb.ConfirmSelected == 0 {
-		actionBtn = active.Render(verb)
+		actionBtn = active.Render(verb + " (y)")
 	} else {
 		cancelBtn = active.Render("Cancel")
 	}

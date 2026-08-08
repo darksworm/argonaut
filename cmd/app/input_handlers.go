@@ -803,20 +803,12 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.state.Rollback.Mode = "list"
 				return m, nil
 			}
-			// Execute rollback
-			if len(m.state.Rollback.Rows) > 0 && m.state.Rollback.SelectedIdx < len(m.state.Rollback.Rows) {
-				selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
-				request := model.RollbackRequest{
-					ID:           selectedRow.ID,
-					Name:         m.state.Rollback.AppName,
-					AppNamespace: m.state.Rollback.AppNamespace,
-					Prune:        m.state.Rollback.Prune,
-				}
-				// Set loading state
-				m.state.Rollback.Loading = true
-				m.state.Rollback.Error = ""
-				return m, m.executeRollback(request, m.state.Rollback.AutoSyncEnabled)
-			}
+			return m.executeSelectedRollback()
+		}
+		return m, nil
+	case "y":
+		if m.state.Rollback.Mode == "confirm" {
+			return m.executeSelectedRollback()
 		}
 		return m, nil
 	case "d":
@@ -832,6 +824,22 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, nil
+}
+
+func (m *Model) executeSelectedRollback() (tea.Model, tea.Cmd) {
+	if len(m.state.Rollback.Rows) == 0 || m.state.Rollback.SelectedIdx >= len(m.state.Rollback.Rows) {
+		return m, nil
+	}
+	selectedRow := m.state.Rollback.Rows[m.state.Rollback.SelectedIdx]
+	request := model.RollbackRequest{
+		ID:           selectedRow.ID,
+		Name:         m.state.Rollback.AppName,
+		AppNamespace: m.state.Rollback.AppNamespace,
+		Prune:        m.state.Rollback.Prune,
+	}
+	m.state.Rollback.Loading = true
+	m.state.Rollback.Error = ""
+	return m, m.executeRollback(request, m.state.Rollback.AutoSyncEnabled)
 }
 
 // handleConfirmAppDeleteKeys handles input when in app delete confirmation mode

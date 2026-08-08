@@ -263,6 +263,30 @@ func TestRollbackEnter_OpensConfirmWithCancelPreselected(t *testing.T) {
 	}
 }
 
+func TestRollbackConfirmY_ExecutesEvenWithCancelPreselected(t *testing.T) {
+	m := buildRollbackListModel(5)
+	m.state.Rollback.Mode = "confirm"
+	m.state.Rollback.ConfirmSelected = 1
+
+	teaModel, cmd := m.handleRollbackModeKeys(testKeyMsg("y"))
+	m = teaModel.(*Model)
+
+	if !m.state.Rollback.Loading || cmd == nil {
+		t.Errorf("state = (loading=%v, cmd=%v), want rollback executing", m.state.Rollback.Loading, cmd)
+	}
+}
+
+func TestRollbackYInList_DoesNotExecute(t *testing.T) {
+	m := buildRollbackListModel(5)
+
+	teaModel, cmd := m.handleRollbackModeKeys(testKeyMsg("y"))
+	m = teaModel.(*Model)
+
+	if m.state.Rollback.Loading || cmd != nil {
+		t.Error("y outside the confirm modal must not trigger a rollback")
+	}
+}
+
 func TestRollbackEscInConfirm_ReturnsToListKeepingSession(t *testing.T) {
 	m := buildRollbackListModel(5)
 	m.state.Rollback.Mode = "confirm"
