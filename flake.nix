@@ -65,6 +65,7 @@
             gopls
             gotools
             golangci-lint
+            watchexec
           ];
           shellHook = ''
             echo "Argonaut development environment"
