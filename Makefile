@@ -182,7 +182,7 @@ argocd-portforward-stop:
 # commit → every entry has a real diff and commit metadata). Serves a local
 # repo to the cluster via the git daemon.
 # Usage: make argocd-history [HISTORY_APP=history-demo] [HISTORY_DEPTH=6]
-argocd-history: argocd-git-daemon
+argocd-history: argocd-up argocd-git-daemon
 	@./scripts/seed-history.sh
 
 # Echo the initial ArgoCD admin password (reads from k3d-managed cluster)
