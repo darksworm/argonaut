@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.0](https://github.com/darksworm/argonaut/compare/v2.18.0...v2.19.0) (2026-08-08)
+
+
+### Features
+
+* redesign rollback view as history list with detail pane ([#269](https://github.com/darksworm/argonaut/issues/269)) ([a8e03e5](https://github.com/darksworm/argonaut/commit/a8e03e52e605304c31cf05f3a0a62735b484d01b))
+
 ## [2.18.0](https://github.com/darksworm/argonaut/compare/v2.17.2...v2.18.0) (2026-08-07)
 
 
