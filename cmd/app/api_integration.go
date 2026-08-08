@@ -658,9 +658,14 @@ func writeTempYAML(prefix string, docs []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 	content := strings.Join(docs, "\n---\n")
 	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		os.Remove(f.Name())
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(f.Name())
 		return "", err
 	}
 	return f.Name(), nil
