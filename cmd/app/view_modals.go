@@ -170,42 +170,6 @@ func (m *Model) renderNoServerModal() string {
 	return outer.Render(wrapper.Render(content))
 }
 
-func (m *Model) renderSimpleModal(title, content string) string {
-	header := m.renderBanner()
-	headerLines := countLines(header)
-	const BORDER_LINES = 2
-	const STATUS_LINES = 1
-	overhead := BORDER_LINES + headerLines + STATUS_LINES
-	availableRows := max(0, m.state.Terminal.Rows-overhead)
-
-	containerWidth := max(0, m.state.Terminal.Cols-2)
-	contentWidth := max(0, containerWidth-4)
-	contentHeight := max(3, availableRows)
-
-	titleStyle := lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
-	modalContent := titleStyle.Render(title) + "\n\n" + content
-
-	modalStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
-		Width(contentWidth).
-		Height(contentHeight).
-		AlignVertical(lipgloss.Top).
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	styledContent := modalStyle.Render(modalContent)
-	var sections []string
-	sections = append(sections, header)
-	sections = append(sections, styledContent)
-	// Add status line for consistent height
-	sections = append(sections, m.renderStatusLine())
-
-	content = strings.Join(sections, "\n")
-	totalHeight := m.state.Terminal.Rows - 1
-	return mainContainerStyle.Height(totalHeight).Render(content)
-}
-
 // renderUpgradeConfirmModal renders the upgrade confirmation modal
 func (m *Model) renderUpgradeConfirmModal() string {
 	if m.state.UI.UpdateInfo == nil {

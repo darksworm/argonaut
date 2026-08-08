@@ -382,18 +382,6 @@ func (m *Model) renderFullScreenViewWithOptions(header, content, status string, 
 	return mainContainerStyle.Height(totalHeight).Render(finalContent)
 }
 
-// clipAnsiToLines trims the string to at most maxLines lines (ANSI-safe).
-func clipAnsiToLines(s string, maxLines int) string {
-	if maxLines <= 0 {
-		return ""
-	}
-	lines := strings.Split(s, "\n")
-	if len(lines) <= maxLines {
-		return s
-	}
-	return strings.Join(lines[:maxLines], "\n")
-}
-
 // normalizeLinesToWidth pads or trims each line to an exact width (ANSI-aware)
 func normalizeLinesToWidth(s string, width int) string {
 	if width <= 0 || s == "" {

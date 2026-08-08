@@ -345,8 +345,7 @@ func TestRollbackExecute_DisablesAutoSyncBeforeRollingBack(t *testing.T) {
 	m.state.Rollback.Mode = "confirm"
 	m.state.Rollback.AutoSyncEnabled = true
 
-	teaModel, cmd := m.handleRollbackModeKeys(testKeyMsg("enter"))
-	m = teaModel.(*Model)
+	_, cmd := m.handleRollbackModeKeys(testKeyMsg("enter"))
 	if cmd == nil {
 		t.Fatal("expected the rollback command to dispatch")
 	}
