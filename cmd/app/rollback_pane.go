@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 // clearFooterNoticeMsg removes an expired transient footer hint.
@@ -77,6 +78,20 @@ func rollbackVisibleWindow(selectedIdx, total, capacity int) (start, end int) {
 	capacity = max(1, capacity)
 	start = min(max(0, selectedIdx-capacity/2), max(0, total-capacity))
 	return start, min(start+capacity, total)
+}
+
+// rollbackRowForMetadataReply resolves a metadata reply to the row it was
+// fetched for, or nil when the reply is stale: another server context,
+// another app's session, or a history that has been reloaded since.
+func (m *Model) rollbackRowForMetadataReply(switchEpoch int, appName, revision string, rowIndex int) *model.RollbackRow {
+	rb := m.state.Rollback
+	if rb == nil || switchEpoch != m.switchEpoch || rb.AppName != appName {
+		return nil
+	}
+	if rowIndex < 0 || rowIndex >= len(rb.Rows) || rb.Rows[rowIndex].Revision != revision {
+		return nil
+	}
+	return &rb.Rows[rowIndex]
 }
 
 // fetchVisibleRollbackMetadata loads git metadata for every visible row

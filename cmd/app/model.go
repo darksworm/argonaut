@@ -1439,9 +1439,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchVisibleRollbackMetadata()
 
 	case model.RollbackMetadataLoadedMsg:
-		// Update rollback row with loaded metadata
-		if m.state.Rollback != nil && msg.RowIndex < len(m.state.Rollback.Rows) {
-			row := &m.state.Rollback.Rows[msg.RowIndex]
+		if row := m.rollbackRowForMetadataReply(msg.SwitchEpoch, msg.AppName, msg.Revision, msg.RowIndex); row != nil {
 			row.Author = &msg.Metadata.Author
 			row.Date = &msg.Metadata.Date
 			row.Message = &msg.Metadata.Message
@@ -1449,9 +1447,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.RollbackMetadataErrorMsg:
-		// Handle metadata loading error
-		if m.state.Rollback != nil && msg.RowIndex < len(m.state.Rollback.Rows) {
-			row := &m.state.Rollback.Rows[msg.RowIndex]
+		if row := m.rollbackRowForMetadataReply(msg.SwitchEpoch, msg.AppName, msg.Revision, msg.RowIndex); row != nil {
 			row.MetaError = &msg.Error
 		}
 		return m, nil
@@ -1628,6 +1624,14 @@ func (m *Model) newTreeView() *treeview.TreeView {
 // the tree view. Always use this instead of assigning UI.TreeApp fields directly,
 // so that adding new fields only requires updating this one function.
 
+// equalStrPtr reports whether two optional strings hold the same value.
+func equalStrPtr(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
 // switchToAppTreeWatch swaps to the tree view watching the given app (after
 // a sync or rollback with watch enabled). It saves a return point for esc —
 // unless the tree already shows this app, where a duplicate entry would make
@@ -1646,12 +1650,14 @@ func (m *Model) switchToAppTreeWatch(appName string, appNamespace *string) tea.C
 		appObj = *found
 	}
 	alreadyOnThisTree := m.state.Navigation.View == model.ViewTree &&
-		m.state.UI.TreeApp != nil && m.state.UI.TreeApp.Name == appName
+		m.state.UI.TreeApp != nil && m.state.UI.TreeApp.Name == appName &&
+		equalStrPtr(m.state.UI.TreeApp.AppNamespace, appNamespace)
 	if !alreadyOnThisTree {
 		m.state.SaveNavigationState()
 	}
 	m.state.Navigation.View = model.ViewTree
 	m.setTreeApp(appObj)
+	m.treeLoading = true
 	return tea.Batch(m.startLoadingResourceTree(appObj), m.startWatchingResourceTree(appObj), m.consumeTreeEvent())
 }
 

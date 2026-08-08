@@ -1175,6 +1175,7 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 			return model.ApiErrorMsg{Message: "No server configured"}
 		}
 	}
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		ctx, cancel := appcontext.WithAPITimeout(context.Background())
@@ -1185,14 +1186,20 @@ func (m *Model) loadRevisionMetadata(appName string, rowIndex int, revision stri
 		metadata, err := apiService.GetRevisionMetadata(ctx, server, appName, revision, appNamespace)
 		if err != nil {
 			return model.RollbackMetadataErrorMsg{
-				RowIndex: rowIndex,
-				Error:    err.Error(),
+				RowIndex:    rowIndex,
+				Error:       err.Error(),
+				AppName:     appName,
+				Revision:    revision,
+				SwitchEpoch: epoch,
 			}
 		}
 
 		return model.RollbackMetadataLoadedMsg{
-			RowIndex: rowIndex,
-			Metadata: *metadata,
+			RowIndex:    rowIndex,
+			Metadata:    *metadata,
+			AppName:     appName,
+			Revision:    revision,
+			SwitchEpoch: epoch,
 		}
 	}
 }
@@ -1281,20 +1288,39 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 			return model.ApiErrorMsg{Message: "Failed to load manifests at " + shortRevision(currentRevision) + ": " + err.Error(), SwitchEpoch: epoch}
 		}
 
-		leftFile, _ := writeTempYAML("current-", cleanAll(currentManifests))
-		rightFile, _ := writeTempYAML("rollback-", cleanAll(selectedManifests))
+		leftFile, err := writeTempYAML("current-", cleanAll(currentManifests))
+		if err != nil {
+			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error(), SwitchEpoch: epoch}
+		}
+		rightFile, err := writeTempYAML("rollback-", cleanAll(selectedManifests))
+		if err != nil {
+			_ = os.Remove(leftFile)
+			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error(), SwitchEpoch: epoch}
+		}
+		removeTempFiles := func() {
+			_ = os.Remove(leftFile)
+			_ = os.Remove(rightFile)
+		}
 
 		cmd := exec.Command("git", "--no-pager", "diff", "--no-index", "--no-color", "--", leftFile, rightFile)
 		out, err := cmd.CombinedOutput()
-		if err != nil && cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 1 {
-			return model.ApiErrorMsg{Message: "Diff failed: " + err.Error(), SwitchEpoch: epoch}
+		if err != nil {
+			// git exits 1 when the files differ; anything else — including
+			// a start failure with no process state — is a real error
+			var exitErr *exec.ExitError
+			if !stdErrors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+				removeTempFiles()
+				return model.ApiErrorMsg{Message: "Diff failed: " + err.Error(), SwitchEpoch: epoch}
+			}
 		}
 
 		cleaned := stripDiffHeader(string(out))
 		if strings.TrimSpace(cleaned) == "" {
+			removeTempFiles()
 			return rollbackDiffNoChangesMsg{switchEpoch: epoch, revision: shortRevision(revision)}
 		}
 
+		// The interactive viewer reads the files itself — leave them for it
 		if viewer := m.config.GetDiffViewer(); viewer != "" {
 			return m.openInteractiveDiffViewer(leftFile, rightFile, viewer)
 		}
@@ -1304,6 +1330,7 @@ func (m *Model) startRollbackDiffSession(appName string, appNamespace *string, r
 		if formattedOut, ferr := m.runDiffFormatterWithTitle(cleaned, appName); ferr == nil && strings.TrimSpace(formattedOut) != "" {
 			formatted = formattedOut
 		}
+		removeTempFiles()
 		return m.openTextPager(title, formatted)()
 	}
 }

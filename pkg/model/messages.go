@@ -459,16 +459,24 @@ type RollbackHistoryLoadedMsg struct {
 	SwitchEpoch     int
 }
 
-// RollbackMetadataLoadedMsg is sent when git metadata is loaded for a revision
+// RollbackMetadataLoadedMsg is sent when git metadata is loaded for a
+// revision. AppName/Revision/SwitchEpoch identify the session and row the
+// fetch was for, so replies landing after a session change are dropped.
 type RollbackMetadataLoadedMsg struct {
-	RowIndex int
-	Metadata RevisionMetadata
+	RowIndex    int
+	Metadata    RevisionMetadata
+	AppName     string
+	Revision    string
+	SwitchEpoch int
 }
 
 // RollbackMetadataErrorMsg is sent when metadata loading fails
 type RollbackMetadataErrorMsg struct {
-	RowIndex int
-	Error    string
+	RowIndex    int
+	Error       string
+	AppName     string
+	Revision    string
+	SwitchEpoch int
 }
 
 // RollbackExecutedMsg is sent when rollback is executed

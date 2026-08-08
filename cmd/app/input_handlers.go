@@ -786,14 +786,14 @@ func (m *Model) handleRollbackModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "R":
 		// R opened this view; in the list it selects, like enter
-		if m.state.Rollback.Mode == "list" {
+		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 {
 			m.state.Rollback.Mode = "confirm"
 			m.state.Rollback.ConfirmSelected = 1
 		}
 		return m, nil
 	case "enter":
 		// Confirm rollback or execute rollback
-		if m.state.Rollback.Mode == "list" {
+		if m.state.Rollback.Mode == "list" && len(m.state.Rollback.Rows) > 0 {
 			// Switch to confirmation mode; Cancel is the safe default
 			m.state.Rollback.Mode = "confirm"
 			m.state.Rollback.ConfirmSelected = 1

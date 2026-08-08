@@ -918,7 +918,9 @@ func TestRollbackWatch_FromSameAppsTree_DoesNotStackDuplicateNav(t *testing.T) {
 	m.state.Navigation.View = model.ViewTree
 	saved := len(m.state.SavedNavigation)
 
-	teaModel, _ := m.Update(model.RollbackExecutedMsg{AppName: "test-app", Success: true, Watch: true})
+	// The rollback target carries the tree app's identity, namespace included
+	ns := "test-namespace"
+	teaModel, _ := m.Update(model.RollbackExecutedMsg{AppName: "test-app", AppNamespace: &ns, Success: true, Watch: true})
 	m = teaModel.(*Model)
 
 	if m.state.Navigation.View != model.ViewTree {
@@ -999,5 +1001,48 @@ func TestSyncWatchEsc_DoesNotReopenRollback(t *testing.T) {
 	}
 	if m.state.Navigation.View != model.ViewApps {
 		t.Errorf("view = %s, want apps", m.state.Navigation.View)
+	}
+}
+
+// Confirm must not open over an empty history — the modal would
+// dereference a selected row that does not exist.
+func TestRollbackConfirm_NotOpenedForEmptyHistory(t *testing.T) {
+	m := buildRollbackListModel(0)
+
+	for _, key := range []string{"enter", "R"} {
+		teaModel, _ := m.handleRollbackModeKeys(testKeyMsg(key))
+		m = teaModel.(*Model)
+		if m.state.Rollback.Mode != "list" {
+			t.Errorf("%s on empty history switched to %q, want to stay in list", key, m.state.Rollback.Mode)
+		}
+	}
+}
+
+// A metadata reply from a previous session (other app, other epoch, or a
+// reshuffled history) must not be written into the current rows.
+func TestRollbackMetadataLoaded_StaleRepliesIgnored(t *testing.T) {
+	m := buildRollbackListModel(3)
+	meta := model.RevisionMetadata{Author: "stale", Message: "stale"}
+
+	cases := []struct {
+		name string
+		msg  model.RollbackMetadataLoadedMsg
+	}{
+		{"wrong epoch", model.RollbackMetadataLoadedMsg{RowIndex: 0, Metadata: meta, AppName: "demo-app", Revision: "reva", SwitchEpoch: 41}},
+		{"wrong app", model.RollbackMetadataLoadedMsg{RowIndex: 0, Metadata: meta, AppName: "other-app", Revision: "reva", SwitchEpoch: 42}},
+		{"reshuffled history", model.RollbackMetadataLoadedMsg{RowIndex: 0, Metadata: meta, AppName: "demo-app", Revision: "oldrev", SwitchEpoch: 42}},
+	}
+	for _, tc := range cases {
+		teaModel, _ := m.Update(tc.msg)
+		m = teaModel.(*Model)
+		if m.state.Rollback.Rows[0].Author != nil {
+			t.Errorf("%s: stale metadata was applied to the current session", tc.name)
+		}
+	}
+
+	teaModel, _ := m.Update(model.RollbackMetadataLoadedMsg{RowIndex: 0, Metadata: meta, AppName: "demo-app", Revision: "reva", SwitchEpoch: 42})
+	m = teaModel.(*Model)
+	if m.state.Rollback.Rows[0].Author == nil {
+		t.Error("a matching reply must still be applied")
 	}
 }

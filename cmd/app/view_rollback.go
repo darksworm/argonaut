@@ -56,6 +56,9 @@ func (m *Model) renderRollbackLayout() string {
 func (m *Model) renderRollbackConfirmModal() string {
 	rb := m.state.Rollback
 	row := rb.SelectedRow()
+	if row == nil {
+		return ""
+	}
 
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 
