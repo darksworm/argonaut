@@ -5,7 +5,7 @@
 
 ### Features
 
-* the rollback view is now a full deployment history browser — a list of revisions (sha, commit subject, age, who deployed it) with a detail pane showing deployment, commit, and source info for the highlighted entry; press `d` to diff a revision against what's currently deployed, and if auto-sync is enabled argonaut warns you and disables it before rolling back (so Argo CD doesn't immediately sync you forward again); reachable via `R` or `:rollback` from the apps list and the resource tree ([#269](https://github.com/darksworm/argonaut/issues/269)) ([a8e03e5](https://github.com/darksworm/argonaut/commit/a8e03e52e605304c31cf05f3a0a62735b484d01b))
+* the rollback view is now a full deployment history browser — each revision shows its deployment, commit, and source details, and `d` diffs it against what's currently deployed; if auto-sync is enabled, argonaut disables it before rolling back ([#269](https://github.com/darksworm/argonaut/issues/269)) ([a8e03e5](https://github.com/darksworm/argonaut/commit/a8e03e52e605304c31cf05f3a0a62735b484d01b))
 
 ## [2.18.0](https://github.com/darksworm/argonaut/compare/v2.17.2...v2.18.0) (2026-08-07)
 
