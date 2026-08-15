@@ -33,6 +33,16 @@ kubectl --context k3d-argocd-demo -n argonaut-demo patch rollout canary-demo \
   --type json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"nginx:1.26"}]'
 ```
 
+`rollback.tape` and `demo.tape` roll back `history-demo`, which needs a real
+multi-revision history with commit metadata:
+
+```sh
+make argocd-history
+```
+
+Re-run it before each recording: the tapes leave the app rolled back to an
+older revision, and the script recreates repo and app from scratch.
+
 Build the binary the tapes launch:
 
 ```sh
@@ -60,6 +70,7 @@ vhs occasionally fails with `recording failed` right after a previous run
 | `delete_apps.tape` | `delete_apps_raw.png` — multi-app delete confirmation |
 | `resource_actions.tape` | `resource_actions_raw.png` — actions modal on a Rollout |
 | `help.tape` | `help_raw.png` — the `:help` modal |
+| `demo.tape` | `argonaut_demo.gif` — full feature tour (compress below, 256 colors) |
 | `events_pane.tape` | `argonaut_events.gif` — tree + events pane (compress below) |
 | `themes.tape` | `argonaut_themes.gif` — theme picker previews (compress below) |
 
@@ -67,6 +78,8 @@ Conventions baked into the tapes:
 
 - **Geometry**: `FontSize 20`, `Width 1440` — about 118 columns, chunky and
   legible at a glance. The side-by-side events pane needs ≥ 100 columns.
+  `demo.tape` is the exception at `1920x900`: it visits both two-pane views
+  and the help modal, which clips below ~780 px tall.
 - `Hide`/`Show` cut startup and command-typing; recordings start on the
   interesting frame.
 
