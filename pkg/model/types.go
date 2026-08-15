@@ -47,6 +47,7 @@ const (
 	ModeConfirmResourceSync   Mode = "confirm-resource-sync"
 	ModeDefaultViewWarning    Mode = "default-view-warning"
 	ModeResourceAction        Mode = "resource-action"
+	ModeConfirmTerminate      Mode = "confirm-terminate"
 )
 
 // SyncOpSummary summarizes an application's last sync operation for the
@@ -335,6 +336,17 @@ type ResourceActionTarget struct {
 	Kind         string  `json:"kind"`
 	Namespace    string  `json:"namespace"`
 	Name         string  `json:"name"`
+}
+
+// TerminateState holds the state for the terminate-operation confirmation.
+// Clearing the modal means nil-ing the whole struct, so no field can outlive
+// the modal that owns it.
+type TerminateState struct {
+	AppName         string  `json:"appName"`
+	AppNamespace    *string `json:"appNamespace,omitempty"`
+	ConfirmSelected int     `json:"confirmSelected"` // 0 = Terminate, 1 = Cancel
+	Loading         bool    `json:"loading"`
+	Error           string  `json:"error"`
 }
 
 // ResourceActionState holds the state for the resource actions modal

@@ -1341,6 +1341,81 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 	)
 }
 
+// handleTerminateOperation opens the confirmation for cancelling the selected
+// application's in-flight operation.
+func (m *Model) handleTerminateOperation() (tea.Model, tea.Cmd) {
+	visibleItems := m.getVisibleItemsForCurrentView()
+	if m.state.Navigation.SelectedIdx >= len(visibleItems) {
+		return m, nil
+	}
+	app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App)
+	if !ok {
+		return m, nil
+	}
+	// Argo CD rejects the call unless an operation is in flight, and a
+	// Terminating one is already on its way out.
+	if app.SyncOp == nil || app.SyncOp.Phase != "Running" {
+		return m, nil
+	}
+
+	m.state.Mode = model.ModeConfirmTerminate
+	m.state.Modals.Terminate = &model.TerminateState{
+		AppName:      app.Name,
+		AppNamespace: app.AppNamespace,
+	}
+
+	cblog.With("component", "terminate").Debug("Opening terminate confirmation", "app", app.Name)
+
+	return m, nil
+}
+
+// closeTerminateModal drops the modal state wholesale, so no field survives
+// into the next time the modal opens.
+func (m *Model) closeTerminateModal() {
+	m.state.Mode = model.ModeNormal
+	m.state.Modals.Terminate = nil
+}
+
+// handleConfirmTerminateKeys drives the terminate-operation confirmation.
+func (m *Model) handleConfirmTerminateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	st := m.state.Modals.Terminate
+	if st == nil {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "q", "esc", "ctrl+c":
+		m.closeTerminateModal()
+		return m, nil
+	case "left", "h":
+		st.ConfirmSelected = 0
+		return m, nil
+	case "right", "l":
+		st.ConfirmSelected = 1
+		return m, nil
+	case "enter":
+		if st.ConfirmSelected == 1 {
+			m.closeTerminateModal()
+			return m, nil
+		}
+		return m.executeTerminate()
+	case "y":
+		return m.executeTerminate()
+	}
+	return m, nil
+}
+
+// executeTerminate fires the termination for the confirmed application.
+func (m *Model) executeTerminate() (tea.Model, tea.Cmd) {
+	st := m.state.Modals.Terminate
+	if st == nil {
+		return m, nil
+	}
+	st.Loading = true
+	return m, m.terminateOperation(st.AppName, st.AppNamespace)
+}
+
 // handleResourceAction opens the resource actions modal for the selected resource
 func (m *Model) handleResourceAction() (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
@@ -1717,6 +1792,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmResourceDeleteKeys(msg)
 	case model.ModeConfirmResourceSync:
 		return m.handleConfirmResourceSyncKeys(msg)
+	case model.ModeConfirmTerminate:
+		return m.handleConfirmTerminateKeys(msg)
 	case model.ModeResourceAction:
 		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:

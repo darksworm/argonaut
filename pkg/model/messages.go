@@ -253,6 +253,13 @@ type ResourceSyncErrorMsg struct {
 	Error string
 }
 
+// TerminateCompletedMsg reports the outcome of terminating an operation;
+// Error is empty when the termination was accepted.
+type TerminateCompletedMsg struct {
+	AppName string
+	Error   string
+}
+
 // ResourceActionsLoadedMsg is sent when available resource actions have loaded
 type ResourceActionsLoadedMsg struct {
 	Target      ResourceActionTarget

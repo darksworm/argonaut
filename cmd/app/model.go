@@ -1065,6 +1065,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case model.TerminateCompletedMsg:
+		if msg.Error != "" {
+			// Keep the modal open so the reason is readable, and retryable.
+			m.statusService.Set(fmt.Sprintf("Failed to terminate %s: %s", msg.AppName, msg.Error))
+			if st := m.state.Modals.Terminate; st != nil {
+				st.Error = msg.Error
+				st.Loading = false
+			}
+			return m, nil
+		}
+		m.statusService.Set(fmt.Sprintf("Terminating operation for %s", msg.AppName))
+		m.closeTerminateModal()
+		return m, nil
+
 	case model.ResourceSyncErrorMsg:
 		// Handle resource sync error
 		m.statusService.Set(fmt.Sprintf("Resource sync failed: %s", msg.Error))
