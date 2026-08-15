@@ -1066,17 +1066,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case model.TerminateCompletedMsg:
+		// The modal can be dismissed while the request is in flight, so a
+		// completion only touches a modal still waiting on this same app.
+		st := m.state.Modals.Terminate
+		owned := st != nil && st.AppName == msg.AppName && msg.SwitchEpoch == m.switchEpoch
 		if msg.Error != "" {
-			// Keep the modal open so the reason is readable, and retryable.
 			m.statusService.Set(fmt.Sprintf("Failed to terminate %s: %s", msg.AppName, msg.Error))
-			if st := m.state.Modals.Terminate; st != nil {
+			if owned {
+				// Keep the modal open so the reason is readable, and retryable.
 				st.Error = msg.Error
 				st.Loading = false
 			}
 			return m, nil
 		}
 		m.statusService.Set(fmt.Sprintf("Terminating operation for %s", msg.AppName))
-		m.closeTerminateModal()
+		if owned {
+			m.closeTerminateModal()
+		}
 		return m, nil
 
 	case model.ResourceSyncErrorMsg:

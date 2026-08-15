@@ -206,3 +206,55 @@ func TestTerminate_IgnoresRepeatedConfirmationWhileInFlight(t *testing.T) {
 		t.Error("Expected enter to be inert while a termination is in flight")
 	}
 }
+
+// esc closes the modal while the request is still in flight, so its completion
+// can land after the user has moved on.
+func TestTerminate_LateCompletionLeavesANewerModalAlone(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+	m.handleTerminateOperation()
+	m.handleConfirmTerminateKeys(testKeyMsg("y"))
+	m.handleConfirmTerminateKeys(testKeyMsg("esc"))
+
+	// The user has moved on to a different confirmation
+	m.state.Mode = model.ModeConfirmSync
+
+	m.Update(model.TerminateCompletedMsg{AppName: "test-app"})
+
+	if m.state.Mode != model.ModeConfirmSync {
+		t.Errorf("Expected the newer modal to stay open, got mode %q", m.state.Mode)
+	}
+}
+
+func TestTerminate_LateFailureDoesNotLandOnAnotherApp(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+	m.handleTerminateOperation()
+	m.state.Modals.Terminate = &model.TerminateState{AppName: "zzz-other-app", Loading: true}
+
+	m.Update(model.TerminateCompletedMsg{AppName: "test-app", Error: "no operation is in progress"})
+
+	st := m.state.Modals.Terminate
+	if st.Error != "" {
+		t.Errorf("Expected the error to stay off another app's modal, got %q", st.Error)
+	}
+	if !st.Loading {
+		t.Error("Expected the newer attempt to still be in flight")
+	}
+}
+
+// Switching Argo CD context reuses the modal state, so a completion from the
+// previous context must not close a modal belonging to the new one.
+func TestTerminate_CompletionFromAPreviousContextIsIgnored(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+	m.handleTerminateOperation()
+	m.state.Modals.Terminate.Loading = true
+	m.switchEpoch++
+
+	m.Update(model.TerminateCompletedMsg{AppName: "test-app", SwitchEpoch: m.switchEpoch - 1})
+
+	if m.state.Mode != model.ModeConfirmTerminate {
+		t.Errorf("Expected the modal to survive a stale completion, got mode %q", m.state.Mode)
+	}
+	if st := m.state.Modals.Terminate; st == nil || !st.Loading {
+		t.Errorf("Expected the current attempt to stay in flight, got %+v", st)
+	}
+}

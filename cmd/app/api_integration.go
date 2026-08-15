@@ -1605,10 +1605,11 @@ func extractUserFriendlyError(err error) string {
 func (m *Model) terminateOperation(appName string, appNamespace *string) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
-			return model.TerminateCompletedMsg{AppName: appName, Error: "No server configured"}
+			return model.TerminateCompletedMsg{AppName: appName, Error: "No server configured", SwitchEpoch: m.switchEpoch}
 		}
 	}
 
+	epoch := m.switchEpoch   // capture at call time
 	server := m.state.Server // capture at call time
 	return func() tea.Msg {
 		cblog.With("component", "terminate").Info("Terminating operation", "app", appName)
@@ -1618,9 +1619,9 @@ func (m *Model) terminateOperation(appName string, appNamespace *string) tea.Cmd
 
 		if err := api.NewApplicationService(server).TerminateOperation(ctx, appName, appNamespace); err != nil {
 			cblog.With("component", "terminate").Error("Terminate failed", "app", appName, "err", err)
-			return model.TerminateCompletedMsg{AppName: appName, Error: err.Error()}
+			return model.TerminateCompletedMsg{AppName: appName, Error: err.Error(), SwitchEpoch: epoch}
 		}
-		return model.TerminateCompletedMsg{AppName: appName}
+		return model.TerminateCompletedMsg{AppName: appName, SwitchEpoch: epoch}
 	}
 }
 
