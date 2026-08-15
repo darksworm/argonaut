@@ -60,7 +60,7 @@ type SyncPolicy struct {
 }
 
 // AutomatedSyncPolicy mirrors spec.syncPolicy.automated; Enabled defaults to
-// true when the automated block is present (pre-2.13 servers have no field)
+// true when the automated block is present (pre-3.1 servers have no field)
 type AutomatedSyncPolicy struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
