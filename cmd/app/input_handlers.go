@@ -1390,28 +1390,43 @@ func (m *Model) terminateTarget() (name string, appNamespace *string, phase stri
 		if !ok {
 			return "", nil, ""
 		}
-		name = app.Name
+		name, appNamespace = app.Name, app.AppNamespace
 	case model.ViewTree:
 		if m.state.UI.TreeApp == nil {
 			return "", nil, ""
 		}
-		name = m.state.UI.TreeApp.Name
+		name, appNamespace = m.state.UI.TreeApp.Name, m.state.UI.TreeApp.AppNamespace
 	default:
 		return "", nil, ""
 	}
 
 	// The tree carries only a snapshot of the app, so read the phase from the
-	// watched list instead.
+	// watched list instead. The same name can appear in several application
+	// namespaces, so both parts of the identity have to match.
 	for i := range m.state.Apps {
-		if m.state.Apps[i].Name == name {
-			app := m.state.Apps[i]
-			if app.SyncOp == nil {
-				return app.Name, app.AppNamespace, ""
-			}
-			return app.Name, app.AppNamespace, app.SyncOp.Phase
+		app := m.state.Apps[i]
+		if app.Name != name || !sameAppNamespace(app.AppNamespace, appNamespace) {
+			continue
 		}
+		if app.SyncOp == nil {
+			return app.Name, app.AppNamespace, ""
+		}
+		return app.Name, app.AppNamespace, app.SyncOp.Phase
 	}
 	return "", nil, ""
+}
+
+// sameAppNamespace compares application namespaces, treating unset and empty
+// as the same: the tree and the watched list disagree on which they use.
+func sameAppNamespace(a, b *string) bool {
+	av, bv := "", ""
+	if a != nil {
+		av = *a
+	}
+	if b != nil {
+		bv = *b
+	}
+	return av == bv
 }
 
 // closeTerminateModal drops the modal state wholesale, so no field survives

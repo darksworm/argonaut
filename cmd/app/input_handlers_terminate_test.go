@@ -51,7 +51,8 @@ func TestTerminate_TKeyTargetsTheTreesAppInTreeView(t *testing.T) {
 	m.state.Navigation.View = model.ViewTree
 	// The tree carries a snapshot of the app; the running phase is only
 	// current in the watched app list.
-	m.state.UI.TreeApp = &model.TreeAppInfo{Name: "test-app"}
+	appNamespace := "test-namespace"
+	m.state.UI.TreeApp = &model.TreeAppInfo{Name: "test-app", AppNamespace: &appNamespace}
 
 	m.handleKeyMsg(testKeyMsg("t"))
 
@@ -256,5 +257,27 @@ func TestTerminate_CompletionFromAPreviousContextIsIgnored(t *testing.T) {
 	}
 	if st := m.state.Modals.Terminate; st == nil || !st.Loading {
 		t.Errorf("Expected the current attempt to stay in flight, got %+v", st)
+	}
+}
+
+// Argo CD allows the same application name in several namespaces, so the name
+// alone does not identify the app whose phase decides the guard.
+func TestTerminate_DistinguishesSameNameAppsInDifferentNamespaces(t *testing.T) {
+	m := buildDeleteTestModel(80, 24)
+	nsA, nsB := "team-a", "team-b"
+	m.state.Apps = []model.App{
+		{Name: "shared", AppNamespace: &nsA, SyncOp: &model.SyncOpSummary{Phase: "Succeeded"}},
+		{Name: "shared", AppNamespace: &nsB, SyncOp: &model.SyncOpSummary{Phase: "Running"}},
+	}
+	m.state.Navigation.SelectedIdx = 1 // the one that is actually syncing
+
+	m.handleTerminateOperation()
+
+	st := m.state.Modals.Terminate
+	if st == nil {
+		t.Fatal("Expected the running app in team-b to be terminable, got no modal")
+	}
+	if st.AppNamespace == nil || *st.AppNamespace != "team-b" {
+		t.Errorf("Expected the modal to target team-b, got %v", st.AppNamespace)
 	}
 }
