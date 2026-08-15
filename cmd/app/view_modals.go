@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -730,6 +731,67 @@ func (m *Model) renderResourceSyncConfirmModal() string {
 	// Add outer whitespace so the modal doesn't sit directly on top of content
 	outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right
 	return outer.Render(wrapper.Render(body))
+}
+
+// renderTwoButtonConfirm renders the shape the confirmation modals in this file
+// each re-derive by hand: a title, two buttons, and an optional error. New
+// confirmations should build on this instead of copying one of the older ones.
+func (m *Model) renderTwoButtonConfirm(title string, accent color.Color, confirmLabel string, selected int, errMsg string) string {
+	half := m.state.Terminal.Cols / 2
+	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
+
+	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
+	active := lipgloss.NewStyle().Background(accent).Foreground(textOnDanger).Bold(true).Padding(0, 2)
+	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
+
+	confirmBtn, cancelBtn := active.Render(confirmLabel), inactive.Render("Cancel")
+	if selected == 1 {
+		confirmBtn, cancelBtn = inactive.Render(confirmLabel), active.Render("Cancel")
+	}
+
+	center := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center)
+	body := strings.Join([]string{center.Render(title), "", center.Render(confirmBtn + "  " + cancelBtn)}, "\n")
+
+	if errMsg != "" {
+		body += "\n\n" + center.Render(lipgloss.NewStyle().Foreground(outOfSyncColor).Render("Error: "+errMsg))
+	}
+
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accent).
+		Padding(1, 2).
+		Width(modalWidth)
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(body))
+}
+
+// renderTerminateConfirmModal asks whether to cancel the app's running operation
+func (m *Model) renderTerminateConfirmModal() string {
+	st := m.state.Modals.Terminate
+	if st == nil {
+		return ""
+	}
+
+	bright := lipgloss.NewStyle().Foreground(whiteBright)
+	title := bright.Render("Terminate the running sync of ") +
+		bright.Bold(true).Render(st.AppName) +
+		bright.Render("?")
+
+	return m.renderTwoButtonConfirm(title, outOfSyncColor, "Terminate", st.ConfirmSelected, st.Error)
+}
+
+// renderTerminateLoadingModal renders the in-flight state of a termination
+func (m *Model) renderTerminateLoadingModal() string {
+	content := fmt.Sprintf("%s %s", m.spinner.View(), statusStyle.Render("Terminating operation..."))
+	wrapper := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(outOfSyncColor).
+		Padding(1, 2).
+		// border(2) + horizontal padding(4), or the message wraps mid-word
+		Width(max(32, lipgloss.Width(content)+6))
+	outer := lipgloss.NewStyle().Padding(1, 1)
+	return outer.Render(wrapper.Render(content))
 }
 
 // renderResourceSyncLoadingModal renders the loading state during resource sync
