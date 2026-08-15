@@ -36,6 +36,33 @@ func TestTerminate_OpensConfirmationForRunningOperation(t *testing.T) {
 	}
 }
 
+func TestTerminate_TKeyOpensConfirmationInAppsView(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+
+	m.handleKeyMsg(testKeyMsg("t"))
+
+	if m.state.Mode != model.ModeConfirmTerminate {
+		t.Errorf("Expected t to open the terminate confirmation, got mode %q", m.state.Mode)
+	}
+}
+
+func TestTerminate_TKeyTargetsTheTreesAppInTreeView(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+	m.state.Navigation.View = model.ViewTree
+	// The tree carries a snapshot of the app; the running phase is only
+	// current in the watched app list.
+	m.state.UI.TreeApp = &model.TreeAppInfo{Name: "test-app"}
+
+	m.handleKeyMsg(testKeyMsg("t"))
+
+	if m.state.Mode != model.ModeConfirmTerminate {
+		t.Fatalf("Expected t to open the terminate confirmation, got mode %q", m.state.Mode)
+	}
+	if st := m.state.Modals.Terminate; st == nil || st.AppName != "test-app" {
+		t.Errorf("Expected the modal to target the tree's app, got %+v", st)
+	}
+}
+
 func TestTerminate_CancellingClearsTheWholeModal(t *testing.T) {
 	for _, key := range []string{"esc", "q", "enter"} {
 		t.Run("key="+key, func(t *testing.T) {

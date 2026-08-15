@@ -1344,12 +1344,8 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 // handleTerminateOperation opens the confirmation for cancelling the selected
 // application's in-flight operation.
 func (m *Model) handleTerminateOperation() (tea.Model, tea.Cmd) {
-	visibleItems := m.getVisibleItemsForCurrentView()
-	if m.state.Navigation.SelectedIdx >= len(visibleItems) {
-		return m, nil
-	}
-	app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App)
-	if !ok {
+	app := m.terminateTarget()
+	if app == nil {
 		return m, nil
 	}
 	// Argo CD rejects the call unless an operation is in flight, and a
@@ -1367,6 +1363,39 @@ func (m *Model) handleTerminateOperation() (tea.Model, tea.Cmd) {
 	cblog.With("component", "terminate").Debug("Opening terminate confirmation", "app", app.Name)
 
 	return m, nil
+}
+
+// terminateTarget resolves the app under the cursor to its entry in the
+// watched app list — the tree only carries a snapshot, so the operation phase
+// there would be stale.
+func (m *Model) terminateTarget() *model.App {
+	var name string
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if m.state.Navigation.SelectedIdx >= len(visibleItems) {
+			return nil
+		}
+		app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App)
+		if !ok {
+			return nil
+		}
+		name = app.Name
+	case model.ViewTree:
+		if m.state.UI.TreeApp == nil {
+			return nil
+		}
+		name = m.state.UI.TreeApp.Name
+	default:
+		return nil
+	}
+
+	for i := range m.state.Apps {
+		if m.state.Apps[i].Name == name {
+			return &m.state.Apps[i]
+		}
+	}
+	return nil
 }
 
 // closeTerminateModal drops the modal state wholesale, so no field survives
@@ -1943,6 +1972,9 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "R":
 			// Roll back the hovered child Application, or the tree's app
 			return m.handleRollback()
+		case "t":
+			// Terminate the tree app's running operation
+			return m.handleTerminateOperation()
 		case "?":
 			// Show help
 			return m.handleShowHelp()
@@ -1980,6 +2012,12 @@ func (m *Model) handleNormalModeGlobalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		// Open resources for selected app (apps view)
 		if m.state.Navigation.View == model.ViewApps {
 			return m.handleOpenResourcesForSelection()
+		}
+		return m, nil
+	case "t":
+		// Terminate the running operation of the selected app (apps view)
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleTerminateOperation()
 		}
 		return m, nil
 	case "d":
