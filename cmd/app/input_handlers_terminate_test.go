@@ -63,6 +63,18 @@ func TestTerminate_TKeyTargetsTheTreesAppInTreeView(t *testing.T) {
 	}
 }
 
+func TestTerminate_CommandOpensConfirmation(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+	m.state.Mode = model.ModeCommand
+	m.inputComponents.SetCommandValue("terminate")
+
+	m.handleEnhancedCommandModeKeys(testKeyMsg("enter"))
+
+	if m.state.Mode != model.ModeConfirmTerminate {
+		t.Errorf("Expected :terminate to open the confirmation, got mode %q", m.state.Mode)
+	}
+}
+
 func TestTerminate_CancellingClearsTheWholeModal(t *testing.T) {
 	for _, key := range []string{"esc", "q", "enter"} {
 		t.Run("key="+key, func(t *testing.T) {

@@ -49,7 +49,7 @@ func (m *Model) renderHelpModal() string {
 
 	// APPS VIEW - hotkeys and commands specific to apps view
 	appsView := strings.Join([]string{
-		keycap("s"), " sync ", bullet(), " ", keycap("R"), " rollback ", bullet(), " ", keycap("r"), " resources ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", keycap("K"), " open in k9s ", bullet(), " ", keycap("Ctrl+D"), " delete",
+		keycap("s"), " sync ", bullet(), " ", keycap("t"), " terminate ", bullet(), " ", keycap("R"), " rollback ", bullet(), " ", keycap("r"), " resources ", bullet(), " ", keycap("d"), " diff ", bullet(), " ", keycap("K"), " open in k9s ", bullet(), " ", keycap("Ctrl+D"), " delete",
 		"\n",
 		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app] ", bullet(), " ", mono(":delete"), " [app]",
 		"\n",
@@ -64,7 +64,7 @@ func (m *Model) renderHelpModal() string {
 		"\n",
 		keycap("Space"), " select ", bullet(), " ", keycap("s"), " sync ", bullet(), " ", keycap("a"), " actions (Rollouts) ", bullet(), " ", keycap("Ctrl+D"), " delete",
 		"\n",
-		keycap("e"), " toggle events ", bullet(), " ", keycap("u"), "/", keycap("i"), " or ", keycap("⇧↓"), "/", keycap("⇧↑"), " scroll events",
+		keycap("e"), " toggle events ", bullet(), " ", keycap("t"), " terminate ", bullet(), " ", keycap("u"), "/", keycap("i"), " or ", keycap("⇧↓"), "/", keycap("⇧↑"), " scroll events",
 		"\n",
 		mono(":refresh"), "|", mono(":refresh!"), " ", bullet(), " ", mono(":up"),
 	}, "")

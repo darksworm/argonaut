@@ -167,7 +167,9 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	text := lipgloss.NewStyle().Foreground(currentPalette.Text)
 
 	var lines []string
-	field := func(name, value string, style lipgloss.Style) {
+	// suffix trails the value dimmed — the terminate hint has to sit beside
+	// the phase it acts on, not at the far edge of the pane.
+	field := func(name, value string, style lipgloss.Style, suffix ...string) {
 		for i, part := range wrapAnsiToWidth(value, max(1, width-labelWidth)) {
 			if i == 0 {
 				lines = append(lines, dim.Render(fmt.Sprintf("%-*s", labelWidth, name))+style.Render(part))
@@ -175,11 +177,18 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 				lines = append(lines, strings.Repeat(" ", labelWidth)+style.Render(part))
 			}
 		}
+		if len(suffix) > 0 && suffix[0] != "" && len(lines) > 0 {
+			lines[len(lines)-1] += dim.Render("  " + suffix[0])
+		}
 	}
 
 	_, phaseColor := statusGlyph(details.Phase)
 	field("Operation", "Sync", text)
-	field("Phase", details.Phase, lipgloss.NewStyle().Foreground(phaseColor))
+	terminateHint := ""
+	if details.Phase == "Running" {
+		terminateHint = "[t] terminate"
+	}
+	field("Phase", details.Phase, lipgloss.NewStyle().Foreground(phaseColor), terminateHint)
 	field("Started", humantime.AgoLong(details.StartedAt, now), text)
 	duration := details.FinishedAt.Sub(details.StartedAt)
 	if details.FinishedAt.IsZero() {
