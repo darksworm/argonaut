@@ -63,6 +63,44 @@ func TestTerminate_TKeyTargetsTheTreesAppInTreeView(t *testing.T) {
 	}
 }
 
+// The pane fetches the app directly while the list waits on a watch event, so
+// just after a sync starts the pane can show Running before the list does.
+// Whatever the pane advertises the hint for is what t must act on.
+func TestTerminate_TrustsThePaneOverAStaleAppList(t *testing.T) {
+	m := buildTerminateTestModel("Succeeded")
+	m.state.Events = &model.EventsState{
+		Target:  model.EventsTarget{AppName: "test-app", AppNamespace: "test-namespace"},
+		Details: &model.SyncStatusDetails{Phase: "Running"},
+	}
+
+	m.handleKeyMsg(testKeyMsg("t"))
+
+	if m.state.Mode != model.ModeConfirmTerminate {
+		t.Fatalf("Expected the pane's Running phase to allow terminating, got mode %q", m.state.Mode)
+	}
+	if st := m.state.Modals.Terminate; st == nil || st.AppName != "test-app" {
+		t.Errorf("Expected the modal to target the pane's app, got %+v", st)
+	}
+}
+
+// Sorting is by health and sync status, so a starting sync can move rows out
+// from under the cursor while the pane keeps showing the app it was opened for.
+func TestTerminate_TargetsThePanesAppNotTheCursor(t *testing.T) {
+	m := buildTerminateTestModel("")
+	m.state.Apps[1].SyncOp = &model.SyncOpSummary{Phase: "Running"}
+	m.state.Navigation.SelectedIdx = 0 // cursor sits on the app that is not syncing
+	m.state.Events = &model.EventsState{
+		Target:  model.EventsTarget{AppName: "zzz-other-app"},
+		Details: &model.SyncStatusDetails{Phase: "Running"},
+	}
+
+	m.handleKeyMsg(testKeyMsg("t"))
+
+	if st := m.state.Modals.Terminate; st == nil || st.AppName != "zzz-other-app" {
+		t.Errorf("Expected the modal to target the pane's app, got %+v", st)
+	}
+}
+
 func TestTerminate_CommandOpensConfirmation(t *testing.T) {
 	m := buildTerminateTestModel("Running")
 	m.state.Mode = model.ModeCommand
@@ -151,5 +189,20 @@ func TestTerminate_IgnoredWhenNoOperationIsRunning(t *testing.T) {
 				t.Errorf("Expected no terminate modal state, got %+v", m.state.Modals.Terminate)
 			}
 		})
+	}
+}
+
+func TestTerminate_IgnoresRepeatedConfirmationWhileInFlight(t *testing.T) {
+	m := buildTerminateTestModel("Running")
+	m.handleTerminateOperation()
+
+	if _, cmd := m.handleConfirmTerminateKeys(testKeyMsg("y")); cmd == nil {
+		t.Fatal("Expected the first confirmation to fire a termination")
+	}
+	if _, cmd := m.handleConfirmTerminateKeys(testKeyMsg("y")); cmd != nil {
+		t.Error("Expected no second termination while the first is in flight")
+	}
+	if _, cmd := m.handleConfirmTerminateKeys(testKeyMsg("enter")); cmd != nil {
+		t.Error("Expected enter to be inert while a termination is in flight")
 	}
 }

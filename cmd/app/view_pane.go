@@ -170,15 +170,26 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	// suffix trails the value dimmed — the terminate hint has to sit beside
 	// the phase it acts on, not at the far edge of the pane.
 	field := func(name, value string, style lipgloss.Style, suffix ...string) {
-		for i, part := range wrapAnsiToWidth(value, max(1, width-labelWidth)) {
+		// The suffix rides on the value's line, so it has to be paid for
+		// before wrapping — otherwise a narrow pane overflows.
+		trailer := ""
+		if len(suffix) > 0 && suffix[0] != "" {
+			trailer = "  " + suffix[0]
+			// Dropped rather than wrapped when the row cannot hold both: a
+			// hint on its own line reads as a field, not as part of the value.
+			if labelWidth+lipgloss.Width(value)+lipgloss.Width(trailer) > width {
+				trailer = ""
+			}
+		}
+		for i, part := range wrapAnsiToWidth(value, max(1, width-labelWidth-lipgloss.Width(trailer))) {
 			if i == 0 {
 				lines = append(lines, dim.Render(fmt.Sprintf("%-*s", labelWidth, name))+style.Render(part))
 			} else {
 				lines = append(lines, strings.Repeat(" ", labelWidth)+style.Render(part))
 			}
 		}
-		if len(suffix) > 0 && suffix[0] != "" && len(lines) > 0 {
-			lines[len(lines)-1] += dim.Render("  " + suffix[0])
+		if trailer != "" && len(lines) > 0 {
+			lines[len(lines)-1] += dim.Render(trailer)
 		}
 	}
 

@@ -1344,58 +1344,74 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 // handleTerminateOperation opens the confirmation for cancelling the selected
 // application's in-flight operation.
 func (m *Model) handleTerminateOperation() (tea.Model, tea.Cmd) {
-	app := m.terminateTarget()
-	if app == nil {
-		return m, nil
-	}
+	name, appNamespace, phase := m.terminateTarget()
 	// Argo CD rejects the call unless an operation is in flight, and a
 	// Terminating one is already on its way out.
-	if app.SyncOp == nil || app.SyncOp.Phase != "Running" {
+	if name == "" || phase != "Running" {
 		return m, nil
 	}
 
 	m.state.Mode = model.ModeConfirmTerminate
 	m.state.Modals.Terminate = &model.TerminateState{
-		AppName:      app.Name,
-		AppNamespace: app.AppNamespace,
+		AppName:      name,
+		AppNamespace: appNamespace,
 	}
 
-	cblog.With("component", "terminate").Debug("Opening terminate confirmation", "app", app.Name)
+	cblog.With("component", "terminate").Debug("Opening terminate confirmation", "app", name)
 
 	return m, nil
 }
 
-// terminateTarget resolves the app under the cursor to its entry in the
-// watched app list — the tree only carries a snapshot, so the operation phase
-// there would be stale.
-func (m *Model) terminateTarget() *model.App {
-	var name string
+// terminateTarget resolves which app the terminate hint belongs to, and the
+// freshest phase known for it.
+//
+// The open pane wins on both counts: it fetches the app directly while the list
+// waits on a watch event, so just after a sync starts it knows Running first —
+// and sorting by health/sync can move rows out from under the cursor while the
+// pane keeps showing the app it was opened for. Acting on anything else lets
+// the hint promise a key that then does nothing.
+func (m *Model) terminateTarget() (name string, appNamespace *string, phase string) {
+	if st := m.state.Events; st != nil && st.Target.AppName != "" && st.Details != nil {
+		ns := st.Target.AppNamespace
+		var nsPtr *string
+		if ns != "" {
+			nsPtr = &ns
+		}
+		return st.Target.AppName, nsPtr, st.Details.Phase
+	}
+
 	switch m.state.Navigation.View {
 	case model.ViewApps:
 		visibleItems := m.getVisibleItemsForCurrentView()
 		if m.state.Navigation.SelectedIdx >= len(visibleItems) {
-			return nil
+			return "", nil, ""
 		}
 		app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App)
 		if !ok {
-			return nil
+			return "", nil, ""
 		}
 		name = app.Name
 	case model.ViewTree:
 		if m.state.UI.TreeApp == nil {
-			return nil
+			return "", nil, ""
 		}
 		name = m.state.UI.TreeApp.Name
 	default:
-		return nil
+		return "", nil, ""
 	}
 
+	// The tree carries only a snapshot of the app, so read the phase from the
+	// watched list instead.
 	for i := range m.state.Apps {
 		if m.state.Apps[i].Name == name {
-			return &m.state.Apps[i]
+			app := m.state.Apps[i]
+			if app.SyncOp == nil {
+				return app.Name, app.AppNamespace, ""
+			}
+			return app.Name, app.AppNamespace, app.SyncOp.Phase
 		}
 	}
-	return nil
+	return "", nil, ""
 }
 
 // closeTerminateModal drops the modal state wholesale, so no field survives
@@ -1438,7 +1454,9 @@ func (m *Model) handleConfirmTerminateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 // executeTerminate fires the termination for the confirmed application.
 func (m *Model) executeTerminate() (tea.Model, tea.Cmd) {
 	st := m.state.Modals.Terminate
-	if st == nil {
+	// A second confirmation while the first is in flight would fire a second
+	// DELETE for the same operation.
+	if st == nil || st.Loading {
 		return m, nil
 	}
 	st.Loading = true

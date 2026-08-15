@@ -640,3 +640,14 @@ func TestRenderSyncStatusBody_NoTerminationHintOnceFinished(t *testing.T) {
 		t.Errorf("expected no terminate hint for a finished operation: %s", joined)
 	}
 }
+
+func TestRenderSyncStatusBody_TerminateHintStaysInsideANarrowPane(t *testing.T) {
+	details := &model.SyncStatusDetails{Phase: "Running", StartedAt: paneNow}
+
+	const width = 28
+	for _, line := range renderSyncStatusBody(details, width, paneNow, "") {
+		if w := lipgloss.Width(stripANSI(line)); w > width {
+			t.Errorf("line exceeds pane width %d (got %d): %q", width, w, stripANSI(line))
+		}
+	}
+}

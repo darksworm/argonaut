@@ -76,4 +76,8 @@ func TestTerminateOperation_ReportsServerRejection(t *testing.T) {
 	if !strings.Contains(err.Error(), "test-app") {
 		t.Errorf("Expected the error to name the application, got %v", err)
 	}
+	// The modal shows this text, so the server's reason has to survive the trip.
+	if !strings.Contains(err.Error(), "No operation is in progress") {
+		t.Errorf("Expected Argo CD's reason to reach the caller, got %v", err)
+	}
 }

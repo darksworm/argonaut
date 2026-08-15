@@ -52,11 +52,24 @@ func TestGolden_TerminateModal_Confirm(t *testing.T) {
 	compareWithGolden(t, "modal_terminate_confirm", stripANSI(m.renderTerminateConfirmModal()))
 }
 
-func TestGolden_TerminateModal_CancelSelected(t *testing.T) {
+// stripANSI would erase the highlight that is the entire difference, so this
+// compares the styled output instead.
+func TestTerminateModal_HighlightsTheSelectedButton(t *testing.T) {
 	m := buildBaseModel(100, 30)
 	m.state.Mode = model.ModeConfirmTerminate
+
+	m.state.Modals.Terminate = &model.TerminateState{AppName: "demo-app"}
+	terminateSelected := m.renderTerminateConfirmModal()
+
 	m.state.Modals.Terminate = &model.TerminateState{AppName: "demo-app", ConfirmSelected: 1}
-	compareWithGolden(t, "modal_terminate_cancel_selected", stripANSI(m.renderTerminateConfirmModal()))
+	cancelSelected := m.renderTerminateConfirmModal()
+
+	if terminateSelected == cancelSelected {
+		t.Error("Expected the highlight to move with ConfirmSelected, got identical renders")
+	}
+	if stripANSI(terminateSelected) != stripANSI(cancelSelected) {
+		t.Error("Expected only styling to differ between the two selections")
+	}
 }
 
 func TestGolden_TerminateModal_Error(t *testing.T) {

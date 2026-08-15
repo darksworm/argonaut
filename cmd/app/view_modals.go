@@ -53,7 +53,9 @@ func (m *Model) renderHelpModal() string {
 		"\n",
 		mono(":diff"), " [app] ", bullet(), " ", mono(":sync"), " [app] ", bullet(), " ", mono(":rollback"), " [app] ", bullet(), " ", mono(":delete"), " [app]",
 		"\n",
-		mono(":refresh"), " [app] ", bullet(), " ", mono(":refresh!"), " [app] (hard) ", bullet(), " ", mono(":sort"), " health|sync asc|desc",
+		mono(":refresh"), " [app] ", bullet(), " ", mono(":refresh!"), " [app] (hard) ", bullet(), " ", mono(":terminate"),
+		"\n",
+		mono(":sort"), " health|sync asc|desc",
 		"\n",
 		mono(":resources"), " [app] ", bullet(), " ", mono(":up"), " ", bullet(), " ", mono(":all"),
 	}, "")
