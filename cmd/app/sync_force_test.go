@@ -104,3 +104,58 @@ func TestSyncModal_CancellingTheForceConfirmationKeepsTheOptions(t *testing.T) {
 		t.Error("expected the chosen options to survive cancelling the force confirmation")
 	}
 }
+
+func TestSyncModal_CancelButtonOnTheForceConfirmationKeepsTheOptions(t *testing.T) {
+	m := syncModalModel(t)
+	m.state.Modals.ConfirmSyncForce = true
+	m.state.Modals.ConfirmSyncForcePending = true
+	m.state.Modals.ConfirmSyncSelected = 1 // Cancel
+
+	updated, _ := m.handleConfirmSyncKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(*Model)
+
+	if m.state.Mode != model.ModeConfirmSync {
+		t.Errorf("expected cancelling the force confirmation to return to the options, got mode %q", m.state.Mode)
+	}
+	if m.state.Modals.ConfirmSyncForcePending {
+		t.Error("expected the force confirmation to close")
+	}
+	if !m.state.Modals.ConfirmSyncForce {
+		t.Error("expected force to survive cancelling its confirmation")
+	}
+}
+
+func TestSyncModal_OptionKeysDoNothingWhileTheForceConfirmationIsUp(t *testing.T) {
+	for _, key := range []string{"p", "f", "w", "d"} {
+		t.Run(key, func(t *testing.T) {
+			m := syncModalModel(t)
+			m.state.Modals.ConfirmSyncPrune = true
+			m.state.Modals.ConfirmSyncForce = true
+			m.state.Modals.ConfirmSyncWatch = true
+			m.state.Modals.ConfirmSyncForcePending = true
+			before := m.state.Modals
+
+			m = press(t, m, key)
+
+			if m.state.Modals.ConfirmSyncPrune != before.ConfirmSyncPrune ||
+				m.state.Modals.ConfirmSyncForce != before.ConfirmSyncForce ||
+				m.state.Modals.ConfirmSyncWatch != before.ConfirmSyncWatch {
+				t.Errorf("expected %q to be ignored while the force confirmation is up", key)
+			}
+		})
+	}
+}
+
+func TestSyncModal_ConfirmingTheForceDialogAlwaysForces(t *testing.T) {
+	m := syncModalModel(t)
+	m.state.Modals.ConfirmSyncForce = true
+	m.state.Modals.ConfirmSyncForcePending = true
+
+	// A stray f must not disarm the force the dialog is asking about.
+	m = press(t, m, "f")
+	m = press(t, m, "y")
+
+	if !m.state.Modals.ConfirmSyncForce {
+		t.Error("expected the sync to force after confirming a dialog that said Force sync")
+	}
+}

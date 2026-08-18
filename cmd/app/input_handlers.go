@@ -664,6 +664,14 @@ func (m *Model) diffPageSize() int {
 
 // handleConfirmSyncKeys handles input when in sync confirmation mode
 func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// The force confirmation is its own input state. The options are not on
+	// screen behind it, so keys that would change them must not: toggling
+	// force off there would run a plain sync from a dialog that said "Force
+	// sync".
+	if m.state.Modals.ConfirmSyncForcePending {
+		return m.handleForceSyncConfirmKeys(msg)
+	}
+
 	switch msg.String() {
 	case "esc", "q":
 		// Backing out of the force confirmation returns to the options
@@ -698,12 +706,57 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		// Force deletes and recreates live resources, so it gets its own
 		// confirmation rather than riding along on this one.
-		if m.state.Modals.ConfirmSyncForce && !m.state.Modals.ConfirmSyncForcePending {
+		if m.state.Modals.ConfirmSyncForce {
 			m.state.Modals.ConfirmSyncForcePending = true
 			return m, nil
 		}
-		m.state.Modals.ConfirmSyncForcePending = false
 
+		return m.startConfirmedSync()
+	case "p":
+		// Toggle prune option
+		m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
+		return m, nil
+	case "f":
+		m.state.Modals.ConfirmSyncForce = !m.state.Modals.ConfirmSyncForce
+		return m, nil
+	case "w":
+		// Toggle watch option (single or multi)
+		m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
+		return m, nil
+	}
+	return m, nil
+}
+
+// handleForceSyncConfirmKeys handles the second step of a forced sync. Only
+// the two buttons and the ways out are live here.
+func (m *Model) handleForceSyncConfirmKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.state.Modals.ConfirmSyncForcePending = false
+		return m, nil
+	case "left", "h":
+		m.state.Modals.ConfirmSyncSelected = 0
+		return m, nil
+	case "right", "l":
+		m.state.Modals.ConfirmSyncSelected = 1
+		return m, nil
+	case "enter":
+		if m.state.Modals.ConfirmSyncSelected == 1 {
+			// Back to the options, with everything the user chose intact.
+			m.state.Modals.ConfirmSyncForcePending = false
+			return m, nil
+		}
+		fallthrough
+	case "y":
+		m.state.Modals.ConfirmSyncForcePending = false
+		return m.startConfirmedSync()
+	}
+	return m, nil
+}
+
+// startConfirmedSync kicks off the sync the modal has been configuring.
+func (m *Model) startConfirmedSync() (tea.Model, tea.Cmd) {
+	{
 		// Confirm sync - keep modal open and show loading overlay
 		target := m.state.Modals.ConfirmTarget
 		targetNamespace := m.state.Modals.ConfirmTargetNamespace
@@ -722,17 +775,6 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, m.syncSingleApplication(*target, targetNamespace, prune, force)
 			}
 		}
-		return m, nil
-	case "p":
-		// Toggle prune option
-		m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
-		return m, nil
-	case "f":
-		m.state.Modals.ConfirmSyncForce = !m.state.Modals.ConfirmSyncForce
-		return m, nil
-	case "w":
-		// Toggle watch option (single or multi)
-		m.state.Modals.ConfirmSyncWatch = !m.state.Modals.ConfirmSyncWatch
 		return m, nil
 	}
 	return m, nil
