@@ -735,6 +735,55 @@ func (m *Model) renderResourceSyncConfirmModal() string {
 	return outer.Render(wrapper.Render(body))
 }
 
+// syncOption is one toggle row in a sync confirmation modal.
+type syncOption struct {
+	Key    string
+	Label  string
+	On     bool
+	Clause string // dim consequence text, shown beside the value only when on
+	Danger bool   // destructive when on, so On reads in Danger rather than Warning
+}
+
+// The option rows are a fixed three-column grid. The columns do not adapt to
+// the longest label: adding an option later must not shift the block.
+const (
+	optionKeyCol   = 2
+	optionLabelCol = 5
+	optionValueCol = 15
+)
+
+// renderSyncOptions lays the toggles out as a left-aligned table. Centering
+// them, as a single run-on line, turns four options into a word cloud.
+func renderSyncOptions(opts []syncOption, innerWidth int) string {
+	keyStyle := lipgloss.NewStyle().Foreground(yellowBright)
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+
+	lines := make([]string, 0, len(opts))
+	for _, o := range opts {
+		value, valueStyle := "Off", dim
+		if o.On {
+			value = "On"
+			valueStyle = lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
+			if o.Danger {
+				valueStyle = lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+			}
+		}
+
+		line := strings.Repeat(" ", optionKeyCol) + keyStyle.Render(o.Key) +
+			strings.Repeat(" ", optionLabelCol-optionKeyCol-1) +
+			dim.Render(fmt.Sprintf("%-*s", optionValueCol-optionLabelCol, o.Label)) +
+			valueStyle.Render(value)
+
+		// The clause is dropped rather than wrapped when the row cannot hold
+		// both: a consequence on its own line reads as another option.
+		if o.On && o.Clause != "" && optionValueCol+len(value)+2+len(o.Clause) <= innerWidth {
+			line += "  " + dim.Render(o.Clause)
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
 // renderTwoButtonConfirm renders the shape the confirmation modals in this file
 // each re-derive by hand: a title, two buttons, and an optional error. New
 // confirmations should build on this instead of copying one of the older ones.

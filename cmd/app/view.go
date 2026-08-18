@@ -722,7 +722,7 @@ func (m *Model) renderConfirmSyncModal() string {
 	// Modal width: compact and centered
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: de-emphasize the "Sync" verb and highlight the subject
 	var titleLine string
@@ -770,24 +770,12 @@ func (m *Model) renderConfirmSyncModal() string {
 	buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), cancelBtn)
 	buttons = center.Render(buttons)
 
-	// Options line rendered piecewise to avoid ANSI resets affecting following text
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-	var optsLine strings.Builder
-	optsLine.WriteString(dim.Render("p: Prune "))
-	if m.state.Modals.ConfirmSyncPrune {
-		optsLine.WriteString(on.Render("On"))
-	} else {
-		optsLine.WriteString(dim.Render("Off"))
-	}
-	// Always show watch toggle (single and multi)
-	optsLine.WriteString(dim.Render(" • w: Watch "))
-	if m.state.Modals.ConfirmSyncWatch {
-		optsLine.WriteString(on.Render("On"))
-	} else {
-		optsLine.WriteString(dim.Render("Off"))
-	}
-	aux := center.Render(optsLine.String())
+	// Left-aligned so the eye scans one column of values; the title and
+	// buttons stay centered, because they are not a list.
+	aux := renderSyncOptions([]syncOption{
+		{Key: "p", Label: "Prune", On: m.state.Modals.ConfirmSyncPrune, Clause: "removes extras", Danger: true},
+		{Key: "w", Label: "Watch", On: m.state.Modals.ConfirmSyncWatch},
+	}, innerWidth)
 
 	// Lines are already centered to innerWidth; avoid re-normalizing which can
 	// introduce asymmetric trailing padding.
