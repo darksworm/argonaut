@@ -59,3 +59,24 @@ func TestSyncApplication_WithoutForce_SendsNoStrategy(t *testing.T) {
 		t.Errorf("expected no strategy when force is off, got %v", strategy)
 	}
 }
+
+func TestSyncApplication_DryRun_IsSentSoArgoCDAppliesNothing(t *testing.T) {
+	var body map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decoding sync request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	svc := NewApplicationService(&model.Server{BaseURL: server.URL, Token: "test-token"})
+	if err := svc.SyncApplication(context.Background(), "test-app", &SyncOptions{DryRun: true}); err != nil {
+		t.Fatalf("SyncApplication: %v", err)
+	}
+
+	if body["dryRun"] != true {
+		t.Errorf("expected dryRun=true in the request body, got %v", body)
+	}
+}

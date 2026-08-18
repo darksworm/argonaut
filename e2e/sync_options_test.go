@@ -156,3 +156,40 @@ func TestSyncApp_WithoutForce_SendsNoStrategy(t *testing.T) {
 		t.Errorf("expected no strategy on an ordinary sync, got %v", strategy)
 	}
 }
+
+func TestSyncApp_WithDryRun_SendsDryRun(t *testing.T) {
+	t.Parallel()
+	tf, rec := startAppsView(t)
+
+	_ = tf.Send("s")
+	if !tf.WaitForScreen("Dry run", 3*time.Second) {
+		t.Fatalf("sync modal never showed the dry run option:\n%s", tf.Screen())
+	}
+	_ = tf.Send("d")
+	_ = tf.Send("y")
+
+	if dryRun := syncBody(t, rec, 1)[0]["dryRun"]; dryRun != true {
+		t.Errorf("expected dryRun=true, got %s", rec.Calls[0].Body)
+	}
+}
+
+func TestSyncApp_DryRunWithForce_SkipsTheForceConfirmation(t *testing.T) {
+	t.Parallel()
+	tf, rec := startAppsView(t)
+
+	_ = tf.Send("s")
+	if !tf.WaitForScreen("Dry run", 3*time.Second) {
+		t.Fatalf("sync modal never opened:\n%s", tf.Screen())
+	}
+	_ = tf.Send("f")
+	_ = tf.Send("d")
+	_ = tf.Send("y") // nothing is applied, so this must sync rather than ask again
+
+	body := syncBody(t, rec, 1)[0]
+	if body["dryRun"] != true {
+		t.Errorf("expected dryRun=true, got %s", rec.Calls[0].Body)
+	}
+	if force, _ := hookForce(t, body); !force {
+		t.Errorf("expected force still sent on a dry run, got %s", rec.Calls[0].Body)
+	}
+}
