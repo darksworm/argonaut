@@ -776,9 +776,17 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	// Left-aligned so the eye scans one column of values; the title and
 	// buttons stay centered, because they are not a list.
+	// A client-side dry run never touches a live resource, so force cannot
+	// delete or recreate anything: say so rather than leaving it looking armed.
+	force := syncOption{Key: "f", Label: "Force", On: m.state.Modals.ConfirmSyncForce, Clause: "delete & recreate", Danger: true}
+	if m.state.Modals.ConfirmSyncDryRun {
+		force.Clause, force.Danger, force.Inert = "inert in dry run", false, true
+	}
+
 	aux := renderSyncOptions([]syncOption{
 		{Key: "p", Label: "Prune", On: m.state.Modals.ConfirmSyncPrune, Clause: "removes extras", Danger: true},
-		{Key: "f", Label: "Force", On: m.state.Modals.ConfirmSyncForce, Clause: "delete & recreate", Danger: true},
+		force,
+		{Key: "d", Label: "Dry run", On: m.state.Modals.ConfirmSyncDryRun, Clause: "validates only", Info: true},
 		{Key: "w", Label: "Watch", On: m.state.Modals.ConfirmSyncWatch},
 	}, innerWidth)
 

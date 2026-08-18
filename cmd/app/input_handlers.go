@@ -706,7 +706,7 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		// Force deletes and recreates live resources, so it gets its own
 		// confirmation rather than riding along on this one.
-		if m.state.Modals.ConfirmSyncForce {
+		if m.state.Modals.ConfirmSyncForce && !m.state.Modals.ConfirmSyncDryRun {
 			m.state.Modals.ConfirmSyncForcePending = true
 			return m, nil
 		}
@@ -718,6 +718,9 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "f":
 		m.state.Modals.ConfirmSyncForce = !m.state.Modals.ConfirmSyncForce
+		return m, nil
+	case "d":
+		m.state.Modals.ConfirmSyncDryRun = !m.state.Modals.ConfirmSyncDryRun
 		return m, nil
 	case "w":
 		// Toggle watch option (single or multi)
@@ -762,6 +765,7 @@ func (m *Model) startConfirmedSync() (tea.Model, tea.Cmd) {
 		targetNamespace := m.state.Modals.ConfirmTargetNamespace
 		prune := m.state.Modals.ConfirmSyncPrune
 		force := m.state.Modals.ConfirmSyncForce
+		dryRun := m.state.Modals.ConfirmSyncDryRun
 		m.state.Modals.ConfirmSyncLoading = true
 		m.state.Mode = model.ModeConfirmSync
 
@@ -770,9 +774,9 @@ func (m *Model) startConfirmedSync() (tea.Model, tea.Cmd) {
 				"target", *target,
 				"isMulti", *target == "__MULTI__")
 			if *target == "__MULTI__" {
-				return m, m.syncSelectedApplications(prune, force)
+				return m, m.syncSelectedApplications(prune, force, dryRun)
 			} else {
-				return m, m.syncSingleApplication(*target, targetNamespace, prune, force)
+				return m, m.syncSingleApplication(*target, targetNamespace, prune, force, dryRun)
 			}
 		}
 		return m, nil

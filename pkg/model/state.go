@@ -142,6 +142,7 @@ type ModalState struct {
 	ConfirmSyncPrune       bool    `json:"confirmSyncPrune"`
 	ConfirmSyncWatch       bool    `json:"confirmSyncWatch"`
 	ConfirmSyncForce       bool    `json:"confirmSyncForce"`
+	ConfirmSyncDryRun      bool    `json:"confirmSyncDryRun"`
 	// ConfirmSyncForcePending shows the force confirmation in place of the
 	// options: force deletes and recreates live resources, so it is not a
 	// thing to hand over on a single keypress.
