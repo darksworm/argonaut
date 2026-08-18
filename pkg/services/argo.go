@@ -30,7 +30,7 @@ type ArgoApiService interface {
 	WatchApplicationsWithOptions(ctx context.Context, server *model.Server, opts *api.WatchOptions) (<-chan ArgoApiEvent, func(), error)
 
 	// SyncApplication syncs a specific application
-	SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, prune bool) error
+	SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, opts api.SyncOptions) error
 
 	// GetResourceDiffs gets resource diffs for an application
 	GetResourceDiffs(ctx context.Context, server *model.Server, appName string, appNamespace *string) ([]ResourceDiff, error)
@@ -198,7 +198,7 @@ func (s *ArgoApiServiceImpl) WatchApplicationsWithOptions(ctx context.Context, s
 }
 
 // SyncApplication implements ArgoApiService.SyncApplication
-func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, prune bool) error {
+func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.Server, appName string, appNamespace *string, opts api.SyncOptions) error {
 	if server == nil {
 		return apperrors.ConfigError("SERVER_MISSING",
 			"Server configuration is required").
@@ -218,32 +218,29 @@ func (s *ArgoApiServiceImpl) SyncApplication(ctx context.Context, server *model.
 	ctx, cancel := appcontext.WithSyncTimeout(ctx)
 	defer cancel()
 
-	ns := ""
 	if appNamespace != nil {
-		ns = *appNamespace
-	}
-	opts := &api.SyncOptions{
-		Prune:        prune,
-		AppNamespace: ns,
+		opts.AppNamespace = *appNamespace
 	}
 
 	// No retries: a network error can occur after the server has already
 	// started the sync, so re-sending could run it twice.
-	err := s.appService.SyncApplication(ctx, appName, opts)
+	err := s.appService.SyncApplication(ctx, appName, &opts)
 
 	if err != nil {
 		// Convert API errors to structured format if needed
 		if argErr, ok := err.(*apperrors.ArgonautError); ok {
 			return argErr.WithContext("operation", "SyncApplication").
 				WithContext("appName", appName).
-				WithContext("prune", prune)
+				WithContext("prune", opts.Prune).
+				WithContext("force", opts.Force)
 		}
 
 		return apperrors.Wrap(err, apperrors.ErrorAPI, "SYNC_FAILED",
 			"Failed to sync application").
 			WithContext("server", server.BaseURL).
 			WithContext("appName", appName).
-			WithContext("prune", prune).
+			WithContext("prune", opts.Prune).
+			WithContext("force", opts.Force).
 			AsRecoverable().
 			WithUserAction("Check the application status and try syncing again")
 	}

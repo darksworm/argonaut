@@ -4,6 +4,7 @@
  │                 Sync demo-app?                 │ 
  │                                                │ 
  │    p  Prune     On  removes extras             │ 
+ │    f  Force     Off                            │ 
  │    w  Watch     On                             │ 
  │                                                │ 
  │               Sync        Cancel               │ 

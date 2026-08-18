@@ -141,6 +141,11 @@ type ModalState struct {
 	ConfirmTargetNamespace *string `json:"confirmTargetNamespace,omitempty"`
 	ConfirmSyncPrune       bool    `json:"confirmSyncPrune"`
 	ConfirmSyncWatch       bool    `json:"confirmSyncWatch"`
+	ConfirmSyncForce       bool    `json:"confirmSyncForce"`
+	// ConfirmSyncForcePending shows the force confirmation in place of the
+	// options: force deletes and recreates live resources, so it is not a
+	// thing to hand over on a single keypress.
+	ConfirmSyncForcePending bool `json:"confirmSyncForcePending"`
 	// Which button is selected in confirm modal: 0 = Yes, 1 = Cancel
 	ConfirmSyncSelected int `json:"confirmSyncSelected"`
 	// When true, show a small syncing overlay instead of the confirm UI

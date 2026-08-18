@@ -666,6 +666,12 @@ func (m *Model) diffPageSize() int {
 func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
+		// Backing out of the force confirmation returns to the options
+		// rather than abandoning the sync the user was setting up.
+		if m.state.Modals.ConfirmSyncForcePending {
+			m.state.Modals.ConfirmSyncForcePending = false
+			return m, nil
+		}
 		m.state.Mode = model.ModeNormal
 		m.state.Modals.ConfirmTarget = nil
 		m.state.Modals.ConfirmTargetNamespace = nil
@@ -690,10 +696,19 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		fallthrough
 	case "y":
+		// Force deletes and recreates live resources, so it gets its own
+		// confirmation rather than riding along on this one.
+		if m.state.Modals.ConfirmSyncForce && !m.state.Modals.ConfirmSyncForcePending {
+			m.state.Modals.ConfirmSyncForcePending = true
+			return m, nil
+		}
+		m.state.Modals.ConfirmSyncForcePending = false
+
 		// Confirm sync - keep modal open and show loading overlay
 		target := m.state.Modals.ConfirmTarget
 		targetNamespace := m.state.Modals.ConfirmTargetNamespace
 		prune := m.state.Modals.ConfirmSyncPrune
+		force := m.state.Modals.ConfirmSyncForce
 		m.state.Modals.ConfirmSyncLoading = true
 		m.state.Mode = model.ModeConfirmSync
 
@@ -702,15 +717,18 @@ func (m *Model) handleConfirmSyncKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				"target", *target,
 				"isMulti", *target == "__MULTI__")
 			if *target == "__MULTI__" {
-				return m, m.syncSelectedApplications(prune)
+				return m, m.syncSelectedApplications(prune, force)
 			} else {
-				return m, m.syncSingleApplication(*target, targetNamespace, prune)
+				return m, m.syncSingleApplication(*target, targetNamespace, prune, force)
 			}
 		}
 		return m, nil
 	case "p":
 		// Toggle prune option
 		m.state.Modals.ConfirmSyncPrune = !m.state.Modals.ConfirmSyncPrune
+		return m, nil
+	case "f":
+		m.state.Modals.ConfirmSyncForce = !m.state.Modals.ConfirmSyncForce
 		return m, nil
 	case "w":
 		// Toggle watch option (single or multi)

@@ -117,3 +117,41 @@ func TestSyncModal_PutsOptionsAboveTheButtons(t *testing.T) {
 			options, buttons, out)
 	}
 }
+
+func TestSyncModal_ForceConfirmationSpellsOutWhatForceDoes(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmSync
+	target := "demo-app"
+	m.state.Modals.ConfirmTarget = &target
+	m.state.Modals.ConfirmSyncForce = true
+	m.state.Modals.ConfirmSyncForcePending = true
+
+	out := stripANSI(m.renderConfirmSyncModal())
+
+	for _, want := range []string{"demo-app", "recreates", "Force sync", "Cancel"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected the force confirmation to mention %q, got:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Prune") {
+		t.Errorf("expected the options replaced by the confirmation, got:\n%s", out)
+	}
+}
+
+func TestSyncModal_ShowsForceAmongTheOptions(t *testing.T) {
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmSync
+	target := "demo-app"
+	m.state.Modals.ConfirmTarget = &target
+	m.state.Modals.ConfirmSyncForce = true
+
+	out := stripANSI(m.renderConfirmSyncModal())
+
+	line := optionLine(t, out, "Force")
+	if !strings.Contains(line, "On") {
+		t.Errorf("expected Force to read On, got %q", line)
+	}
+	if !strings.Contains(line, "delete") {
+		t.Errorf("expected Force to spell out its consequence, got %q", line)
+	}
+}
