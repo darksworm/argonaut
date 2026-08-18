@@ -74,16 +74,19 @@ type SyncResourceResult struct {
 // SyncStatusDetails is the full last-operation state shown in the
 // sync-status pane, including per-resource results.
 type SyncStatusDetails struct {
-	Phase         string               `json:"phase"`
-	Message       string               `json:"message"`
-	StartedAt     time.Time            `json:"startedAt"`
-	FinishedAt    time.Time            `json:"finishedAt"` // zero while the operation is running
-	Revision      string               `json:"revision"`
-	InitiatedBy   string               `json:"initiatedBy"`
-	Automated     bool                 `json:"automated"`
-	Operation     string               `json:"operation"`
-	OperationNote string               `json:"operationNote,omitempty"`
-	Resources     []SyncResourceResult `json:"resources"`
+	Phase         string    `json:"phase"`
+	Message       string    `json:"message"`
+	StartedAt     time.Time `json:"startedAt"`
+	FinishedAt    time.Time `json:"finishedAt"` // zero while the operation is running
+	Revision      string    `json:"revision"`
+	InitiatedBy   string    `json:"initiatedBy"`
+	Automated     bool      `json:"automated"`
+	Operation     string    `json:"operation"`
+	OperationNote string    `json:"operationNote,omitempty"`
+	// AwaitingPruneConfirmation explains an operation that would otherwise sit
+	// in Running forever with no visible reason.
+	AwaitingPruneConfirmation bool                 `json:"awaitingPruneConfirmation,omitempty"`
+	Resources                 []SyncResourceResult `json:"resources"`
 }
 
 // App represents an ArgoCD application

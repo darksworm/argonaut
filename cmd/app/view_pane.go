@@ -210,6 +210,11 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 		terminateHint = "[t] terminate"
 	}
 	field("Phase", details.Phase, lipgloss.NewStyle().Foreground(phaseColor), terminateHint)
+	// Argo CD parks the operation in Running with no message when a resource
+	// carries Prune=confirm, so the reason has to come from the resource list.
+	if details.AwaitingPruneConfirmation {
+		field("Waiting on", "prune confirmation", lipgloss.NewStyle().Foreground(currentPalette.Warning))
+	}
 	field("Started", humantime.AgoLong(details.StartedAt, now), text)
 	duration := details.FinishedAt.Sub(details.StartedAt)
 	if details.FinishedAt.IsZero() {

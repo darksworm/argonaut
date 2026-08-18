@@ -50,3 +50,27 @@ func TestSyncStatusPane_PlainSyncCarriesNoQualifier(t *testing.T) {
 		t.Errorf("expected a bare Sync, got %q", line)
 	}
 }
+
+func TestSyncStatusPane_ExplainsASyncHeldOnPruneConfirmation(t *testing.T) {
+	lines := renderSyncStatusBody(&model.SyncStatusDetails{
+		Operation:                 "Sync",
+		Phase:                     "Running",
+		AwaitingPruneConfirmation: true,
+	}, 46, time.Now(), "")
+
+	out := stripANSI(strings.Join(lines, "\n"))
+	if !strings.Contains(out, "confirmation") {
+		t.Errorf("expected the pane to say the sync is waiting for confirmation, got:\n%s", out)
+	}
+}
+
+func TestSyncStatusPane_SaysNothingAboutConfirmationOnAnOrdinarySync(t *testing.T) {
+	lines := renderSyncStatusBody(&model.SyncStatusDetails{
+		Operation: "Sync",
+		Phase:     "Running",
+	}, 46, time.Now(), "")
+
+	if strings.Contains(stripANSI(strings.Join(lines, "\n")), "confirmation") {
+		t.Error("expected no confirmation notice on an ordinary running sync")
+	}
+}
