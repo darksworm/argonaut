@@ -194,7 +194,17 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	}
 
 	_, phaseColor := statusGlyph(details.Phase)
-	field("Operation", "Sync", text)
+	operation := details.Operation
+	if operation == "" {
+		operation = "Sync"
+	}
+	// The qualifier is the whole point: Argo CD gives a dry run and a
+	// resource-scoped sync the same phase as a full one.
+	if details.OperationNote != "" {
+		field("Operation", operation+" ("+details.OperationNote+")", text)
+	} else {
+		field("Operation", operation, text)
+	}
 	terminateHint := ""
 	if details.Phase == "Running" {
 		terminateHint = "[t] terminate"

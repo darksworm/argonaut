@@ -1,7 +1,7 @@
  Context: argo.example.com                                                           Argonaut dev   
  ╭──────────────────────────────────────────────╮╭─ Application demo-app ───────────────── ⟳ 10s ─╮ 
  │ Application [demo-app] (Degraded, Synced)    ││                                                │ 
- │ ├── Deployment [demo/web] (Degraded)         ││ Operation     Sync                             │ 
+ │ ├── Deployment [demo/web] (Degraded)         ││ Operation     Sync (dry run, partial)          │ 
  │ │   └── Pod [demo/web-6f7d9b-x4k2m] (Degrad… ││ Phase         Failed                           │ 
  │ └── Service [demo/web] (Healthy)             ││ Started       2 minutes ago                    │ 
  │                                              ││ Duration      6s                               │ 

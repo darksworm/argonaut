@@ -31,9 +31,10 @@ type ApplicationSource struct {
 
 // ApplicationMetadata holds the application CR's object metadata
 type ApplicationMetadata struct {
-	Name            string           `json:"name"`
-	Namespace       string           `json:"namespace,omitempty"`
-	OwnerReferences []OwnerReference `json:"ownerReferences,omitempty"`
+	Name              string           `json:"name"`
+	DeletionTimestamp string           `json:"deletionTimestamp,omitempty"`
+	Namespace         string           `json:"namespace,omitempty"`
+	OwnerReferences   []OwnerReference `json:"ownerReferences,omitempty"`
 }
 
 // ApplicationDestination identifies the target cluster and namespace
@@ -94,6 +95,10 @@ type HealthStatus struct {
 // SyncOperation holds the sync request parameters
 type SyncOperation struct {
 	Revision string `json:"revision,omitempty"`
+	// DryRun and Resources qualify what the operation actually did: a dry run
+	// applies nothing, and a non-empty Resources means only a subset was synced.
+	DryRun    bool                 `json:"dryRun,omitempty"`
+	Resources []SyncResourceTarget `json:"resources,omitempty"`
 }
 
 // OperationInitiator identifies who or what started an operation
@@ -661,16 +666,43 @@ func ConvertOperationState(argoApp ArgoApplication) *model.SyncStatusDetails {
 			})
 		}
 	}
+	operation, note := describeOperation(argoApp)
 	return &model.SyncStatusDetails{
-		Phase:       opState.Phase,
-		Message:     shortenShas(flattenWhitespace(opState.Message)),
-		StartedAt:   opState.StartedAt,
-		FinishedAt:  opState.FinishedAt,
-		Revision:    opState.resolvedRevision(),
-		InitiatedBy: opState.Operation.InitiatedBy.Username,
-		Automated:   opState.Operation.InitiatedBy.Automated,
-		Resources:   resources,
+		Operation:     operation,
+		OperationNote: note,
+		Phase:         opState.Phase,
+		Message:       shortenShas(flattenWhitespace(opState.Message)),
+		StartedAt:     opState.StartedAt,
+		FinishedAt:    opState.FinishedAt,
+		Revision:      opState.resolvedRevision(),
+		InitiatedBy:   opState.Operation.InitiatedBy.Username,
+		Automated:     opState.Operation.InitiatedBy.Automated,
+		Resources:     resources,
 	}
+}
+
+// describeOperation names what the last operation actually was. Argo CD
+// reports a dry run and a resource-scoped sync with the same phase and the
+// same result rows as a full sync, so an unqualified "Sync · Succeeded" next
+// to an app that is still OutOfSync reads as the wrong conclusion.
+func describeOperation(argoApp ArgoApplication) (operation, note string) {
+	if argoApp.Metadata.DeletionTimestamp != "" {
+		return "Deleting", ""
+	}
+
+	sync := argoApp.Status.OperationState.Operation.Sync
+	if sync == nil {
+		return "Sync", ""
+	}
+
+	var qualifiers []string
+	if sync.DryRun {
+		qualifiers = append(qualifiers, "dry run")
+	}
+	if len(sync.Resources) > 0 {
+		qualifiers = append(qualifiers, "partial")
+	}
+	return "Sync", strings.Join(qualifiers, ", ")
 }
 
 // HasMultipleSources returns true if the application uses multiple sources
