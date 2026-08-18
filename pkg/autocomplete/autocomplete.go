@@ -177,6 +177,13 @@ func NewAutocompleteEngine() *AutocompleteEngine {
 			ArgType:     "argocd-context",
 		},
 		{
+			Command:     "terminate",
+			Aliases:     []string{"terminate", "term"},
+			Description: "Terminate the application's running sync",
+			TakesArg:    false,
+			ArgType:     "",
+		},
+		{
 			Command:     "refresh",
 			Aliases:     []string{"refresh", "ref"},
 			Description: "Refresh application (compare with git)",

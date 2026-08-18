@@ -85,6 +85,13 @@ func (m *Model) activeOverlay() *overlaySpec {
 		}
 		return &overlaySpec{modal: modal, desaturate: true}
 	}
+	if m.state.Mode == model.ModeConfirmTerminate {
+		modal := m.renderTerminateConfirmModal()
+		if st := m.state.Modals.Terminate; st != nil && st.Loading {
+			modal = m.renderTerminateLoadingModal()
+		}
+		return &overlaySpec{modal: modal, desaturate: true}
+	}
 	if m.state.Mode == model.ModeConfirmResourceSync {
 		modal := m.renderResourceSyncConfirmModal()
 		if m.state.Modals.ResourceSyncLoading {

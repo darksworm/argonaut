@@ -997,6 +997,20 @@ func (s *ApplicationService) DisableAutoSync(ctx context.Context, name string, a
 	return nil
 }
 
+// TerminateOperation cancels the application's in-flight operation.
+func (s *ApplicationService) TerminateOperation(ctx context.Context, name string, appNamespace *string) error {
+	endpoint := fmt.Sprintf("/api/v1/applications/%s/operation", url.PathEscape(name))
+	if appNamespace != nil && *appNamespace != "" {
+		endpoint += "?appNamespace=" + url.QueryEscape(*appNamespace)
+	}
+
+	if _, err := s.client.Delete(ctx, endpoint); err != nil {
+		return fmt.Errorf("failed to terminate operation for %s: %w", name, err)
+	}
+
+	return nil
+}
+
 // GetApplicationManifests fetches the rendered manifests for an application at a revision
 func (s *ApplicationService) GetApplicationManifests(ctx context.Context, name string, revision string, appNamespace *string) ([]string, error) {
 	endpoint := fmt.Sprintf("/api/v1/applications/%s/manifests?revision=%s", url.PathEscape(name), url.QueryEscape(revision))

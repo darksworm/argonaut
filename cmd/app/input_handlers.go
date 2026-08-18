@@ -1341,6 +1341,143 @@ func (m *Model) executeResourceSync() (tea.Model, tea.Cmd) {
 	)
 }
 
+// handleTerminateOperation opens the confirmation for cancelling the selected
+// application's in-flight operation.
+func (m *Model) handleTerminateOperation() (tea.Model, tea.Cmd) {
+	name, appNamespace, phase := m.terminateTarget()
+	// Argo CD rejects the call unless an operation is in flight, and a
+	// Terminating one is already on its way out.
+	if name == "" || phase != "Running" {
+		return m, nil
+	}
+
+	m.state.Mode = model.ModeConfirmTerminate
+	m.state.Modals.Terminate = &model.TerminateState{
+		AppName:      name,
+		AppNamespace: appNamespace,
+	}
+
+	cblog.With("component", "terminate").Debug("Opening terminate confirmation", "app", name)
+
+	return m, nil
+}
+
+// terminateTarget resolves which app the terminate hint belongs to, and the
+// freshest phase known for it.
+//
+// The open pane wins on both counts: it fetches the app directly while the list
+// waits on a watch event, so just after a sync starts it knows Running first —
+// and sorting by health/sync can move rows out from under the cursor while the
+// pane keeps showing the app it was opened for. Acting on anything else lets
+// the hint promise a key that then does nothing.
+func (m *Model) terminateTarget() (name string, appNamespace *string, phase string) {
+	if st := m.state.Events; st != nil && st.Target.AppName != "" && st.Details != nil {
+		ns := st.Target.AppNamespace
+		var nsPtr *string
+		if ns != "" {
+			nsPtr = &ns
+		}
+		return st.Target.AppName, nsPtr, st.Details.Phase
+	}
+
+	switch m.state.Navigation.View {
+	case model.ViewApps:
+		visibleItems := m.getVisibleItemsForCurrentView()
+		if m.state.Navigation.SelectedIdx >= len(visibleItems) {
+			return "", nil, ""
+		}
+		app, ok := visibleItems[m.state.Navigation.SelectedIdx].(model.App)
+		if !ok {
+			return "", nil, ""
+		}
+		name, appNamespace = app.Name, app.AppNamespace
+	case model.ViewTree:
+		if m.state.UI.TreeApp == nil {
+			return "", nil, ""
+		}
+		name, appNamespace = m.state.UI.TreeApp.Name, m.state.UI.TreeApp.AppNamespace
+	default:
+		return "", nil, ""
+	}
+
+	// The tree carries only a snapshot of the app, so read the phase from the
+	// watched list instead. The same name can appear in several application
+	// namespaces, so both parts of the identity have to match.
+	for i := range m.state.Apps {
+		app := m.state.Apps[i]
+		if app.Name != name || !sameAppNamespace(app.AppNamespace, appNamespace) {
+			continue
+		}
+		if app.SyncOp == nil {
+			return app.Name, app.AppNamespace, ""
+		}
+		return app.Name, app.AppNamespace, app.SyncOp.Phase
+	}
+	return "", nil, ""
+}
+
+// sameAppNamespace compares application namespaces, treating unset and empty
+// as the same: the tree and the watched list disagree on which they use.
+func sameAppNamespace(a, b *string) bool {
+	av, bv := "", ""
+	if a != nil {
+		av = *a
+	}
+	if b != nil {
+		bv = *b
+	}
+	return av == bv
+}
+
+// closeTerminateModal drops the modal state wholesale, so no field survives
+// into the next time the modal opens.
+func (m *Model) closeTerminateModal() {
+	m.state.Mode = model.ModeNormal
+	m.state.Modals.Terminate = nil
+}
+
+// handleConfirmTerminateKeys drives the terminate-operation confirmation.
+func (m *Model) handleConfirmTerminateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	st := m.state.Modals.Terminate
+	if st == nil {
+		m.state.Mode = model.ModeNormal
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "q", "esc", "ctrl+c":
+		m.closeTerminateModal()
+		return m, nil
+	case "left", "h":
+		st.ConfirmSelected = 0
+		return m, nil
+	case "right", "l":
+		st.ConfirmSelected = 1
+		return m, nil
+	case "enter":
+		if st.ConfirmSelected == 1 {
+			m.closeTerminateModal()
+			return m, nil
+		}
+		return m.executeTerminate()
+	case "y":
+		return m.executeTerminate()
+	}
+	return m, nil
+}
+
+// executeTerminate fires the termination for the confirmed application.
+func (m *Model) executeTerminate() (tea.Model, tea.Cmd) {
+	st := m.state.Modals.Terminate
+	// A second confirmation while the first is in flight would fire a second
+	// DELETE for the same operation.
+	if st == nil || st.Loading {
+		return m, nil
+	}
+	st.Loading = true
+	return m, m.terminateOperation(st.AppName, st.AppNamespace)
+}
+
 // handleResourceAction opens the resource actions modal for the selected resource
 func (m *Model) handleResourceAction() (tea.Model, tea.Cmd) {
 	if m.state.Navigation.View != model.ViewTree || m.treeView == nil {
@@ -1717,6 +1854,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmResourceDeleteKeys(msg)
 	case model.ModeConfirmResourceSync:
 		return m.handleConfirmResourceSyncKeys(msg)
+	case model.ModeConfirmTerminate:
+		return m.handleConfirmTerminateKeys(msg)
 	case model.ModeResourceAction:
 		return m.handleResourceActionKeys(msg)
 	case model.ModeDiff:
@@ -1866,6 +2005,9 @@ func (m *Model) handleTreeViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "R":
 			// Roll back the hovered child Application, or the tree's app
 			return m.handleRollback()
+		case "t":
+			// Terminate the tree app's running operation
+			return m.handleTerminateOperation()
 		case "?":
 			// Show help
 			return m.handleShowHelp()
@@ -1903,6 +2045,12 @@ func (m *Model) handleNormalModeGlobalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		// Open resources for selected app (apps view)
 		if m.state.Navigation.View == model.ViewApps {
 			return m.handleOpenResourcesForSelection()
+		}
+		return m, nil
+	case "t":
+		// Terminate the running operation of the selected app (apps view)
+		if m.state.Navigation.View == model.ViewApps {
+			return m.handleTerminateOperation()
 		}
 		return m, nil
 	case "d":

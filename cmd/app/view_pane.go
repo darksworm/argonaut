@@ -167,19 +167,39 @@ func renderSyncStatusBody(details *model.SyncStatusDetails, width int, now time.
 	text := lipgloss.NewStyle().Foreground(currentPalette.Text)
 
 	var lines []string
-	field := func(name, value string, style lipgloss.Style) {
-		for i, part := range wrapAnsiToWidth(value, max(1, width-labelWidth)) {
+	// suffix trails the value dimmed — the terminate hint has to sit beside
+	// the phase it acts on, not at the far edge of the pane.
+	field := func(name, value string, style lipgloss.Style, suffix ...string) {
+		// The suffix rides on the value's line, so it has to be paid for
+		// before wrapping — otherwise a narrow pane overflows.
+		trailer := ""
+		if len(suffix) > 0 && suffix[0] != "" {
+			trailer = "  " + suffix[0]
+			// Dropped rather than wrapped when the row cannot hold both: a
+			// hint on its own line reads as a field, not as part of the value.
+			if labelWidth+lipgloss.Width(value)+lipgloss.Width(trailer) > width {
+				trailer = ""
+			}
+		}
+		for i, part := range wrapAnsiToWidth(value, max(1, width-labelWidth-lipgloss.Width(trailer))) {
 			if i == 0 {
 				lines = append(lines, dim.Render(fmt.Sprintf("%-*s", labelWidth, name))+style.Render(part))
 			} else {
 				lines = append(lines, strings.Repeat(" ", labelWidth)+style.Render(part))
 			}
 		}
+		if trailer != "" && len(lines) > 0 {
+			lines[len(lines)-1] += dim.Render(trailer)
+		}
 	}
 
 	_, phaseColor := statusGlyph(details.Phase)
 	field("Operation", "Sync", text)
-	field("Phase", details.Phase, lipgloss.NewStyle().Foreground(phaseColor))
+	terminateHint := ""
+	if details.Phase == "Running" {
+		terminateHint = "[t] terminate"
+	}
+	field("Phase", details.Phase, lipgloss.NewStyle().Foreground(phaseColor), terminateHint)
 	field("Started", humantime.AgoLong(details.StartedAt, now), text)
 	duration := details.FinishedAt.Sub(details.StartedAt)
 	if details.FinishedAt.IsZero() {
