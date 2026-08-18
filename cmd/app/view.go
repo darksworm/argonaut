@@ -742,12 +742,12 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	// Buttons: highlight selected using stronger contrast
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
-	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
+	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
-	yesBtn := inactive.Render("Yes")
+	syncBtn := inactive.Render("Sync")
 	cancelBtn := inactive.Render("Cancel")
 	if m.state.Modals.ConfirmSyncSelected == 0 {
-		yesBtn = active.Render("Yes")
+		syncBtn = active.Render("Sync")
 	}
 	if m.state.Modals.ConfirmSyncSelected == 1 {
 		cancelBtn = active.Render("Cancel")
@@ -758,7 +758,7 @@ func (m *Model) renderConfirmSyncModal() string {
 	// Simple rounded border; cyan accent
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(modalWidth)
 
@@ -767,7 +767,7 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	title := center.Render(titleLine)
 
-	buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), cancelBtn)
+	buttons := lipgloss.JoinHorizontal(lipgloss.Center, syncBtn, strings.Repeat(" ", 4), cancelBtn)
 	buttons = center.Render(buttons)
 
 	// Left-aligned so the eye scans one column of values; the title and
@@ -779,7 +779,7 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	// Lines are already centered to innerWidth; avoid re-normalizing which can
 	// introduce asymmetric trailing padding.
-	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
+	body := strings.Join([]string{title, "", aux, "", buttons}, "\n")
 
 	// Add outer whitespace so the modal doesn't sit directly on top of content
 	outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right

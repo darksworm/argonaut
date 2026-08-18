@@ -3,10 +3,10 @@
  │                                                │ 
  │                 Sync demo-app?                 │ 
  │                                                │ 
- │               Yes        Cancel                │ 
- │                                                │ 
  │    p  Prune     Off                            │ 
  │    w  Watch     On                             │ 
+ │                                                │ 
+ │               Sync        Cancel               │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     

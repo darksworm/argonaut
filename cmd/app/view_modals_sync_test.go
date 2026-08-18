@@ -95,3 +95,25 @@ func TestGolden_ConfirmSyncModal_PruneOn(t *testing.T) {
 	out := syncModal(t, true, true)
 	compareWithGolden(t, "modal_confirm_sync_prune_on", out)
 }
+
+func TestSyncModal_NamesTheActionOnTheButton(t *testing.T) {
+	out := syncModal(t, false, true)
+
+	if !strings.Contains(out, "Sync") {
+		t.Errorf("expected a Sync button, got:\n%s", out)
+	}
+	if strings.Contains(out, "Yes") {
+		t.Errorf("expected the verb on the button rather than %q, got:\n%s", "Yes", out)
+	}
+}
+
+func TestSyncModal_PutsOptionsAboveTheButtons(t *testing.T) {
+	out := syncModal(t, false, true)
+
+	options := strings.Index(out, "Prune")
+	buttons := strings.LastIndex(out, "Cancel")
+	if options > buttons {
+		t.Errorf("expected the options above the buttons, options at %d and buttons at %d:\n%s",
+			options, buttons, out)
+	}
+}
