@@ -1,0 +1,9 @@
+# Removed from git by the second seed commit. After the app is synced at the
+# FIRST commit this exists in the cluster with no git counterpart, so a sync
+# with --prune has something real to delete.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prune-me
+data:
+  role: "orphan"

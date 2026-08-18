@@ -1,0 +1,22 @@
+# `reploicas` is a deliberate typo. The API server rejects it with a strict
+# decoding error, which Argo CD's dry-run apply surfaces as SyncFailed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schema-error
+spec:
+  reploicas: 1
+  selector:
+    matchLabels:
+      app: schema-error
+  template:
+    metadata:
+      labels:
+        app: schema-error
+    spec:
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.9
+          resources:
+            limits: {cpu: "10m", memory: "16Mi"}
+            requests: {cpu: "5m", memory: "8Mi"}

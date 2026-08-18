@@ -1,0 +1,69 @@
+# Three purpose-built fixtures for exercising sync options against the local
+# k3d Argo CD. They all point at the local git daemon repo seeded by
+# ./seed-sync-fixtures.sh, so nothing here needs a remote push.
+#
+#   make argocd-up && make argocd-git-daemon
+#   ./seed-sync-fixtures.sh
+#
+# Manual sync only, matching argocd/apps-hang.yaml and the other demo apps.
+---
+# 1) Something real to prune: `prune-me` is live but no longer in git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prune-demo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git://host.k3d.internal/argonaut-sync-fixtures-repo
+    targetRevision: main
+    path: prune
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sync-prune-demo
+  syncPolicy:
+    automated: null # Manual sync — the whole point is to drive prune by hand
+    syncOptions:
+      - CreateNamespace=true
+---
+# 2) Prune gated on confirmation: `argocd app sync prune-confirm-demo --prune`
+#    parks in Running until `argocd app confirm-deletion prune-confirm-demo`.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prune-confirm-demo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git://host.k3d.internal/argonaut-sync-fixtures-repo
+    targetRevision: main
+    path: prune-confirm
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sync-confirm-demo
+  syncPolicy:
+    automated: null # Manual sync
+    syncOptions:
+      - CreateNamespace=true
+---
+# 3) Deliberate schema error: any sync (dry-run included) fails validation.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: schema-error-demo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git://host.k3d.internal/argonaut-sync-fixtures-repo
+    targetRevision: main
+    path: schema-error
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sync-invalid-demo
+  syncPolicy:
+    automated: null # Manual sync
+    syncOptions:
+      - CreateNamespace=true

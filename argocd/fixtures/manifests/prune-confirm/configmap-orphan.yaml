@@ -1,0 +1,11 @@
+# Same orphan trick as ../prune, plus the confirmation gate. A prune task has
+# no target object, so Argo CD reads the sync option off the LIVE resource —
+# the annotation must therefore be present at the commit the app is synced at.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prune-me-with-confirmation
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm
+data:
+  role: "orphan"
