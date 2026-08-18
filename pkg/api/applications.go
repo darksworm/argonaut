@@ -394,10 +394,11 @@ func (s *ApplicationService) SyncApplication(ctx context.Context, appName string
 		reqBody["resources"] = opts.Resources
 	}
 
-	// Add force option via strategy if enabled
+	// Force rides on the hook strategy, Argo CD's default. Sending "apply"
+	// instead would silently skip the app's sync hooks.
 	if opts.Force {
 		reqBody["strategy"] = map[string]interface{}{
-			"apply": map[string]interface{}{
+			"hook": map[string]interface{}{
 				"force": true,
 			},
 		}
