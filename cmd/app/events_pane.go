@@ -85,10 +85,22 @@ func (m *Model) schedulePaneRefresh(loadSeq int) tea.Cmd {
 	})
 }
 
+// paneCanFetch reports whether the pane knows which application it is showing.
+// It can be open before the resource tree has loaded, and until it has, the
+// tree cannot name the app: fetching anyway asks Argo CD for
+// /api/v1/applications/ with no name, which answers 403 — surfacing as a bare
+// "permission denied" that reads like an RBAC problem.
+func (m *Model) paneCanFetch() bool {
+	return m.state.Events != nil && m.state.Events.Target.AppName != ""
+}
+
 // paneRefreshCmds returns the background refetches for the open pane:
 // details always, events unless the target cannot have any.
 func (m *Model) paneRefreshCmds() tea.Cmd {
 	st := m.state.Events
+	if !m.paneCanFetch() {
+		return nil
+	}
 	cmds := []tea.Cmd{m.loadSyncStatus(model.SyncStatusTarget{
 		AppName:      st.Target.AppName,
 		AppNamespace: st.Target.AppNamespace,
@@ -230,12 +242,9 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 // paneFetchCmds returns the fetches the open pane still needs.
 func (m *Model) paneFetchCmds() tea.Cmd {
 	st := m.state.Events
-	// The pane can open before the resource tree has loaded, and until it has,
-	// the tree cannot name the app. Fetching anyway asks Argo CD for
-	// /api/v1/applications/ with no name, which answers 403 — surfacing as a
-	// bare "permission denied" that reads like an RBAC problem. The loading
-	// flags stay set, so the refresh armed alongside this retries.
-	if st.Target.AppName == "" {
+	// The loading flags stay set, so the refresh armed alongside this retries
+	// once the tree has named the app.
+	if !m.paneCanFetch() {
 		return nil
 	}
 	var cmds []tea.Cmd
