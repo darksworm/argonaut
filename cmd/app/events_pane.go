@@ -230,6 +230,14 @@ func (m *Model) handleShowEvents() (tea.Model, tea.Cmd) {
 // paneFetchCmds returns the fetches the open pane still needs.
 func (m *Model) paneFetchCmds() tea.Cmd {
 	st := m.state.Events
+	// The pane can open before the resource tree has loaded, and until it has,
+	// the tree cannot name the app. Fetching anyway asks Argo CD for
+	// /api/v1/applications/ with no name, which answers 403 — surfacing as a
+	// bare "permission denied" that reads like an RBAC problem. The loading
+	// flags stay set, so the refresh armed alongside this retries.
+	if st.Target.AppName == "" {
+		return nil
+	}
 	var cmds []tea.Cmd
 	if st.Loading {
 		cmds = append(cmds, m.loadEvents(st.Target, st.LoadSeq))
