@@ -293,3 +293,40 @@ func init() {
 		}
 	}
 }
+
+func TestRealArgoCD_ResourceSyncSendsOnlyThatResource(t *testing.T) {
+	r := connectRealArgo(t)
+	const app = "prune-demo"
+	since := mark()
+
+	tf := startAgainstRealArgo(t, r)
+	if !tf.WaitForPlain("NAME", realTimeout) {
+		t.Fatalf("the TUI never connected:\n%s", tf.Screen())
+	}
+	openCommand(t, tf)
+	_ = tf.Send("resources " + app)
+	_ = tf.Enter()
+	if !tf.WaitForScreen("keep-me", realTimeout) {
+		t.Fatalf("resource tree never loaded:\n%s", tf.Screen())
+	}
+
+	// Select the one ConfigMap under the application root, then sync it.
+	_ = tf.Send("j")
+	_ = tf.Send(" ")
+	_ = tf.Send("s")
+	if !tf.WaitForScreen("Sync", 10*time.Second) {
+		t.Fatalf("resource sync modal never opened:\n%s", tf.Screen())
+	}
+	_ = tf.Send("y")
+
+	after := r.waitForOperationAfter(t, app, since)
+
+	resources, _ := dig(after, "status", "operationState", "operation", "sync", "resources").([]any)
+	if len(resources) != 1 {
+		t.Fatalf("expected the sync scoped to one resource, got %v",
+			dig(after, "status", "operationState", "operation", "sync", "resources"))
+	}
+	if name, _ := resources[0].(map[string]any)["name"].(string); name != "keep-me" {
+		t.Errorf("expected the selected resource in the request, got %v", resources[0])
+	}
+}
