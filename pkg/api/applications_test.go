@@ -131,6 +131,7 @@ func TestConvertOperationState_FailedSync_CarriesResourceResults(t *testing.T) {
 	details := ConvertOperationState(argoApp)
 
 	want := &model.SyncStatusDetails{
+		Operation:   "Sync",
 		Phase:       "Failed",
 		Message:     "one or more objects failed to apply",
 		StartedAt:   time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),

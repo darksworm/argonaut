@@ -134,12 +134,14 @@ func TestGolden_EventsPane_AppRow_StatusBlockAboveEvents(t *testing.T) {
 	m.state.Events = &model.EventsState{
 		Target: model.EventsTarget{AppName: "demo-app"},
 		Details: &model.SyncStatusDetails{
-			Phase:       "Failed",
-			Message:     "one or more objects failed to apply",
-			StartedAt:   time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
-			FinishedAt:  time.Date(2026, 8, 4, 12, 0, 6, 0, time.UTC),
-			Revision:    "a1b2c3d4e5f6789",
-			InitiatedBy: "alice",
+			Operation:     "Sync",
+			OperationNote: "dry run, partial",
+			Phase:         "Failed",
+			Message:       "one or more objects failed to apply",
+			StartedAt:     time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC),
+			FinishedAt:    time.Date(2026, 8, 4, 12, 0, 6, 0, time.UTC),
+			Revision:      "a1b2c3d4e5f6789",
+			InitiatedBy:   "alice",
 			Resources: []model.SyncResourceResult{
 				{Kind: "Service", Namespace: "demo", Name: "web", Status: "Synced", Message: "service/web unchanged"},
 				{Kind: "Deployment", Namespace: "demo", Name: "web", Status: "SyncFailed",
