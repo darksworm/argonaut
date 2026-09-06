@@ -695,7 +695,7 @@ func awaitingPruneConfirmation(argoApp ArgoApplication) bool {
 		return false
 	}
 	for _, r := range argoApp.Status.Resources {
-		if r.RequiresDeletionConfirmation {
+		if r.RequiresPruning && r.RequiresDeletionConfirmation {
 			return true
 		}
 	}
@@ -802,15 +802,16 @@ type ResourceTree struct {
 
 // ResourceStatus holds sync/health status for a managed resource (from Application.status.resources[])
 type ResourceStatus struct {
-	Group     string          `json:"group"`
-	Kind      string          `json:"kind"`
-	Name      string          `json:"name"`
-	Namespace string          `json:"namespace,omitempty"`
-	Status    string          `json:"status"` // Sync status: "Synced", "OutOfSync"
-	Version   string          `json:"version"`
-	Health    *ResourceHealth `json:"health,omitempty"`
+	Group           string          `json:"group"`
+	Kind            string          `json:"kind"`
+	Name            string          `json:"name"`
+	Namespace       string          `json:"namespace,omitempty"`
+	Status          string          `json:"status"` // Sync status: "Synced", "OutOfSync"
+	Version         string          `json:"version"`
+	Health          *ResourceHealth `json:"health,omitempty"`
+	RequiresPruning bool            `json:"requiresPruning,omitempty"`
 	// RequiresDeletionConfirmation is set by Argo CD when the resource carries
-	// Prune=confirm or Delete=confirm: the sync stops and waits for a human.
+	// Prune=confirm or Delete=confirm.
 	RequiresDeletionConfirmation bool `json:"requiresDeletionConfirmation,omitempty"`
 }
 
