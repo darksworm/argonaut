@@ -742,6 +742,8 @@ type syncOption struct {
 	On     bool
 	Clause string // dim consequence text, shown beside the value only when on
 	Danger bool   // destructive when on, so On reads in Danger rather than Warning
+	Info   bool   // on, but with no effect on the cluster
+	Inert  bool   // on, but neutralised by another option
 }
 
 // The option rows are a fixed three-column grid. The columns do not adapt to
@@ -764,8 +766,13 @@ func renderSyncOptions(opts []syncOption, innerWidth int) string {
 		if o.On {
 			value = "On"
 			valueStyle = lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-			if o.Danger {
+			switch {
+			case o.Inert:
+				valueStyle = dim
+			case o.Danger:
 				valueStyle = lipgloss.NewStyle().Foreground(outOfSyncColor).Bold(true)
+			case o.Info:
+				valueStyle = lipgloss.NewStyle().Foreground(cyanBright).Bold(true)
 			}
 		}
 

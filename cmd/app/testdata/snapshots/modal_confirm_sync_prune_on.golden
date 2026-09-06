@@ -5,6 +5,7 @@
  │                                                │ 
  │    p  Prune     On  removes extras             │ 
  │    f  Force     Off                            │ 
+ │    d  Dry run   Off                            │ 
  │    w  Watch     On                             │ 
  │                                                │ 
  │               Sync        Cancel               │ 
