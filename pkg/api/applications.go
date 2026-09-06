@@ -690,6 +690,10 @@ func awaitingPruneConfirmation(argoApp ArgoApplication) bool {
 	if argoApp.Status.OperationState.Phase != "Running" {
 		return false
 	}
+	sync := argoApp.Status.OperationState.Operation.Sync
+	if sync == nil || !sync.Prune {
+		return false
+	}
 	for _, r := range argoApp.Status.Resources {
 		if r.RequiresDeletionConfirmation {
 			return true

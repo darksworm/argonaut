@@ -38,6 +38,28 @@ func TestConvertOperationState_RunningSyncWithNothingToConfirm_IsJustRunning(t *
 	}
 }
 
+func TestConvertOperationState_NonSyncOperationIsNotWaitingOnPruneConfirmation(t *testing.T) {
+	app := runningSyncOf([]ResourceStatus{{Kind: "Namespace", Name: "legacy", RequiresDeletionConfirmation: true}})
+	app.Status.OperationState.Operation.Sync = nil
+
+	details := ConvertOperationState(app)
+
+	if details.AwaitingPruneConfirmation {
+		t.Error("expected a non-sync operation not to report waiting on prune confirmation")
+	}
+}
+
+func TestConvertOperationState_SyncWithoutPruneIsNotWaitingOnPruneConfirmation(t *testing.T) {
+	app := runningSyncOf([]ResourceStatus{{Kind: "Namespace", Name: "legacy", RequiresDeletionConfirmation: true}})
+	app.Status.OperationState.Operation.Sync.Prune = false
+
+	details := ConvertOperationState(app)
+
+	if details.AwaitingPruneConfirmation {
+		t.Error("expected a sync with pruning disabled not to report waiting on prune confirmation")
+	}
+}
+
 func TestConvertOperationState_FinishedSync_IsNotWaitingOnAnything(t *testing.T) {
 	app := runningSyncOf([]ResourceStatus{{Kind: "Namespace", Name: "legacy", RequiresDeletionConfirmation: true}})
 	app.Status.OperationState.Phase = "Succeeded"
