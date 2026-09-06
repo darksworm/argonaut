@@ -722,7 +722,7 @@ func (m *Model) renderConfirmSyncModal() string {
 	// Modal width: compact and centered
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
-	innerWidth := max(0, modalWidth-4) // border(2)+padding(2)
+	innerWidth := max(0, modalWidth-6) // border(2) + padding(2*2)
 
 	// Message: de-emphasize the "Sync" verb and highlight the subject
 	var titleLine string
@@ -742,12 +742,12 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	// Buttons: highlight selected using stronger contrast
 	inactiveFG := ensureContrastingForeground(inactiveBG, whiteBright)
-	active := lipgloss.NewStyle().Background(magentaBright).Foreground(textOnAccent).Bold(true).Padding(0, 2)
+	active := lipgloss.NewStyle().Background(syncedColor).Foreground(textOnDanger).Bold(true).Padding(0, 2)
 	inactive := lipgloss.NewStyle().Background(inactiveBG).Foreground(inactiveFG).Padding(0, 2)
-	yesBtn := inactive.Render("Yes")
+	syncBtn := inactive.Render("Sync")
 	cancelBtn := inactive.Render("Cancel")
 	if m.state.Modals.ConfirmSyncSelected == 0 {
-		yesBtn = active.Render("Yes")
+		syncBtn = active.Render("Sync")
 	}
 	if m.state.Modals.ConfirmSyncSelected == 1 {
 		cancelBtn = active.Render("Cancel")
@@ -758,7 +758,7 @@ func (m *Model) renderConfirmSyncModal() string {
 	// Simple rounded border; cyan accent
 	wrapper := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cyanBright).
+		BorderForeground(syncedColor).
 		Padding(1, 2).
 		Width(modalWidth)
 
@@ -767,31 +767,19 @@ func (m *Model) renderConfirmSyncModal() string {
 
 	title := center.Render(titleLine)
 
-	buttons := lipgloss.JoinHorizontal(lipgloss.Center, yesBtn, strings.Repeat(" ", 4), cancelBtn)
+	buttons := lipgloss.JoinHorizontal(lipgloss.Center, syncBtn, strings.Repeat(" ", 4), cancelBtn)
 	buttons = center.Render(buttons)
 
-	// Options line rendered piecewise to avoid ANSI resets affecting following text
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	on := lipgloss.NewStyle().Foreground(yellowBright).Bold(true)
-	var optsLine strings.Builder
-	optsLine.WriteString(dim.Render("p: Prune "))
-	if m.state.Modals.ConfirmSyncPrune {
-		optsLine.WriteString(on.Render("On"))
-	} else {
-		optsLine.WriteString(dim.Render("Off"))
-	}
-	// Always show watch toggle (single and multi)
-	optsLine.WriteString(dim.Render(" • w: Watch "))
-	if m.state.Modals.ConfirmSyncWatch {
-		optsLine.WriteString(on.Render("On"))
-	} else {
-		optsLine.WriteString(dim.Render("Off"))
-	}
-	aux := center.Render(optsLine.String())
+	// Left-aligned so the eye scans one column of values; the title and
+	// buttons stay centered, because they are not a list.
+	aux := renderSyncOptions([]syncOption{
+		{Key: "p", Label: "Prune", On: m.state.Modals.ConfirmSyncPrune, Clause: "removes extras", Danger: true},
+		{Key: "w", Label: "Watch", On: m.state.Modals.ConfirmSyncWatch},
+	}, innerWidth)
 
 	// Lines are already centered to innerWidth; avoid re-normalizing which can
 	// introduce asymmetric trailing padding.
-	body := strings.Join([]string{title, "", buttons, "", aux}, "\n")
+	body := strings.Join([]string{title, "", aux, "", buttons}, "\n")
 
 	// Add outer whitespace so the modal doesn't sit directly on top of content
 	outer := lipgloss.NewStyle().Padding(1, 1) // 1 blank line top/bottom, 1 space left/right
