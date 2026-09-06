@@ -804,7 +804,7 @@ func stripDiffHeader(out string) string {
 }
 
 // syncSelectedApplications syncs the currently selected applications
-func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
+func (m *Model) syncSelectedApplications(prune, force bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -830,7 +830,7 @@ func (m *Model) syncSelectedApplications(prune bool) tea.Cmd {
 		for _, appName := range selectedApps {
 			ctx, cancel := appcontext.WithAPITimeout(context.Background())
 			// Multi-app sync doesn't track per-app namespaces; pass nil (uses Argo CD default)
-			err := apiService.SyncApplication(ctx, server, appName, nil, prune)
+			err := apiService.SyncApplication(ctx, server, appName, nil, api.SyncOptions{Prune: prune, Force: force})
 			cancel()
 			if err != nil {
 				// Convert to structured error and return via TUI error handling
@@ -918,7 +918,7 @@ func (m *Model) deleteApplication(req model.AppDeleteRequestMsg) tea.Cmd {
 }
 
 // syncSingleApplication syncs a specific application
-func (m *Model) syncSingleApplication(appName string, appNamespace *string, prune bool) tea.Cmd {
+func (m *Model) syncSingleApplication(appName string, appNamespace *string, prune, force bool) tea.Cmd {
 	if m.state.Server == nil {
 		return func() tea.Msg {
 			return model.ApiErrorMsg{Message: "No server configured"}
@@ -934,7 +934,7 @@ func (m *Model) syncSingleApplication(appName string, appNamespace *string, prun
 		apiService := services.NewArgoApiService(server)
 
 		cblog.With("component", "api").Info("Starting sync", "app", appName)
-		err := apiService.SyncApplication(ctx, server, appName, appNamespace, prune)
+		err := apiService.SyncApplication(ctx, server, appName, appNamespace, api.SyncOptions{Prune: prune, Force: force})
 		if err != nil {
 			cblog.With("component", "api").Error("Sync failed", "app", appName, "err", err)
 			// Convert to structured error and return via TUI error handling

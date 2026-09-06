@@ -817,6 +817,23 @@ func (m *Model) renderTwoButtonConfirm(title string, accent color.Color, confirm
 	return outer.Render(wrapper.Render(body))
 }
 
+// renderForceSyncConfirm is the second step of a forced sync. Force bypasses
+// graceful deletion, so it is confirmed on its own rather than riding along
+// on the sync confirmation.
+func (m *Model) renderForceSyncConfirm(target string, isMulti bool) string {
+	subject := target
+	if isMulti {
+		subject = fmt.Sprintf("%d applications", len(m.state.Selections.SelectedApps))
+	}
+
+	bright := lipgloss.NewStyle().Foreground(whiteBright)
+	title := bright.Render("Force sync deletes and recreates resources in ") +
+		bright.Bold(true).Render(subject) + bright.Render(".")
+
+	return m.renderTwoButtonConfirm(title, outOfSyncColor, "Force sync",
+		m.state.Modals.ConfirmSyncSelected, "")
+}
+
 // renderTerminateConfirmModal asks whether to cancel the app's running operation
 func (m *Model) renderTerminateConfirmModal() string {
 	st := m.state.Modals.Terminate

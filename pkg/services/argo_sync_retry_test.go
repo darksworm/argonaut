@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/darksworm/argonaut/pkg/api"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -26,7 +27,7 @@ func TestSyncApplication_NetworkError_IsNotRetried(t *testing.T) {
 	srv := &model.Server{BaseURL: server.URL, Token: "test-token"}
 	svc := NewArgoApiService(srv)
 
-	err := svc.SyncApplication(context.Background(), srv, "my-app", nil, false)
+	err := svc.SyncApplication(context.Background(), srv, "my-app", nil, api.SyncOptions{})
 	if err == nil {
 		t.Fatal("expected an error from a dropped connection, got nil")
 	}

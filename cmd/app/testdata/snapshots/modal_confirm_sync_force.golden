@@ -1,13 +1,10 @@
                                                     
  ╭────────────────────────────────────────────────╮ 
  │                                                │ 
- │                 Sync demo-app?                 │ 
+ │   Force sync deletes and recreates resources   │ 
+ │                  in demo-app.                  │ 
  │                                                │ 
- │    p  Prune     On  removes extras             │ 
- │    f  Force     Off                            │ 
- │    w  Watch     On                             │ 
- │                                                │ 
- │               Sync        Cancel               │ 
+ │             Force sync      Cancel             │ 
  │                                                │ 
  ╰────────────────────────────────────────────────╯ 
                                                     

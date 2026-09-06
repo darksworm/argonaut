@@ -719,6 +719,10 @@ func (m *Model) renderConfirmSyncModal() string {
 	target := *m.state.Modals.ConfirmTarget
 	isMulti := target == "__MULTI__"
 
+	if m.state.Modals.ConfirmSyncForcePending {
+		return m.renderForceSyncConfirm(target, isMulti)
+	}
+
 	// Modal width: compact and centered
 	half := m.state.Terminal.Cols / 2
 	modalWidth := min(max(36, half), m.state.Terminal.Cols-6)
@@ -774,6 +778,7 @@ func (m *Model) renderConfirmSyncModal() string {
 	// buttons stay centered, because they are not a list.
 	aux := renderSyncOptions([]syncOption{
 		{Key: "p", Label: "Prune", On: m.state.Modals.ConfirmSyncPrune, Clause: "removes extras", Danger: true},
+		{Key: "f", Label: "Force", On: m.state.Modals.ConfirmSyncForce, Clause: "delete & recreate", Danger: true},
 		{Key: "w", Label: "Watch", On: m.state.Modals.ConfirmSyncWatch},
 	}, innerWidth)
 
