@@ -20,6 +20,17 @@ func syncModal(t *testing.T, prune, watch bool) string {
 	return stripANSI(m.renderConfirmSyncModal())
 }
 
+func forceSyncConfirmModal(t *testing.T) string {
+	t.Helper()
+	m := buildBaseModel(100, 30)
+	m.state.Mode = model.ModeConfirmSync
+	target := "demo-app"
+	m.state.Modals.ConfirmTarget = &target
+	m.state.Modals.ConfirmSyncForce = true
+	m.state.Modals.ConfirmSyncForcePending = true
+	return stripANSI(m.renderConfirmSyncModal())
+}
+
 // optionLine returns the single rendered line carrying the named option.
 func optionLine(t *testing.T, out, label string) string {
 	t.Helper()
@@ -118,15 +129,12 @@ func TestSyncModal_PutsOptionsAboveTheButtons(t *testing.T) {
 	}
 }
 
-func TestSyncModal_ForceConfirmationSpellsOutWhatForceDoes(t *testing.T) {
-	m := buildBaseModel(100, 30)
-	m.state.Mode = model.ModeConfirmSync
-	target := "demo-app"
-	m.state.Modals.ConfirmTarget = &target
-	m.state.Modals.ConfirmSyncForce = true
-	m.state.Modals.ConfirmSyncForcePending = true
+func TestGolden_ConfirmSyncModal_ForceConfirmation(t *testing.T) {
+	compareWithGolden(t, "modal_confirm_sync_force", forceSyncConfirmModal(t))
+}
 
-	out := stripANSI(m.renderConfirmSyncModal())
+func TestSyncModal_ForceConfirmationSpellsOutWhatForceDoes(t *testing.T) {
+	out := forceSyncConfirmModal(t)
 
 	for _, want := range []string{"demo-app", "recreates", "Force sync", "Cancel"} {
 		if !strings.Contains(out, want) {
