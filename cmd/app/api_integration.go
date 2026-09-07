@@ -730,6 +730,7 @@ func (m *Model) startLoadingResourceTree(app model.App) tea.Cmd {
 
 		return model.ResourceTreeLoadedMsg{
 			AppName:       app.Name,
+			AppNamespace:  appNamespace,
 			Health:        app.Health,
 			Sync:          app.Sync,
 			TreeJSON:      data,

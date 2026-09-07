@@ -95,7 +95,7 @@ func TestResourceTreeLoaded_NamesAndFetchesAnAlreadyOpenPane(t *testing.T) {
 	}
 
 	teaModel, cmd := m.Update(model.ResourceTreeLoadedMsg{
-		AppName: "test-app", SwitchEpoch: m.switchEpoch,
+		AppName: "test-app", AppNamespace: "test-namespace", SwitchEpoch: m.switchEpoch,
 	})
 	mm := teaModel.(*Model)
 
@@ -105,5 +105,36 @@ func TestResourceTreeLoaded_NamesAndFetchesAnAlreadyOpenPane(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Error("expected the named pane to start its pending fetches")
+	}
+}
+
+func TestResourceTreeLoaded_OutOfOrderSameNameOnlyNamesMatchingPane(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	m.state.Events = &model.EventsState{
+		Loading:        true,
+		DetailsLoading: true,
+		LoadSeq:        1,
+	}
+
+	// Two same-named applications are loading concurrently. The completion
+	// from the other namespace arrives first and must not claim this pane.
+	teaModel, cmd := m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", AppNamespace: "other-namespace", SwitchEpoch: m.switchEpoch,
+	})
+	m = teaModel.(*Model)
+	if m.state.Events.Target.AppName != "" || cmd != nil {
+		t.Fatalf("expected the other namespace's completion to leave the unnamed pane pending, got target %+v", m.state.Events.Target)
+	}
+
+	teaModel, cmd = m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", AppNamespace: "test-namespace", SwitchEpoch: m.switchEpoch,
+	})
+	m = teaModel.(*Model)
+	want := model.EventsTarget{AppName: "test-app", AppNamespace: "test-namespace"}
+	if m.state.Events.Target != want {
+		t.Errorf("expected the matching completion to name the pane target %+v, got %+v", want, m.state.Events.Target)
+	}
+	if cmd == nil {
+		t.Error("expected the matching completion to start the pending fetches")
 	}
 }

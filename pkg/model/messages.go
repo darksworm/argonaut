@@ -498,6 +498,7 @@ type RollbackExecutedMsg struct {
 // ResourceTreeLoadedMsg is sent when a resource tree is loaded for an app
 type ResourceTreeLoadedMsg struct {
 	AppName       string
+	AppNamespace  string
 	Health        string
 	Sync          string
 	TreeJSON      []byte
