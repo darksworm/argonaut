@@ -145,16 +145,22 @@ func digString(obj map[string]any, path ...string) string {
 	return s
 }
 
-// mark is the wall-clock instant a test began driving the TUI. Assertions wait
-// for an operation that started after it, so a run can never pass on the
-// operation a previous run — or the seed script — left behind. Comparing
-// against the previously seen startedAt is not enough: Argo CD's app cache can
-// serve a stale operationState for a second or two, which lets an older
-// operation look new.
-// Argo CD stamps startedAt at one-second resolution, so the mark is truncated
-// and the comparison is inclusive — an operation started inside the same second
-// as the mark is this test's, not a previous run's.
-func mark() time.Time { return time.Now().UTC().Truncate(time.Second) }
+// mark waits for the next whole second before the caller drives the TUI.
+// Argo CD records startedAt at one-second resolution: rounding down would
+// allow an old operation from the current second to satisfy the wait.
+// The new boundary is inclusive so an operation started immediately after
+// mark returns is accepted. This assumes the local cluster clock is aligned
+// with the test host; the fixtures must not be driven concurrently.
+func mark() time.Time { return markWithClock(time.Now, time.Sleep) }
+
+func markWithClock(now func() time.Time, sleep func(time.Duration)) time.Time {
+	next := now().UTC().Truncate(time.Second).Add(time.Second)
+	// This wait deliberately crosses the server timestamp's precision boundary.
+	for current := now(); current.Before(next); current = now() {
+		sleep(next.Sub(current))
+	}
+	return next
+}
 
 // waitForOperationAfter polls until an operation that started after `since`
 // reaches a terminal phase, and returns the app at that point.
