@@ -94,8 +94,9 @@ func (m *Model) paneCanFetch() bool {
 	return m.state.Events != nil && m.state.Events.Target.AppName != ""
 }
 
-// paneRefreshCmds returns the background refetches for the open pane:
-// details always, events unless the target cannot have any.
+// paneRefreshCmds returns no commands until the pane has a fetchable target.
+// Otherwise it refetches details always, and events unless the target cannot
+// have any.
 func (m *Model) paneRefreshCmds() tea.Cmd {
 	st := m.state.Events
 	if !m.paneCanFetch() {

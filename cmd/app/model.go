@@ -630,6 +630,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Clear loading overlay once initial tree is loaded
 		m.treeLoading = false
+		// The pane can be opened while the tree is still loading, before its
+		// target has an application name. Complete that pending target from the
+		// tree response and start the fetches whose loading flags remain set.
+		if st := m.state.Events; st != nil && st.Target.AppName == "" {
+			st.Target.AppName = msg.AppName
+			st.Target.AppNamespace = m.resolveAppNamespace(msg.AppName)
+			return m, m.paneFetchCmds()
+		}
 		// The pane is part of the tree view: open it over the first loaded
 		// tree unless the user configured it away (or it is already open)
 		if m.canAutoOpenPane() && m.eventsAutoOpenEnabled() {

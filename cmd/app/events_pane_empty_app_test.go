@@ -80,3 +80,30 @@ func TestPaneRefresh_WithAnAppName_Fetches(t *testing.T) {
 		t.Error("expected the refresh to fetch once the app is known")
 	}
 }
+
+// A pane opened before the resource tree arrives starts with an unnamed
+// target. The tree load must name that existing pane and start its pending
+// requests; waiting for a scheduled refresh is not sufficient when refresh is
+// disabled.
+func TestResourceTreeLoaded_NamesAndFetchesAnAlreadyOpenPane(t *testing.T) {
+	m := buildEventsPaneTestModel()
+	m.state.Events = &model.EventsState{
+		Target:         model.EventsTarget{},
+		Loading:        true,
+		DetailsLoading: true,
+		LoadSeq:        1,
+	}
+
+	teaModel, cmd := m.Update(model.ResourceTreeLoadedMsg{
+		AppName: "test-app", SwitchEpoch: m.switchEpoch,
+	})
+	mm := teaModel.(*Model)
+
+	want := model.EventsTarget{AppName: "test-app", AppNamespace: "test-namespace"}
+	if mm.state.Events.Target != want {
+		t.Errorf("expected the loaded tree to name the pane target %+v, got %+v", want, mm.state.Events.Target)
+	}
+	if cmd == nil {
+		t.Error("expected the named pane to start its pending fetches")
+	}
+}
