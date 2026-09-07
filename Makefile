@@ -1,5 +1,5 @@
 
-.PHONY: dev test unit e2e goldens \
+.PHONY: dev test unit e2e real-e2e goldens \
 	k3d-start k3d-stop k3d-restart k3d-delete \
 	argocd-up argocd-down argocd-restart \
 	argocd-portforward argocd-portforward-stop \
@@ -40,6 +40,11 @@ unit:
 # Run only e2e tests.
 e2e:
 	go test -tags e2e ./e2e -v -count=1 -parallel $(PARALLEL)
+
+# Run the horizontal e2e suite against the local ArgoCD (see argocd/fixtures).
+# Requires: make argocd-up && make argocd-git-daemon && ./argocd/fixtures/seed-sync-fixtures.sh
+real-e2e:
+	ARGONAUT_REAL_ARGOCD=1 go test -tags e2e ./e2e -run TestRealArgoCD -v -count=1
 
 # Regenerate golden snapshots for app tests.
 goldens:

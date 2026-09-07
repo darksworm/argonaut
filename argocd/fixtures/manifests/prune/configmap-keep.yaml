@@ -1,0 +1,7 @@
+# Stays in git for the whole fixture — the app should remain Synced on this one.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keep-me
+data:
+  role: "permanent"

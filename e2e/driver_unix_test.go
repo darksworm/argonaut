@@ -746,11 +746,15 @@ func MockArgoServerExpiredToken() (*httptest.Server, error) {
 
 // WriteArgoConfigWithToken writes a CLI config using a specific token
 func WriteArgoConfigWithToken(path, baseURL, token string) error {
+	return writeArgoConfigWithTLS(path, baseURL, token, true)
+}
+
+func writeArgoConfigWithTLS(path, baseURL, token string, insecure bool) error {
 	var y bytes.Buffer
 	y.WriteString("contexts:\n")
 	y.WriteString("  - name: default\n    server: " + baseURL + "\n    user: default-user\n")
 	y.WriteString("servers:\n")
-	y.WriteString("  - server: " + baseURL + "\n    insecure: true\n")
+	fmt.Fprintf(&y, "  - server: %s\n    insecure: %t\n", baseURL, insecure)
 	y.WriteString("users:\n")
 	y.WriteString("  - name: default-user\n    auth-token: " + token + "\n")
 	y.WriteString("current-context: default\n")
