@@ -49,7 +49,13 @@ if ! argocd account get-user-info >/dev/null 2>&1; then
   echo "Argo CD is not reachable — run 'make argocd-up' first." >&2
   exit 1
 fi
-if ! bash -c "exec 3<>/dev/tcp/127.0.0.1/$GIT_DAEMON_PORT; exec 3<&-" 2>/dev/null; then
+if ! [[ "$GIT_DAEMON_PORT" =~ ^[0-9]{1,5}$ ]] ||
+   ! (( 10#$GIT_DAEMON_PORT >= 1 && 10#$GIT_DAEMON_PORT <= 65535 )); then
+  echo "Invalid GIT_DAEMON_PORT: expected a port from 1 to 65535." >&2
+  exit 1
+fi
+GIT_DAEMON_PORT=$((10#$GIT_DAEMON_PORT))
+if ! bash -c 'exec 3<>"/dev/tcp/127.0.0.1/$1" || exit 1; exec 3<&-' _ "$GIT_DAEMON_PORT" 2>/dev/null; then
   echo "No git daemon on :$GIT_DAEMON_PORT — run 'make argocd-git-daemon' first." >&2
   exit 1
 fi
@@ -69,6 +75,10 @@ for app in "${APPS[@]}"; do
     argocd app get "$app" >/dev/null 2>&1 || break
     sleep 1
   done
+  if argocd app get "$app" >/dev/null 2>&1; then
+    echo "Timed out waiting for Application '$app' to be deleted; fixtures were not reset." >&2
+    exit 1
+  fi
 done
 
 rm -rf "$REPO_DIR"

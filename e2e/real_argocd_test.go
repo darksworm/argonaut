@@ -7,12 +7,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/darksworm/argonaut/pkg/config"
+	"github.com/darksworm/argonaut/pkg/model"
 )
 
 // The horizontal suite drives the real TUI against a real Argo CD and then
@@ -33,9 +36,10 @@ const (
 )
 
 type realArgo struct {
-	baseURL string
-	token   string
-	client  *http.Client
+	baseURL  string
+	token    string
+	insecure bool
+	client   *http.Client
 }
 
 // connectRealArgo reads the same CLI config the app reads, so the test
@@ -58,16 +62,37 @@ func connectRealArgo(t *testing.T) *realArgo {
 		t.Fatal("no auth token in the argocd CLI config — run 'make argocd-login'")
 	}
 
+	r, err := newRealArgo(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func newRealArgo(server *model.Server) (*realArgo, error) {
+	target, err := url.Parse(server.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid local Argo CD URL: %w", err)
+	}
+	ip := net.ParseIP(target.Hostname())
+	if (target.Scheme != "http" && target.Scheme != "https") || target.User != nil ||
+		(target.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback())) {
+		return nil, fmt.Errorf("real Argo CD tests require a loopback HTTP(S) endpoint")
+	}
+
 	return &realArgo{
-		baseURL: server.BaseURL,
-		token:   server.Token,
+		baseURL:  server.BaseURL,
+		insecure: server.Insecure,
+		token:    server.Token,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
+			// A redirect must not escape the validated local endpoint.
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // local k3d, self-signed
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: server.Insecure}, //nolint:gosec // explicit CLI setting, loopback only
 			},
 		},
-	}
+	}, nil
 }
 
 // app fetches an application straight from the Argo CD API. Assertions read
@@ -173,7 +198,7 @@ func startAgainstRealArgo(t *testing.T, r *realArgo) *TUITestFramework {
 	if err != nil {
 		t.Fatalf("setup workspace: %v", err)
 	}
-	if err := WriteArgoConfigWithToken(cfgPath, r.baseURL, r.token); err != nil {
+	if err := writeArgoConfigWithTLS(cfgPath, r.baseURL, r.token, r.insecure); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	if err := tf.StartAppArgs([]string{"-argocd-config=" + cfgPath}); err != nil {
@@ -249,7 +274,7 @@ func TestRealArgoCD_DryRunSyncAppliesNothing(t *testing.T) {
 
 	// The pane label is the one deliverable only the screen can confirm;
 	// everything else here is asserted against the server.
-	if !tf.WaitForScreen("dry run", realTimeout) {
+	if !tf.WaitForScreen("Sync (dry run)", realTimeout) {
 		t.Errorf("expected the sync status pane to mark the dry run:\n%s", tf.Screen())
 	}
 }

@@ -1,26 +1,36 @@
-# Sync-option fixtures (draft)
+# Sync-option fixtures
 
 Three small Argo CD Applications for exercising sync options against the local
-k3d Argo CD. Nothing here is in the argonaut repo yet — these are drafts.
+k3d Argo CD.
 
 ```bash
 make argocd-up
 make argocd-git-daemon
-./seed-sync-fixtures.sh
+./argocd/fixtures/seed-sync-fixtures.sh
 ```
 
 `seed-sync-fixtures.sh` reuses `scripts/seed-history.sh`'s mechanism: it builds a
 throwaway git repo next to the argonaut checkout (`argonaut-sync-fixtures-repo`),
 which the `git daemon` from `make argocd-git-daemon` exports, so the cluster
 clones it as `git://host.k3d.internal/argonaut-sync-fixtures-repo` with no push
-to any remote. Re-running the script rebuilds the repo and re-syncs all three
-apps. The Applications carry no finalizer (matching `apps-hang.yaml`), so
-deleting them leaves the ConfigMaps and namespaces behind; the next run adopts
-them again, so the end state is right even though it is not a clean slate.
+to any remote. Re-running the script deletes the old Applications with
+`argocd app delete --yes`, which cascades to managed resources by default,
+then rebuilds the repo and syncs the two prune apps. The schema-error app is
+left unsynced. The script stops if an old Application remains after 60 seconds,
+before rebuilding the repository or applying new Applications.
 
-If these move into the repo, `argocd/fixtures/` or `scripts/fixtures/` both work
-— the script derives the daemon base path from `git rev-parse --show-toplevel`.
+The script derives the daemon base path from `git rev-parse --show-toplevel`.
 Outside a checkout, set `GIT_DAEMON_BASE_PATH`.
+
+The real e2e harness accepts only loopback endpoints (`localhost`, `127.0.0.1`,
+or `::1`) and honors the CLI context's `insecure` setting. Use the local context
+created by `make argocd-login` for the demo's self-signed certificate.
+
+Run the seed script's isolated regression tests without a cluster:
+
+```bash
+python3 -B -m unittest discover -s argocd/fixtures -p '*_test.py'
+```
 
 ## The fixtures
 
