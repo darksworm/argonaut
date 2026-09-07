@@ -98,6 +98,7 @@ type SyncOperation struct {
 	// DryRun and Resources qualify what the operation actually did: a dry run
 	// applies nothing, and a non-empty Resources means only a subset was synced.
 	DryRun    bool                 `json:"dryRun,omitempty"`
+	Prune     bool                 `json:"prune,omitempty"`
 	Resources []SyncResourceTarget `json:"resources,omitempty"`
 }
 
@@ -668,17 +669,37 @@ func ConvertOperationState(argoApp ArgoApplication) *model.SyncStatusDetails {
 	}
 	operation, note := describeOperation(argoApp)
 	return &model.SyncStatusDetails{
-		Operation:     operation,
-		OperationNote: note,
-		Phase:         opState.Phase,
-		Message:       shortenShas(flattenWhitespace(opState.Message)),
-		StartedAt:     opState.StartedAt,
-		FinishedAt:    opState.FinishedAt,
-		Revision:      opState.resolvedRevision(),
-		InitiatedBy:   opState.Operation.InitiatedBy.Username,
-		Automated:     opState.Operation.InitiatedBy.Automated,
-		Resources:     resources,
+		AwaitingPruneConfirmation: awaitingPruneConfirmation(argoApp),
+		Operation:                 operation,
+		OperationNote:             note,
+		Phase:                     opState.Phase,
+		Message:                   shortenShas(flattenWhitespace(opState.Message)),
+		StartedAt:                 opState.StartedAt,
+		FinishedAt:                opState.FinishedAt,
+		Revision:                  opState.resolvedRevision(),
+		InitiatedBy:               opState.Operation.InitiatedBy.Username,
+		Automated:                 opState.Operation.InitiatedBy.Automated,
+		Resources:                 resources,
 	}
+}
+
+// awaitingPruneConfirmation reports a sync that has stopped and is waiting on
+// a human. Argo CD leaves such an operation in Running indefinitely with no
+// message, so without this the only visible state is a sync that never ends.
+func awaitingPruneConfirmation(argoApp ArgoApplication) bool {
+	if argoApp.Status.OperationState.Phase != "Running" {
+		return false
+	}
+	sync := argoApp.Status.OperationState.Operation.Sync
+	if sync == nil || !sync.Prune {
+		return false
+	}
+	for _, r := range argoApp.Status.Resources {
+		if r.RequiresPruning && r.RequiresDeletionConfirmation {
+			return true
+		}
+	}
+	return false
 }
 
 // describeOperation names what the last operation actually was. Argo CD
@@ -781,13 +802,17 @@ type ResourceTree struct {
 
 // ResourceStatus holds sync/health status for a managed resource (from Application.status.resources[])
 type ResourceStatus struct {
-	Group     string          `json:"group"`
-	Kind      string          `json:"kind"`
-	Name      string          `json:"name"`
-	Namespace string          `json:"namespace,omitempty"`
-	Status    string          `json:"status"` // Sync status: "Synced", "OutOfSync"
-	Version   string          `json:"version"`
-	Health    *ResourceHealth `json:"health,omitempty"`
+	Group           string          `json:"group"`
+	Kind            string          `json:"kind"`
+	Name            string          `json:"name"`
+	Namespace       string          `json:"namespace,omitempty"`
+	Status          string          `json:"status"` // Sync status: "Synced", "OutOfSync"
+	Version         string          `json:"version"`
+	Health          *ResourceHealth `json:"health,omitempty"`
+	RequiresPruning bool            `json:"requiresPruning,omitempty"`
+	// RequiresDeletionConfirmation is set by Argo CD when the resource carries
+	// Prune=confirm or Delete=confirm.
+	RequiresDeletionConfirmation bool `json:"requiresDeletionConfirmation,omitempty"`
 }
 
 // GetResourceTree retrieves the resource tree for an application
