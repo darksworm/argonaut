@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.20.0](https://github.com/darksworm/argonaut/compare/v2.19.0...v2.20.0) (2026-09-08)
+
+
+### Features
+
+* add a dry run option to the sync modal ([#279](https://github.com/darksworm/argonaut/issues/279)) ([326623c](https://github.com/darksworm/argonaut/commit/326623ccec1db8c2549eeda11c94e988127afdd2))
+* add a force option to the sync modal ([#278](https://github.com/darksworm/argonaut/issues/278)) ([e34c401](https://github.com/darksworm/argonaut/commit/e34c4012a9ea24e9a56eefccec00aa42aac3a079))
+* explain a sync waiting on prune confirmation ([#280](https://github.com/darksworm/argonaut/issues/280)) ([f4c4f35](https://github.com/darksworm/argonaut/commit/f4c4f35449bc765d2dfbcd9c394e96b3bc1ff2f2))
+* name the operation the sync status pane is reporting ([#277](https://github.com/darksworm/argonaut/issues/277)) ([f8593a1](https://github.com/darksworm/argonaut/commit/f8593a1db383da505ac5198015cffdc340a1cc16))
+* redesigned sync modal into a left-aligned table ([#276](https://github.com/darksworm/argonaut/issues/276)) ([59d9795](https://github.com/darksworm/argonaut/commit/59d97955222e21ea3ea7542e834c5fac7fc6c975))
+* terminate a running sync ([#273](https://github.com/darksworm/argonaut/issues/273)) ([61bc1c2](https://github.com/darksworm/argonaut/commit/61bc1c282db678c4401991e8c473a1667fd984a5))
+
+
+### Bug Fixes
+
+* stop the pane asking Argo CD for an unnamed application ([#282](https://github.com/darksworm/argonaut/issues/282)) ([7ed4e4b](https://github.com/darksworm/argonaut/commit/7ed4e4b6b1d63ee647afcbc4777735315f788cae))
+
 ## [2.19.0](https://github.com/darksworm/argonaut/compare/v2.18.0...v2.19.0) (2026-08-08)
 
 
