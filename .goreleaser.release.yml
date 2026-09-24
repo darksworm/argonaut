@@ -87,12 +87,14 @@ homebrew_casks:
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/argonaut"]
-          end
+    # GoReleaser lifecycle hooks still emit deprecated Homebrew flight blocks.
+    # Escape the Homebrew runtime token through GoReleaser's template pass.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/argonaut"]
+        end
+      end
     caveats: |
       To get started:
         argonaut --help
