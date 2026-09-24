@@ -1,9 +1,8 @@
 name: aur-git-publish
 
 on:
-  # push trigger temporarily disabled: aur.archlinux.org has disabled uploads; revert when they re-enable
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
