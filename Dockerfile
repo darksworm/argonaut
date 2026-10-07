@@ -2,7 +2,7 @@
 # Builder #
 ###########
 # Build a static Linux binary with Go
-FROM golang:1.25-alpine AS builder
+FROM golang:1.27-alpine AS builder
 WORKDIR /src
 
 RUN apk add --no-cache git
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Runtime   #
 #############
 # Use Alpine (musl) to match the compiled binary's dynamic linker
-FROM alpine:3.20
+FROM alpine:3.24
 
 ARG TARGETARCH
 
