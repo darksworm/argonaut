@@ -3,11 +3,80 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
+	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func generateTLSCertificates(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	now := time.Now()
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Argonaut E2E CA"},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	writePEM := func(name, kind string, data []byte) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(directory, name), pem.EncodeToMemory(&pem.Block{Type: kind, Bytes: data}), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, ca, ca, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writePEM("ca.pem", "CERTIFICATE", caDER)
+	for index, name := range []string{"server", "client"} {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		certificate := &x509.Certificate{
+			SerialNumber: big.NewInt(int64(index + 2)),
+			Subject:      pkix.Name{CommonName: name},
+			NotBefore:    ca.NotBefore,
+			NotAfter:     ca.NotAfter,
+			KeyUsage:     x509.KeyUsageDigitalSignature,
+			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		}
+		if name == "server" {
+			certificate.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			certificate.DNSNames = []string{"localhost"}
+			certificate.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+		}
+		certificateDER, err := x509.CreateCertificate(rand.Reader, certificate, ca, &key.PublicKey, caKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writePEM(name+".crt", "CERTIFICATE", certificateDER)
+		writePEM(name+".key", "PRIVATE KEY", keyDER)
+	}
+	return directory
+}
 
 // TestTLSInvalidCertFile tests that argonaut shows proper error when cert file is invalid
 func TestTLSInvalidCertFile(t *testing.T) {
@@ -57,12 +126,9 @@ func TestTLSUntrustedCert(t *testing.T) {
 	t.Cleanup(tf.Cleanup)
 
 	// Get absolute paths to test certificates
-	cwd, err := filepath.Abs(".")
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	serverCertPath := filepath.Join(cwd, "testdata", "certs", "server.crt")
-	serverKeyPath := filepath.Join(cwd, "testdata", "certs", "server.key")
+	cwd := generateTLSCertificates(t)
+	serverCertPath := filepath.Join(cwd, "server.crt")
+	serverKeyPath := filepath.Join(cwd, "server.key")
 
 	// Create HTTPS server with self-signed certificate
 	srv, err := MockArgoServerHTTPS(serverCertPath, serverKeyPath)
@@ -109,13 +175,10 @@ func TestTLSTrustedCert(t *testing.T) {
 	t.Cleanup(tf.Cleanup)
 
 	// Get absolute paths to test certificates
-	cwd, err := filepath.Abs(".")
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	serverCertPath := filepath.Join(cwd, "testdata", "certs", "server.crt")
-	serverKeyPath := filepath.Join(cwd, "testdata", "certs", "server.key")
-	caCertPath := filepath.Join(cwd, "testdata", "certs", "ca.pem")
+	cwd := generateTLSCertificates(t)
+	serverCertPath := filepath.Join(cwd, "server.crt")
+	serverKeyPath := filepath.Join(cwd, "server.key")
+	caCertPath := filepath.Join(cwd, "ca.pem")
 
 	// Create HTTPS server with self-signed certificate
 	srv, err := MockArgoServerHTTPS(serverCertPath, serverKeyPath)
@@ -168,13 +231,10 @@ func TestTLSClientCertAuthFails(t *testing.T) {
 	t.Cleanup(tf.Cleanup)
 
 	// Get absolute paths to test certificates
-	cwd, err := filepath.Abs(".")
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	serverCertPath := filepath.Join(cwd, "testdata", "certs", "server.crt")
-	serverKeyPath := filepath.Join(cwd, "testdata", "certs", "server.key")
-	caCertPath := filepath.Join(cwd, "testdata", "certs", "ca.pem")
+	cwd := generateTLSCertificates(t)
+	serverCertPath := filepath.Join(cwd, "server.crt")
+	serverKeyPath := filepath.Join(cwd, "server.key")
+	caCertPath := filepath.Join(cwd, "ca.pem")
 
 	// Create HTTPS server that requires client certificates
 	srv, err := MockArgoServerHTTPSWithClientAuth(serverCertPath, serverKeyPath, caCertPath)
@@ -214,15 +274,12 @@ func TestTLSClientCertAuthSucceeds(t *testing.T) {
 	t.Cleanup(tf.Cleanup)
 
 	// Get absolute paths to test certificates
-	cwd, err := filepath.Abs(".")
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	serverCertPath := filepath.Join(cwd, "testdata", "certs", "server.crt")
-	serverKeyPath := filepath.Join(cwd, "testdata", "certs", "server.key")
-	caCertPath := filepath.Join(cwd, "testdata", "certs", "ca.pem")
-	clientCertPath := filepath.Join(cwd, "testdata", "certs", "client.crt")
-	clientKeyPath := filepath.Join(cwd, "testdata", "certs", "client.key")
+	cwd := generateTLSCertificates(t)
+	serverCertPath := filepath.Join(cwd, "server.crt")
+	serverKeyPath := filepath.Join(cwd, "server.key")
+	caCertPath := filepath.Join(cwd, "ca.pem")
+	clientCertPath := filepath.Join(cwd, "client.crt")
+	clientKeyPath := filepath.Join(cwd, "client.key")
 
 	// Create HTTPS server that requires client certificates
 	srv, err := MockArgoServerHTTPSWithClientAuth(serverCertPath, serverKeyPath, caCertPath)
