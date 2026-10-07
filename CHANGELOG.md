@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.1](https://github.com/darksworm/argonaut/compare/v2.20.0...v2.20.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* update dependencies and build tools to current releases ([#288](https://github.com/darksworm/argonaut/issues/288)) ([5a1eca5](https://github.com/darksworm/argonaut/commit/5a1eca5b4b4c1a1bed5843337402dc95b1eabdfc))
+
 ## [2.20.0](https://github.com/darksworm/argonaut/compare/v2.19.0...v2.20.0) (2026-09-24)
 
 
