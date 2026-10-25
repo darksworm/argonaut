@@ -32,7 +32,7 @@
             mainProgram = "argonaut";
           };
           src = ./.;
-          vendorHash = "sha256-pJ/tE7Wrkk5RbXdWYrdGVK5New/wAtTAAPGLknaf2uw=";
+          vendorHash = "sha256-4Lr/nYz6F0uO7HspxiCmccsYuWD7jAB2rUFqvKnzP/Q=";
           proxyVendor = true;
           subPackages = [ "cmd/app" ];
           ldflags = [
