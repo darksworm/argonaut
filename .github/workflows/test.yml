@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Run staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 
       - name: Run tests (unit + e2e)
         # Match parallelism to the runner's core count — full CPU
