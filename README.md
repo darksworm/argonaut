@@ -5,7 +5,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/releases/latest)
 [![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
 
-**Like [k9s](https://k9scli.io), but for Argo CD.** Browse apps, watch resources and events live, sync, diff, and roll back — all from the keyboard, without leaving your terminal.
+**Like [k9s](https://k9scli.io), but for Argo CD.**
 
 <img src="assets/argonaut_demo.gif" alt="Argonaut feature tour: browsing apps, viewing the resource tree and events, diffing, syncing, and rolling back"/>
 
