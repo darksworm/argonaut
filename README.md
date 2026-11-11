@@ -1,11 +1,22 @@
-# 🐙 Argonaut — Argo CD TUI
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/argonaut_logo_dark.svg">
+    <img src="assets/argonaut_logo_light.svg" alt="Argonaut // Argo CD TUI" width="560">
+  </picture>
+</h1>
+
+<p align="center">
+  <strong>Like <a href="https://k9scli.io">k9s</a>, but for Argo CD.</strong>
+</p>
+
+<div align="center">
 
 [![GitHub Stars](https://img.shields.io/github/stars/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/stargazers)
 [![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)
 [![Latest Release](https://img.shields.io/github/v/release/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/releases/latest)
 [![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
 
-**Like [k9s](https://k9scli.io), but for Argo CD.**
+</div>
 
 <img src="assets/argonaut_demo.gif" alt="Argonaut feature tour: browsing apps, viewing the resource tree and events, diffing, syncing, and rolling back"/>
 
@@ -165,8 +176,6 @@ Argonaut reuses the session from the [Argo CD CLI](https://argo-cd.readthedocs.i
 
 Press `?` or type `:help` inside Argonaut to see every command and key binding.
 
----
-
 ## ✨ Highlights
 
 - **Instant app browsing** with live updates (NDJSON streams)
@@ -178,8 +187,6 @@ Press `?` or type `:help` inside Argonaut to see every command and key binding.
 - **Guided rollback** with revision metadata and progress streaming
 - **Resource actions**, discovered dynamically per resource. This includes Argo Rollouts actions and any custom actions you have defined
 - **Keyboard-only workflow** with Vim-like navigation
-
----
 
 ## 📸 Screenshots
 
@@ -261,8 +268,6 @@ argonaut
 [port_forward]
 namespace = "my-argocd-namespace"
 ```
-
----
 
 ## ⚙️ Configuration
 
@@ -460,8 +465,6 @@ Settings for port-forward mode (when ArgoCD CLI is configured with `server: port
 | Option | Description | Default |
 |--------|-------------|---------|
 | `namespace` | Kubernetes namespace where ArgoCD is installed | `argocd` |
-
----
 
 ## 🤝 Contributing
 
