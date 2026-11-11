@@ -1,46 +1,40 @@
 # 🐙 Argonaut — Argo CD TUI
 
+[![GitHub Stars](https://img.shields.io/github/stars/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/stargazers)
 [![Github Downloads](https://img.shields.io/github/downloads/darksworm/argonaut/total?style=flat-square&label=github+downloads)](https://github.com/darksworm/argonaut/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/releases/latest)
 [![License](https://img.shields.io/github/license/darksworm/argonaut?style=flat-square)](https://github.com/darksworm/argonaut/blob/main/LICENSE)
-[![CodeRabbit](https://img.shields.io/coderabbit/prs/github/darksworm/argonaut?style=flat-square)](https://www.coderabbit.ai)
 
-Argonaut is a keyboard-first terminal UI for **Argo CD**, built with **Bubbletea**. Browse apps, scope by clusters/namespaces/projects, stream live resource status, trigger syncs, inspect diffs in your favorite pager, and roll back safely — all without leaving your terminal.
+**Like [k9s](https://k9scli.io), but for Argo CD.** Browse apps, watch resources and events live, sync, diff, and roll back — all from the keyboard, without leaving your terminal.
 
-> ❤️ 🐶
-> &nbsp;Inspired by the great UX of [k9s](https://k9scli.io) — but for Argo CD.
+<img src="assets/argonaut_demo.gif" alt="Argonaut feature tour: browsing apps, viewing the resource tree and events, diffing, syncing, and rolling back"/>
 
 ---
 
-## 📦 Prerequisites
+## 🚀 Install
 
-- [**Argo CD CLI**](https://argo-cd.readthedocs.io/en/stable/cli_installation/) installed
-- [**Delta**](https://dandavison.github.io/delta/installation.html) installed for enhanced diffs (optional, falls back to `git`)
+**Homebrew (Linux/macOS)**
 
----
+```bash
+brew tap darksworm/homebrew-tap
+brew install darksworm/tap/argonaut
+```
 
-## 🚀 Installation methods
-
-<details>
-  <summary><strong>Install Script (Linux/macOS)</strong></summary>
+**Install script (Linux/macOS)**
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh
 ```
 
-The install script automatically detects your system (including musl vs glibc on Linux) and downloads the appropriate binary from the latest release.
-
-You can also install a specific version:
-```bash
-curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh -s -- v1.13.0
-```
-</details>
+Then [log in and start it](#-quickstart). Other ways to install:
 
 <details>
-  <summary><strong>Homebrew (Linux/MacOS)</strong></summary>
+  <summary><strong>Install script: pick a version</strong></summary>
+
+The install script detects your system (including musl vs glibc on Linux) and downloads the matching binary from the latest release. To install a specific version instead:
 
 ```bash
-brew tap darksworm/homebrew-tap
-brew install darksworm/tap/argonaut
+curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh -s -- v1.13.0
 ```
 </details>
 
@@ -60,11 +54,11 @@ yay -S argonaut-git
 
 <details>
     <summary><strong>Nix</strong></summary>
-With Nix and Flakes enabled, you can run or install Argonaut from nixpkgs or directly from the repository.
+With Nix and Flakes enabled, you can install Argonaut from nixpkgs or run it directly from the repository.
 
 ### nixpkgs
 
-Argonaut is currently available on the `unstable` channel of [nixpkgs](https://search.nixos.org/packages?channel=unstable&query=argonaut&show=argonaut). So you can install it using
+Argonaut is available on the `unstable` channel of [nixpkgs](https://search.nixos.org/packages?channel=unstable&query=argonaut&show=argonaut). Install it with:
 
 ```bash
 nix-env -iA nixos.argonaut
@@ -156,6 +150,7 @@ You can download binaries and packages in from the [**latest release**](https://
 </details>
 
 ## ⚡ Quickstart
+
 ```bash
 # Log in to your Argo CD server
 argocd login
@@ -163,6 +158,10 @@ argocd login
 # Start Argonaut
 argonaut
 ```
+
+Argonaut reuses the session from the [Argo CD CLI](https://argo-cd.readthedocs.io/en/stable/cli_installation/), so that needs to be installed. [Delta](https://dandavison.github.io/delta/installation.html) is optional: diffs look better with it, and fall back to `git` without it.
+
+Press `?` or type `:help` inside Argonaut to see every command and key binding.
 
 ---
 
@@ -172,10 +171,10 @@ argonaut
 - **Scoped navigation**: clusters → namespaces → projects → apps
 - **Command palette** (`:`) for actions: `sync`, `diff`, `rollback`, `resources`, etc.
 - **Live resources view** per app with health & sync status
-- **Events & sync status pane** beside the resource tree — Kubernetes events and the last sync operation for whatever row you're on, auto-refreshing
+- **Events & sync status pane** beside the resource tree. It shows Kubernetes events and the last sync operation for the selected row, and refreshes automatically
 - **External diff integration**: prefers `delta`, falls back to `git --no-index diff | less`
 - **Guided rollback** with revision metadata and progress streaming
-- **Execute actions** on resources — dynamically discovered per resource, including Argo Rollouts and any custom-defined actions
+- **Resource actions**, discovered dynamically per resource. This includes Argo Rollouts actions and any custom actions you have defined
 - **Keyboard-only workflow** with Vim-like navigation
 
 ---
@@ -212,14 +211,14 @@ argonaut
 ## Advanced Features
 
 ### Client certificate authentication
-Argonaut supports client certificate authentication. You just need to pass a couple arguments to the argonaut command:
+To authenticate with a client certificate, pass the certificate and its key:
 
 ```bash
 argonaut --client-cert=/path/to/cert --client-cert-key=/path/to/key
 ```
 
 ### Self-signed certificates
-If your Argo CD server uses a self-signed certificate, you can provide a custom CA certificate to trust:
+If your Argo CD server uses a self-signed certificate, pass the CA certificate that Argonaut should trust:
 
 ```bash
 argonaut --ca-cert=/path/to/ca.crt
@@ -227,7 +226,7 @@ argonaut --ca-cert=/path/to/ca.crt
 
 ### Port-forward mode
 
-If your Argo CD server isn't directly accessible (e.g., running in a private cluster), Argonaut can connect via kubectl port-forward:
+If you cannot reach your Argo CD server directly (for example, it runs in a private cluster), Argonaut can connect through `kubectl port-forward`:
 
 ```bash
 # Configure ArgoCD CLI for port-forward mode
@@ -241,7 +240,7 @@ argonaut
 - `kubectl` configured with access to the cluster
 - ArgoCD server pod running in the target namespace
 
-**Custom namespace:** If ArgoCD is installed in a different namespace, add to your config:
+**Custom namespace:** If Argo CD is installed in a different namespace, set it in your config:
 ```toml
 # ~/.config/argonaut/config.toml
 [port_forward]
@@ -358,7 +357,7 @@ viewer = "meld {left} {right}"
 formatter = "delta --side-by-side --line-numbers"
 ```
 
-If no `viewer` is set, diffs are shown in an internal pager. If no `formatter` is set but [delta](https://dandavison.github.io/delta/) is installed, it will be used automatically.
+If no `viewer` is set, Argonaut shows diffs in an internal pager. If no `formatter` is set and [delta](https://dandavison.github.io/delta/) is installed, Argonaut uses delta automatically.
 
 #### `[events]`
 
@@ -369,7 +368,7 @@ Settings for the events/status pane shown next to the resource tree.
 | `refresh_interval` | How often the pane refetches events and sync status. Use Go duration format (e.g., "30s", "1m"); `"0"` disables auto-refresh. | `"10s"` |
 | `auto_open` | Open the pane automatically when the resource tree view opens. Set to `false` to open it on demand with `e`. | `true` |
 
-At runtime, `:events on|off` changes this for the current session; add `always` (e.g. `:events off always`) to persist the choice here.
+At runtime, `:events on|off` changes this for the current session. Add `always` (for example, `:events off always`) to save the choice to the config file.
 
 #### `[http_timeouts]`
 
@@ -390,11 +389,12 @@ request_timeout = "60s"
 request_timeout = "2m"
 ```
 
-> **Note:** If you're experiencing timeout errors when listing applications or resources, increase this value. The timeout applies to all API operations including listing applications, getting resources, and sync operations.
+> [!NOTE]
+> If you get timeout errors when listing applications or resources, increase this value. The timeout applies to all API operations, including sync.
 
 #### `[updates]`
 
-Settings for the automatic update check. On startup (and once per hour after that), Argonaut hits the GitHub Releases API to see whether a newer version exists; when one does, it shows a `New version available, run :upgrade` hint in the status bar.
+Settings for the automatic update check. On startup, and once per hour after that, Argonaut asks the GitHub Releases API whether a newer version exists. If one does, the status bar shows a `New version available, run :upgrade` hint.
 
 | Option | Description | Default |
 |--------|-------------|---------|
