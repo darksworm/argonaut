@@ -9,18 +9,16 @@
 
 <img src="assets/argonaut_demo.gif" alt="Argonaut feature tour: browsing apps, viewing the resource tree and events, diffing, syncing, and rolling back"/>
 
----
-
 ## 🚀 Install
 
-**Homebrew (Linux/macOS)**
+**Homebrew**
 
 ```bash
 brew tap darksworm/homebrew-tap
 brew install darksworm/tap/argonaut
 ```
 
-**Install script (Linux/macOS)**
+**Install script**
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh
@@ -36,6 +34,7 @@ The install script detects your system (including musl vs glibc on Linux) and do
 ```bash
 curl -sSL https://raw.githubusercontent.com/darksworm/argonaut/main/install.sh | sh -s -- v1.13.0
 ```
+
 </details>
 
 <details>
@@ -50,6 +49,7 @@ Or, to track the latest commit on `main` (rebuilt from source on install):
 ```bash
 yay -S argonaut-git
 ```
+
 </details>
 
 <details>
@@ -112,11 +112,13 @@ inputs = {
   <summary><strong>Docker</strong></summary>
 
 Pull the image:
+
 ```bash
 docker pull ghcr.io/darksworm/argonaut:latest
 ```
 
 Run with mounted Argo CD config (as your host user to preserve permissions):
+
 ```bash
 docker run -it --rm \
   -u $(id -u):$(id -g) \
@@ -182,35 +184,45 @@ Press `?` or type `:help` inside Argonaut to see every command and key binding.
 ## 📸 Screenshots
 
 ### **Live Apps**  
+
 <img src="assets/argonaut_apps.png" alt="Apps list"/>
 
 ### **Sync**
+
 <img src="assets/argonaut_sync.png" alt="Sync apps"/>
 
 ### **Live resource tree and events**
+
 <img src="assets/argonaut_events.gif" alt="Events and sync status pane following the tree selection"/>
 
 ### **Diff**  
+
 <img src="assets/argonaut_diff.png" alt="External diff"/>
 
 ### **Rollback**  
+
 <img src="assets/argonaut_rollback.png" alt="Rollback flow"/>
 
 ### **Delete apps**  
+
 <img src="assets/argonaut_delete_apps.png" alt="Delete apps"/>
 
 ### **Execute actions**  
+
 <img src="assets/argonaut_resource_actions.png" alt="Execute actions modal — dynamically lists actions for the selected resource"/>
 
 ### **Enjoy colorful themes**  
+
 <img src="assets/argonaut_themes.gif" alt="Many themes to choose from"/>
 
 ### **And much more**  
+
 <img src="assets/argonaut_help.png" alt="the :help command describes all commands"/>
 
 ## Advanced Features
 
 ### Client certificate authentication
+
 To authenticate with a client certificate, pass the certificate and its key:
 
 ```bash
@@ -218,6 +230,7 @@ argonaut --client-cert=/path/to/cert --client-cert-key=/path/to/key
 ```
 
 ### Self-signed certificates
+
 If your Argo CD server uses a self-signed certificate, pass the CA certificate that Argonaut should trust:
 
 ```bash
@@ -237,10 +250,12 @@ argonaut
 ```
 
 **Requirements:**
+
 - `kubectl` configured with access to the cluster
 - ArgoCD server pod running in the target namespace
 
 **Custom namespace:** If Argo CD is installed in a different namespace, set it in your config:
+
 ```toml
 # ~/.config/argonaut/config.toml
 [port_forward]
@@ -301,6 +316,7 @@ default_view = "clusters"
 | `theme` | Color theme name (see available themes below) | `tokyo-night` |
 
 **Available themes:**
+
 - **Dark themes**: `catppuccin-mocha`, `dracula`, `gruvbox-dark`, `monokai`, `nord`, `one-dark`, `oxocarbon`, `solarized-dark`, `tokyo-night`, `tokyo-storm`
 - **Light themes**: `catppuccin-latte`, `gruvbox-light`, `one-light`, `onehalf-light`, `solarized-light`
 - **Accessibility**: `colorblind-safe`, `grayscale-lowchroma`, `high-contrast`
@@ -311,6 +327,7 @@ You can also change the theme at runtime using the `:theme <name>` command.
 #### `[appearance.overrides]`
 
 Override individual theme colors with hex values. Available color keys:
+
 - `accent`, `warning`, `dim`, `success`, `danger`, `progress`, `unknown`, `info`, `text`, `gray`
 - `selected_bg`, `cursor_selected_bg`, `cursor_bg`, `border`, `muted_bg`, `shade_bg`, `dark_bg`
 
@@ -410,7 +427,7 @@ check_enabled = false
 Configure which view Argonaut starts in. Uses the same syntax as `:commands`, with an optional scope argument to drill down into a specific cluster, namespace, project, or application set.
 
 | Value | Startup view |
-|-------|-------------|
+| ------- | ------------- |
 | `"apps"` | Applications list (default) |
 | `"clusters"` | Clusters list |
 | `"ns"` | Namespaces list |
