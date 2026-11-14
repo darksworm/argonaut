@@ -26,6 +26,7 @@ done
 REPO="darksworm/argonaut"
 BIN="argonaut"
 VERSION="${1:-}"
+VERSION="${VERSION#v}" # accept both 2.20.0 and v2.20.0
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 os=$(uname -s | tr 'A-Z' 'a-z')
